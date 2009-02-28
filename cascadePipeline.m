@@ -22,7 +22,7 @@ function varargout = cascadePipeline(varargin)
 
 % Edit the above text to modify the response to help cascadePipeline
 
-% Last Modified by GUIDE v2.5 26-Oct-2008 14:57:38
+% Last Modified by GUIDE v2.5 28-Feb-2009 14:53:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -52,6 +52,9 @@ function cascadePipeline_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to cascadePipeline (see VARARGIN)
 
+% Set working directory in GUI
+set(handles.txtCWD, 'String',pwd);
+
 % Choose default command line output for cascadePipeline
 handles.output = hObject;
 
@@ -73,43 +76,57 @@ function varargout = cascadePipeline_OutputFcn(hObject, eventdata, handles)
 varargout{1} = handles.output;
 
 
-% --- Executes on button press in btnGettraces.
-function btnGettraces_Callback(hObject, eventdata, handles)
-% hObject    handle to btnGettraces (see GCBO)
+
+
+function txtCWD_Callback(hObject, eventdata, handles)
+% hObject    handle to txtCWD (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-gettraces;
+
+% Hints: get(hObject,'String') returns contents of txtCWD as text
+%        str2double(get(hObject,'String')) returns contents of txtCWD as a double
+
+d = get(hObject,'String');
+if ~exist(d,'dir')
+    warning('Directory does not exist!');
+    set(handles.txtCWD, 'String',pwd);
+else
+    cd(d);
+end
 
 
-% --- Executes on button press in btnAutotrace.
-function btnAutotrace_Callback(hObject, eventdata, handles)
-% hObject    handle to btnAutotrace (see GCBO)
+
+% --- Executes on button press in btnBrowse.
+function btnBrowse_Callback(hObject, eventdata, handles)
+% hObject    handle to btnBrowse (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-autotrace;
+
+d = uigetdir('Select working directory');
+cd(d);
+set(handles.txtCWD, 'String',pwd);
+
+guidata(hObject, handles);
 
 
-% --- Executes on button press in btnSorttraces.
-function btnSorttraces_Callback(hObject, eventdata, handles)
-% hObject    handle to btnSorttraces (see GCBO)
+% --- Executes on button press in btnKinetics.
+function btnKinetics_Callback(hObject, eventdata, handles)
+% hObject    handle to btnKinetics (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-sorttraces;
 
 
-% --- Executes on button press in btnMakeplots.
-function btnMakeplots_Callback(hObject, eventdata, handles)
-% hObject    handle to btnMakeplots (see GCBO)
+% --- Executes on button press in btnSimulate.
+function btnSimulate_Callback(hObject, eventdata, handles)
+% hObject    handle to btnSimulate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-makeplots;
 
 
-% --- Executes on button press in btnOverlay.
-function btnOverlay_Callback(hObject, eventdata, handles)
-% hObject    handle to btnOverlay (see GCBO)
+% --- Executes on button press in btnOverlay2.
+function btnOverlay2_Callback(hObject, eventdata, handles)
+% hObject    handle to btnOverlay2 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-frethistComparison;
 
 
