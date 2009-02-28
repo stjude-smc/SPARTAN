@@ -139,12 +139,15 @@ for i=1:nSamples,
     shist_fname = [samples{i} shist_ext];
     
     % Make sure files exist
+    any_tdps = 0;
+    
     if ~exist(dwt_fname,'file')
         disp('Idealization data missing'); continue;
     elseif ~exist(data_fname,'file')
         disp('QuB data missing'); continue;
+    else
+        any_tdps = true;
     end
-    any_tdps = true;
     
     
     %---- GENERATE TD PLOT HISTOGRAMS
@@ -202,7 +205,7 @@ for i=1:numel(samples),  %for each sample
     
     hist_filename = [samples{i} hist_ext];
     shist_fname   = [samples{i} shist_ext];
-    data_fname    = [samples{i} data_ext];
+    data_fname    = [samples{i} raw_ext];
     
     %---- LOAD OR GENERATE FRET CONTOUR PLOT DATA
     
