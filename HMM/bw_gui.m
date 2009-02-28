@@ -29,7 +29,7 @@ function varargout = bw_gui(varargin)
 
 % Edit the above text to modify the response to help bw_gui
 
-% Last Modified by GUIDE v2.5 28-Feb-2009 15:36:33
+% Last Modified by GUIDE v2.5 28-Feb-2009 15:47:54
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -97,7 +97,8 @@ clear handles.errorResults;
 
 %------ Gather parameter values from GUI
 nStates   = str2double( get(handles.edNstates,  'String') );
-framerate = str2double( get(handles.edFramerate,'String') );
+sampling = str2double( get(handles.edSampling,'String') );
+sampling = sampling/1000; %to seconds
 
 % useMu    = get(handles.chkMu,'Value');
 % useSigma = get(handles.chkSigma,'Value');
@@ -122,7 +123,7 @@ if useRates,
     Q(idx) = r(:)+eps;
     Q = Q';
 
-    A = Q./framerate;
+    A = Q*sampling;
 end
 
 % For now, these are required parameters...
@@ -183,10 +184,10 @@ for i=1:nFiles
     % Estimate parameter values using Baum's method
     if bootstrapN>1
         [results(i),errorResults(i)] = runBW( ...
-            filename, framerate, BWparameters);
+            filename, sampling, BWparameters);
     else
         results(i) = runBW( ...
-            filename, framerate, BWparameters);
+            filename, sampling, BWparameters);
     end
     
     disp( results(i).mu );
@@ -201,7 +202,7 @@ for i=1:nFiles
     [dwt,offsets] = idealize( traces, model, p0, A );
     
     dwtFilename = strrep(filename,'.txt','.qub.dwt');
-    saveDWT( dwtFilename, dwt, offsets, model, 1000/framerate );
+    saveDWT( dwtFilename, dwt, offsets, model, 1000*sampling );
     
     waitbar(i/nFiles,h);
 end
@@ -228,7 +229,7 @@ disp(toc);
 
 
 function [results,errorResults] = runBW( ...
-                filename, framerate, BWparameters )
+                filename, sampling, BWparameters )
 %
 
 [d,a,observations] = loadTraces(filename);
@@ -239,6 +240,8 @@ clear d; clear a;
 [results,errorResults] = BWoptimize( observations, BWparameters{:} );
 
 nStates = size(results.A,1);
+
+framerate = 1/sampling;
 
 % 1->[2,3,4], 2->[1,3,4], 3->[1,2,4], 4->[1,2,3]
 Q = framerate.*results.A';
@@ -387,13 +390,13 @@ function edit4_Callback(hObject, eventdata, handles)
 
 
 
-function edFramerate_Callback(hObject, eventdata, handles)
-% hObject    handle to edFramerate (see GCBO)
+function edSampling_Callback(hObject, eventdata, handles)
+% hObject    handle to edSampling (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edFramerate as text
-%        str2double(get(hObject,'String')) returns contents of edFramerate as a double
+% Hints: get(hObject,'String') returns contents of edSampling as text
+%        str2double(get(hObject,'String')) returns contents of edSampling as a double
 
 
 
@@ -596,12 +599,12 @@ function edSteadyState_Callback(hObject, eventdata, handles)
 
 
 function edit24_Callback(hObject, eventdata, handles)
-% hObject    handle to edFramerate (see GCBO)
+% hObject    handle to edSampling (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edFramerate as text
-%        str2double(get(hObject,'String')) returns contents of edFramerate as a double
+% Hints: get(hObject,'String') returns contents of edSampling as text
+%        str2double(get(hObject,'String')) returns contents of edSampling as a double
 
 
 

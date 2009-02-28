@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 26-Jan-2009 14:06:15
+% Last Modified by GUIDE v2.5 28-Feb-2009 15:52:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -97,7 +97,9 @@ fname_txt = [p f];
 nStates   = str2double( get(handles.edNstates,  'String') );
 traceLen  = str2double( get(handles.edNframes,  'String') );
 nTraces   = str2double( get(handles.edNtraces,  'String') );
-framerate = str2double( get(handles.edFramerate,'String') );
+sampling = str2double( get(handles.edSampling,'String') );
+sampling = sampling/1000;
+
 mu        = eval( get(handles.edMu,   'String') );
 sigma     = eval( get(handles.edSigma,'String') );
 rates     = eval( get(handles.edRates,'String') );
@@ -146,7 +148,7 @@ Q = Q';
 dataSize = [nTraces traceLen];
 model = [mu' sigma'];
 
-[dwt,fret,donor,acceptor] = simulate( dataSize, framerate, model, Q, options{:} );
+[dwt,fret,donor,acceptor] = simulate( dataSize, sampling, model, Q, options{:} );
 
 
 % Save resulting data
@@ -180,8 +182,8 @@ fid = fopen(logname,'w');
 t = clock;
 fprintf(fid, 'Run time:  %d/%d/%d %d:%d', t(1:5));
 
-fprintf(fid, '\n\nSimulating %d traces of length %d at %d fps.', ...
-             nTraces, traceLen, framerate);
+fprintf(fid, '\n\nSimulating %d traces of length %d at %d sec/frame.', ...
+             nTraces, traceLen, sampling);
 
 fprintf(fid, '\n\nFRET mean: ');
 fprintf(fid, '%0.2f ', model(:,1) );
@@ -247,13 +249,13 @@ function edit4_Callback(hObject, eventdata, handles)
 
 
 
-function edFramerate_Callback(hObject, eventdata, handles)
-% hObject    handle to edFramerate (see GCBO)
+function edSampling_Callback(hObject, eventdata, handles)
+% hObject    handle to edSampling (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edFramerate as text
-%        str2double(get(hObject,'String')) returns contents of edFramerate as a double
+% Hints: get(hObject,'String') returns contents of edSampling as text
+%        str2double(get(hObject,'String')) returns contents of edSampling as a double
 
 
 

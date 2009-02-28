@@ -1,5 +1,5 @@
  function [dwt,fret,donor,acceptor] =  simulate( ...
-                                dataSize, framerate, model, Q, varargin )
+                                dataSize, sampling, model, Q, varargin )
 % SIMULATE   Simulate smFRET data
 %
 %    [IDL,FRET,DONOR,ACCEPTOR] = SIMULATE( SIZE, FRAMERATE, MODEL, Q )
@@ -48,7 +48,7 @@ end
 % PARSE REQUIRED PARAMETER VALUES
 nTraces  = dataSize(1);
 traceLen = dataSize(2);
-sampling = 1/framerate;
+framerate = 1/sampling;
 
 mu    = model(:,1);
 sigma = model(:,2);
@@ -143,7 +143,7 @@ for i=1:nTraces,
     % Draw dwell times from exponential distribution
     % This is important so that results change as little as possible
     % when a single parameter is modified.
-    endTime = 1000*(traceLen/framerate); %in ms
+    endTime = 1000*(traceLen*sampling); %in ms
     states = [];
     times  = [];
     
