@@ -103,30 +103,11 @@ function btnBrowse_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 d = uigetdir('Select working directory');
+if d==0, return; end
+
 cd(d);
 set(handles.txtCWD, 'String',pwd);
 
 guidata(hObject, handles);
-
-
-% --- Executes on button press in btnKinetics.
-function btnKinetics_Callback(hObject, eventdata, handles)
-% hObject    handle to btnKinetics (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-% --- Executes on button press in btnSimulate.
-function btnSimulate_Callback(hObject, eventdata, handles)
-% hObject    handle to btnSimulate (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-% --- Executes on button press in btnOverlay2.
-function btnOverlay2_Callback(hObject, eventdata, handles)
-% hObject    handle to btnOverlay2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
 
