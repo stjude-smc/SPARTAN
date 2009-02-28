@@ -115,8 +115,8 @@ end
 
 % EXTENSIONS for files used:
 dwt_ext  = '.qub.dwt';       % QuB Idealization file
-data_ext = '.qub.txt';       % forQuB raw data (not used)
-raw_ext  = '.txt';           % raw traces data
+% data_ext = '.qub.txt';       % forQuB raw data (not used)
+data_ext  = '.txt';           % raw traces data
 hist_ext = '_hist.txt';      % 1D population histogram
 tdp_ext  = '.qub_tdp.txt';   % TD plot
 shist_ext= '_shist.txt';     % state occupancy histogram
@@ -144,7 +144,7 @@ for i=1:nSamples,
     if ~exist(dwt_fname,'file')
         disp('Idealization data missing'); continue;
     elseif ~exist(data_fname,'file')
-        disp('QuB data missing'); continue;
+        disp('FRET Data missing, skipping.'); continue;
     else
         any_tdps = true;
     end
@@ -205,7 +205,7 @@ for i=1:numel(samples),  %for each sample
     
     hist_filename = [samples{i} hist_ext];
     shist_fname   = [samples{i} shist_ext];
-    data_fname    = [samples{i} raw_ext];
+    data_fname    = [samples{i} data_ext];
     
     %---- LOAD OR GENERATE FRET CONTOUR PLOT DATA
     
@@ -215,7 +215,7 @@ for i=1:numel(samples),  %for each sample
     % Generate the contour plot if not available
     elseif ~exist(hist_filename,'file') || fileIsNewer(data_fname,hist_filename)
         % Make sure FRET data exists
-        filename = [samples{i} raw_ext];
+        filename = [samples{i} data_ext];
         if ~exist(filename,'file')
             disp('Traces file missing, skipping');
             continue;

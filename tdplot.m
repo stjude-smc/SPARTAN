@@ -17,7 +17,7 @@ if ~exist('tracefilename','var')
     dwtfilename=strcat(dwtpath,dwtfile);
 
     %---Open the corresonding qub data file
-    [tracefile tracepath]=uigetfile('*.txt','Choose qub data file:');
+    [tracefile tracepath]=uigetfile('*.txt','Choose an auto.txt data file:');
     if tracefile==0, return;  end
     
     tracefilename=strcat(tracepath,tracefile);
@@ -48,9 +48,11 @@ total_time = 0;  %total time in frames
     dwt_fid=fopen(dwtfilename,'r');
 
     %---Open the corresonding qub data file (slowest step)
-    fid = fopen(tracefilename,'r');
-    C = textscan(fid,'%f'); data = C{1};
-    fclose(fid);
+    [d,a,data] = loadTraces(tracefilename);
+    data = data';
+    data = data(:);
+    clear d; clear a;
+    
     
 %     files=files+1;
 

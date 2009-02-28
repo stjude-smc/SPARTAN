@@ -5,7 +5,7 @@ function shist=statehist(dwtfilename, tracefilename, fret_axis)
 %   S is a collection (in cols) of FRET histograms for each state, as
 %   calculated from the DWT file.  The first col specifies the bins.
 %   DWT is the filename of the idealization file from QuB.
-%   DATA is the forQuB (.qub.txt) filename containing raw FRET data
+%   DATA is the auto.txt filename containing raw Fluorescence/FRET data.
 %   AXIS specifies FRET histogram bin centers.
 %
 
@@ -52,9 +52,10 @@ total_time = 0;  %total time in frames
     dwt_fid=fopen(dwtfilename,'r');
 
     %---Open the corresonding qub data file (slowest step)
-    fid = fopen(tracefilename,'r');
-    C = textscan(fid,'%f'); data = C{1};
-    fclose(fid);
+    [d,a,data] = loadTraces(tracefilename);
+    data = data';
+    data = data(:);
+    clear d; clear a;
 
     
 %     files=files+1;
