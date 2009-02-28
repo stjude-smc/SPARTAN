@@ -29,7 +29,7 @@ function varargout = bw_gui(varargin)
 
 % Edit the above text to modify the response to help bw_gui
 
-% Last Modified by GUIDE v2.5 28-Feb-2009 15:47:54
+% Last Modified by GUIDE v2.5 28-Feb-2009 16:02:37
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -286,6 +286,17 @@ function btnSaveRates_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 % 
 
+saveFilename = uiputfile('rates.txt','Save rate matrix as...');
+if saveFilename==0, return; end
+
+
+nonZeroOnly = get(handles.chkNonZeroOnly,'Value');
+if nonZeroOnly
+    start=2;
+else
+    start=1;
+end
+
 
 % Extract names for each datafile/condition
 results = handles.results;
@@ -299,7 +310,11 @@ end
 nStates = numel( results(1).mu );
 
 % Extract rates from results matrix...
-rates      = [results.nonzeroRates]';
+if nonZeroOnly
+    rates = [results.nonzeroRates]';
+else
+    rates = [results.rates]';
+end
 [nFiles,nRates] = size(rates);
 
 % if isfield(handles,'errorResults'),
@@ -317,8 +332,8 @@ output(:,2:2:end) = rateErrors;
 % Construct names for each of the rates
 rateNames = cell(0,1);
 
-for i=2:nStates,
-    for j=2:nStates
+for i=start:nStates,
+    for j=start:nStates
         if i==j, continue; end
         rateNames{end+1} = sprintf('k%d->%d', i,j );
         rateNames{end+1} = ['d' rateNames{end}];
@@ -327,7 +342,6 @@ end
 
 
 % Save results to file with headers
-saveFilename = uiputfile('rates.txt','Save rate matrix as...');
 fid = fopen(saveFilename,'w');
 
 header = {'Dataset',rateNames{:}};
@@ -671,4 +685,14 @@ function chkInitialProb_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of chkInitialProb
+
+
+% --- Executes on button press in chkNonZeroOnly.
+function chkNonZeroOnly_Callback(hObject, eventdata, handles)
+% hObject    handle to chkNonZeroOnly (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of chkNonZeroOnly
+
 
