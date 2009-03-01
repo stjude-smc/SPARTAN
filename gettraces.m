@@ -133,7 +133,7 @@ colortable=colortable'/255;
 fclose(fid);
 
 % Load movie data
-[stk,handles.stk_top,handles.background] = OpenStk2(filename);
+[stk,handles.stk_top,handles.background,handles.time] = OpenStk2(filename);
 
  % Since the image stack is very large, it is stored in ApplicationData
  % instead of GUIData for memory efficiency
@@ -182,7 +182,7 @@ guidata(hObject,handles);
 
 
 
-function [stk,stk_top,background] = OpenStk2(filename)
+function [stk,stk_top,background,time] = OpenStk2(filename)
 
 % If the movie is compressed, deflate it to a temporary location first
 if strfind(filename,'.stk.bz2'),
@@ -196,14 +196,16 @@ if strfind(filename,'.stk.bz2'),
     
     % Load stk movie -- stk(X,Y,frame number)
     filename = strrep(z_fname,'.stk.bz2','.stk');
-    [stk, stkX, stkY, Nframes] = tiffread(filename);
+    [stk,time] = tiffread(filename);
+    [stkX,stkY,Nframes] = size(stk);
     
     % Delete the compressed movie -- we no longer need it!
     delete( z_fname );
 
 else
     % Load stk movie -- stk(X,Y,frame number)
-    [stk, stkX, stkY, Nframes] = tiffread(filename);
+    [stk,time] = tiffread(filename);
+    [stkX,stkY,Nframes] = size(stk);
 end
 
 
@@ -293,9 +295,11 @@ else
     stk_files  = rdir([direct filesep '*.stk*']);
 end
 
+h = waitbar(0,'Extracting traces from movies...');
 tic;
 % For each file in the user-selected directory
 i = 1;
+nFiles = length(stk_files);
 for file = stk_files'
     handles.stkfile = file.name;
     
@@ -325,7 +329,11 @@ for file = stk_files'
 %     text = sprintf('Creating traces: %.0f%%', 100*(i/size(stk_files,1)) );
 %     set(handles.txtProgress,'String',text);
 %     guidata(hObject,handles);
+    waitbar(i/nFiles);
+    i = i+1;
 end
+
+close(h);
 
 set(handles.txtProgress,'String','Finished.');
 fclose(log_fid);
@@ -647,7 +655,7 @@ assert( size(peaks,1)==2 );
 stk_top = handles.stk_top;
 stk = getappdata(handles.figure1,'stk');
 
-integrateAndSave( stk, stk_top, peaks, handles.stkfile );
+integrateAndSave( stk, stk_top, peaks, handles.stkfile, handles.time );
 
 clear stk;
 
@@ -656,7 +664,7 @@ clear stk;
 
 
 % function saveTraces( handles, hObject )
-function integrateAndSave( stk, stk_top, peaks, stk_fname )
+function integrateAndSave( stk, stk_top, peaks, stk_fname, time )
 % NOTE: can find which pixels to use by correlation (original code did so?)
 
 [stkX,stkY,Nframes] = size(stk);
@@ -733,7 +741,7 @@ stk_fname = strrep(stk_fname,'.bz2','');
 [p,name]=fileparts(stk_fname);
 save_fname = [p filesep name '.traces'];
 
-saveTraces( save_fname, 'traces', donor,acceptor );
+saveTraces( save_fname, 'traces', donor,acceptor, [], time );
 
 
 % Save the locations of the picked peaks for later lookup.

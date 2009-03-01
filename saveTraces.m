@@ -1,8 +1,8 @@
 function saveTraces( filename, format, varargin )
 % SAVETRACES    Saves trace data to file
 %
-%    SAVETRACES( FNAME, 'txt',    D,A,F,IDs )
-%    SAVETRACES( FNAME, 'traces', D,A,  IDs )
+%    SAVETRACES( FNAME, 'txt',    D,A,F,IDs, time )
+%    SAVETRACES( FNAME, 'traces', D,A,  IDs, time )
 %    SAVETRACES( FNAME, 'qub',    F )
 %
 % D:    MxN Donor fluorescence intensity matrix
@@ -10,6 +10,7 @@ function saveTraces( filename, format, varargin )
 % F:    MxN FRET matrix
 % IDs:  Mx1 cell array (strings) of trace identifiers
 %      (M=traces,N=datapoints)
+% Time:
 % 
 
 Nargs = numel(varargin);
@@ -32,7 +33,7 @@ end
 
 
 
-function saveTracesTxt( filename, donor,acceptor,fret, ids )
+function saveTracesTxt( filename, donor,acceptor,fret, ids, time )
 % FORMAT:
 %   1 2 3 4 ... N
 %   ID1 donor data
@@ -43,6 +44,10 @@ function saveTracesTxt( filename, donor,acceptor,fret, ids )
 % 
 
 [Ntraces,tlen] = size(donor);
+
+if ~exist('time','var'),
+    time = 0:(tlen-1);
+end
 
 % Create IDs if not specified
 if ~exist('ids','var'),
@@ -75,7 +80,7 @@ fid=fopen(filename,'w');
 disp( ['Saving to ' filename] );
 
 % Write time markers (first row) -- universally ignored
-fprintf(fid,'%d ', 1:tlen);
+fprintf(fid,'%d ', time);
 fprintf(fid,'\n');
 
 for j=1:Ntraces
@@ -131,17 +136,22 @@ fclose(fid);
 
 
 
-function saveTracesBinary( filename, donor,acceptor, ids )
+function saveTracesBinary( filename, donor,acceptor, ids, time )
 % FORMAT:
 %   struct {
 %       int32:   trace length (N)
 %       int16:   number of traces (M)
 %       string:  IDs (delimited by '-')
 %       {int16}: fluorescence data  (M*2 x N matrix)
+%       {int32}: time axis (Nx1 vector)
 %   }
 % 
 
 [Ntraces,tlen] = size(donor);
+
+if ~exist('time','var'),
+    time = 0:(tlen-1);
+end
 
 % Verify input arguments
 if any( size(donor)~=size(acceptor) )
@@ -156,7 +166,7 @@ end
 
 
 % Create IDs if not specified
-if ~exist('ids','var'),
+if ~exist('ids','var') || isempty(ids),
     [p,name] = fileparts(filename);
     
     ids = cell(Ntraces,1);
@@ -187,6 +197,7 @@ traces(1:2:end,:) = donor;
 traces(2:2:end,:) = acceptor;
 
 fwrite(fid,traces,'int16');
+fwrite(fid,time,'int32');
 
 % Finish up
 fclose(fid);

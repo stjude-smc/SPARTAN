@@ -1,4 +1,4 @@
-function [donor,acceptor,fret,ids] = loadTraces( ...
+function [donor,acceptor,fret,ids,time] = loadTraces( ...
                                         filename, constants, indexes )
 % LOADTRACES  Loads fluorescence trace files
 %
@@ -24,14 +24,14 @@ end
 [p,n,ext]=fileparts(filename);
 
 if strcmp(ext,'.txt')
-    [donor,acceptor,fret,ids] = LoadTracesTxt( filename, indexes );
+    [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes );
     
 elseif strcmp(ext,'.traces')
-    [donor,acceptor,fret,ids] = LoadTracesBinary( ...
+    [donor,acceptor,fret,ids,time] = LoadTracesBinary( ...
                                     filename,constants, indexes );
     
 elseif strcmp(ext,'.traces_old')
-    [donor,acceptor,fret,ids] = LoadTracesBinary_old( ...
+    [donor,acceptor,fret,ids,time] = LoadTracesBinary_old( ...
                                     filename,constants, indexes );
     
 else
@@ -43,7 +43,7 @@ end %function LoadTraces
 
 
 %--------------------  LOAD TEXT FILES ------------------------
-function [donor,acceptor,fret,ids] = LoadTracesTxt( filename, indexes )
+function [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes )
 
 fid=fopen(filename,'r');
 
@@ -105,7 +105,7 @@ clear Data;
 end %function LoadTracesTxt
     
     
-function [donor,acceptor,fret,ids] = LoadTracesBinary( ...
+function [donor,acceptor,fret,ids,time] = LoadTracesBinary( ...
                                         filename,constants,indexes )
 
 % Open the traces file.
@@ -122,6 +122,11 @@ assert( length(ids) == Ntraces/2, 'LoadTracesBinary: data mismatch' );
 
 % Read in the data:
 Data = fread( fid, [Ntraces len], 'int16' );
+
+if ~feof(fid)
+	time = fread( fid,  len, 'int32' );
+end
+
 fclose(fid);
 
 % Parse the data into donor, acceptor, etc. arrays.
@@ -142,7 +147,7 @@ end %function LoadTracesBinary
 
 
 
-function [donor,acceptor,fret,ids] = LoadTracesBinary_old( ...
+function [donor,acceptor,fret,ids,time] = LoadTracesBinary_old( ...
                                         filename,constants,indexes )
 % THIS FUNCTION IS TO LOAD THE DEPRICATED FORMAT.
 % Only a few traces files may be found with this format,
@@ -167,6 +172,7 @@ ids = ids';
 
 % Read data
 Data = fread( fid, [Ntraces+1 len], 'int16' );
+time = fread( fid, len, 'int32' );
 Data = Data(2:end,:);
 
 fclose(fid);
