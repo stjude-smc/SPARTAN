@@ -11,11 +11,6 @@ end
 nFiles = numel(files);
 
 
-%     sampling = 40;
-f = inputdlg('What is the sampling interval (in ms) for this data?');
-sampling = str2double(f)
-
-
 % 
 % cumsum histograms of lifetime must have same axes for each file
 % in terms of frames.  for now, just set aside space for number of bins.
@@ -29,7 +24,17 @@ binCenters = [];
 for i=1:nFiles,
    
     % Load dataset
-    [d,a,f] = loadTraces(files{i});
+    [d,a,f,ids,time] = loadTraces(files{i});
+    
+    if ~exist('sampling','var')
+        if time(1)==1,
+            f = inputdlg('What is the sampling interval (in ms) for this data?');
+            sampling = str2double(f)
+        else
+            sampling = time(2)-time(1)
+        end
+    end
+
     
     % Calculate trace properties, including intensity and bleaching time
     stats = traceStat(d,a,f);

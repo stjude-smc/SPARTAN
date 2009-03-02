@@ -26,11 +26,18 @@ end
 
 
 % Load fluorescence and FRET data
-[donor,acceptor,fret] = loadTraces( filename );
+[donor,acceptor,fret,ids,time] = loadTraces( filename );
 [nTraces,len] = size(donor);
 
-f = inputdlg('What is the sampling interval (in ms) for this data?');
-sampling = str2double(f)
+inFrames = (time(1)==1);
+if ~inFrames
+    sampling = time(2)-time(1)
+    time = time/1000; %in seconds
+else
+    f = inputdlg('What is the sampling interval (in ms) for this data?');
+    sampling = str2double(f)
+    time = (sampling/1000).*(0:len-1);
+end
 
 % Load idealization data
 dwt_fname = strrep( filename, '.txt', '.qub.dwt' );
@@ -118,7 +125,6 @@ function showTrace
     i = molecule_no;
     dwtID = find( dwtToTraceID==i, 1 );
     
-    time = (sampling/1000).*(0:len-1);
     if allowMinutes && sampling>100,
         time = time/60;
     end

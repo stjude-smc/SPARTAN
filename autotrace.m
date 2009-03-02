@@ -354,7 +354,7 @@ for k=1:handles.nFiles  % for each file...
     
     % Load the traces file.
     % If raw data, corrections for background and crosstalk are made
-    [donor,acceptor,fret,ids] = loadTraces( ...
+    [donor,acceptor,fret,ids,timeAxis] = loadTraces( ...
                 handles.inputfiles{k}, handles.constants);
     
     % Make sure all movies have the same number of frames
@@ -384,6 +384,7 @@ close(wb);
 
 handles.len = len;
 handles.Ntraces = sum(handles.nTracesPerFile);
+handles.timeAxis = timeAxis;
 
 
 % Save the trace properties values to application data
@@ -443,7 +444,7 @@ qubfid=fopen(qub_fname,'w');
 disp( ['Saving to ' qub_fname] );
 
 % Write time markers (first row)
-fprintf(fid,'%d ', 1:handles.len);
+fprintf(fid,'%d ', handles.timeAxis);
 fprintf(fid,'\n');
 
 wb=waitbar(0,'Saving traces...');

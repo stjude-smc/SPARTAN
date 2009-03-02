@@ -166,7 +166,7 @@ handles.filename = filename;
 
 
 % Load the file
-[handles.donor,handles.acceptor,handles.fret,handles.ids] = ...
+[handles.donor,handles.acceptor,handles.fret,handles.ids,handles.time] = ...
     LoadTraces( filename );
 
 [handles.Ntraces,handles.len] = size(handles.donor);
@@ -410,15 +410,15 @@ fclose(fid);
 %--- Save files
 saveTraces( fileBest, 'txt', handles.donor(best,:), ...
             handles.acceptor(best,:), handles.fret(best,:), ...
-            handles.ids(best) ); 
+            handles.ids(best), handles.time ); 
         
 saveTraces( fileFRETs, 'txt', handles.donor(FRETs,:), ...
             handles.acceptor(FRETs,:), handles.fret(FRETs,:), ...
-            handles.ids(FRETs) ); 
+            handles.ids(FRETs), handles.time ); 
         
 saveTraces( fileNoFRETs, 'txt', handles.donor(NoFRETs,:), ...
             handles.acceptor(NoFRETs,:), handles.fret(NoFRETs,:), ...
-            handles.ids(NoFRETs) ); 
+            handles.ids(NoFRETs), handles.time ); 
 
 % Finish up
 set(hObject,'Enable','off');
@@ -635,7 +635,13 @@ data_fname = strrep(name, '_', '\_');
 
 % Plot fluorophore traces
 signal = donor+acceptor;
-time = 1:handles.len;
+% time = 1:handles.len;
+
+time = handles.time;
+inFrames = (handles.time(1)==1);
+if ~inFrames
+    time = time/1000; %in seconds
+end
 
 axes(handles.axFluor);
 cla;
@@ -679,13 +685,18 @@ zoom on;
 % Plot FRET efficiency
 axes(handles.axFret);
 cla;
-plot(1:handles.len,fret,'b');
+plot(time,fret,'b');
 xlabel('Frame Number');
 ylabel('FRET Efficiency');
 ylim([-0.1 1]);
 grid on;
 zoom on;
 
+if inFrames,
+    xlabel('Frame Number');
+else
+    xlabel('Time (sec)');
+end
 
 
 
