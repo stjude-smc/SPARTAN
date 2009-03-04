@@ -168,7 +168,7 @@ function showTrace
     ax(2) = subplot(nrows,ncols,ncols+1);
     cla;
     
-    plot( time, fret(i,:), 'b', 'LineWidth',1.5 );
+    plot( time, fret(i,:), 'bo', 'LineWidth',1.5 );
 
     % Draw idealization on top of FRET trace
     if ~isempty(dwtID),
@@ -177,7 +177,7 @@ function showTrace
         stairs( dwtTime, idl, 'r-', 'LineWidth',1 );
     end
     
-    plot( time, fret(i,:), 'b', 'LineWidth',1.5 );
+    plot( time, fret(i,:), 'bo', 'LineWidth',1.5 );
     grid on;
     zoom on;
     ylabel('FRET');
