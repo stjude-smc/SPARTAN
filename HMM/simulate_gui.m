@@ -149,7 +149,7 @@ dataSize = [nTraces traceLen];
 model = [mu' sigma'];
 
 [dwt,fret,donor,acceptor] = simulate( dataSize, sampling, model, Q, options{:} );
-
+time = 1000*sampling*[0:(traceLen-1)];
 
 % Save resulting data
 fname_qub = strrep(fname_txt, '.txt', '.qub.txt');
@@ -157,10 +157,10 @@ fname_trc = strrep(fname_txt, '.txt', '.traces');
 
 % saveTraces( fname_qub, 'qub', fret );
 % saveTraces( fname_txt, 'txt', donor,acceptor,fret );
-saveTraces( fname_trc, 'traces', donor,acceptor );
+saveTraces( fname_trc, 'traces', donor,acceptor, [], time );
 
-[d,a,f,ids] = loadTraces(fname_trc);
-saveTraces( fname_txt, 'txt', d,a,f,ids );
+[d,a,f,ids,time] = loadTraces(fname_trc);
+saveTraces( fname_txt, 'txt', d,a,f,ids,time );
 
 % Save the underlying state trajectory
 fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
