@@ -105,8 +105,8 @@ sampling = sampling/1000; %to seconds
 useRates       = get(handles.chkRates,'Value');
 % useInitialProb = get(handles.chkInitialProb,'Value');
 
-maxItr = str2double( get(handles.edMaxItr,'String') );
-LLConv = str2double( get(handles.edLLConv,'String') );
+options.maxItr = str2double( get(handles.edMaxItr,'String') );
+options.convLL = str2double( get(handles.edLLConv,'String') );
 bootstrapN = str2double( get(handles.edBootstrapN,'String') );
 
 reestMu    = get(handles.chkReestMu,   'Value');
@@ -121,22 +121,24 @@ if useRates,
     idx = find( ~logical(eye(nStates)) );
     r = rates';
     Q(idx) = r(:)+eps;
-    Q = Q';
+    model.Q = Q';
 
-    A = Q*sampling;
+    %model.A = Q*sampling;
 end
+
+model = qub_createModel(nStates);
 
 % For now, these are required parameters...
 % if useMu,
-    mu = eval( get(handles.edMu, 'String') );
+    model.mu = eval( get(handles.edMu, 'String') );
 % end
 
 % if useSigma,
-    sigma = eval( get(handles.edSigma,'String') );
+    model.sigma = eval( get(handles.edSigma,'String') );
 % end
 
-if numel(sigma)==1,
-    sigma = repmat(sigma,size(mu));
+if numel(model.sigma)==1,
+    model.sigma = repmat(model.sigma,size(model.mu));
 end
 
 
@@ -148,12 +150,10 @@ end
 
 
 % Compile array of optional arguments to simulate...
-fixMu    = repmat( 1-reestMu,    1,nStates );
-fixSigma = repmat( 1-reestSigma, 1,nStates );
+options.fixMu    = repmat( 1-reestMu,    1,nStates );
+options.fixSigma = repmat( 1-reestSigma, 1,nStates );
 
-options = { 'maxItr',maxItr, 'LLConv',LLConv, ...
-            'FixMu',fixMu, 'FixSigma',fixSigma, ...
-            'bootstrapN',bootstrapN };
+options.bootstrapN = bootstrapN;
 
 
 
@@ -172,7 +172,7 @@ end
 nFiles = numel(fname_txt);
 
 %----- Run BW optimizer on each file, combine results
-BWparameters = { mu, sigma, options{:} };
+BWparameters = options;
 
 h = waitbar(0,'Running Baum-Welch...');
 
@@ -184,10 +184,10 @@ for i=1:nFiles
     % Estimate parameter values using Baum's method
     if bootstrapN>1
         [results(i),errorResults(i)] = runBW( ...
-            filename, sampling, BWparameters);
+            filename, sampling, model, BWparameters);
     else
         results(i) = runBW( ...
-            filename, sampling, BWparameters);
+            filename, sampling, model, BWparameters);
     end
     
     disp( results(i).mu );
@@ -229,7 +229,7 @@ disp(toc);
 
 
 function [results,errorResults] = runBW( ...
-                filename, sampling, BWparameters )
+                filename, sampling, model, BWparameters )
 %
 
 [d,a,observations] = loadTraces(filename);
@@ -237,7 +237,8 @@ clear d; clear a;
 
 
 %------ Run Baum-Welch optimization proceedure
-[results,errorResults] = BWoptimize( observations, BWparameters{:} );
+[results,errorResults] = BWoptimize( ...
+                            observations, sampling, model, BWparameters );
 
 nStates = size(results.A,1);
 

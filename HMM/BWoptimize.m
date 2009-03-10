@@ -1,30 +1,40 @@
 function [results,errorResults,meanResults] = BWoptimize( ...
-          observations, mu_start, sigma_start, varargin )
+          observations, sampling, model, params )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
-%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, nStates )
+%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, NSTATES, PARAMS )
 %    Uses the Baum-Welch parameter optimization method to discovery HMM
 %    parametrs which best fit the observed data (OBSERVATIONS).  The number
-%    of states in the optimized model can be specified (nStates).  If it is
-%    not, the number is automatically predicted (NOT IMPLEMENTED YET!)
+%    of states in the optimized model can be specified (nStates).
+%    DT specifies the timestep (sampling interval) in sec.
 %    
-%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, MU, SIGMA, ... )
+%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, MODEL, PARAMS )
 %    Same as above, with initial values for state mean (MU) and stdev
 %    (SIGMA) of emission.
 %
-%    OPTIONAL Parameter values:
-%      'A_start'  ->  transition probability matrix (starting value)
-%      'p0_start' ->  Initial probabilities (start value)
+%    See the definition of the MODEL structure in qub_createModel
+%    for details of how to input initial conditions and constraints
+%    for fitting. NOTE: .fixRates does not work with Baum-Welch.
 %
-%    Initial conditions can be held constant during re-estimation using
-%    the arguments: 'FixMu' and 'FixSigma'.  Each is a mask the same size
-%    as the input parameter, with a value of zero allowing that value to
-%    be re-estimated and 1 holds it constant.
-% 
-%    NOTE: this proceedure is very sensitive to initial conditions.  A and
-%    P0 will generally converge to the same point, but the emission
-%    parameters (mu,sigma) may not!  Try several starting points to be
-%    sure you have the best fit (highest LL).
+%    OPTIONS can have any of the following specified:
+%   Member   | size | Description
+%   -----------------------------------------------------------------------
+%   .maxItr     1x1   Max number of iterations before terminating
+%   .convLL     1x1   Stop if LL converges within this threshold
+%   .convGrad   1x1   Stop if all rates converge within this treshold
+%   .boostrapN  1x1   Calculate errors using bootstrapping (N=value)
+%   .showItr    1x1   Report on each iteration to the console (not impl.)
+%   -----------------------------------------------------------------------
+%   Other options, such as those specific to qub_milOptimize, are ignored.
+%   Specifically, .seperately does NOT work.
+%
+%    Baum-Welch is sensitive to initial conditions of mu and sigma --
+%    They may converge to different points depending on initial conditions
+%    and convergence may be very slow.  A and pi, however, usually converge
+%    very rapidly once mu and sigma converge.  Try several starting points
+%    to be sure you have the best fit (highest LL).
+
+% TODO: allow options.seperately, add Q matrix to results!
 
 % Format of the A-matrix:
 %   1..N = lowest to highest FRET values (same order as mu, sigma, p0).
@@ -43,90 +53,90 @@ nTraces = size(observations,1);
 %% ----------- PARSE INPUT PARAMETER VALUES -----------
 
 % PARSE REQUIRED PARAMETER VALUES
-if nargin<=2 && numel(mu_start)==1,
-    nStates  = mu_start;
-    mu_start = 0:(1/(nStates-1)):1;  % emmission means for each state   
+if ~isstruct( model ),
+    nStates  = model;
+    model = qub_createModel(nStates);
 else
-    nStates = numel(mu_start);
+    nStates = numel(model.mu);
+    assert(qub_VerifyModel(model),'Invalid model');
 end
 
-if ~exist('sigma_start','var') || isempty(sigma_start),
-    warning('BW:BWoptimize:sigma','Initial sigma values not provided, using default (0.061)');
-    sigma_start = repmat(0.061, size(mu_start));
+% Convert rate matrix (Q) to transition probability matrix (A)
+A = model.rates*sampling;
+A( logical(eye(nStates)) ) = 1-sum(A,2);
+model.A = A;
+
+% 
+if nargin < 3,
+    params = struct([]);
 end
 
-% PARSE OPTIONAL PARAMETER VALUES: initial kinetic parameter values
-optargs = struct( varargin{:} );
-
-if isfield(optargs,'A_start') % transition probability matrix
-    A_start = optargs.A_start;
-    assert( all(A_start(:)>0) );
-else
-    A_start = repmat(0.05, nStates,nStates);
+if isfield(model,'fixRates') && any(model.fixRates(:)),
+    warning('BW:fixRates','Fixing specific rates not support!');
 end
-A_start( find(eye(nStates)) ) = 1-sum(A_start,2);
 
-if isfield(optargs,'p0_start') % state initial probabilities
-    p0_start = optargs.p0_start;
-else
-    p0_start = A_start^10000;
-    p0_start = p0_start(1,:);
-    p0_start = p0_start/sum(p0_start);
+if isfield(params,'seperately'),
+    error('Individual trace analysis not yet supported!');
 end
+
+if isfield(params,'deadtime'),
+    warning('BW:deadtime','Deadtime correction not supported');
+end
+
+% if ~isfield(model,'p0')
+%     warning('BWOptimize:no_p0','Initializing p0 to equilibrium probabilities');
+%     p0 = model.A^10000;
+%     p0 = p0(1,:);
+%     model.p0 = p0/sum(p0);
+% end
 
 % PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
-if isfield(optargs,'FixMu')
-    muMask = 1-optargs.FixMu;
-else
-    muMask = ones(1,nStates); %all are re-estimated (=1)
+if ~isfield(params,'fixMu')
+    params.FixMu = zeros(1,nStates); %all are re-estimated
 end
 
-if isfield(optargs,'FixSigma')
-    sigmaMask = 1-optargs.FixSigma;
-else
-    sigmaMask = ones(1,nStates); %all are re-estimated (=1)
+if ~isfield(params,'fixSigma')
+    params.FixSigma = ones(1,nStates); %all are re-estimated
 end
 
 % PARSE OPTIONAL PARAMETER VALUES: options
-if isfield(optargs,'maxItr')
-    maxItr = optargs.maxItr;
-else
-    maxItr = 100;
+if ~isfield(params,'maxItr')
+    params.maxItr = 100;
 end
 
-if isfield(optargs,'LLConv')
-    LLConv = optargs.LLConv;
-else
-    LLConv = 1e-4;
+if ~isfield(params,'convLL')
+    params.LLConv = 1e-4;
 end
 
-if isfield(optargs,'bootstrapN')
-    bootstrapN = optargs.bootstrapN;
-else
-    bootstrapN = 0;
+if isfield(params,'convGrad')
+    warning('BW:convGrad','convGrad not yet implemented');
+end
+
+if ~isfield(params,'bootstrapN')
+    params.bootstrapN = 0;
 end
 
 
 %% ----------- RUN BAUM-WELCH, ESTIMATE ERROR W/ BOOTSTRAPPING -----------
 
-if nTraces>1 && bootstrapN>1,
+if nTraces>1 && params.bootstrapN>1,
     h = waitbar(0,'Baum-Welch parameter estimation...');
 end
 
-params.maxItr = maxItr;
-params.LLConv = LLConv;
-params.muMask = muMask;
-params.sigmaMask = sigmaMask;
+params.muMask = 1-params.fixMu;
+params.sigmaMask = 1-params.fixSigma;
 
 % Obtain parameter estimates for complete sample.
 % If bootstraping is disabled, this is all we do.
-initialValues = {A_start mu_start sigma_start p0_start};
+initialValues = {model.A model.mu model.sigma model.p0};
 
 results = BWrun( observations, initialValues, params );
 
 
 % Run boostrapping proceedure for error estimation -- 
 % Initial conditions are set close to final results for speed.
+bootstrapN = params.bootstrapN;
+
 if bootstrapN>1
     if nTraces>1,  waitbar( 1/(bootstrapN+1),h );  end
     
@@ -140,7 +150,7 @@ if bootstrapN>1
         % Optimize parameter values, add results to output.
         bootstrapResults(i) = BWrun( bootstrapData, initialValues, params );
         
-        if nTraces>1,  waitbar( (i+1)/(bootstrapN+1), h );  end
+        if nTraces>1,  waitbar( (i+1)/(params.bootstrapN+1), h );  end
     end
 
     % Estimate errors
@@ -219,7 +229,7 @@ for n = 1:params.maxItr
     disp( [sprintf( '   Iter %d: %f', n, LL(n)) sprintf('\t%.3f',mu)] );
     
     % Check for convergence of likelihood
-    if n>1 && LL(n)-LL(n-1) <= params.LLConv,  break;  end
+    if n>1 && LL(n)-LL(n-1) <= params.convLL,  break;  end
     
     drawnow;
 end
