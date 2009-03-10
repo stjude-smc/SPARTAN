@@ -175,7 +175,7 @@ ids = ids';
 
 % Read data
 Data = fread( fid, [Ntraces+1 len], 'int16' );
-time = fread( fid, len, 'int32' );
+time = Data(1,:);
 Data = Data(2:end,:);
 
 fclose(fid);
