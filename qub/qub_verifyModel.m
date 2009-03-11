@@ -25,7 +25,7 @@ if ~( nStates==numel(model.sigma)  && ...
     return;
 end
 
-if abs(sum(model.p0)-1) > 0.01
+if abs(sum(model.p0)-1) > 0.02
     msg = 'p0 values not normalized';
     return;
 end
