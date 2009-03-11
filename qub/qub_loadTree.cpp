@@ -29,6 +29,9 @@ vector<string> listNames( QUB_Tree tree );
 //A is the matrix, m is a mwSize object, i is row, j is column (as in Matlab).
 #define getArrayElement(A,M,i,j) A[(i)+(j)*M]
 
+#define MIN(a,b)  (((a) > (b)) ? (a) : (b))
+#define MAX(a,b)  (((a) < (b)) ? (a) : (b))
+
 
 //Matlab entry point
 //FORMAT: tree (filename) -> struct representing tree
@@ -59,14 +62,14 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     
     
 mxArray* traverseNode( QUB_Tree node, int depth )
-{
-    int i;
-    
-    
+{    
     //Create structure for adding fields
     mxArray* structure = mxCreateStructMatrix(1,1, 0,NULL);
     
-    /*
+    if( !structure )
+        mexErrMsgTxt("can't alloc struct"); 
+    
+    
     mxClassID mxTypeLookup[32];
     mxTypeLookup[ QTR_TYPE_CHAR   ] = mxINT8_CLASS;
     mxTypeLookup[ QTR_TYPE_UCHAR  ] = mxUINT8_CLASS;
@@ -78,16 +81,19 @@ mxArray* traverseNode( QUB_Tree node, int depth )
     mxTypeLookup[ QTR_TYPE_ULONG  ] = mxUINT32_CLASS;
     mxTypeLookup[ QTR_TYPE_FLOAT  ] = mxSINGLE_CLASS;
     mxTypeLookup[ QTR_TYPE_DOUBLE ] = mxDOUBLE_CLASS;
-    */
+    
     
     //Parse data entry...
+    int i,j;
     mxArray* data = 0;
     mwSize M,N;
     mxClassID mxtype;
-    double* pddata;
-    int* pidata;
+    void* pdata;
     unsigned char* pcdata;
     
+    
+    M = node.dataCols();
+    N = node.dataRows();
     
     switch( node.dataType() )
     {
@@ -111,22 +117,17 @@ mxArray* traverseNode( QUB_Tree node, int depth )
     case QTR_TYPE_INT:
     case QTR_TYPE_ULONG:
     case QTR_TYPE_LONG:
-        M = node.dataCols();
-        N = node.dataRows();
-        
-        data = mxCreateNumericMatrix( M,N,mxINT32_CLASS,mxREAL );
-        pidata = (int*)mxGetData( data );
-        node.getDataAsInts(pidata,0,N-1);
-        break;
-        
     case QTR_TYPE_FLOAT:
     case QTR_TYPE_DOUBLE:
-        M = node.dataCols();
-        N = node.dataRows();
+        if( M<1 || N<1 )
+            mexErrMsgTxt("invalid data size");
+        if( M>1 )
+            mexErrMsgTxt("Matrix data not supported");
         
-        data = mxCreateDoubleMatrix( M,N,mxREAL );
-        pddata = mxGetPr( data );
-        node.getDataAsDoubles(pddata,0,N-1);
+        mxtype = mxTypeLookup[node.dataType()];
+        data = mxCreateNumericMatrix( M,N,mxtype,mxREAL );
+        pdata = mxGetData( data );
+        memcpy( pdata, node.data(), N*mxGetElementSize(data) );
         break;
         
     default:
@@ -165,7 +166,7 @@ mxArray* traverseNode( QUB_Tree node, int depth )
         mxArray* twins = mxCreateStructMatrix(nTwins,1, 0, NULL);
         
         if( twins<=0 )
-            mexErrMsgTxt("bad twins..."); 
+            mexErrMsgTxt("can't alloc twins"); 
         
         //for each twin node, compile all fields into a single structure
         int tci_i = 0;
