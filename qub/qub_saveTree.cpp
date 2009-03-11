@@ -22,7 +22,7 @@ using namespace std;
 int countChildren( QUB_Tree tree, string name );
 vector<string> fieldNames( mxArray* structure );
 // mxArray* traverseNode( QUB_Tree node, int depth=0 );
-QUB_Tree structToTree( mxArray* structure, const char* rootName );
+void structToTree( mxArray* structure, const char* rootName, QUB_Tree& parent );
 vector<string> listNames( QUB_Tree tree );
 
 //Shortcut for accessing elements in a 2D array.
@@ -45,8 +45,10 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     //    mexErrMsgTxt("Argument 1 must be a structure!");
     
     //Construct a QUB_Tree object from the given structure
-    mxArray* modelTree  = mxDuplicateArray( prhs[0] );  //not necessary?
-    QUB_Tree outputTree = structToTree( modelTree, "ModelFile" );
+    mxArray* modelStruct  = mxDuplicateArray( prhs[0] );  //not necessary?
+    QUB_Tree outputTree = QUB_Tree::Create("ModelFile");
+    structToTree( modelStruct, "ModelFile", outputTree );
+    outputTree = outputTree["ModelFile"];
     
     //Save the tree to file
     char* modelFilename = mxArrayToString(prhs[1]);
@@ -55,67 +57,71 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     
     //Cleanup
     mxFree( modelFilename );
-    mxDestroyArray( modelTree );
+    mxDestroyArray( modelStruct );
     return;
 }
 
 
 //Now...how do we deal with struct arrays? -- for now just use first element.
-QUB_Tree structToTree( mxArray* structure, const char* rootName )
+void structToTree( mxArray* structure, const char* rootName, QUB_Tree& parent )
 {
-    QUB_Tree output = QUB_Tree::Create(rootName);
+    //QUB_Tree output = QUB_Tree::Create(rootName);
     int nFields = mxGetNumberOfFields(structure);
-    int fieldID,j;
+    int fieldID,i;
     
-    //for each field, ...
-    for( fieldID=0; fieldID<nFields; ++fieldID )
-    {
-        const char* fieldName = mxGetFieldNameByNumber(structure,fieldID);
         
-        //for( j=0; j<numel(structure); ++j )
-        //{
-            j = 0;
-            mxArray* field = mxGetFieldByNumber(structure,j,fieldID);
-            
+    for( i=0; i<numel(structure); ++i )
+    {
+        QUB_Tree newChild = QUB_Tree::Create(rootName);
+        
+        //for each field, ...
+        for( fieldID=0; fieldID<nFields; ++fieldID )
+        {
+            const char* fieldName = mxGetFieldNameByNumber(structure,fieldID);
+
+            mxArray* field = mxGetFieldByNumber(structure,i,fieldID);
+
             if( strcmp(fieldName,"dataType")==0 )
                 continue;
-            
+
             //If data element found, save as node data.
             if( strcmp(fieldName,"data")==0 && ~mxIsEmpty(field) )
             {
                 int M = mxGetM(field);
                 int N = mxGetN(field);
-                
-                mexPrintf("%s: %d x %d ",rootName,M,N);
-                
+
+                //mexPrintf("%s: %d x %d ",rootName,M,N);
+
                 if( mxIsDouble(field) )
                 {
                     double* fieldData = mxGetPr(field);
-                    output.setNumData( QTR_TYPE_DOUBLE, M,N, fieldData );
-                    mexPrintf("double\n");
+                    newChild.setNumData( QTR_TYPE_DOUBLE, M,N, fieldData );
+                    //mexPrintf("double\n");
                 }
                 else if( mxIsInt32(field) )
                 {
                     int* fieldData = (int*)mxGetData(field);
-                    output.setNumData( QTR_TYPE_INT, M,N, fieldData );
-                    mexPrintf("int32\n");
+                    newChild.setNumData( QTR_TYPE_INT, M,N, fieldData );
+                    //mexPrintf("int32\n");
                 }
                 else if( mxIsChar(field) )
                 {
                     char* str = mxArrayToString(field);
-                    output.setData( str );
+                    newChild.setData( str );
                     mxFree(str);
-                    mexPrintf("string\n");
+                    //mexPrintf("string\n");
                 }
-                else
-                    mexPrintf("unknown type\n");
+                //else
+                //  mexPrintf("unknown type\n");
             }
-            
+
             //Otherwise, add it as a child node...
             else
-                output.appendChild( structToTree(field,fieldName) );
-        //}
-    }
+                structToTree(field,fieldName,newChild);
+        }
     
-    return output;
+        //Add new child node to parent
+        parent.appendChild( newChild );
+    }
+    return;
 }
