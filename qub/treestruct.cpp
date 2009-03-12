@@ -2,12 +2,11 @@
 
 #include "qubmatlab.h"
 
+#include <vector>
+#include <string>
+#include <algorithm>
 
-
-//forward function definitions
-int countChildren( QUB_Tree tree, string name );
-vector<string> fieldNames( mxArray* structure );
-vector<string> listNames( QUB_Tree tree );
+using namespace std;
 
 
 
@@ -34,7 +33,7 @@ void structToTree( mxArray* structure, const char* rootName, QUB_Tree& parent )
                 continue;
 
             //If data element found, save as node data.
-            if( strcmp(fieldName,"data")==0 && ~mxIsEmpty(field) )
+            if( strcmp(fieldName,"data")==0 && !mxIsEmpty(field) )
             {
                 int M = mxGetM(field);
                 int N = mxGetN(field);
@@ -115,7 +114,7 @@ mxArray* treeToStruct( QUB_Tree node )
     
     
     //Parse data entry...
-    int i,j;
+    int i;
     mxArray* data = 0;
     mwSize M,N;
     mxClassID mxtype;

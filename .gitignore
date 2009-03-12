@@ -1,4 +1,9 @@
 *~
 *.mex*
 qub/qubtree
-
+*.pdb
+*.lib
+*.so
+*.dll
+*.pyd
+*.asv
