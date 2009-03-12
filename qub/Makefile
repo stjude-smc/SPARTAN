@@ -1,17 +1,30 @@
+# Compiler flags
 MEX = mex
-MEXFLAGS = -g -Lqubtree -lqubtree
+MEXFLAGS = -O -Lqubtree -lqubtree -DMEX_FCN
 #-O2
 
+MEX_EXT = mexa64
+
+# Info for QuB source tree, used by qub_milOptimize.cpp
+QUBDIR = ../../qub
+QUBI = -I${QUBDIR}/include -I${QUBDIR}/_qubtree -I${QUBDIR}/qublib -I${QUBDIR}/qubopt
+QUBL = -L${QUBDIR}/QuBSuite
+
+# General dependancies
 DEPS = qubmatlab.h qubtree/libqubtree.a
 
-default: qub_loadTree.mexa64 qub_saveTree.mexa64
+# Primary target: make all MEX functions
+default: qub_loadTree.${MEX_EXT} qub_saveTree.${MEX_EXT} qub_milOptimize.${MEX_EXT}
 
-qub_loadTree.mexa64: qub_loadTree.cpp treestruct.cpp ${DEPS}
+qub_loadTree.${MEX_EXT}: qub_loadTree.cpp treestruct.cpp ${DEPS}
 	${MEX} ${MEXFLAGS} qub_loadTree.cpp treestruct.cpp
 	
-qub_saveTree.mexa64: qub_saveTree.cpp treestruct.cpp ${DEPS}
+qub_saveTree.${MEX_EXT}: qub_saveTree.cpp treestruct.cpp ${DEPS}
 	${MEX} ${MEXFLAGS} qub_saveTree.cpp treestruct.cpp
 
+qub_milOptimize.${MEX_EXT}: qub_milOptimize.cpp treestruct.cpp ${DEPS}
+	${MEX} ${MEXFLAGS} qub_milOptimize.cpp treestruct.cpp
+
 clean:
-	rm -f qub_loadTree.mexa64 qub_saveTree.mexa64
+	rm -f qub_loadTree.${MEX_EXT} qub_saveTree.${MEX_EXT} qub_milOptimize.${MEX_EXT}
 

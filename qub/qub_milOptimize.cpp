@@ -5,22 +5,19 @@ DESCRIPTION  Optimizes a kinetic model given dwell-times data
              using QuB's MIL algorithm
 AUTHOR       Daniel Terry
 COPYRIGHT    2009, Scott Blanchard
- *
- *
- * NOTE: Idealization generally leaves a very long dwell in the dark
- *   state at the end of each trace.  This greatly confuses MIL -- 
- *   it will take forever to converge and its results are inaccurate.
- *   TODO: take steps to remove this dwell here or insure that all
- *   idealizers remove the final dwell in dark state.
 */
+
 
 #include "qubmatlab.h"
 
 
 // QUB header files (qub/qubopt)
+#ifdef QUB_DLL
 #include "qubopt.h"
 #include "mdlrep.h"
 #include "QUB_IdlSeg.h"	 //for loading idealization (.dwt) files
+#include "QUB_Tree.h"
+#endif
 
 //QTR_Impl* statusCallback( QTR_Impl* input );
 
@@ -32,12 +29,14 @@ using namespace std;
 
 
 
-//#define MAIN_FCN 1
-#define MEX_FCN 1
-
 
 #ifdef MAIN_FCN
-/*
+
+#include <cstdlib>
+
+#define ERROR(M) cerr << M; exit(-1);
+#define WARN(M) cout << "Warning: " << M;
+
 int main(int argc, char* argv[])
 {
 	int dummy;
@@ -69,12 +68,16 @@ int main(int argc, char* argv[])
 	cin >> dummy;
 	return 0;
 }
-*/
 #endif
+
 
 
 #ifdef MEX_FCN
 #include "mex.h"
+
+#define ERROR(M) mexErrMsgTxt(M); return
+#define WARN(M) mexWarnMsgTxt(M)
+
 
 #define numel mxGetNumberOfElements
 #define isfield(A,B) mxGetFieldNumber(A,B)!=-1
@@ -102,7 +105,7 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     char* dataPath = mxArrayToString( prhs[0] );
     char* modelPath = mxArrayToString( prhs[1] );
     
-    //Run MIL (from qubopt.dll)
+    //Run MIL (via miltreeiface.exe)
     QUB_Tree result = milOptimize(dataPath,modelPath);
 
     //Convert the result to a struct for processing in Matlab
@@ -118,95 +121,94 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
 
 
 
-//This appears to be a simple C/command line interface to MIL.
-//
-//It will:
-//   1. Run MIL-Together on the given data and model,
-//   2. Save an execution report as BASE_report.txt
-//   3. Save resulting model as BASE_model.mdl
-//
-//PARAMETERS:
-//   char*  data_path   : path/filename of idealization data (.dwt file)
-//   char*  model_path  : path/filename of model file (.mdl) containing
-//                        initial rates, constraints, etc.
-//   int    max_iter    : max. number of iterations before terminating
-//   double tdead_ms    : dead-time setting (in ms) = 0.5*dt
-//   char*  output_path : path/filename of MIL results as a model (.mdl) file.
-//
-//ERROR CODES (double):
-//  -11:   data file could not be loaded
-//  -13:   model file could not be loaded
-//  -17:   MIL execution failed
-//   otherwise, the return value is log-likelihood of the data given optimized model
-//
-QUB_Tree milOptimize(string dataFilename, string modelFilename  )
-{
-	QUB_Tree result;
-
-    //Load dwell-times data from file
-	QUB_Tree data( QUB_Idl_ReadDWT(dataFilename.c_str()) );
-	if ( data.isNull() )
-		cerr << "No data\n";
-
-    //Remove final dwell in dark state (assuming class=0)
-    //(or else MIL may get confused...)
-    /*
-    sampling = data["sampling"].dataAsDouble();
-    
-    QUB_TreeMonoIter tci;
-    for( tci=node.find("Segment"); !tci->isNull(); tci.nextSameName() )
-    {
-        if( (*tci)["Classes"].dataAsInt() )
-    }
-     **/
-    
-	//Load starting model
-	QUB_Tree model( QUB_Tree::Open(modelFilename, true) );
-	if ( model.isNull() )
-		cerr << "No model\n";
-
-	//Run MIL
-	if( !data.isNull() && !model.isNull() )
-		result = milOptimize(data,model);
-
-	return result;
-}
-
 
 //Use the idealized DATA to optimize the starting MODEL for best LL.
-//Dead-time correction
-QUB_Tree milOptimize(QUB_Tree data, QUB_Tree model)
+//Dead-time correction is hard-coded at 0.5*framerate.  FIXME
+QUB_Tree milOptimize(string dwtFilename, string modelFilename)
 {
-	QUB_Tree result;
+    QUB_Tree result;
+    int retval = -9;
 	int max_iter = 100;
-	double sampling = data["sampling"].dataAsDouble(0);
-	double deadtime = sampling/2;
-
-	//data.saveAs("data.qtr");
-	//data.close();
+    
+    //Load starting model
+	QUB_Tree model( QUB_Tree::Open(modelFilename, true) );
+	if ( model.isNull() )
+		mexErrMsgTxt("No model");
 
 	//Setup MIL configuration from givenp arameters
-	data["ExpCond"]["DeadTime"].setData(QTR_TYPE_DOUBLE, deadtime);
-
+    model.setData("Initial");
+    
 	QUB_Tree config( QUB_Tree::Create("Properties") );
 	config.children().insert( model.clone() );
-	config["MaxIterations"].setData(QTR_TYPE_INT, max_iter); 
+	config["GroupViterbi"].setData(QTR_TYPE_INT, 0);
+	config["join segments"].setData(QTR_TYPE_INT, 0);
+	config["ChannelIndex"].setData(QTR_TYPE_INT, 0);
+	config["ThreadCount"].setData(QTR_TYPE_INT, 1);
 	config["Mode"].setData((max_iter > 0) ? "optimize" : "evaluate");
 	config["use segments"].setData("together");
 	config["SearchLimit"].setData(QTR_TYPE_DOUBLE, 10.0);
 	config["DFP"]["MaxStep"].setData(QTR_TYPE_DOUBLE, 0.1);
 	config["DFP"]["ConvLL"].setData(QTR_TYPE_DOUBLE, 0.0001);
 	config["DFP"]["ConvGrad"].setData(QTR_TYPE_DOUBLE, 0.01);
+	config["DFP"]["MaxIterations"].setData(QTR_TYPE_INT, max_iter);
+	config["DFP"]["MaxRestarts"].setData(QTR_TYPE_INT, 0);
+	
+    //WIN32 MIL version - directly call qubopt.dll (if available)
+    #ifdef QUB_DLL
+        //Load dwell-times file into a tree
+        QUB_Tree data( QUB_Idl_ReadDWT(dataFilename.c_str()) );
 
-	//Create data list
-	QTR_Impl* adata[2];
-	adata[0] = data.getImpl();
-	adata[1] = NULL;
+        //Set deadtime
+        double sampling = data["sampling"].dataAsDouble(0);
+        double deadtime = sampling/2;
+        data["ExpCond"]["DeadTime"].setData(QTR_TYPE_DOUBLE, deadtime);
 
-	//Run MIL
-	result = miltreeiface(config.getImpl(), adata, NULL, NULL, NULL);
-	QTR_DECREF( result.getImpl() );
+        //Create data list
+        QTR_Impl* adata[2];
+        adata[0] = data.getImpl();
+        adata[1] = NULL;
 
+        //Run MIL via qubopt.dll
+        result = miltreeiface(config.getImpl(), adata, NULL, NULL, NULL);
+        QTR_DECREF( result.getImpl() );
+
+    //Generic MIL version - use a bridge interface...
+    //Under Linux, use Wine to run the program.
+    #else
+        //Save MIL input parameter tree
+        config.saveAs( ".milconfig.qtr" );
+        config.close();
+
+        //Run MIL via command line
+        string copyCmd = "\"" + dwtFilename + "\" .mildata.dwt";
+        string milCmd = "miltreeiface.exe .milconfig.qtr .mildata.dwt .milresult.qtr";
+        #ifdef WIN32
+        copyCmd = "copy /Y " + copyCmd; 
+        #else
+        copyCmd = "cp -f " + copyCmd; 
+        milCmd = "wine " + milCmd;
+        #endif
+        //milCmd = "/home/dsterry/cornell/code/cascade_git/qub/"+milCmd;
+        system( copyCmd.c_str() );
+        retval = system( milCmd.c_str() );
+    
+    #endif
+    
+    switch( retval )
+    {
+    case -1:
+        mexErrMsgTxt("miltreeiface: incorrect args");
+        break;
+    case -2:
+        mexErrMsgTxt("miltreeiface: invalid or missing DWT file");
+        break;
+    case 0:
+        result = QUB_Tree::Open(".milresult.qtr").clone(true);
+        break;
+    default:
+        mexPrintf("(%d) ",retval);
+        mexErrMsgTxt("miltreeiface: unknown error");
+    }
+    
 	return result;
 }
-

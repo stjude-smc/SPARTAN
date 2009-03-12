@@ -7,3 +7,4 @@ qub/qubtree
 *.dll
 *.pyd
 *.asv
+*.exe
