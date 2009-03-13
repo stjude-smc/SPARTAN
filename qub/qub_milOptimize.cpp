@@ -126,7 +126,6 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
 //Dead-time correction is hard-coded at 0.5*framerate.  FIXME
 QUB_Tree milOptimize(string dwtFilename, string modelFilename)
 {
-    QUB_Tree result;
     int retval = -9;
 	int max_iter = 100;
     
@@ -140,6 +139,7 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
     
 	QUB_Tree config( QUB_Tree::Create("Properties") );
 	config.children().insert( model.clone() );
+    config["MaxIterations"].setData(QTR_TYPE_INT, max_iter);
 	config["GroupViterbi"].setData(QTR_TYPE_INT, 0);
 	config["join segments"].setData(QTR_TYPE_INT, 0);
 	config["ChannelIndex"].setData(QTR_TYPE_INT, 0);
@@ -156,7 +156,8 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
     //WIN32 MIL version - directly call qubopt.dll (if available)
     #ifdef QUB_DLL
         //Load dwell-times file into a tree
-        QUB_Tree data( QUB_Idl_ReadDWT(dataFilename.c_str()) );
+        QUB_Tree data( QUB_Idl_ReadDWT(dwtFilename.c_str()) );
+        QTR_DECREF( data.getImpl() );
 
         //Set deadtime
         double sampling = data["sampling"].dataAsDouble(0);
@@ -169,12 +170,14 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
         adata[1] = NULL;
 
         //Run MIL via qubopt.dll
-        result = miltreeiface(config.getImpl(), adata, NULL, NULL, NULL);
+        QUB_Tree result = miltreeiface(config.getImpl(), adata, NULL, NULL, NULL);
         QTR_DECREF( result.getImpl() );
-
+        
     //Generic MIL version - use a bridge interface...
     //Under Linux, use Wine to run the program.
     #else
+        QUB_Tree result;
+    
         //Save MIL input parameter tree
         config.saveAs( ".milconfig.qtr" );
         config.close();
@@ -192,22 +195,39 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
         system( copyCmd.c_str() );
         retval = system( milCmd.c_str() );
     
+        switch( retval )
+        {
+        case -1:
+            mexErrMsgTxt("miltreeiface: incorrect args");
+            break;
+        case -2:
+            mexErrMsgTxt("miltreeiface: invalid or missing DWT file");
+            break;
+        case 0:
+            result = QUB_Tree::Open(".milresult.qtr").clone(true);
+            break;
+        default:
+            mexPrintf("(%d) ",retval);
+            mexErrMsgTxt("miltreeiface: unknown error");
+        }
     #endif
     
-    switch( retval )
+    //Look at LL and error code to make sure MIL actually did something...
+    int errCode = result["ErrorCode"].dataAsInt(-9);
+    double LL  = result["LL"].dataAsDouble(-9);
+    int iter = result["Iterations"].dataAsInt(-9);
+    mexPrintf(" * E=%d LL=%f I=%d\n", errCode,LL,iter );
+    
+    switch(errCode)
     {
-    case -1:
-        mexErrMsgTxt("miltreeiface: incorrect args");
-        break;
-    case -2:
-        mexErrMsgTxt("miltreeiface: invalid or missing DWT file");
-        break;
     case 0:
-        result = QUB_Tree::Open(".milresult.qtr").clone(true);
+        //success
+        break;
+    case -3:
+        mexWarnMsgTxt("MIL: Exceeded maximum number of iterations.");
         break;
     default:
-        mexPrintf("(%d) ",retval);
-        mexErrMsgTxt("miltreeiface: unknown error");
+        mexErrMsgTxt("MIL Failed");
     }
     
 	return result;

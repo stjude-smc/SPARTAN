@@ -11,7 +11,7 @@ using namespace std;
 
 
 //Now...how do we deal with struct arrays? -- for now just use first element.
-void structToTree( mxArray* structure, const char* rootName, QUB_Tree& parent )
+void structToTree( mxArray* structure, string rootName, QUB_Tree& parent )
 {
     //QUB_Tree output = QUB_Tree::Create(rootName);
     int nFields = mxGetNumberOfFields(structure);
@@ -78,7 +78,7 @@ void structToTree( mxArray* structure, const char* rootName, QUB_Tree& parent )
 
 
 //
-QUB_Tree structToTree( mxArray* structure, const char* rootName )
+QUB_Tree structToTree( mxArray* structure, string rootName )
 {
     QUB_Tree outputTree = QUB_Tree::Create(rootName);
     structToTree( structure, rootName, outputTree );
@@ -150,7 +150,11 @@ mxArray* treeToStruct( QUB_Tree node )
     case QTR_TYPE_FLOAT:
     case QTR_TYPE_DOUBLE:
         if( M<1 || N<1 )
-            mexErrMsgTxt("invalid data size");
+        {
+            mexPrintf(" * %s %d %d\n", node.name().c_str(),M,N);
+            mexWarnMsgTxt("invalid data size");
+            break;
+        }
         if( !(M==1 || N==1) )
         {
             mexPrintf(" * %s %d %d\n", node.name().c_str(),M,N);
@@ -160,7 +164,7 @@ mxArray* treeToStruct( QUB_Tree node )
         mxtype = mxTypeLookup[node.dataType()];
         data = mxCreateNumericMatrix( M,N,mxtype,mxREAL );
         pdata = mxGetData( data );
-        memcpy( pdata, node.data(), N*mxGetElementSize(data) );
+        memcpy( pdata, node.data(), M*N*mxGetElementSize(data) );
         break;
         
     default:

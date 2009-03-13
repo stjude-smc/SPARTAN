@@ -26,7 +26,7 @@ function model = qub_createModel(nStates)
 vectorSize = [1,nStates];
 
 % MODEL PARAMETERS
-model.mu = 0:1/(nStates+1):1;
+model.mu = 0:1/nStates:1;
 model.mu = model.mu(1:end-1);
 
 model.sigma = repmat( 0.061, vectorSize );

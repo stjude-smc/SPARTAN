@@ -78,7 +78,8 @@ if isfield(treeModel,'Constraints') && isfield(treeModel.Constraints,'FixRate')
 end
 
 
-
+model.qubTree = treeModel;
+model.filename = modelFilename;
 
 
 

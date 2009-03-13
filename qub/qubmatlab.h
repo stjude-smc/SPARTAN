@@ -25,7 +25,7 @@ mxArray* treeToStruct( QUB_Tree tree );
 
 //Convert a structure array created by treeToStruct
 //into a QUB_Tree object with root node named <rootName>
-QUB_Tree structToTree( mxArray* structure, const char* rootName );
+QUB_Tree structToTree( mxArray* structure, string rootName );
 
 //QuB's Maximum-Interval-Likelihood algorithm for direct
 //optimization a kinetic model based on dwell-time information.
