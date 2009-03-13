@@ -92,11 +92,11 @@ end
 
 % PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
 if ~isfield(params,'fixMu')
-    params.FixMu = zeros(1,nStates); %all are re-estimated
+    params.fixMu = zeros(1,nStates); %all are re-estimated
 end
 
 if ~isfield(params,'fixSigma')
-    params.FixSigma = ones(1,nStates); %all are re-estimated
+    params.fixSigma = ones(1,nStates); %all are re-estimated
 end
 
 % PARSE OPTIONAL PARAMETER VALUES: options
@@ -105,7 +105,7 @@ if ~isfield(params,'maxItr')
 end
 
 if ~isfield(params,'convLL')
-    params.LLConv = 1e-4;
+    params.convLL = 1e-4;
 end
 
 if isfield(params,'convGrad')
