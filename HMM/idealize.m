@@ -53,8 +53,15 @@ for i=1:nTraces,
     
     % Convert sequence of state assignments to dwell-times at each state
     % and add this new idealization to the output
-    idealization{i} = RLEncode(vPath);
+    idl = RLEncode(vPath);
     LL(i) = vLL;
+    
+    % HACK: Remove last dwel in dark state.
+    % Not doing so confuses MIL...
+    if idl(end,1)==1,
+        idl = idl(1:end-1,:);
+    end
+    idealization{i} = idl;
 end
 
 % Add offsets to relate idealization back to raw data
