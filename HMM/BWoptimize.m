@@ -96,7 +96,7 @@ if ~isfield(params,'fixMu')
 end
 
 if ~isfield(params,'fixSigma')
-    params.fixSigma = ones(1,nStates); %all are re-estimated
+    params.fixSigma = zeros(1,nStates); %all are re-estimated
 end
 
 % PARSE OPTIONAL PARAMETER VALUES: options
