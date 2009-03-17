@@ -104,6 +104,7 @@ end
 
 simFramerate = 1000; %1ms
 binFactor = simFramerate/framerate;
+% roundTo = 25; %ms
 
 tic;
 
@@ -168,7 +169,15 @@ for i=1:nTraces,
         end
         
         % Round to 1ms time resolution
-        dwellTime = round(dwellTime);
+        if exist('roundTo','var')
+            dwellTime = round(dwellTime/roundTo)*roundTo;
+            if dwellTime<25,
+                itr = itr+1;
+                continue;
+            end
+        else
+            dwellTime = round(dwellTime);
+        end
         
         states(end+1) = curState;
         times(end+1) = dwellTime;
