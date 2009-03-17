@@ -150,8 +150,10 @@ end
 
 
 % Compile array of optional arguments to simulate...
-options.fixMu    = repmat( 1-reestMu,    1,nStates );
-options.fixSigma = repmat( 1-reestSigma, 1,nStates );
+% options.fixMu    = repmat( 1-reestMu,    1,nStates );
+% options.fixSigma = repmat( 1-reestSigma, 1,nStates );
+model.fixMu    = repmat( 1-reestMu,    1,nStates );
+model.fixSigma = repmat( 1-reestSigma, 1,nStates );
 
 options.bootstrapN = bootstrapN;
 
@@ -193,16 +195,16 @@ for i=1:nFiles
     disp( results(i).mu );
     
     % Idealize data using Viterbi algorithm
-    model = [results(i).mu' results(i).sigma'];
+    fretModel = [results(i).mu' results(i).sigma'];
     p0 = results(i).p0;
     A = results(i).A;
     
     [d,a,traces] = loadTraces(filename);
     
-    [dwt,offsets] = idealize( traces, model, p0, A );
+    [dwt,offsets] = idealize( traces, fretModel, p0, A );
     
     dwtFilename = strrep(filename,'.txt','.qub.dwt');
-    saveDWT( dwtFilename, dwt, offsets, model, 1000*sampling );
+    saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
     
     waitbar(i/nFiles,h);
 end

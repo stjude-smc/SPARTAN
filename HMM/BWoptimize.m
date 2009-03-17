@@ -53,13 +53,13 @@ nTraces = size(observations,1);
 %% ----------- PARSE INPUT PARAMETER VALUES -----------
 
 % PARSE REQUIRED PARAMETER VALUES
-if ~isstruct( model ),
-    nStates  = model;
-    model = qub_createModel(nStates);
-else
+% if ~isstruct( model ),
+%     nStates  = model;
+%     model = qub_createModel(nStates);
+% else
     nStates = numel(model.mu);
     assert(qub_VerifyModel(model),'Invalid model');
-end
+% end
 
 % Convert rate matrix (Q) to transition probability matrix (A)
 A = model.rates*sampling;
@@ -91,10 +91,16 @@ end
 % end
 
 % PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
+if isfield(model,'fixMu')
+    params.fixMu = model.fixMu;
+end
 if ~isfield(params,'fixMu')
     params.fixMu = zeros(1,nStates); %all are re-estimated
 end
 
+if isfield(model,'fixSigma')
+    params.fixSigma = model.fixSigma;
+end
 if ~isfield(params,'fixSigma')
     params.fixSigma = zeros(1,nStates); %all are re-estimated
 end
