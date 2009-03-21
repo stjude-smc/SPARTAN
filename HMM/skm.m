@@ -40,7 +40,6 @@ if nargin<4,
 end
 
 
-gui = 0;
 
 %% Initialize algorithm
 
@@ -73,28 +72,59 @@ if isfield(params,'convGrad')
     warning('SKM:convGrad','convGrad not yet implemented');
 end
 
-if isfield(params,'quiet') && params.quiet==1,
-    quiet = 1;
-else
-    quiet = 0;
+if ~isfield(params,'quiet'),
+    params.quiet = 0;
+end
+
+if ~isfield(params,'convLL')
+    params.convLL = 1e-4;
 end
 
 % Modify data to fall within specified ranges...
 data(data>1) = 1;
 data(data<-0.3) = -0.3;
+
+
+
+%% Run the SKM algorithm
+
+% Here we have several choices.
+% If params.seperately = 
+% NO:  Optimize all the data together and return a single model.
+% YES: Optimize each trace individually, returning a model array
+%      and a single idealization combining all results.
+
+if isfield(params,'seperately') && params.seperately==1,
+    [nTraces,nFrames] = size(data);
+    dwt = cell(nTraces,1);
+    LL  = zeros(nTraces,1);
+    
+    % Optimize each trace seperately, using the 
+    for n=1:nTraces,
+        [newDWT,model(n),newLL] = runSKM( data(n,:), ...
+                                     sampling, initialModel, params );
+        dwt{n} = newDWT{1};
+        LL(n) = newLL(end);
+    end
+else
+    % Optimize a single model and idealize all data using this model.
+    [dwt,model,LL] = runSKM(data, sampling, initialModel, params);
+end
+
+
+end %function skm
+
+
+
+
+
+
+
+%% SKM CORE METHOD
+function [dwt,model,LL] = runSKM(data, sampling, initialModel, params)
+
 [nTraces,nFrames] = size(data);
-
-% figure;
-
-
-
-% Load correct answer...
-[dwtSim,s,o,simModel] = loadDWT('snr8.sim.dwt');
-simMu = simModel(1:2:end);
-idlSim = dwtToIdl( dwtSim, 25000 );
-simAxis = ( (1:size(idlSim,2)) -1)*(nFrames/size(idlSim,2)) +1;
-
-%% Run SKM
+nStates = numel(initialModel.mu);
 
 % Setup initial conditions
 itr = 1; %number of iterations so far
@@ -108,8 +138,6 @@ A( logical(eye(nStates)) ) = 1-sum(A,2);
 %A = model.A;
 p0 = reshape(model.p0,nStates,1);
 
-si='y';
-
 while( itr < params.maxItr ),
 
     % Idealize the data using the Viterbi algorithm
@@ -118,7 +146,7 @@ while( itr < params.maxItr ),
     LL(itr) = sum(vLL)/nTraces;
     
     % Display intermediate progress...
-    if ~quiet
+    if ~params.quiet
         if itr==1,
             disp( sprintf('%d: %f', itr, LL(itr) ));
         else
@@ -130,31 +158,6 @@ while( itr < params.maxItr ),
         
         disp( [mu sigma p0 A] );
     end
-    
-    % plot idealizations for visualzation
-%     if gui,
-%         s = [8 15 10 35];
-%         mu2 = [-0.1 mu'];
-%         simMu2 = [-0.1 simMu];
-%         for i=1:numel(s),
-%             subplot(numel(s),1,i); cla;
-%             %stairs( dwtTime, idl, 'r-', 'LineWidth',1 );
-%             stairs( 1:nFrames, mu2( idl(s(i),:)+1), 'r', 'LineWidth',2 ); hold on;
-%             stairs( simAxis, simMu2( idlSim(s(i),:)+1), 'g', 'LineWidth',2 );
-%             plot( 1:nFrames, data(s(i),:), 'b-' );
-%             hold off;
-%             xlim([0 500]);
-%             ylim([-0.2 1]);
-%         end
-%         legend({'MATLAB','Sim.','Data'});
-%         drawnow;
-%     end
-%     if strcmp(si,'c')==0
-%         si=input('Hit enter to continue...','s');
-%     end
-%     if strcmp(si,'n'),
-%         break;
-%     end
     
     
     % Re-estimate FRET model parameters using idealization
@@ -205,11 +208,13 @@ model.sigma = sigma;
 model.A = A;  %model.Q = ...
 model.p0 = p0;
 
-if ~quiet,
+if ~params.quiet,
     disp( sprintf('SKM: Finished after %d iterations with LL=%f',itr,LL(end)) );
 end
 
 
+
+end %skm core method..
 
 
 %%
@@ -232,12 +237,16 @@ end
 
 idlFinal = idlFinal';
 
+end
 
 
 %%
-function [A] = estimateA( idl,nStates )
+function [A2] = estimateA( idl,nStates )
 % Counts each transition type and saves in EVENTS,
 % where EVENTS(i,j) is the number of transitions from state i to state j.
+% NOTE: if idealizing very little data, some states may not be occupied.
+% This will lead to a row in A that is all zeros and cause division by 0.
+% TO avoid this, 
 
 [nTraces,nFrames] = size(idl);
 
@@ -253,6 +262,10 @@ for n=1:nTraces
     end
 end
 
-A = A./repmat(sum(A,2),1,nStates);
+normFact = repmat(sum(A,2),1,nStates);
+normFact(normFact==0) = 1; %prevent division by zero
 
+A2 = A./normFact;
+assert(all(A2(:)>=0),'SKM: invalid A-matrix');
 
+end
