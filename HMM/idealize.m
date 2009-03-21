@@ -1,4 +1,4 @@
-function [idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
+function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 % IDEALIZE   HMM discovery of underlying sequence of hidden states
 %
 %    [IDEALIZATION,OFFSETS,LL] = idealize( TRACES, MODEL, P0, A )
@@ -16,6 +16,27 @@ function [idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %    such dwells.  OFFSETS is a 1xN vector of indexes into the raw data
 %    file (linearized TRACES).  LL is a 1xN vector of the log-likelihood of
 %    each trace, given the sequence of states (Viterbi path) and the model.
+%
+
+% Strictly speaking, this code is incorrect:
+%  The probability of observing any particular FRET value is zero
+%  because there are infinitely more FRET values nearly the same.
+%  In principle, one should calculate the probability of a FRET
+%  value occuring in a specific range. In other words, one
+%  should bin the distribution and distribute FRET values into
+%  bins with set probabilities. The effect on the algorithm
+%  here would be to multiply each datapoint by the precision
+%  of computer representation of FRET values (eg, 1e-9, or whatever).
+%  The effect of the result would be to add M*log10(precision)
+%  to the final log-likelihood and to slightly reduce the
+%  precision of calculating probabilities. Since this realistically
+%  adds nothing to the algorithm but extra work, I have not
+%  implemented this strategy.
+%
+% Also note that multiplying any other normalization factor
+%  to the emission probabilities also has no effect on
+%  the final path.
+%
 
 [nTraces,nFrames] = size(obs);
 nStates = size(model,1);
@@ -28,17 +49,21 @@ sigma = model(:,2);
 C = 0.3989422804014327./sigma; %gaussian leading coefficient
 D = 2*(sigma.^2);  %exponential denominator
 
+assert( all(trans_p(:)>=0) && all(start_p>=0) );
+
+
 % Predict the sequence of hidden model states for each trace
-idealization = cell(1,nTraces);
+dwt = cell(1,nTraces);
+idealization = zeros( size(obs) );
 LL = zeros(1,nTraces);
 
 for i=1:nTraces,
 
     % Trim trace to remove data after donor photobleaching
     trace = obs(i,:);
-    traceLen = length(trace);
-%     traceLen = find(trace~=0, 1,'last');
-%     trace = trace(1:traceLen);
+%     traceLen = length(trace);
+    traceLen = find(trace~=0, 1,'last');
+    trace = trace(1:traceLen);
 
     % Precompute emmission probability matrix
     Bx = zeros(nStates,traceLen);
@@ -49,7 +74,7 @@ for i=1:nTraces,
     
     % Find the most likely viterbi path in model space
     % (totalLL is the probability of the observation sequence given the model)
-    [totalLL, vPath, vLL] = forward_viterbi(start_p, trans_p, Bx);
+    [vPath, vLL] = forward_viterbi(start_p, trans_p, Bx);
     
     % Convert sequence of state assignments to dwell-times at each state
     % and add this new idealization to the output
@@ -58,10 +83,11 @@ for i=1:nTraces,
     
     % HACK: Remove last dwel in dark state.
     % Not doing so confuses MIL...
-    if idl(end,1)==1,
-        idl = idl(1:end-1,:);
-    end
-    idealization{i} = idl;
+%     if idl(end,1)==1,
+%         idl = idl(1:end-1,:);
+%     end
+    dwt{i} = idl;
+    idealization(i,1:traceLen) = vPath;
 end
 
 % Add offsets to relate idealization back to raw data
