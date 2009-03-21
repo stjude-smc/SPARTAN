@@ -115,6 +115,7 @@ fname_txt = strcat(p,f);
 if ~iscell(fname_txt),
     fname_txt = {fname_txt};
 end
+fname_txt = sort(fname_txt)
 handles.dataFilenames = fname_txt;
 handles.dataPath = p;
 handles.hasData = 1;
@@ -323,7 +324,7 @@ qub_saveTree( model.qubTree, mfname, 'ModelFile' );
 for i=1:nFiles
     disp( sprintf('%d: %s', i,dwtFilename{i}) );
     
-    % Save optimized MIL results as a model for MIL
+    % Save optimized BW results as a model for MIL
 %     md = bwResults(i);
 %     md.qubTree = model.qubTree;
 %     md.rates = md.Q;  % HACK
