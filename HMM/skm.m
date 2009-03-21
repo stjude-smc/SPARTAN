@@ -127,7 +127,7 @@ function [dwt,model,LL] = runSKM(data, sampling, initialModel, params)
 nStates = size(initialModel.rates,1);
 nClass  = numel(initialModel.mu);
 
-assert( nStates==nClass, 'SKM: aggregate states not supported.' );
+% assert( nStates==nClass, 'SKM: aggregate states not supported.' );
 
 % Setup initial conditions
 itr = 1; %number of iterations so far
@@ -144,7 +144,10 @@ while( itr < params.maxItr ),
 
     % Idealize the data using the Viterbi algorithm
     % NOTE: this is the slowest step and should be optimized!
-    [dwt,idl,offsets,vLL] = idealize( data, [mu sigma], p0, A );
+    imu    = mu( model.class );
+    isigma = sigma( model.class );
+    
+    [dwt,idl,offsets,vLL] = idealize( data, [imu isigma], p0, A );
     LL(itr) = sum(vLL)/nTraces;
     
     % Display intermediate progress...
@@ -158,21 +161,23 @@ while( itr < params.maxItr ),
             end
         end
         
-        disp( [mu sigma p0 A] );
+        disp( [imu isigma p0 A] );
     end
     
     
     % Re-estimate FRET model parameters using idealization
-    for state=1:nStates,
-        edata = data(idl==state);
+    classes = [0; model.class];
+    for class=1:nClass,
+        edata = data(classes(idl+1)==class);
+        
         if length(edata)<1, continue; end
         
-        if ~model.fixMu(state)
-            mu(state) = mean( edata );
+        if ~model.fixMu(class)
+            mu(class) = mean( edata );
         end
-        if ~model.fixSigma(state)
-            sigma(state) = std( edata );
-            sigma(state) = max(sigma(state),0.01);
+        if ~model.fixSigma(class)
+            sigma(class) = std( edata );
+            sigma(class) = max(sigma(class),0.01);
         end
     end
     
@@ -218,28 +223,6 @@ end
 
 end %skm core method..
 
-
-%%
-function idlFinal = dwtToIdl( dwt, traceLen )
-% NOTE how truncated data is handled?
-
-nTraces = numel(dwt);
-idlFinal = zeros(traceLen,nTraces);
-    
-for dwtID=1:nTraces,
-    states = dwt{dwtID}(:,1);
-    times  = double(dwt{dwtID}(:,2));
-    assert(all(states>0));
-
-    ends = [0; cumsum(times)];
-    for j=1:numel(states),
-        idlFinal( (ends(j)+1):ends(j+1),dwtID ) = states(j);
-    end
-end
-
-idlFinal = idlFinal';
-
-end
 
 
 %%

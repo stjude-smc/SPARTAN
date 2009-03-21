@@ -39,16 +39,12 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %
 
 
-assert( size(model,1)==numel(start_p), ...
-        'Idealize: aggregate states not supported.' );
-
-
 [nTraces,nFrames] = size(obs);
-nStates = size(model,1);
 
 % Initialize emission probability distribution function
 mu    = model(:,1);
 sigma = model(:,2);
+nStates = numel(mu);
 
 % C = 1./(sqrt(2*pi)*sigma); %gaussian leading coefficient
 C = 0.3989422804014327./sigma; %gaussian leading coefficient
