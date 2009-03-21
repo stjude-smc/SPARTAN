@@ -14,6 +14,12 @@ function model = qub_loadModel(modelFilename)
 %     error('Can''t find QuB compatibility layer files');
 % end
 
+if nargin<1,
+    [f,p] = uigetfile('*.qmf','Select a model file...');
+    if f==0, return; end
+    modelFilename = [p f];
+end
+    
 if ~exist(modelFilename,'file')
     error('Model file doesn''t exist');
 end

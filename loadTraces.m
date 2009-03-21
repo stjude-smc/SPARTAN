@@ -13,6 +13,12 @@ function [donor,acceptor,fret,ids,time] = loadTraces( ...
 %   are made and FRET is calculated.
 %
 
+if nargin<1,
+    [f,p] = uigetfile('*.txt','Select a traces file');
+    if f==0, return; end
+    filename = [p f];
+end
+
 if ~exist('indexes','var'), indexes=[]; end
 if ~exist('constants','var'), constants = cascadeConstants(); end
 
