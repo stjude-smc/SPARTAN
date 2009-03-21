@@ -62,7 +62,7 @@ nTraces = size(observations,1);
 % end
 
 % Convert rate matrix (Q) to transition probability matrix (A)
-A = model.rates*sampling;
+A = model.rates*(sampling/1000);
 A( logical(eye(nStates)) ) = 1-sum(A,2);
 model.A = A;
 
@@ -92,10 +92,10 @@ end
 
 % PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
 if isfield(model,'fixMu')
-    params.fixMu = model.fixMu;
+    params(1).fixMu = model.fixMu;
 end
 if ~isfield(params,'fixMu')
-    params.fixMu = zeros(1,nStates); %all are re-estimated
+    params(1).fixMu = zeros(1,nStates); %all are re-estimated
 end
 
 if isfield(model,'fixSigma')
@@ -116,10 +116,15 @@ end
 
 if isfield(params,'convGrad')
     warning('BW:convGrad','convGrad not yet implemented');
+    %for A: params.convGrad = 1e-3;
 end
 
 if ~isfield(params,'bootstrapN')
     params.bootstrapN = 0;
+end
+
+if ~isfield(params,'quiet')
+    params.quiet = 0;
 end
 
 
@@ -232,10 +237,19 @@ for n = 1:params.maxItr
     mu    = mu.*params.muMask       + mu_start.*(1-params.muMask);
     sigma = sigma.*params.sigmaMask + sigma_start.*(1-params.sigmaMask);
     
-    disp( [sprintf( '   Iter %d: %f', n, LL(n)) sprintf('\t%.3f',mu)] );
+    if ~params.quiet
+        disp( [sprintf( '   Iter %d: %f', n, LL(n)) sprintf('\t%.3f',mu)] );
+        disp( [mu' sigma' p0' A] );
+    end
     
     % Check for convergence of likelihood
-    if n>1 && LL(n)-LL(n-1) <= params.convLL,  break;  end
+    if n>1,
+        if LL(n)<LL(n-1),
+            warning('BW: LL is decreasing!');
+        end
+        if abs(LL(n)-LL(n-1)) <= params.convLL,  break;  end
+    end
+    
     
     drawnow;
 end
@@ -269,6 +283,8 @@ function [LLtot,eA,eMU,eSIG,p0s,ps] = BWiterate2( observations, A, mus, sigmas, 
 % DAB 2008.3.30
 % DST 2008.6.29  Modified
 
+assert( all(A(:)>=0), 'Invalid A matrix' );
+assert( all(p0s(:)>=0), 'Invalid p0 vector' );
 
 Nstates = length(mus);
 
@@ -339,6 +355,10 @@ for n = 1:nTraces  %for each trace **with at least 5 datapoints**
 end
 
 
+% Calculate total occupancy of each state
+ps = sum(lamb_tot);
+ps = ps/sum(ps);
+
 
 % Re-estimate rate parameters (A matrix)
 % Enorm contains information only from the final trace and therefor
@@ -384,10 +404,16 @@ eSIG(eSIG<0.02) = 0.02;
 p0s = p0tot/nTraces;
 LLtot = LLtot/nTraces;  % return LL per trial -- though not necessary...
 
-% Calculate total occupancy of each state
-ps = sum(lamb_tot)/sum(lamb_tot(:));
 
 % disp( [ps' eMU' eSIG'] );
 % disp('\n');
+
+
+
+
+
+assert( all(eA(:)>=0), 'Invalid estimated A matrix' );
+assert( all(p0s>=0), 'Invalid estimated p0 vector' );
+
 
 end
