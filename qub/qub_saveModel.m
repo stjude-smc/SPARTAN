@@ -40,38 +40,20 @@ outputTree.Stds.data(1:nStates) = model.sigma;
 
 
 % Generate states and save initial probabilities
-prototypeState = outputTree.States.State(1);
-s = prototypeState;
-% s = outputTree.States.State;
-
+s = outputTree.States.State;
 for i=1:nStates,
-    s(i) = prototypeState;
-    s(i).y.data = 46.6;
-    s(i).x.data = i*15;
-    s(i).Gr.data = int32(0);
-    s(i).Class.data = int32(i-1);
+    s(i).Pr.data = model.p0( s(i).Class.data+1 );
     s(i).Pr.data = model.p0(i);
 end
 outputTree.States.State = s;
 
 
 % Generate rate connections
-prototypeRate = outputTree.Rates.Rate(1);
-nPairs = 0;
-r = prototypeRate;
-
-for i=1:nStates,
-    for j=1:nStates,
-        if i==j || i>j, continue; end
-        
-        nPairs = nPairs+1;
-        
-        r(nPairs) = prototypeRate;
-        r(nPairs).States.data = int32( [i,j]-1 );
-        r(nPairs).k0.data = [model.rates(j,i) model.rates(i,j)];
-        %NOTE that MATLAB is column major but C is row major,
-        %so the above is purposfully reversed...
-    end
+r = outputTree.Rates.Rate;
+for i=1:numel(r),
+    st = r(i).States.data+1;
+    src = st(1);  dst = st(2);
+    r(i).k0.data = [model.rates(dst,src) model.rates(src,dst)];
 end
 outputTree.Rates.Rate = r;
 
