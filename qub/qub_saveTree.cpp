@@ -38,7 +38,7 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     
     //Save the tree to file
     char* modelFilename = mxArrayToString(prhs[1]);
-    result = outputTree.saveAs(modelFilename);
+    bool result = outputTree.saveAs(modelFilename);
     outputTree.close();
     
     if( !result )

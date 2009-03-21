@@ -3,7 +3,8 @@ MEX = mex
 MEXFLAGS = -O -Lqubtree -lqubtree -DMEX_FCN
 #-O2
 
-MEX_EXT = mexa64
+#MEX_EXT = mexglx  #32-bit linux
+MEX_EXT = mexa64  #64-bit linux
 
 # Info for QuB source tree, used by qub_milOptimize.cpp
 QUBDIR = ../../qub
@@ -14,7 +15,9 @@ QUBL = -L${QUBDIR}/QuBSuite
 DEPS = qubmatlab.h qubtree/libqubtree.a
 
 # Primary target: make all MEX functions
-default: qub_loadTree.${MEX_EXT} qub_saveTree.${MEX_EXT} qub_milOptimize.${MEX_EXT}
+TARGETS = qub_loadTree.${MEX_EXT} qub_saveTree.${MEX_EXT} qub_milOptimize.${MEX_EXT}
+
+default: ${TARGETS}
 
 qub_loadTree.${MEX_EXT}: qub_loadTree.cpp treestruct.cpp ${DEPS}
 	${MEX} ${MEXFLAGS} qub_loadTree.cpp treestruct.cpp
@@ -26,5 +29,5 @@ qub_milOptimize.${MEX_EXT}: qub_milOptimize.cpp treestruct.cpp ${DEPS}
 	${MEX} ${MEXFLAGS} qub_milOptimize.cpp treestruct.cpp
 
 clean:
-	rm -f qub_loadTree.${MEX_EXT} qub_saveTree.${MEX_EXT} qub_milOptimize.${MEX_EXT}
+	rm -f ${TARGETS}
 
