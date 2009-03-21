@@ -24,19 +24,18 @@ if ~exist(modelFilename,'file')
     error('Model file doesn''t exist');
 end
 
-%[model.mu,model.sigma,model.p0s,model.rates,model.fixRates] = ...
-%                                        qub_loadModel_MEX(modelFilename);
-
-
+% Load QuBTree object saved to disk representing a model.
 treeModel = qub_loadTree( modelFilename );
 
 % Load initial probabilities
 nStates = numel(treeModel.States.State);
-mode.nStates = nStates;
-model.p0 = zeros(1,nStates);
+model.nStates = nStates;
+model.p0 = zeros(nStates,1);
+model.class = zeros(nStates,1);
 
 for i=1:nStates,
     model.p0(i) = treeModel.States.State(i).Pr.data;
+    model.class(i) = treeModel.States.State(i).Class.data +1;
 end
 
 if abs(sum(model.p0)-1)>0.02,
@@ -44,8 +43,10 @@ if abs(sum(model.p0)-1)>0.02,
 end
     
 % Load FRET parameters
-model.mu = treeModel.Amps.data(1:nStates);
-model.sigma = treeModel.Stds.data(1:nStates);
+nClass = max(model.class);
+model.nClass = nClass;
+model.mu = treeModel.Amps.data(1:nClass);
+model.sigma = treeModel.Stds.data(1:nClass);
 
 % Load rates into Q matrix
 nRatePairs = numel( treeModel.Rates.Rate );

@@ -10,17 +10,18 @@ function [ok,msg] = qub_verifyModel(model)
 
 ok = false;
 
-if ~all( isfield(model,{'mu','sigma','rates','p0'}) )
+if ~all( isfield(model,{'mu','sigma','rates','p0','class'}) )
     msg = 'Not all model parameters provided - consider using qub_createModel()';
     return;
 end
 
-nStates = numel(model.mu);
+nStates = size(model.rates,1);
+nClass = numel(model.mu);
 
-if ~( nStates==numel(model.sigma)  && ...
+if ~( nStates>=nClass              && ...
       nStates==numel(model.p0)     && ...
-      nStates==size(model.rates,1) && ...
-      nStates==size(model.rates,1) ),
+      nStates==size(model.rates,2) && ...
+      nClass ==numel(model.sigma)  ),
     msg = 'Size mismatch';
     return;
 end

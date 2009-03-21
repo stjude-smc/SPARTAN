@@ -34,15 +34,16 @@ end
 outputTree = rmfield(outputTree,'VRevs');
 
 % Update FRET parametes
-nStates = numel(model.mu);
-outputTree.Amps.data(1:nStates) = model.mu;
-outputTree.Stds.data(1:nStates) = model.sigma;
+nStates = size(model.rates,1);
+nClass = numel(model.mu);
+outputTree.Amps.data(1:nClass) = model.mu;
+outputTree.Stds.data(1:nClass) = model.sigma;
 
 
 % Generate states and save initial probabilities
 s = outputTree.States.State;
 for i=1:nStates,
-    s(i).Pr.data = model.p0( s(i).Class.data+1 );
+    assert( s(i).Class.data+1 == model.class(i), 'Class-state mismatch' );
     s(i).Pr.data = model.p0(i);
 end
 outputTree.States.State = s;

@@ -124,18 +124,20 @@ end %function skm
 function [dwt,model,LL] = runSKM(data, sampling, initialModel, params)
 
 [nTraces,nFrames] = size(data);
-nStates = numel(initialModel.mu);
+nStates = size(initialModel.rates,1);
+nClass  = numel(initialModel.mu);
+
+assert( nStates==nClass, 'SKM: aggregate states not supported.' );
 
 % Setup initial conditions
 itr = 1; %number of iterations so far
 LL = [];
 
 model = initialModel;
-mu = reshape(model.mu,nStates,1);
-sigma = reshape(model.sigma,nStates,1);
+mu = reshape(model.mu,nClass,1);
+sigma = reshape(model.sigma,nClass,1);
 A = model.rates*(sampling/1000);
 A( logical(eye(nStates)) ) = 1-sum(A,2);
-%A = model.A;
 p0 = reshape(model.p0,nStates,1);
 
 while( itr < params.maxItr ),

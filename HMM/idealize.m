@@ -38,6 +38,11 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %  the final path.
 %
 
+
+assert( size(model,1)==numel(start_p), ...
+        'Idealize: aggregate states not supported.' );
+
+
 [nTraces,nFrames] = size(obs);
 nStates = size(model,1);
 

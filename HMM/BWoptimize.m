@@ -57,7 +57,9 @@ nTraces = size(observations,1);
 %     nStates  = model;
 %     model = qub_createModel(nStates);
 % else
-    nStates = numel(model.mu);
+    nStates = size(model.rates,1);
+    nClass  = numel(model.mu);
+    assert( nStates==nClass, 'SKM: aggregate states not supported.' );
     assert(qub_VerifyModel(model),'Invalid model');
 % end
 
@@ -126,6 +128,7 @@ end
 if ~isfield(params,'quiet')
     params.quiet = 0;
 end
+
 
 
 %% ----------- RUN BAUM-WELCH, ESTIMATE ERROR W/ BOOTSTRAPPING -----------
