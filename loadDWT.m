@@ -12,6 +12,13 @@ dwells  = cell(1);
 offsets = zeros(1);
 % trans = cell(NSTATES,NSTATES);
 
+% Ask user for file if none specified.
+if nargin<1,
+    [f,p] = uigetfile('*.dwt','Select a DWT file');
+    if f==0, return; end
+    dwtfilename = [p f];
+end
+
 % Load dwell time file
 if ~exist(dwtfilename,'file')
     error('Can''t find DWT file for %s',dwtfilename);
