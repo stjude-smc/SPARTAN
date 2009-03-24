@@ -1,4 +1,4 @@
-function [dwt,model,LL] = skm( data, sampling, initialModel, params )
+function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 % SKM  Crude model re-estimation using iterative idealization
 % 
 %   [DWT,NEW_MODEL] = SKM( DATA, SAMPLING, MODEL, params )
@@ -105,10 +105,12 @@ if isfield(params,'seperately') && params.seperately==1,
                                      sampling, initialModel, params );
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
+        
+        if nargout>3, error('no offsets'); end
     end
 else
     % Optimize a single model and idealize all data using this model.
-    [dwt,model,LL] = runSKM(data, sampling, initialModel, params);
+    [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params);
 end
 
 
@@ -121,7 +123,7 @@ end %function skm
 
 
 %% SKM CORE METHOD
-function [dwt,model,LL] = runSKM(data, sampling, initialModel, params)
+function [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params)
 
 [nTraces,nFrames] = size(data);
 nStates = size(initialModel.rates,1);
