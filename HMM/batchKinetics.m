@@ -160,7 +160,7 @@ handles.model = model;
 handles.hasModel = 1;
 
 % Update model status text -- FIXME
-info = sprintf('FRET values: %s',mat2str(model.mu));
+info = sprintf('FRET values: %s',mat2str(model.mu(model.class)));
 set(handles.txtModelInfo,'String',info);
 
 % If data are already loaded, enable the Execute button
@@ -268,46 +268,59 @@ function resultTree = runParamOptimizer( model,dataFilenames,sampling,options)
 nFiles = numel(dataFilenames);
 tic;
 
-%----- STEP 1: Run Baum-Welch to optimize FRET parameters and estimate kinetics
+
+% HACK: modify model to fix mu and sigma, mimicing SKM.
+% This SHOULD be handled in the model...
+nClass = model.nClass;
+model.fixSigma = ones(nClass,1);
+model.fixMu = ones(nClass,1);
+
+
+%----- STEP 1: Optimize params using SKM and idealize
 h = waitbar(0,'Optimizing FRET model using Baum-Welch...');
 
-bwOptions.maxItr = 100;
-bwOptions.convLL = 1e-2;
-    
+skmOptions.maxItr = 100;
+skmOptions.convLL = 1e-4;
+
+skmLL = zeros(nFiles,1);
+
 for i=1:nFiles
     filename = dataFilenames{i};
     sprintf('%d: %s', i,filename);
     
-    % Estimate parameter values using Baum's method
-    bwResults(i) = runBW( filename, sampling, model, bwOptions );
+    % Load data
+    [d,a,data] = loadTraces(dataFilenames{i});
+    
+    % First pass idealization: 
+    [dwt,m,LL,offsets] = skm( ...
+                                data, sampling, model, skmOptions );
+    skmModels(i) = m;
+    skmLL(i) = LL(end);
+    
+    % Updated idealization where the rate model is re-estimated
+    % for each individual trace. This allows for some kinetic
+    % heterogeneity across the ensemble -- but nobody knows
+    % if this is a good idea or not...
+%     if doSeperately
+%         skmOptions2 = skmOptions;
+%         skmOptions2.seperately = 1;
+%         skmOptions2.quiet = 1;
+%         [dwt] = skm( data, sampling, model, skmOptions2 );
+%     end
+
+    mu = skmModels(i).mu;
+    sigma = skmModels(i).sigma;
+    fretModel = [mu sigma];
+    
+    % Save the idealization
+    dwtFilename{i} = strrep(filename,'.txt','.qub.dwt');
+    saveDWT( dwtFilename{i}, dwt, offsets, fretModel, 1000*sampling );
     
     waitbar(0.33*i/nFiles,h);
 end
 
 toc
 
-%----- STEP 2: Idealize data using Baum-Welch parameters, save to disk
-h = waitbar(0.33,h,'Idealizing data...');
-
-for i=1:nFiles
-    filename = dataFilenames{i};
-    
-    % Idealize data using Viterbi algorithm
-    fretModel = [bwResults(i).mu' bwResults(i).sigma'];
-    p0 = bwResults(i).p0;
-    A = bwResults(i).A;
-    
-    [d,a,traces] = loadTraces(filename);
-    
-    [dwt,offsets] = idealize( traces, fretModel, p0, A );
-    
-    dwtFilename{i} = strrep(filename,'.txt','.qub.dwt');
-    saveDWT( dwtFilename{i}, dwt, offsets, fretModel, 1000*sampling );
-    
-    waitbar(0.33+0.33*i/nFiles,h);
-end
-
-toc
 
 %----- STEP 3: Refine kinetic parameter estimates using MIL
 waitbar(0.66,h,'Refining kinetic model using QuB...');
@@ -324,16 +337,10 @@ qub_saveTree( model.qubTree, mfname, 'ModelFile' );
 for i=1:nFiles
     disp( sprintf('%d: %s', i,dwtFilename{i}) );
     
-    % Save optimized BW results as a model for MIL
-%     md = bwResults(i);
-%     md.qubTree = model.qubTree;
-%     md.rates = md.Q;  % HACK
-%     md = qub_saveModel(md,mfname);
-    
     % Run MIL
     milResults(i) = qub_milOptimize(dwtFilename{i},mfname);
     
-    waitbar(0.66+0.33*i/nFiles,h);
+    waitbar(0.33+0.66*i/nFiles,h);
 end
 
 %delete(mfname);
@@ -343,73 +350,62 @@ toc
 %----- STEP 4: Compile results into a qubtree
 waitbar(1,h,'Saving results...');
 
-resultTree.bwResults = bwResults;
+resultTree.skmModels = skmModels;
+resultTree.skmLL = skmLL;
 resultTree.milResults = milResults;
 
 
-close(h)
+rates = [];
+nStates = model.nStates;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function [results,errorResults] = runBW( ...
-                filename, sampling, model, BWparameters )
-%
-
-[d,a,observations] = loadTraces(filename);
-clear d; clear a;
-
-
-%------ Run Baum-Welch optimization proceedure
-[results,errorResults] = BWoptimize( ...
-                            observations, sampling, model, BWparameters );
-
-nStates = size(results.A,1);
-
-framerate = 1/sampling;
-
-% 1->[2,3,4], 2->[1,3,4], 3->[1,2,4], 4->[1,2,3]
-Q = framerate.*results.A';
-idx = find( ~logical(eye(nStates)) );
-Q_parts = Q( idx );
-
-Q_nonzero = Q(2:end,2:end);
-idx_nonzero = find( ~logical(eye(nStates-1)) );
-Q_nonzero = Q_nonzero(idx_nonzero);
-
-
-% For now just print the whole thing to the console... see above
-results.Q = Q;
-results.rates = Q_parts;
-results.nonzeroRates = Q_nonzero;
-
-if ~isempty(errorResults),
-    Q = framerate.*errorResults.A';
-    Q_parts = Q( idx );
-    errorResults.rates = Q_parts;
-    errorResults.Q = Q;
+for i=1:nFiles
+    modelTree = milResults(i).ModelFile;
+    model = qub_loadModel( modelTree );
+    
+    idx = find( ~logical(eye(nStates)) );
+    % 1->[2,3,4], 2->[1,3,4], 3->[1,2,4], 4->[1,2,3]
+    Q = model.rates';
+    Q_parts = Q(idx)';
     
     Q_nonzero = Q(2:end,2:end);
-    Q_nonzero = Q_nonzero(idx_nonzero);
-    errorResults.nonzeroRates = Q_nonzero;
+    idx_nonzero = find( ~logical(eye(nStates-1)) );
+    Q_nonzero = Q_nonzero(idx_nonzero)';
+    
+    rates = [rates ; Q_nonzero];
+end
+nRates = size(rates,2);
+
+% Combine rates and errors into a single matrix
+output = zeros(nFiles,nRates*2);
+output(:,1:2:end) = rates;
+output(:,2:2:end) = 0;
+
+% Construct names for each of the rates
+rateNames = cell(0,1);
+for i=2:nStates,
+    for j=2:nStates
+        if i==j, continue; end
+        rateNames{end+1} = sprintf('k%d->%d', i,j );
+        rateNames{end+1} = ['d' rateNames{end}];
+    end
 end
 
-[p,f] = fileparts(filename);
-results.fname = strrep(f,'_auto','');
+% Save results to file with headers
+fid = fopen('rates.txt','w');
+
+header = {'Dataset',rateNames{:}};
+fprintf(fid, '%s\t', header{:});
+
+for i=1:nFiles,
+    [p,fname] = fileparts( dataFilenames{i} );
+    fprintf(fid, '\n%s',  fname );
+    fprintf(fid, '\t%.4f', output(i,:));
+end
+
+resultTree.rates = rates;
+
+close(h)
+
 
 
 
