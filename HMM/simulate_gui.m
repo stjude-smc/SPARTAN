@@ -165,8 +165,7 @@ saveTraces( fname_txt, 'txt', d,a,f,ids,time );
 % Save the underlying state trajectory
 fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
 
-tl = numel(dwt);
-offsets = (0:(nTraces-1))*tl;
+offsets = (0:(nTraces-1))*traceLen;
 % dwt = cell(nTraces,1);
 % 
 % for i=1:nTraces,
