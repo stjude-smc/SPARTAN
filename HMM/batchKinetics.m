@@ -108,9 +108,15 @@ function btnLoadData_Callback(hObject, eventdata, handles)
 %------ Prompt use for location to save file in...
 % FIXME: use a custom dialog that allows selecting many files
 %  from disparate locations...
-[f,p] = uigetfile('*.txt','Select datafile(s) to analyze','MultiSelect','on');
-if p==0, return; end  %user pressed "cancel"
-fname_txt = strcat(p,f);
+fname_txt = {};
+while 1
+    [f,p] = uigetfile('*.txt','Select datafile(s) to analyze','MultiSelect','on');
+    if f==0, break; end  %user pressed "cancel"
+    fname_txt = [fname_txt strcat(p,f)];
+end
+if isempty(fname_txt),
+    return;
+end
 
 if ~iscell(fname_txt),
     fname_txt = {fname_txt};
@@ -230,8 +236,8 @@ resultTree = runParamOptimizer(handles.model,handles.dataFilenames, ...
 % Save results
 % Users can see visually plot the results using another program. FIXME
 save('resultTree.mat','resultTree');
-qub_saveTree(resultTree,resultFilename);
-qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
+% qub_saveTree(resultTree,resultFilename);
+% qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 
 % Finish up...
 % et = etime(t0,clock);
@@ -265,6 +271,8 @@ set(handles.btnExecute,'Enable','on');
 
 function resultTree = runParamOptimizer( model,dataFilenames,sampling,options)
 
+resultTree = struct([]);
+
 nFiles = numel(dataFilenames);
 tic;
 
@@ -272,7 +280,7 @@ tic;
 % HACK: modify model to fix mu and sigma, mimicing SKM.
 % This SHOULD be handled in the model...
 nClass = model.nClass;
-model.fixSigma = ones(nClass,1);
+% model.fixSigma = ones(nClass,1);
 model.fixMu = ones(nClass,1);
 
 
@@ -319,7 +327,11 @@ for i=1:nFiles
     waitbar(0.33*i/nFiles,h);
 end
 
+resultTree(1).skmModels = skmModels;
+resultTree.skmLL = skmLL;
+
 toc
+return;
 
 
 %----- STEP 3: Refine kinetic parameter estimates using MIL
@@ -345,14 +357,12 @@ end
 
 %delete(mfname);
 
+resultTree.milResults = milResults;
+
 toc
 
 %----- STEP 4: Compile results into a qubtree
 waitbar(1,h,'Saving results...');
-
-resultTree.skmModels = skmModels;
-resultTree.skmLL = skmLL;
-resultTree.milResults = milResults;
 
 
 rates = [];
