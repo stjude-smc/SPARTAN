@@ -44,7 +44,8 @@ end
 %% Initialize algorithm
 
 % Verify model correctness...
-assert(qub_verifyModel(initialModel),'SKM: Invalid initial model');
+[goodModel,msg] = qub_verifyModel(initialModel);
+assert(goodModel,['SKM: Invalid initial model: ' msg]);
 nStates = numel(initialModel.mu);
 
 if ~isfield(initialModel,'fixMu')
