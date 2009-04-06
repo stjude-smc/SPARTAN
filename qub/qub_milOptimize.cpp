@@ -184,7 +184,7 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
 
         //Run MIL via command line
         string copyCmd = "\"" + dwtFilename + "\" .mildata.dwt";
-        string milCmd = "miltreeiface.exe .milconfig.qtr .mildata.dwt .milresult.qtr";
+        string milCmd = "/home/dsterry/cornell/data/Daniel2/cas/qub/miltreeiface.exe .milconfig.qtr .mildata.dwt .milresult.qtr";
         #ifdef WIN32
         copyCmd = "copy /Y " + copyCmd; 
         #else
