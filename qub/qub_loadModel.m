@@ -19,13 +19,20 @@ if nargin<1,
     if f==0, return; end
     modelFilename = [p f];
 end
-    
-if ~exist(modelFilename,'file')
-    error('Model file doesn''t exist');
-end
 
-% Load QuBTree object saved to disk representing a model.
-treeModel = qub_loadTree( modelFilename );
+if isstruct(modelFilename),
+    disp('qub_loadModel: Recieved struct as input, assuming it is a ModelFile tree');
+    treeModel = modelFilename;
+    %verify model here
+else
+    if ~exist(modelFilename,'file')
+        error('Model file doesn''t exist');
+    end
+
+    % Load QuBTree object saved to disk representing a model.
+    treeModel = qub_loadTree( modelFilename );
+end
+    
 
 % Load initial probabilities
 nStates = numel(treeModel.States.State);
@@ -77,16 +84,18 @@ if isfield(treeModel,'Constraints') && isfield(treeModel.Constraints,'FixRate')
         
         model.fixRates(src,dst) = 1;
         
-        if cons.HasValue.data~=0,
-            warning('qub_loadModel:HasValue', ...
-                       'Fixing rates to particular value not supported');
-        end
+%         if cons.HasValue.data~=0,
+%             warning('qub_loadModel:HasValue', ...
+%                        'Fixing rates to particular value not supported');
+%         end
     end    
 end
 
 
 model.qubTree = treeModel;
-model.filename = modelFilename;
+if exist('modelFilename','var')
+    model.filename = modelFilename;
+end
 
 
 
