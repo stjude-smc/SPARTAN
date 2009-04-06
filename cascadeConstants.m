@@ -28,9 +28,12 @@ constants.crosstalk = 0.075;
 
 % default transition density plot parameters (tdplot.m)
 constants.tdp_fret_axis = -0.1:0.030:1.0;
-constants.tdp_max = 0.0025*25;  %note framerate dependance!!
+constants.tdp_max = 0.0025*1;  %note framerate dependance!!
 
 % default population FRET contour plot paramters (cplot.m)
 constants.cplot_scale_factor = 8;
 constants.contour_length = 50; %default # frames to display in cplot
 
+
+
+constants.modelLocation = '/home/dsterry/cornell/data/Daniel/models/';
