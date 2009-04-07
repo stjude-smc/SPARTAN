@@ -44,6 +44,10 @@ if nargin>1,
     end
 end
 
+if nargin>2 && strcmp(varargin{3},'targetAxes')
+    targetAxes = varargin{4};
+end
+
 nSamples = numel(samples);
 
 if nSamples == 0,
@@ -195,9 +199,11 @@ end
 histmax = 0.05;
 
 
-
-h1 = figure();
-set(gcf,'DefaultAxesColorOrder',colors);
+if ~exist('targetAxes','var')
+    h1 = figure();
+end
+    
+% set(gcf,'DefaultAxesColorOrder',colors);
 
 N = zeros(1,nSamples); %number of molecules, each sample
 
@@ -233,7 +239,11 @@ for i=1:numel(samples),  %for each sample
     
     %---- DRAW FRET CONTOUR PLOT ----
     
-    subplot( nrows, nSamples, i );
+    if ~exist('targetAxes','var')
+        subplot( nrows, nSamples, i );
+    else
+        axes(targetAxes{i,1});
+    end
     
     % Draw the contour plot
     cplot( cplotdata, contour_bounds );
@@ -265,8 +275,15 @@ for i=1:numel(samples),  %for each sample
     
     %---- DRAW STATE OCCUPANCY HISTOGRAM ----
    
-    subplot( nrows, nSamples, nSamples+i );
+    if ~exist('targetAxes','var')
+        subplot( nrows, nSamples, nSamples+i );
+    elseif size(targetAxes,2)>1
+        axes(targetAxes{i,2});
+    else
+        continue
+    end
     cla;  hold on;
+    set(gca,'ColorOrder',colors);
     
     % If idealization data missing, plot 1D population histogram
     if ~exist(shist_fname,'file') || no_statehist
@@ -339,7 +356,14 @@ end
 
 % Scale histograms to match
 for i=1:numel(samples),
-    histx(i) = subplot( nrows, nSamples, nSamples+i );
+    if ~exist('targetAxes','var')
+        histx(i) = subplot( nrows, nSamples, nSamples+i );
+    elseif size(targetAxes,2)>1
+        histx(i) = targetAxes{i,2};
+        axes(targetAxes{i,2});
+    else
+        continue
+    end
     
     axis( [contour_bounds(3:4) 0 histmax] );
 end
@@ -391,7 +415,11 @@ for i=1:nSamples,  %for each sample
     
     
     %---- DISPLAY TD PLOT ----
-    tdx(i) = subplot( nrows, nSamples, 2*nSamples+i );  
+    if ~exist('targetAxes','var')
+        tdx(i) = subplot( nrows, nSamples, 2*nSamples+i );  
+    elseif size(targetAxes,1)>2
+        tdx(i) = axes(targetAxes{i,3});
+    end
     box on;
     tplot( tdp );
     
