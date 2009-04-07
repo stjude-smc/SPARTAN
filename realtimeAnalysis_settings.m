@@ -85,6 +85,14 @@ function realtimeAnalysis_settings_OpeningFcn(hObject, eventdata, handles, varar
 handles.output=hObject;
 
 
+% ...
+if numel(varargin) > 0
+    arg = varargin{1};
+    handles.updateCallback = arg{1};
+    handles.updateCallbackTarget = arg{2};
+end
+
+
 % Leave everything alone if the program is already running.
 % This initialization proceedure will confuse the program state.
 % if isfield(handles,'criteria'),
@@ -183,9 +191,10 @@ varargout{1}=handles.output;
 % END FUNCTION realtimeAnalysis_settings_OutputFcn
 
 
-function close_Callback(src,event)
+function close_Callback(src,event,handles)
 % Set figure as hidden (not Visible) so its properties can be
 % accessed without the window being in the way.
+disp('test');
 set(gcf,'Visible','off');
 
 
@@ -403,9 +412,8 @@ function btnOkay_Callback(hObject, eventdata, handles)
 % set(gcf,'Visible','off');
 % 
 % handles.realtimeAnalysis_Notify;
+disp('test');
+set(gcf,'Visible','off');
 
-
-
-function close_Callback(hObject, eventdata, handles)
-return;
+handles.updateCallback( handles.updateCallbackTarget );
 

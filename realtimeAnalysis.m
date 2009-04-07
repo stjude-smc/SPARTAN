@@ -40,7 +40,7 @@ function varargout = realtimeAnalysis(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 03-Mar-2009 15:52:55
+% Last Modified by GUIDE v2.5 06-Apr-2009 19:07:52
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -82,7 +82,8 @@ function realtimeAnalysis_OpeningFcn(hObject, eventdata, handles, varargin)
 
 handles.hSettings = realtimeAnalysis_settings( ...
                             {@realtimeAnalysis_Notify, hObject} );
-
+set(handles.hSettings,'Visible','off');
+                        
 % Load settings from the dialog...
 settingsHandles = guidata( handles.hSettings );
 handles.criteria = settingsHandles.criteria;
@@ -141,6 +142,9 @@ disp(handles.criteria);
 % Update handles structure
 guidata(hObject,handles);
 
+btnGo_Callback(hObject, [], handles);
+
+
 
 
 %#########################################################################
@@ -197,6 +201,8 @@ function btnGo_Callback(hObject, eventdata, handles)
 %     gettraces_backend( datapath );
 % end
 
+set( handles.txtStatus, 'String', 'Loading traces...' );
+
 
 settingsHandles = guidata(handles.hSettings);
 
@@ -207,28 +213,28 @@ handles.criteria = settingsHandles.criteria;
 datapath = get(handles.txtDirectory,'String');
 
 
-% Get a list of all traces files under the current directory
-trace_files  = rdir([datapath filesep '**' filesep '*.traces']);
-
-% Pool these files into
-data_dirs = {};
-
-for i=1:numel(trace_files),
-    % Extract path of the file
-    f = fileparts(trace_files(i).name);
-    
-    % If not already in the list, insert it
-    nMatches = sum( cellfun( @(arg)strcmp(f,arg), data_dirs ) );
-    if nMatches==0,
-        data_dirs{end+1} = f;
-    end
-end
-
-
-% For each file in the user-selected directory
-for i=1:numel(data_dirs)
-    
-    datapath = data_dirs{i};
+% % Get a list of all traces files under the current directory
+% trace_files  = rdir([datapath filesep '**' filesep '*.traces']);
+% 
+% % Pool these files into
+% data_dirs = {};
+% 
+% for i=1:numel(trace_files),
+%     % Extract path of the file
+%     f = fileparts(trace_files(i).name);
+%     
+%     % If not already in the list, insert it
+%     nMatches = sum( cellfun( @(arg)strcmp(f,arg), data_dirs ) );
+%     if nMatches==0,
+%         data_dirs{end+1} = f;
+%     end
+% end
+% 
+% 
+% % For each file in the user-selected directory
+% for i=1:numel(data_dirs)
+%     
+%     datapath = data_dirs{i};
     
     % Create list of .traces files in the directory.
     traces_files = dir( [datapath filesep '*.traces'] );
@@ -251,8 +257,10 @@ for i=1:numel(data_dirs)
 
 
     OpenTracesBatch( hObject, handles )
-end
+% end
 
+
+set( handles.txtStatus, 'String','IDLE.' );
 
 % END FUNCTION btnGo_Callback
 
@@ -267,12 +275,15 @@ handles.nTracesPerFile = zeros(handles.nFiles,1);
 
 % Open each file of traces and build the raw data array. Works the same as
 % above, but loops through each file in the directory.
-% wb=waitbar(0,'Loading traces...');
 for k=1:handles.nFiles  % for each file...    
+    
+    set( handles.txtStatus, 'String', ...
+            sprintf('Loading traces (%d of %d)',k,handles.nFiles) );
+    drawnow;
     
     % Load the traces file.
     % If raw data, corrections for background and crosstalk are made
-    [donor,acceptor,fret,ids] = loadTraces( ...
+    [donor,acceptor,fret,ids,time] = loadTraces( ...
                 handles.inputfiles{k}, handles.constants);
             
     if size(donor,1)==0, continue; end  %skip empty files
@@ -297,13 +308,14 @@ for k=1:handles.nFiles  % for each file...
     handles.nTracesPerFile(k) = Ntraces;
     handles.ids = [handles.ids ids];
     
-%     waitbar(k/handles.nFiles,wb);
-    
 end 
-% close(wb);
+drawnow;
 
 handles.len = len;
 handles.Ntraces = sum(handles.nTracesPerFile);
+if time(1)~=1,
+    dt = time(2)-time(1);
+end
 
 
 % Save the trace properties values to application data
@@ -330,6 +342,52 @@ guidata(hObject,handles);
 % Save picked data to handles.outfile
 SaveTraces( handles.outfile, handles );
 
+% Generate ensemble plots
+targetAxes = { handles.axFretContour, handles.axFretHistogram };
+set( handles.txtStatus, 'String','Making data plots...' ); drawnow;
+makeplots( {handles.outfile}, {'auto'}, 'targetAxes',targetAxes );
+
+% Show population statistics in GUI
+set( handles.txtAcceptance,'String', ...
+     sprintf('%.0f%% (%d of %d)',100*handles.picked_mols/handles.Ntraces, ...
+                handles.picked_mols,handles.Ntraces) );
+
+avgI = mean( [values.t] );
+set( handles.txtIntensity,'String', ...
+     sprintf('%.0f',avgI) );
+ 
+avgSNR = mean( [values.snr] );
+set( handles.txtSNR,'String', ...
+     sprintf('%.1f',avgSNR) );
+ 
+[donorDist,donorAxes] = hist( [values.lifetime], 40 );
+donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
+donorAxes = [0 donorAxes];
+
+f = fit( donorAxes',donorDist','exp1' );
+
+if exist('dt','var')
+    set( handles.txtLTDonor,'String', ...
+         sprintf('%.1f sec',-1/f.b/dt) );
+else
+    set( handles.txtLTDonor,'String', ...
+         sprintf('%.1f frames',-1/f.b) );
+end
+ 
+[accDist,accAxes] = hist( [values.acclife], 40 );
+accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
+accAxes = [0 accAxes];
+
+f = fit( accAxes',accDist','exp1' );
+
+if exist('dt','var')
+    set( handles.txtLTAcceptor,'String', ...
+         sprintf('%.1f sec',-1/f.b/dt) );
+else
+    set( handles.txtLTAcceptor,'String', ...
+         sprintf('%.1f frames',-1/f.b) );
+end
+
 guidata(hObject,handles);
 
 
@@ -352,11 +410,13 @@ disp( ['Saving to ' qub_fname] );
 fprintf(fid,'%d ', 1:handles.len);
 fprintf(fid,'\n');
 
-% wb=waitbar(0,'Saving traces...');
-
 pick_offset = [0; cumsum(handles.nTracesPerFile)];
 
 for index = 1:handles.nFiles  %for each file in batch...
+    
+    set( handles.txtStatus, 'String', ...
+        sprintf('Saving traces (%.0f%%)',100*index/handles.nFiles) );
+    drawnow;
     
     %---- Load trace data from file, make corrections
     % inds_picked is indexes as if all the traces data were in one huge array.
@@ -403,12 +463,11 @@ for index = 1:handles.nFiles  %for each file in batch...
     end % for each molecule
     
     
-%     waitbar(index/handles.nFiles,wb);
     
 end % for each file
 fclose(fid);
 fclose(qubfid);
-% close(wb);
+drawnow;
 
 
 % Generate log file containing informtion about how the traces were picked.
@@ -710,9 +769,80 @@ guidata(hObject,handles);
 function btnSettings_Callback(hObject, eventdata, handles)
 % If the realtime analysis window has not been launched, do so now.
 % If it has been launched, simply make it visible.
-if isfield('handles','hSettings'),
+if isfield(handles,'hSettings'),
     set( handles.hSettings, 'Visible','on' );
 else
-    handles.hSettings = realtimeAnalysis;
+    handles.hSettings = realtimeAnalysis_settings( ...
+                            {@realtimeAnalysis_Notify, hObject} );
+    disp('loading settings gui');
 end
+guidata(hObject,handles);
+
+
+% --- Executes on button press in chkAutoUpdate.
+function chkAutoUpdate_Callback(hObject, eventdata, handles)
+% hObject    handle to chkAutoUpdate (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of chkAutoUpdate
+
+handles.autoUpdate = get(hObject,'Value');
+
+% If turned on, create a timer object to check the current directory
+if handles.autoUpdate    
+    disp('starting');
+    handles.fileTimer = timer('ExecutionMode','fixedDelay','StartDelay',1,'TimerFcn',{@checkForFiles,handles.figure1},'Period',5.0);
+    start(handles.fileTimer);
+
+% If turned off, disable the current timer
+else
+    
+    if isfield(handles,'fileTimer')
+        disp('deleting');
+        stop(handles.fileTimer);
+        delete(handles.fileTimer);
+    end
+
+end
+
+guidata(hObject,handles);
+
+
+
+function checkForFiles(timerObject,event,figObj)
+
+handles = guidata(figObj);
+
+disp('checking....');
+
+% If there is no current file list, exit
+if ~isfield(handles,'inputfiles')
+    return;
+end
+
+% Check current list against one from previous polling
+datapath = handles.inputdir;
+traces_files = dir( [datapath filesep '*.traces'] );
+if numel(traces_files) == 0, return; end
+inputfiles = strcat( [datapath filesep], {traces_files.name} );
+
+% If new files exist, re-run analysis routine.
+if numel(inputfiles)~=handles.nFiles || ...
+   ~all( strcmp(handles.inputfiles,inputfiles) ),
+%     handles.nFiles = numel(traces_files);
+%     handles.inputfiles = inputfiles;
+    disp('new file');
+    btnGo_Callback( handles.btnGo,[],handles );
+end
+
+
+
+
+
+
+
+
+
+
 
