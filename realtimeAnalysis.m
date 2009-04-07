@@ -203,7 +203,7 @@ function btnGo_Callback(hObject, eventdata, handles)
 
 set( handles.txtStatus, 'String', 'Loading traces...' );
 
-
+disp( get(0,'CurrentFigure') )
 settingsHandles = guidata(handles.hSettings);
 
 % Update selection criteria
@@ -792,7 +792,8 @@ handles.autoUpdate = get(hObject,'Value');
 % If turned on, create a timer object to check the current directory
 if handles.autoUpdate    
     disp('starting');
-    handles.fileTimer = timer('ExecutionMode','fixedDelay','StartDelay',1,'TimerFcn',{@checkForFiles,handles.figure1},'Period',5.0);
+    handles.fileTimer = timer('ExecutionMode','fixedDelay','StartDelay',1,...
+                              'TimerFcn',{@checkForFiles,handles.figure1},'Period',5.0);
     start(handles.fileTimer);
 
 % If turned off, disable the current timer
@@ -814,8 +815,6 @@ function checkForFiles(timerObject,event,figObj)
 
 handles = guidata(figObj);
 
-disp('checking....');
-
 % If there is no current file list, exit
 if ~isfield(handles,'inputfiles')
     return;
@@ -833,7 +832,10 @@ if numel(inputfiles)~=handles.nFiles || ...
 %     handles.nFiles = numel(traces_files);
 %     handles.inputfiles = inputfiles;
     disp('new file');
-    btnGo_Callback( handles.btnGo,[],handles );
+    figure(figObj);
+    disp( get(0,'CurrentFigure') );
+    realtimeAnalysis('btnGo_Callback',figObj,[],guidata(figObj))
+%     btnGo_Callback( handles.btnGo,[],handles );
 end
 
 

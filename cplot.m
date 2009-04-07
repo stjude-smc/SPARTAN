@@ -1,4 +1,5 @@
-function cplot(hist2d, bounds, constants)
+% function cplot(hist2d, bounds, constants)
+function cplot( varargin )
 % CPLOT  Draws FRET 2D contour plot
 %
 %   CPLOT( HIST, BOUNDS, CONST )
@@ -8,8 +9,13 @@ function cplot(hist2d, bounds, constants)
 %   If no histogram specified, the user will be propted for a cplot file.
 %   Used by: autotrace, makeplots.
 
+[cax,args] = axescheck(varargin{:});
+cax = newplot(cax);
+
 % Parse input arguments
-if nargin<1
+if numel(args)>=1,
+    hist2d = args{1};
+else
     [histfile histpath]=uigetfile('*.txt','Choose a contour plot:');
     infile=strcat(histpath,histfile);
     hist2d=load(infile);
@@ -17,14 +23,18 @@ if nargin<1
     figure();
 end
 
-if nargin<3
+if numel(args)>=2
+    bounds = args{2};
+else
+    bounds = [1 constants.contour_length -0.1 1.0];
+end
+
+if numel(args)>=3,
+    constants = args{3};
+else
     constants = cascadeConstants();
 end
 scale = constants.cplot_scale_factor;
-
-if nargin<2
-    bounds = [1 constants.contour_length -0.1 1.0];
-end
 
 
 
@@ -47,20 +57,20 @@ hist2d(end,bounds(2)) = max_mol*2;
 
 
 % Draw the filled contour plot in current axis
-[C,hand] = contourf( ...
+[C,hand] = contourf( cax, ...
         bounds(1):bounds(2), fret_axis, ...
         hist2d( 2:end, (bounds(1):bounds(2))+1 ), con );
 
-colormap(cmap);
+colormap(cax,cmap);
 set(hand, 'LineColor', 'none');
 
 % set(gca, 'PlotBoxAspectRatio', [1.5 2 1]);
 % set(gca,'xtick',bounds(1):10:bounds(2))
-set(gca,'ytick', 0:0.2:bounds(4))
-axis( bounds );
+set(cax,'ytick', 0:0.2:bounds(4))
+axis( cax, bounds );
 
-xlabel('Time (frames)');
-ylabel('FRET');
+xlabel(cax,'Time (frames)');
+ylabel(cax,'FRET');
 
 zoom on;
 

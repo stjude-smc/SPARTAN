@@ -46,6 +46,9 @@ end
 
 if nargin>2 && strcmp(varargin{3},'targetAxes')
     targetAxes = varargin{4};
+    
+    plot(targetAxes{1}, 1:10,1:10);
+    plot(targetAxes{2}, 11:20,11:20);
 end
 
 nSamples = numel(samples);
@@ -240,50 +243,54 @@ for i=1:numel(samples),  %for each sample
     %---- DRAW FRET CONTOUR PLOT ----
     
     if ~exist('targetAxes','var')
-        subplot( nrows, nSamples, i );
+        ax = subplot( nrows, nSamples, i );
     else
-        axes(targetAxes{i,1});
+        ax = targetAxes{i,1};
+        axes(ax);
     end
     
     % Draw the contour plot
-    cplot( cplotdata, contour_bounds );
+    cplot( ax, cplotdata, contour_bounds );
     
     % Formatting
-    title( titles{i}, 'FontSize',16, 'FontWeight','bold' );
+    title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
     
     if ~hideText,
+        axes(ax);
         text( 0.93*pophist_sumlen, 0.9*contour_bounds(4), ...
               sprintf('N=%d', N(i)), ...
               'FontWeight','bold', 'FontSize',14, ...
-              'HorizontalAlignment','right' );
+              'HorizontalAlignment','right', 'Parent',ax );
     end
     
     if i==1,
-         ylabel('FRET');
-         xlabel('Time (frames)');
+         ylabel(ax,'FRET');
+         xlabel(ax,'Time (frames)');
 %          set(gca,'ytick',0:0.2:1.0);
     else %i>1
-        set(gca,'YTickLabel',[])
-        ylabel('');
-        xlabel('');
+        set(ax,'YTickLabel',[])
+        ylabel(ax,'');
+        xlabel(ax,'');
     end
-    ylim( fretRange );
-    set(gca,'YGrid','on');
-    box on;
+    ylim( ax, fretRange );
+    set(ax,'YGrid','on');
+    box(ax,'on');
     
       
     
     %---- DRAW STATE OCCUPANCY HISTOGRAM ----
    
     if ~exist('targetAxes','var')
-        subplot( nrows, nSamples, nSamples+i );
+        ax = subplot( nrows, nSamples, nSamples+i );
     elseif size(targetAxes,2)>1
-        axes(targetAxes{i,2});
+        ax = targetAxes{i,2};
+        axes(ax);
     else
         continue
     end
-    cla;  hold on;
-    set(gca,'ColorOrder',colors);
+    histx(i) = ax;
+    cla(ax);  hold on;
+    set(ax,'ColorOrder',colors);
     
     % If idealization data missing, plot 1D population histogram
     if ~exist(shist_fname,'file') || no_statehist
@@ -293,7 +300,7 @@ for i=1:numel(samples),  %for each sample
         
         max_bar = max(max( pophist(fretaxis>0.05) ));
         
-        bar( fretaxis, pophist );
+        bar( ax, fretaxis, pophist );
 
 
     % Otherwise, plot state occupancy histogram
@@ -319,12 +326,12 @@ for i=1:numel(samples),  %for each sample
 
         % Draw translucent, filled area underneath curves
         for j=1:nStates
-            area( bins, histdata(:,j), 'LineStyle', 'none', 'FaceColor', colors(j,:) );
-            alpha(0.2);
+            ha = area( ax, bins, histdata(:,j), 'LineStyle', 'none', 'FaceColor', colors(j,:) );
+            alpha(ha,0.2);
         end
         
         % Draw occupancy histograms as solid lines
-        plot( bins, histdata, 'LineWidth', 1.5 );
+        plot( ax, bins, histdata, 'LineWidth', 1.5 );
         
         % Calculate percent time spent in each non-zero FRET state
 %         occupancy = sum( histdata(:,2:end) ); %ignore zero-FRET state
@@ -342,32 +349,20 @@ for i=1:numel(samples),  %for each sample
     % Formatting
     hold off;
     if i==1,
-        ylabel( 'Occupancy (%)' );
-        xlabel( 'FRET' );
+        ylabel( ax,'Occupancy (%)' );
+        xlabel( ax,'FRET' );
     else
-       set(gca,'yticklabel',[]);
+       set(ax,'yticklabel',[]);
     end
-    set(gca,'YGrid','on');
-    ylim( fretRange );
-    box on;
+    set(ax,'YGrid','on');
+    ylim( ax,fretRange );
+    box(ax,'on');
     
 end
 
 
 % Scale histograms to match
-for i=1:numel(samples),
-    if ~exist('targetAxes','var')
-        histx(i) = subplot( nrows, nSamples, nSamples+i );
-    elseif size(targetAxes,2)>1
-        histx(i) = targetAxes{i,2};
-        axes(targetAxes{i,2});
-    else
-        continue
-    end
-    
-    axis( [contour_bounds(3:4) 0 histmax] );
-end
-
+axis( histx, [contour_bounds(3:4) 0 histmax] );
 linkaxes( histx, 'xy' );
 
 drawnow;
