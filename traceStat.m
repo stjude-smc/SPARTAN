@@ -154,7 +154,7 @@ for i=1:Ntraces
 
     % Calculate number of Cy3 PB threshold crossings per frame    
     if lt<8
-        donorRange = logical( zeros(1,lt) );
+        donorRange = false(1,lt);
     else
         % Calculate blinking total fluor cutoff value        
         % Find start points where Cy3 blinks

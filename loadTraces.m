@@ -2,16 +2,26 @@ function [donor,acceptor,fret,ids,time] = loadTraces( ...
                                         filename, constants, indexes )
 % LOADTRACES  Loads fluorescence trace files
 %
-%   [D,A,F,IDs] = LOADTRACES( FILENAME )
+%   [D,A,F,IDs,TIME] = LOADTRACES( FILENAME, CONST, INDEXES )
 %   Loads fluorescence donor (D) and acceptor (A) traces;
-%   identifiers (ID); and FRET values from the file FILENAME.
+%   identifiers (ID); and FRET values (F) from the file FILENAME.
 %   If the file is .traces (from gettraces), a crosstalk correction is made
 %   and FRET is left empty, since there is no such field in these files.
+%
+%   CONST specifies structure of constants (see cascadeConstants), used
+%   only for loading binary files.
+%
+%   INDEXES specifies the indexes of traces to load. Useful if only a small
+%   number of traces are needed from a large file.
 %   
-%   [D,A,F,IDs] = LOADTRACES( FILENAME, CONST )
+%   [D,A,F,IDs,TIME] = LOADTRACES( FILENAME )
 %   BINARY FILES ONLY:  Corrections for signal crosstalk and background
 %   are made and FRET is calculated.
 %
+
+% TODO: rearrange output parameters to be: TIME,F,D,A,IDS since we
+% often only use the FRET data.
+% TODO: make constants the last parameter, since it is rarely used.
 
 if nargin<1,
     [f,p] = uigetfile('*.txt','Select a traces file');
@@ -102,6 +112,7 @@ if exist('indexes','var') && ~isempty(indexes),
     donor = donor(indexes,:);
     acceptor = acceptor(indexes,:);
     fret = fret(indexes,:);
+    ids = ids{indexes};
 end
 
 
@@ -148,7 +159,7 @@ clear Data;
 acceptor = acceptor - constants.crosstalk*donor;
 
 % Subtract background and calculate FRET
-[donor,acceptor,t,fret] = correctTraces(donor,acceptor,constants,indexes);
+[donor,acceptor,fret] = correctTraces(donor,acceptor,constants,indexes);
 
 
 end %function LoadTracesBinary
@@ -195,7 +206,7 @@ clear Data;
 acceptor = acceptor - constants.crosstalk*donor;
 
 % Subtract background and calculate FRET
-[donor,acceptor,t,fret] = correctTraces(donor,acceptor,constants,indexes);
+[donor,acceptor,fret] = correctTraces(donor,acceptor,constants,indexes);
 
 
 end %function LoadTracesBinary

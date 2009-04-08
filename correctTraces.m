@@ -1,12 +1,16 @@
-function [donor,acceptor,total,fret] = correctTraces( ...
+function [donor,acceptor,fret] = correctTraces( ...
                 donor,acceptor, constants, indexes )
 % CORRECTTRACES  Makes simple adjustments to traces
 %
-%   [D,A,T,F] = CORRECTTRACES( DONOR, ACCEPTOR, CONST )
+%   [D,A,F] = CORRECTTRACES( DONOR, ACCEPTOR, CONST, INDEXES )
 %   Subtracts background fluorscence from both channels, using 100
 %   frames after donor photobleaching.  Also calculates FRET
 %   efficiency, with E=0 where donor is blinking or photobleached.
+%
+%   INDEXES specifies the indexes of traces to load. Useful if only a small
+%   number of traces are needed from a large file.
 %   
+
 % TODO: gamma correction (whole pipeline), background drift correction?
 
 if nargin<3,

@@ -1,7 +1,7 @@
 function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 % SKM  Crude model re-estimation using iterative idealization
 % 
-%   [DWT,NEW_MODEL] = SKM( DATA, SAMPLING, MODEL, params )
+%   [DWT,NEW_MODEL,LL,OFFSETS] = SKM( DATA, SAMPLING, MODEL, params )
 %   Optimizes the given FRET/kinetic MODEL soas to maximize the 
 %   likelihood data given the model. DATA is a NxM matrix of
 %   N FRET traces of M datapoints in length each. MODEL is a typical
@@ -19,16 +19,7 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 %    - 
 %   
 
-% DEPENDS: idealize, forward_viterbi, countEvents??
-
-% NOTE: aggregated states not yet supported!!!!
-
-% NOTE for now we use the standard proceedure:
-% 1. optimize for whole file and idealize
-% 2. truncate each trace to last instance of non-zero FRET
-% 3. optimize a model for each trace individually,
-%    fixing mean FRET and stdev values.
-% 4. idealize each trace with its optimal model...
+% DEPENDS: idealize, forward_viterbi
 
 
 if nargin<3,

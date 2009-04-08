@@ -27,9 +27,6 @@
 %      'kBleach'     ->  rate of acceptor photobleaching (0)
 
 %  TODO:
-%   - Simulate dwells in continous time and average to produce the
-%     noiseless FRET trajectory.
-%   - Implement simulate of fluorescence (shot) noise.
 %   - Simulate anisotropy noise
 %   - Simulate effect of background photobleaching (either channel)
 %   - Simulate effect of gamma~=1

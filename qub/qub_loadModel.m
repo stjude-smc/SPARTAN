@@ -9,11 +9,6 @@ function model = qub_loadModel(modelFilename)
 %  http://www.qub.buffalo.edu
 
 
-% MEX CODE
-% if exist('qub_loadModel_MEX')~=3
-%     error('Can''t find QuB compatibility layer files');
-% end
-
 if nargin<1,
     [f,p] = uigetfile('*.qmf','Select a model file...');
     if f==0, return; end

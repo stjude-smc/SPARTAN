@@ -3,7 +3,7 @@ function model = qub_createModel(nStates)
 %     
 %   [MODEL] = qub_createModel( NSTATES )
 %   Creates a model object which can be used for optimization in either
-%   Baum-Welch methods or QuB Methods (MIL).
+%   Baum-Welch methods or QuB Methods (SKM,MIL).
 %   See also qub_saveModel, qub_loadModel, qub_milOptimize, qub_skmIdealize
 %
 %   Member |  size | Description
@@ -19,7 +19,7 @@ function model = qub_createModel(nStates)
 %   .fixRates  NxN   Set to 1 to fix each rate (NOT IMPLEMENTED!!!)
 %   --------------------------------------------------------------------------
 %   NOTE: pt is optional.
-%   NOTE: fixRates does NOT work with the Baum-Welch algorithm!
+%   NOTE: fixRates does NOT work with the Baum-Welch or SKM algorithms!
 %
 %  http://www.qub.buffalo.edu
 

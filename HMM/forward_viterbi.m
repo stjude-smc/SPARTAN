@@ -1,7 +1,7 @@
 function [vPath,vLL,tLL] = forward_viterbi(start_p, trans_p, emit_p)
 % FORWARD_VITERBI   Decodes sequence of states from observations (HMM)
 %
-%   [LLt,PATH,LLv] = FORWARD_VITERBI(P0, A, B)
+%   [PATH,LL] = FORWARD_VITERBI(P0, A, B)
 %   Finds the sequence of states (Viterbi PATH) with that is most
 %   consistent with both the given observations and markov model
 %   (high probability, LLv).  P0 are initial probabilities for each state,
