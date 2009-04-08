@@ -1,188 +1,118 @@
-function varargout = gettraces(varargin)
-% GETTRACES M-file for gettraces.fig
-%      
-%      Converts Metamorph .stk files into single-molecule fluorescence and
-%      FRET traces. The picking algorithm was taken from gui3.m, written by
-%      Harold Kim. I fixed problems with the batch mode, and reconfigured
-%      the startup to open .stks instead of .pmas. I also reconfigured the
-%      output, so that now the result is a new .traces file with a unique 
-%      id for each molecule donor fluorescence, acceptor fluorescence, and
-%      fret for each molecule.
+function [stkData,peaks,image_t] = gettraces(varargin)
+% GETTRACES  Extract smFluorescence traces from movies
 %
-%      To run in batch mode, first load a single .stk file and adjust the
-%      threshold and overlap rejection. Then select batch mode and choose a
-%      directory. All the .stk files in that directory will be converted to
-%      separate .traces files using the established threshold and overlap
-%      rejection. Batch mode is not recursive.
+%    GETTRACES()
+%    Launches the gettraces graphical user interface.
 %
-%               -JBM 12/06
+%    [STK,PEAKS,IMG] = GETTRACES( FILENAME, PARAMS )
+%    Loads a movie from FILENAME, finds fluorescence peaks, and returns
+%    their locations (PEAKS) as a Nx2 matrix (x,y).  IMG is the image used
+%    for selecting intensity peaks.  PARAMS (optional) specifies the
+%    intensity threshold (don_thresh) and minimal peak seperation
+%    (overlap_thresh).
 %
-% Changes:
-% 
-% 0. Much faster run time, less memory usage (AppData), comments
-% 1. Overlap distances now calculated for centroid of fluor peak.
-% 2. Full bg correction used for peak picking
-% 3. Peak search uses plus-shaped window instead of 3x3
-% 
-%           -DT 10/22
+%    [STK,PEAKS,IMG] = gettraces( FILENAME, PARAMS, OUTFILE )
+%    As above, but also extracts traces from the PEAKS locations and saves
+%    the resulting traces to OUTFILE.
+%
+%    STK can also be passed instead of FILENAME if the movie has already
+%    been loaded by gettraces. This saves on load time.
+%
+%    GETTRACES( DIRECTORY, PARAMS )
+%    For each filename in DIRECTORY, the movie is loaded, processed, and
+%    a .traces file is saved automatically. No data is returned.
+%    This is "batch mode".  Additional (optional) fields in PARAMS include
+%    option to check all child folders (recursive) and option to skip
+%    movies that have already been processed (skipExisting).
+%
 
-% Copyright 2002-2003 The MathWorks, Inc.
+% TODO: also return unfiltered peak list (overlap=0) so overlap statistics
+% can be displayed in scripts that call this function.
 
-% Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 20-Aug-2008 15:45:44
+%% Parse input arguments
 
-% Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
-gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @gettraces_OpeningFcn, ...
-                   'gui_OutputFcn',  @gettraces_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
-if nargin && ischar(varargin{1})
-    gui_State.gui_Callback = str2func(varargin{1});
+% If calling directly from command line,
+% launch the GUI.
+if nargin==0,
+    gettraces_gui;
+    return;
 end
 
-if nargout
-    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+
+
+    
+%------ If a structure is specified, load as STK data
+if nargin>=1 && isstruct(varargin{1}),
+    stkData = varargin{1};
+
+%------ Otherwise, load an individual file
+elseif nargin>=1 && ischar(varargin{1}) && ~isdir(varargin{1}),
+    stkData = OpenStk2( varargin{1} );
+
+%------ If a directory name is given, run in batch mode
+elseif nargin>=1 && ischar(varargin{1}) && isdir(varargin{1})
+    if nargin>=2,
+        params = varargin{2};
+        batchmode( varargin{1}, params );
+    else
+        batchmode( varargin{1} );
+    end
+    
+    return;
+
 else
-    gui_mainfcn(gui_State, varargin{:});
+    error('gettraces: Invalid param 1');
 end
-% End initialization code - DO NOT EDIT
-
-
-% --------------------- GUI INITIALIZATION --------------------- %
-% --- Executes just before gettraces is made visible.
-function gettraces_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to gettraces (see VARARGIN)
-
-% Choose default command line output for gettraces
-handles.output = hObject;
-
-% Initialize global variables
-% handles.CODE_PATH='/home/dsterry/Documents/cornell/blanchard/code/';
-handles.CODE_PATH = '';
-
-% Update handles structure
-guidata(hObject, handles);
-
-set(handles.saveTraces,'Enable','off');
-set(handles.getTraces,'Enable','off');
-% set(handles.getTracesCy5,'Enable','off');
-% set(handles.batchmode,'Enable','off');
-
-
-% --- Outputs from this function are returned to the command line.
-function varargout = gettraces_OutputFcn(hObject, eventdata, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get default command line output from handles structure
-varargout{1} = handles.output;
 
 
 
 
-% --------------------- OPEN STK MOVIE (CALLBACK) --------------------- %
+%------ Find peaks of intensity corrosponding to isolated single molecules
+params.don_thresh = 0;
+params.overlap_thresh = 2.1;
 
-% --- Executes on button press in openstk.
-function openstk_Callback(hObject, eventdata, handles)
-% hObject    handle to openstk (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+if nargin>=2,
+    params = varargin{2};
+end
+    
+% Generate image that will be used to select peaks
+image_t = stkData.stk_top - stkData.background;
+[nrow ncol] = size(image_t);
 
-% Load stk file
-[datafile,datapath]=uigetfile( ...
-    '*.stk;*.stk.bz2','Choose a stk file');
-if datafile==0, return; end
+if ~isfield(params,'don_thresh') || params.don_thresh==0
+   % would be better to use std over time than space?
+   don_thresh = 10*std2( stkData.background(1+3:nrow-3,1+3:ncol/2-3) );
+else
+   don_thresh = params.don_thresh-mean2(stkData.background);
+end
 
-handles.stkfile = strcat(datapath,datafile);
+overlap_thresh = 2.1;
+if isfield(params,'overlap_thresh')
+    overlap_thresh = params.overlap_thresh;
+end
 
-% Load the movie
-handles = OpenStk( handles.stkfile, handles, hObject );
-
-
-set(handles.getTraces,'Enable','on');
-% set(handles.getTracesCy5,'Enable','on');
-% set(handles.batchmode,'Enable','on');
-
-guidata(hObject,handles);
-
-
-
-% --------------------- OPEN STK MOVIE --------------------- %
-function handles = OpenStk(filename, handles, hObject)
-
-
-set(handles.txtFilename,'String',filename);
-
-% Clear the original stack to save memory
-setappdata(handles.figure1,'stk',[]);
-
-% Load colormap for image viewer
-fid=fopen('colortable.txt','r');
-colortable=fscanf(fid,'%d',[3 256]);
-colortable=colortable'/255;
-fclose(fid);
-
-% Load movie data
-[stk,handles.stk_top,handles.background,handles.time] = OpenStk2(filename);
-
- % Since the image stack is very large, it is stored in ApplicationData
- % instead of GUIData for memory efficiency
-setappdata(handles.figure1,'stk', stk); 
-clear stk;
-
-
-% Setup slider bar (adjusting maximum value in image, initially 2x max)
-low = min(min(handles.stk_top));
-high = max(max(handles.stk_top));
-high = ceil(high*2);
-
-set(handles.scaleSlider,'min',low);
-set(handles.scaleSlider,'max',high);
-set(handles.scaleSlider,'value', (low+high)/2);
-
-%
-image_t    = handles.stk_top-handles.background+mean2(handles.background);
-[nrow,ncol] = size(image_t);
-
-donor_t    = image_t(:,1:ncol/2);
-acceptor_t = image_t(:,(ncol/2)+1:end);
-total_t    = donor_t+acceptor_t;
-
-% Show donor image
-axes(handles.axDonor);
-imshow( donor_t, [low (high+low)/2] );
-colormap(colortable);  zoom on;
-
-% Show acceptor image
-axes(handles.axAcceptor);
-imshow( acceptor_t, [low (high+low)/2] );
-colormap(colortable);  zoom on;
-
-% Show total intensity image
-axes(handles.axTotal);
-imshow( total_t, [low*2 (high+low)] );
-colormap(colortable);  zoom on;
-
-linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
-
-
-% Finish up
-guidata(hObject,handles);
+% Find peak locations from total intensity
+[peaksX,peaksY] = getPeaks( image_t, don_thresh, overlap_thresh );
+peaks = [peaksX peaksY];
 
 
 
+%------ Extract traces using peak locations
+if nargin>=3 && ischar(varargin{3}),
+    outputFilename = varargin{3};
+    integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
+        outputFilename, stkData.time );
+end
+    
+return;
 
-function [stk,stk_top,background,time] = OpenStk2(filename)
+
+%% --------------------- OPEN STK MOVIE (CALLBACK) --------------------- %
+
+
+
+function [stkData] = OpenStk2(filename)
 
 % If the movie is compressed, deflate it to a temporary location first
 if strfind(filename,'.stk.bz2'),
@@ -251,6 +181,14 @@ background=imresize(temp,[stkX stkY],'bilinear');
 % handles.background = mean( stk(:,:,end-4:end), 3 );
 
 
+stkData.stk = stk;
+stkData.stk_top = stk_top;
+stkData.background = background;
+stkData.time = time;
+
+[stkData.stkX,stkData.stkX,stkData.stkX] = size(stk);
+stkData.nFrames = size(stk,3);
+
 % END FUNCTION OpenStk
 
 
@@ -258,87 +196,92 @@ background=imresize(temp,[stkX stkY],'bilinear');
 
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
 
-% --- Executes on button press in batchmode.
-function batchmode_Callback(hObject, eventdata, handles)
-% hObject    handle to batchmode (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+function batchmode(direct,params)
 
-skipExisting = get(handles.chkOverwrite,'Value');
-don_thresh = str2double(get(handles.donthresh,'String'));
-overlap_thresh = str2double(get(handles.overlap,'String'));
+if nargin<2,
+    params = struct([]);
+end
 
-%iptsetpref('imshowInitialMagnification','fit');
-
-direct=uigetdir('','Choose directory:');
-if direct==0, return; end
+if ~isfield(params,'skipExisting'),
+    params(1).skipExisting = 0;
+end
+if ~isfield(params,'recursive')
+    params.recursive = 0;
+end
+if ~isfield(params,'don_thresh'),
+    params.don_thresh = 0;
+end
+if ~isfield(params,'overlap_thresh'),
+    params.overlap_thresh = 2.1;
+end
 
 % Create header for log file
 log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
-fprintf(log_fid, 'Donor Thresh = %.1f\n',don_thresh);
-fprintf(log_fid, 'Overlap = %.1f\n',overlap_thresh);
+fprintf(log_fid, 'Donor Thresh = %.1f\n',params.don_thresh);
+fprintf(log_fid, 'Overlap = %.1f\n',params.overlap_thresh);
 % fprintf(log_fid, 'Acceptor Thresh = %.1f\n',acc_thresh);
 
 fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
 
 disp(direct);
 
-% Create progress bar at bottom of window
-set(handles.txtProgress,'String','Creating traces, please wait...');
-
 % Get list of files in current directory (option: and all subdirectories)
-recursive = get(handles.chkRecursive,'Value');
-
-if recursive
+if params.recursive
     stk_files  = rdir([direct filesep '**' filesep '*.stk*']);
 else
     stk_files  = rdir([direct filesep '*.stk*']);
 end
 
 h = waitbar(0,'Extracting traces from movies...');
-tic;
+
 % For each file in the user-selected directory
 i = 1;
 nFiles = length(stk_files);
 for file = stk_files'
-    handles.stkfile = file.name;
     
     % Skip if previously processed (.traces file exists)
     stk_fname = strrep(file.name,'.bz2','');
     [p,name]=fileparts(stk_fname);
     traceFname = [p filesep name '.traces'];
     
-    if skipExisting && exist(traceFname,'file'),
+    if params.skipExisting && exist(traceFname,'file'),
         disp( ['Skipping (already processed): ' stk_fname] );
         continue;
     end
     
     % Load STK file
-    handles = OpenStk(handles.stkfile,handles, hObject);
+    stkData = OpenStk2( file.name );
     
     % Pick molecules using default parameter values
-    handles = getTraces_Callback(hObject, [], handles);
+    image_t = stkData.stk_top - stkData.background;
+    [nrow ncol] = size(image_t);
+
+    if ~isfield(params,'don_thresh') || params.don_thresh==0
+       % would be better to use std over time than space?
+       don_thresh = 10*std2( stkData.background(1+3:nrow-3,1+3:ncol/2-3) );
+    else
+       don_thresh = params.don_thresh-mean2(stkData.background);
+    end
+
+    % Find peak locations from total intensity
+    [peaksX,peaksY] = getPeaks( image_t, don_thresh, params.overlap_thresh );
+    peaks = [peaksX peaksY];
     
     % Save the traces to file
-    saveTraces_Callback(hObject, [], handles);
+    integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
+        traceFname, stkData.time );
     
     % Save entry in log file
-    fprintf(log_fid, '%.0f %s\n', handles.num, file.name);
+    fprintf(log_fid, '%.0f %s\n', size(peaks,1)/2, file.name);
     
-    
-%     text = sprintf('Creating traces: %.0f%%', 100*(i/size(stk_files,1)) );
-%     set(handles.txtProgress,'String',text);
-%     guidata(hObject,handles);
     waitbar(i/nFiles);
     i = i+1;
 end
 
 close(h);
 
-set(handles.txtProgress,'String','Finished.');
+disp('Finished.');
 fclose(log_fid);
-toc
-guidata(hObject,handles);
 
 
 
@@ -348,73 +291,8 @@ guidata(hObject,handles);
 
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
-
-%------------- Pick Cy3 spots (CALLBACK) ----------------- 
-% --- Executes on button press in getTraces.
-function handles = getTraces_Callback(hObject, eventdata, handles)
-% hObject    handle to getTraces (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% NOTE: ignores 3 pixels from all edges, only looks at left side (cy3)
-
-
-%----- Load picking parameters
-overlap_thresh = str2double(get(handles.overlap,'String'));
-
-% Donor threshold is relative to background level.
-% If not chosen by user, is 7x standard dev. of background
-don_thresh = str2double(get(handles.donthresh,'String'));
-
-image_t=handles.stk_top-handles.background;
-[nrow ncol] = size(image_t);
-
-if don_thresh==0
-   % would be better to use std over time than space?
-   don_thresh = 10*std2( handles.background(1+3:nrow-3,1+3:ncol/2-3) );
-else
-    don_thresh = don_thresh-mean2(handles.background);
-end
-
-
-%----- Find peak locations from total intensity
-
-[handles.x,handles.y] = getPeaks( image_t, don_thresh, overlap_thresh,handles );
-handles.num = numel(handles.x)/2;
-
-
-%----- GUI stuff
-
-% Clear selection markers
-delete(findobj(gcf,'type','line'));
-
-% Draw markers on selection points (donor side)
-l = 1:2:numel(handles.x);
-
-axes(handles.axDonor);
-line(handles.x(l),handles.y(l),'LineStyle','none','marker','o','color','y','EraseMode','background');
-
-% Draw markers on selection points (acceptor side)
-ll = 2:2:numel(handles.x);
-
-axes(handles.axAcceptor);
-line(handles.x(ll)-(ncol/2),handles.y(ll),'LineStyle','none','marker','o','color','w','EraseMode','background');
-
-% Draw markers on selection points (acceptor side)
-axes(handles.axTotal);
-line(handles.x(l),handles.y(l),'LineStyle','none','marker','o','color','w','EraseMode','background');
-
-% Update GUI controls
-set(handles.nummoles,'String',num2str(handles.num));
-set(handles.saveTraces,'Enable','on');
-
-guidata(hObject,handles);
-
-
-
-
-
 %------------- Pick Cy3 spots ----------------- 
-function [picksX,picksY] = getPeaks( image_t, threshold, overlap_thresh, handles )
+function [picksX,picksY] = getPeaks( image_t, threshold, overlap_thresh )
 % Localizes the peaks of molecules in the Cy3 channel and infers the
 % positions of the Cy5 peaks by applying a transofmration to the Cy3 peak
 % positions.
@@ -640,27 +518,7 @@ don_y = tempy(indexes);
 
 
 
-
-
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
-% --- Executes on button press in saveTraces.
-function saveTraces_Callback(hObject, eventdata, handles)
-% hObject    handle to saveTraces (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-peaks = [handles.x handles.y]';
-assert( size(peaks,1)==2 );
-
-stk_top = handles.stk_top;
-stk = getappdata(handles.figure1,'stk');
-
-integrateAndSave( stk, stk_top, peaks, handles.stkfile, handles.time );
-
-clear stk;
-
-%guidata(hObject,handles);
-
 
 
 % function saveTraces( handles, hObject )
@@ -759,24 +617,5 @@ saveTraces( save_fname, 'traces', donor,acceptor, [], time );
 % end
 % 
 % fclose(fid);
-
-
-% END FUNCTION saveTraces_Callback
-
-
-
-% --------------------- MISC. GUI CALLBACK FUNCTIONS --------------------- %
-
-% --- Executes on slider movement.
-function scaleSlider_Callback(hObject, eventdata, handles)
-% hObject    handle to scaleSlider (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-set( handles.axDonor,    'CLim',[get(hObject,'min') get(hObject,'value')] );
-set( handles.axAcceptor, 'CLim',[get(hObject,'min') get(hObject,'value')] );
-set( handles.axTotal,    'CLim',[get(hObject,'min')*2 get(hObject,'value')*2] );
-
-
 
 
