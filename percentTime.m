@@ -24,6 +24,10 @@ if nargin<1,
         filenames{end+1} = [path filesep file];
         disp( filenames{end} );
     end
+else
+    if ischar(filenames),
+        filenames = {filenames};
+    end
 end
 
 nFiles = numel(filenames);

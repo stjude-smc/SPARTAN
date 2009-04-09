@@ -46,9 +46,6 @@ end
 
 if nargin>2 && strcmp(varargin{3},'targetAxes')
     targetAxes = varargin{4};
-    
-    plot(targetAxes{1}, 1:10,1:10);
-    plot(targetAxes{2}, 11:20,11:20);
 end
 
 nSamples = numel(samples);
@@ -289,7 +286,7 @@ for i=1:numel(samples),  %for each sample
         continue
     end
     histx(i) = ax;
-    cla(ax);  hold on;
+    cla(ax);  hold(ax,'on');
     set(ax,'ColorOrder',colors);
     
     % If idealization data missing, plot 1D population histogram
@@ -326,8 +323,8 @@ for i=1:numel(samples),  %for each sample
 
         % Draw translucent, filled area underneath curves
         for j=1:nStates
-            ha = area( ax, bins, histdata(:,j), 'LineStyle', 'none', 'FaceColor', colors(j,:) );
-            alpha(ha,0.2);
+            patch( bins, histdata(:,j), colors(j,:), ...
+                    'EdgeColor','none','FaceAlpha',0.25, 'Parent',ax );
         end
         
         % Draw occupancy histograms as solid lines
@@ -347,7 +344,7 @@ for i=1:numel(samples),  %for each sample
     
     
     % Formatting
-    hold off;
+    hold(ax,'off');
     if i==1,
         ylabel( ax,'Occupancy (%)' );
         xlabel( ax,'FRET' );
@@ -414,30 +411,33 @@ for i=1:nSamples,  %for each sample
         tdx(i) = subplot( nrows, nSamples, 2*nSamples+i );  
     elseif size(targetAxes,1)>2
         tdx(i) = axes(targetAxes{i,3});
+    else
+        disp('no 3rd axis for TD plots...');
+        continue;
     end
-    box on;
+    box(tdx(i),'on');
     tplot( tdp );
     
     % Formatting
     if ~hideText,
         text( 0.43,0.8, sprintf('N_t=%.0f',t), 'FontSize',14, ...
-              'FontWeight','bold', 'HorizontalAlignment','center' );
+              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(i) );
         text( 0.43,0.0, sprintf('t/s=%.1f',t/total_time), 'FontSize',14, ...
-              'FontWeight','bold', 'HorizontalAlignment','center' );
+              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(i) );
     end
-    grid on;
+    grid(tdx(i),'on');
 
     if i==1,
-        ylabel('Final FRET');
-        xlabel('Inital FRET');
+        ylabel(tdx(i),'Final FRET');
+        xlabel(tdx(i),'Inital FRET');
 %         set(gca,'ytick',1:0.2:0.9);
     else %i>1,
-        set(gca,'yticklabel',[]);
+        set(tdx(i),'yticklabel',[]);
     end
-    ylim( fretRange );
+    ylim(tdx(i), fretRange );
 end
 
-if all(tdx~=0),
+if numel(tdx>1) && all(tdx~=0),
     linkaxes( tdx, 'xy' );
 end
 drawnow;

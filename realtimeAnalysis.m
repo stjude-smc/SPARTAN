@@ -40,7 +40,7 @@ function varargout = realtimeAnalysis(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 06-Apr-2009 19:07:52
+% Last Modified by GUIDE v2.5 08-Apr-2009 17:23:53
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -65,7 +65,7 @@ end
 
 
 
-
+%%
 %#########################################################################
 %------------------------- INITIALIZATION (GUI) -------------------------%
 %#########################################################################
@@ -80,6 +80,15 @@ function realtimeAnalysis_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to realtimeAnalysis (see VARARGIN)
 
+% Leave everything alone if the program is already running.
+% This initialization proceedure will confuse the program state.
+if isfield(handles,'criteria'),
+    disp('realtimeAnalysis GUI is already running!');
+    return;
+end
+
+
+%---- Generate settings dialog box, hide from view
 handles.hSettings = realtimeAnalysis_settings( ...
                             {@realtimeAnalysis_Notify, hObject} );
 set(handles.hSettings,'Visible','off');
@@ -88,21 +97,9 @@ set(handles.hSettings,'Visible','off');
 settingsHandles = guidata( handles.hSettings );
 handles.criteria = settingsHandles.criteria;
 
-% Give a callback to the settings dialog so it can update the code here
-% in the event of a change in criteria values
-
-
-% Leave everything alone if the program is already running.
-% This initialization proceedure will confuse the program state.
-% if isfield(handles,'criteria'),
-%     disp('Autotrace is already running!');
-%     return;
-% end
 
 %---- PROGRAM CONSTANTS
-constants = cascadeConstants();
-handles.constants = constants;
-
+handles.constants = cascadeConstants();
 
 % Choose default command line output for realtimeAnalysis
 handles.output=hObject;
@@ -114,20 +111,7 @@ guidata(hObject,handles);
 
 
 
-% --- Outputs from this function are returned to the command line.
-function varargout = realtimeAnalysis_OutputFcn(hObject, eventdata, handles)
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get default command line output from handles structure
-varargout{1}=handles.output;
-
-% END FUNCTION realtimeAnalysis_OutputFcn
-
-
-
+% Callback for when settings dialog is updated...
 function realtimeAnalysis_Notify(hObject)
 
 % Load data in both figures
@@ -147,26 +131,24 @@ btnGo_Callback(hObject, [], handles);
 
 
 
+% --- Outputs from this function are returned to the command line.
+function varargout = realtimeAnalysis_OutputFcn(hObject, eventdata, handles)
+% varargout  cell array for returning output args (see VARARGOUT);
+% hObject    handle to figure
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Get default command line output from handles structure
+varargout{1}=handles.output;
+
+% END FUNCTION realtimeAnalysis_OutputFcn
+
+
+
+%%
 %#########################################################################
 %----------------------- LOAD, FILTER, SAVE TRACES ----------------------%
 %#########################################################################
-
-
-% --- Executes on button press in btnBrowse.
-function btnBrowse_Callback(hObject, eventdata, handles)
-% CALLED: when the user clicked "Browse..."
-% ACTION: Get location of data to process
- 
-datadir = uigetdir(pwd, 'Select a directory with all data to process');
-
-if datadir~=0,
-    handles.directory = datadir;
-    set(handles.txtDirectory,'String',datadir);
-end
-
-% Update handles structure
-guidata(hObject,handles);
-
 
 
 %----------BATCH ANALYSIS----------%
@@ -182,24 +164,9 @@ function btnGo_Callback(hObject, eventdata, handles)
 % experiments. Store different data sets in separate folders.
 
 
-% Automatically run gettraces if only STKs are available.
-% Uses automatic threshold picking, which may not work as well as a
-% manual value!
-% traces_files = dir( [datapath filesep '*.traces'] );
-% stk_files    = dir( [datapath filesep '*.stk'] );
-% stk_files    = [  stk_files  ;  dir([datapath filesep '*.stk.bz2'])  ];
-% 
-% Extract traces from unanalyzed movies, if requested
-% if numel(traces_files)>0 && numel(stk_files)>0, 
-%     answer = questdlg( ...
-%         'Traces files already created. Reprocess and overwrite?', ...
-%         'realtimeAnalysis: Reprocess movies?', 'Yes','No','No');
-%     if strcmp(answer,'Yes')
-%         gettraces_backend( datapath );
-%     end
-% else
-%     gettraces_backend( datapath );
-% end
+tic;
+handles.isExecuting = 1;
+guidata(hObject,handles);
 
 set( handles.txtStatus, 'String', 'Loading traces...' );
 
@@ -213,54 +180,36 @@ handles.criteria = settingsHandles.criteria;
 datapath = get(handles.txtDirectory,'String');
 
 
-% % Get a list of all traces files under the current directory
-% trace_files  = rdir([datapath filesep '**' filesep '*.traces']);
-% 
-% % Pool these files into
-% data_dirs = {};
-% 
-% for i=1:numel(trace_files),
-%     % Extract path of the file
-%     f = fileparts(trace_files(i).name);
-%     
-%     % If not already in the list, insert it
-%     nMatches = sum( cellfun( @(arg)strcmp(f,arg), data_dirs ) );
-%     if nMatches==0,
-%         data_dirs{end+1} = f;
-%     end
-% end
-% 
-% 
-% % For each file in the user-selected directory
-% for i=1:numel(data_dirs)
-%     
-%     datapath = data_dirs{i};
-    
-    % Create list of .traces files in the directory.
-    traces_files = dir( [datapath filesep '*.traces'] );
-    handles.nFiles = numel(traces_files);
-
-    if handles.nFiles == 0
-        disp('No files in this directory!');
-        return;
-    end
-
-    handles.inputdir = datapath;
-    handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
+% Run gettraces ...
 
 
-    disp(handles.inputdir);
-%     set(handles.editFilename,'String',handles.inputdir);
+% Create list of .traces files in the directory.
+traces_files = dir( [datapath filesep '*.traces'] );
+handles.nFiles = numel(traces_files);
 
-    handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
-    handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
+if handles.nFiles == 0
+    disp('No files in this directory!');
+    return;
+end
+
+handles.inputdir = datapath;
+handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
+handles.inputstks = {};
+
+disp(handles.inputdir);
+
+handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
+handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
 
-    OpenTracesBatch( hObject, handles )
-% end
+OpenTracesBatch( hObject, handles )
 
 
-set( handles.txtStatus, 'String','IDLE.' );
+set( handles.txtStatus, 'String','IDLE.' ); drawnow;
+handles.isExecuting = 0;
+
+guidata(hObject,handles);
+toc
 
 % END FUNCTION btnGo_Callback
 
@@ -342,6 +291,39 @@ guidata(hObject,handles);
 % Save picked data to handles.outfile
 SaveTraces( handles.outfile, handles );
 
+
+% Run Hidden Markov Modeling analysis, if a model has been given
+
+if isfield(handles,'model')
+    skmOptions.maxItr = 100;
+    skmOptions.convLL = 1e-4;
+    handles.model.fixMu = ones( size(handles.model.mu) );
+    handles.model.fixSigma = ones( size(handles.model.sigma) );
+
+
+    set( handles.txtStatus, 'String','Idealizing data...' ); drawnow;
+
+    filename = handles.outfile;
+    [d,a,data,ids,time] = loadTraces( filename );
+    if time(1)==1,
+        f = inputdlg('What is the sampling interval (in ms) for this data?');
+        sampling = str2double(f);
+    else
+        sampling = time(2)-time(1);
+    end
+    
+    [dwt,newModel,LL,offsets] = skm( data, sampling, handles.model, skmOptions );
+
+    mu = newModel.mu;
+    sigma = newModel.sigma;
+    fretModel = [mu sigma];
+    
+    % Save the idealization
+    dwtFilename = strrep(filename,'.txt','.qub.dwt');
+    saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
+end
+
+
 % Generate ensemble plots
 targetAxes = { handles.axFretContour, handles.axFretHistogram };
 set( handles.txtStatus, 'String','Making data plots...' ); drawnow;
@@ -359,7 +341,8 @@ set( handles.txtIntensity,'String', ...
 avgSNR = mean( [values.snr] );
 set( handles.txtSNR,'String', ...
      sprintf('%.1f',avgSNR) );
- 
+
+% Calculate donor bleaching rate...
 [donorDist,donorAxes] = hist( [values.lifetime], 40 );
 donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
 donorAxes = [0 donorAxes];
@@ -373,7 +356,8 @@ else
     set( handles.txtLTDonor,'String', ...
          sprintf('%.1f frames',-1/f.b) );
 end
- 
+
+% Calculate acceptor bleaching rate
 [accDist,accAxes] = hist( [values.acclife], 40 );
 accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
 accAxes = [0 accAxes];
@@ -386,6 +370,12 @@ if exist('dt','var')
 else
     set( handles.txtLTAcceptor,'String', ...
          sprintf('%.1f frames',-1/f.b) );
+end
+
+% Calculate state occupancies
+if isfield(handles,'model')
+    info = sprintf('%.1f%% ', percentTime(dwtFilename));
+    set(handles.edOccupancy,'String',info);
 end
 
 guidata(hObject,handles);
@@ -406,9 +396,6 @@ qub_fname = strrep( filename, '.txt', '.qub.txt' );
 qubfid=fopen(qub_fname,'w');
 disp( ['Saving to ' qub_fname] );
 
-% Write time markers (first row)
-fprintf(fid,'%d ', 1:handles.len);
-fprintf(fid,'\n');
 
 pick_offset = [0; cumsum(handles.nTracesPerFile)];
 
@@ -427,9 +414,14 @@ for index = 1:handles.nFiles  %for each file in batch...
     
     if numel(picks)==0, continue; end
     
-    [donor,acceptor,fret] = loadTraces( handles.inputfiles{index}, ...
+    [donor,acceptor,fret,ids,time] = loadTraces( handles.inputfiles{index}, ...
                                         handles.constants, picks );
-    
+      
+    % Write time markers (first row)
+    if index==1,
+        fprintf(fid,'%d ', time);
+        fprintf(fid,'\n');
+    end
     
     %--- Write fluorescence data: {name} {datapoints...}
     % 3 lines per molecule: donor, acceptor, fret
@@ -543,204 +535,29 @@ fclose(fid);
 
 
 
-
+%%
 %#########################################################################
 %------------------------- INPUT FIELD HANDLING -------------------------%
 %#########################################################################
 
 
+% --- Executes on button press in btnBrowse.
+function btnBrowse_Callback(hObject, eventdata, handles)
+% CALLED: when the user clicked "Browse..."
+% ACTION: Get location of data to process
+ 
+datadir = uigetdir(pwd, 'Select a directory with all data to process');
 
-%----------CHECKBOX FOR MEAN TOTAL INTENSITY CRITERIA----------
-% --- Executes on button press in MeanTotalIntensityBox.
-function MeanTotalIntensityBox_Callback(hObject, eventdata, handles)
-% If box is checked, get the values input by the user.
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minTotalIntesity=str2double(get(handles.MeanTotalIntensityLow,'String'));
-    handles.criteria.maxTotalIntesity=str2double(get(handles.MeanTotalIntensityHigh,'String'));
-    set(handles.MeanTotalIntensityLow,'Enable','on');
-    set(handles.MeanTotalIntensityHigh,'Enable','on');
-else
-    % If the box is unchecked, use values which will nullify the criterium.
-    handles.criteria.minTotalIntesity=[];
-    handles.criteria.maxTotalIntesity=[];
-    set(handles.MeanTotalIntensityLow,'Enable','off');
-    set(handles.MeanTotalIntensityHigh,'Enable','off');
+if datadir~=0,
+    handles.inputdir = datadir;
+    set(handles.txtDirectory,'String',datadir);
+
+    handles.inputfiles = {};
+    handles.nFiles = 0;
 end
+
+% Update handles structure
 guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR FRET THRESHOLD----------
-% --- Executes on button press in fretThreshold.
-function fretThreshold_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minFret=str2double(get(handles.fretSlopeThresh,'String'));
-    set(handles.fretSlopeThresh,'Enable','on');
-else
-    handles.criteria.minFret=[];
-    set(handles.fretSlopeThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR FLUORESCENCE LIFETIME CRITERIA----------
-% --- Executes on button press in FluorescenceLifetimeBox.
-function FluorescenceLifetimeBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minTotalLifetime=str2double(get(handles.FluorescenceLifetime,'String'));
-    handles.criteria.maxTotalLifetime=str2double(get(handles.FluorescenceLifetimeHigh,'String'));
-    set(handles.FluorescenceLifetime,'Enable','on');
-    set(handles.FluorescenceLifetimeHigh,'Enable','on');
-else
-    handles.criteria.minTotalLifetime=[];
-    handles.criteria.maxTotalLifetime=[];
-    set(handles.FluorescenceLifetime,'Enable','off');
-    set(handles.FluorescenceLifetimeHigh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR CORRELATION COEFFICIENT CRITERIA----------
-% --- Executes on button press in CorrelationCoefficientBox.
-function CorrelationCoefficientBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minCorrelation=str2double(get(handles.lowThresh,'String'));
-    handles.criteria.maxCorrelation=str2double(get(handles.highThresh,'String'));
-    set(handles.lowThresh,'Enable','on');
-    set(handles.highThresh,'Enable','on');
-else
-    handles.criteria.minCorrelation=[];
-    handles.criteria.maxCorrelation=[];
-    set(handles.lowThresh,'Enable','off');
-    set(handles.highThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR SIGNAL-TO-NOISE CRITERIA----------
-% --- Executes on button press in SignalNoiseBox.
-function SignalNoiseBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minSNR=str2double(get(handles.SignalNoiseThresh,'String'));
-    set(handles.SignalNoiseThresh,'Enable','on');
-else
-    handles.criteria.minSNR=[];
-    set(handles.SignalNoiseThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR BACKGROUND NOISE CRITERIA----------
-% --- Executes on button press in BackgroundNoiseBox.
-function BackgroundNoiseBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.maxBackground=str2double(get(handles.BackgroundNoiseThresh,'String'));
-    set(handles.BackgroundNoiseThresh,'Enable','on');
-else
-    handles.criteria.maxBackground=[];
-    set(handles.BackgroundNoiseThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-% --- Executes on button press in checkboxNCross.
-function checkboxNCross_Callback(hObject, eventdata, handles)
-% Hint: get(hObject,'Value') returns toggle state of checkboxNCross
-
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.maxDonorBlinks=str2double(get(handles.editNCross,'String'));
-    set(handles.editNCross,'Enable','on');
-else
-    handles.criteria.maxDonorBlinks=[];
-    set(handles.editNCross,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-
-% --- Executes on button press in checkboxAccLife.
-function checkboxAccLife_Callback(hObject, eventdata, handles)
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minFretLifetime = str2double(get(handles.editAccLife,'String'));
-    set(handles.editAccLife,'Enable','on');
-else
-    handles.criteria.minFretLifetime=[];
-    set(handles.editAccLife,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-function MeanTotalIntensityLow_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalIntesity=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function MeanTotalIntensityHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalIntesity=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function fretSlopeThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minFret=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FluorescenceLifetime_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalLifetime=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FluorescenceLifetimeHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalLifetime=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function lowThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minCorrelation=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function highThresh_Callback(hObject, eventdata, handles)
-handles.criteria.maxCorrelation=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function SignalNoiseThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minSNR=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-
-function BackgroundNoiseThresh_Callback(hObject, eventdata, handles)
-handles.criteria.maxBackground=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FRETBinSize_Callback(hObject, eventdata, handles)
-handles.criteria.contour_bin_size=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function editNCross_Callback(hObject, eventdata, handles)
-handles.criteria.maxDonorBlinks = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function editAccLife_Callback(hObject, eventdata, handles)
-handles.criteria.minFretLifetime = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function chkOverlap_Callback(hObject, eventdata, handles)
-handles.criteria.overlap = get(hObject,'Value');
-guidata(hObject,handles);
-
-
 
 
 function txtDirectory_Callback(hObject, eventdata, handles)
@@ -754,11 +571,14 @@ function txtDirectory_Callback(hObject, eventdata, handles)
 loc = get(hObject,'String');
 if ~exist(loc,'dir'),
     warning('realtimeAnalysis: directory doesn''t exist!');
-    loc = handles.directory;
+    loc = handles.inputdir;
     set(hObject,'String',loc);
 else
-    handles.directory = loc;
+    handles.inputdir = loc;
 end
+
+handles.inputfiles = {};
+handles.nFiles = 0;
 
 guidata(hObject,handles);
 
@@ -793,7 +613,8 @@ handles.autoUpdate = get(hObject,'Value');
 if handles.autoUpdate    
     disp('starting');
     handles.fileTimer = timer('ExecutionMode','fixedDelay','StartDelay',1,...
-                              'TimerFcn',{@checkForFiles,handles.figure1},'Period',5.0);
+                              'TimerFcn',{@checkForFiles,handles.figure1},...
+                              'Period',5.0,'BusyMode','drop');
     start(handles.fileTimer);
 
 % If turned off, disable the current timer
@@ -820,8 +641,29 @@ if ~isfield(handles,'inputfiles')
     return;
 end
 
-% Check current list against one from previous polling
+if isfield(handles,'isExecuting') && handles.isExecuting,
+    disp('Already running, skipping test');
+    return;
+end
+
 datapath = handles.inputdir;
+
+
+% If there are new STKs, run gettraces
+set( handles.txtStatus, 'String','Processing new movies...' );
+
+params.overlap_thresh = 2.1;
+params.don_thresh = 3000;
+params.skipExisting = 1;
+params.recursive = 0;
+gettraces( datapath, params );
+
+set( handles.txtStatus, 'String','IDLE.' ); drawnow;
+
+
+
+
+% Check current list against one from previous polling
 traces_files = dir( [datapath filesep '*.traces'] );
 if numel(traces_files) == 0, return; end
 inputfiles = strcat( [datapath filesep], {traces_files.name} );
@@ -846,5 +688,68 @@ end
 
 
 
+
+
+
+
+% --- Executes on button press in btnBrowseModel.
+function btnBrowseModel_Callback(hObject, eventdata, handles)
+% hObject    handle to btnBrowseModel (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Get list of data files from user
+fname = get(handles.edModelFilename,'String');
+if isempty(fname)
+    fname = '*.qmf';
+end
+
+[f,p] = uigetfile(fname,'Select a QuB model file...');
+if f==0, return; end
+fname = [p f];
+
+set(handles.edModelFilename,'String',fname);
+
+handles = loadModel(handles,fname);
+guidata(hObject, handles);
+
+% Update results -- rerun analysis pipeline
+realtimeAnalysis('btnGo_Callback',hObject,[],handles);
+
+
+
+function edModelFilename_Callback(hObject, eventdata, handles)
+% hObject    handle to edModelFilename (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+filename = get(hObject,'String');
+if ~exist(filename,'file'),
+    warning('Model file does not exist!');
+else
+    handles = loadModel(handles,filename);
+end
+
+guidata(hObject, handles);
+
+% Update results -- rerun analysis pipeline
+realtimeAnalysis('btnGo_Callback',hObject,[],handles);
+
+
+
+function handles = loadModel(handles,filename)
+
+model = qub_loadModel( filename );
+handles.model = model;
+handles.hasModel = 1;
+
+% Update model status text -- FIXME
+info = sprintf('%s',mat2str(model.mu(model.class)));
+set(handles.edFretValues,'String',info);
+
+% If data are already loaded, enable the Execute button
+% if handles.hasData,
+%     set(handles.btnExecute,'Enable','on');
+% end
 
 

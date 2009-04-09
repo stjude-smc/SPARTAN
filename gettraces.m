@@ -223,8 +223,6 @@ fprintf(log_fid, 'Overlap = %.1f\n',params.overlap_thresh);
 
 fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
 
-disp(direct);
-
 % Get list of files in current directory (option: and all subdirectories)
 if params.recursive
     stk_files  = rdir([direct filesep '**' filesep '*.stk*']);
@@ -232,12 +230,13 @@ else
     stk_files  = rdir([direct filesep '*.stk*']);
 end
 
-h = waitbar(0,'Extracting traces from movies...');
 
 % For each file in the user-selected directory
-i = 1;
+i = 0;
 nFiles = length(stk_files);
 for file = stk_files'
+    
+    i = i+1;
     
     % Skip if previously processed (.traces file exists)
     stk_fname = strrep(file.name,'.bz2','');
@@ -245,8 +244,13 @@ for file = stk_files'
     traceFname = [p filesep name '.traces'];
     
     if params.skipExisting && exist(traceFname,'file'),
-        disp( ['Skipping (already processed): ' stk_fname] );
+        %disp( ['Skipping (already processed): ' stk_fname] );
+        fprintf(log_fid, 'Skip %s\n', file.name);
         continue;
+    end
+    
+    if ~exist('h','var')
+        h = waitbar(0,'Extracting traces from movies...');
     end
     
     % Load STK file
@@ -274,13 +278,13 @@ for file = stk_files'
     % Save entry in log file
     fprintf(log_fid, '%.0f %s\n', size(peaks,1)/2, file.name);
     
-    waitbar(i/nFiles);
-    i = i+1;
+    waitbar(i/nFiles); drawnow;
 end
 
-close(h);
+if exist('h','var')
+    close(h);
+end
 
-disp('Finished.');
 fclose(log_fid);
 
 

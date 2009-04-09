@@ -72,7 +72,7 @@ axis( cax, bounds );
 xlabel(cax,'Time (frames)');
 ylabel(cax,'FRET');
 
-zoom on;
+zoom(cax,'on');
 
 
 
