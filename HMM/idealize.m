@@ -41,10 +41,14 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 
 [nTraces,nFrames] = size(obs);
 
+
 % Initialize emission probability distribution function
 mu    = model(:,1);
 sigma = model(:,2);
 nStates = numel(mu);
+
+%
+start_p = reshape(start_p,[nStates,1]);
 
 % C = 1./(sqrt(2*pi)*sigma); %gaussian leading coefficient
 C = 0.3989422804014327./sigma; %gaussian leading coefficient

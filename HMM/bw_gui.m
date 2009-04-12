@@ -201,7 +201,7 @@ for i=1:nFiles
     
     [d,a,traces] = loadTraces(filename);
     
-    [dwt,offsets] = idealize( traces, fretModel, p0, A );
+    [dwt,idl,offsets] = idealize( traces, fretModel, p0, A );
     
     dwtFilename = strrep(filename,'.txt','.qub.dwt');
     saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
