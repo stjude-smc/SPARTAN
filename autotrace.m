@@ -253,24 +253,28 @@ function OpenTracesFile_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Open file with user-interface.
-[datafile,datapath] = uigetfile({'*.traces';'*.txt'},'Choose a traces file:');
-if datafile==0, return; end
-filename = [datapath datafile];
+[datafile,datapath] = uigetfile( {'*.traces';'*.txt'},'Choose a traces file:', ...
+                                 'MultiSelect','on');
+if ~iscell(datafile) && datafile==0, return; end
+filename = strcat(datapath,datafile);
+
+if isempty(filename),  return;  end
+if ~iscell(filename),  filename = {filename};  end
 
 handles.inputdir = datapath;
-handles.inputfiles = cell(1);
-handles.inputfiles{1} = filename;
-handles.nFiles = 1;
+handles.inputfiles = filename;
+handles.nFiles = numel( filename );
 
 disp(handles.inputfiles);
 set(handles.editFilename,'String',handles.inputfiles);
 
-handles.outfile = strrep(filename, '.traces', '_auto.txt');
+handles.outfile = strrep(filename{1}, '.traces', '_auto.txt');
 handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
 OpenTracesBatch( hObject, handles );
 
 % END FUNCTION OpenTracesFile_Callback
+
 
 
 
