@@ -255,6 +255,7 @@ function OpenTracesFile_Callback(hObject, eventdata, handles)
 % Open file with user-interface.
 [datafile,datapath] = uigetfile( {'*.traces';'*.txt'},'Choose a traces file:', ...
                                  'MultiSelect','on');
+if ~iscell(datafile), datafile = {datafile}; end
 if ~iscell(datafile) && datafile==0, return; end
 filename = strcat(datapath,datafile);
 
@@ -266,7 +267,11 @@ handles.inputfiles = filename;
 handles.nFiles = numel( filename );
 
 disp(handles.inputfiles);
-set(handles.editFilename,'String',handles.inputfiles);
+if numel( handles.inputfiles ) == 1,
+    set(handles.editFilename,'String',handles.inputfiles{1});
+else
+    set(handles.editFilename,'String',handles.inputdir);
+end
 
 handles.outfile = strrep(filename{1}, '.traces', '_auto.txt');
 handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
