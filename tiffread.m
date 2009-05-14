@@ -348,13 +348,13 @@ end %FOR EACH DIRECTORY ENTRY
 %% distribute the MetaMorph info
 if isfield(TIF, 'MM_stack') && isfield(TIF, 'info') && ~isempty(TIF.info)
     MM = parseMetamorphInfo(TIF.info, TIF.MM_stackCnt);
-    exposure = [MM.Exposure];
+    exposure = MM(1).Exposure;
 end
 
 % Build time axis
 if exist('exposure','var'),
     nFrames = img_read;
-    time = cumsum( [0 exposure(1:end-1)] );
+    time = 0:exposure:(exposure*(nFrames-1));
 else
     nFrames = img_read;
     time = 0:(nFrames-1);
@@ -533,8 +533,14 @@ return;
 % EVBR 2/7/2005, FJN Dec. 2007
 function mm = parseMetamorphInfo(info, cnt)
 
-info   = regexprep(info, '\r\n|\o0', '\n');
-parse  = textscan(info, '%s %s', 'Delimiter', ':');
+% Replace all terminators with line endings for easy parsing
+% info   = regexprep(info, '\r\n|\o0', '\n');
+info( info==char(0)  ) =char(10);
+info( info==char(13) ) =char(10);
+
+% Parsing token:value pairs from MetaMorph info.
+% We only want the first set of fields.
+parse  = textscan(info, '%s %s', 50, 'Delimiter', ':');
 tokens = parse{1};
 values = parse{2};
 
@@ -547,7 +553,8 @@ for i=1:size(tokens,1)
     val = char(values(i,1));
     %fprintf( '"%s" : "%s"\n', tok, val);
     if strcmp(tok, first)
-        k = k + 1;
+        %k = k + 1;
+        break;
     end
     if strcmp(tok, 'Exposure')
         [v, c, e, pos] = sscanf(val, '%i');
@@ -564,25 +571,25 @@ for i=1:size(tokens,1)
                 warning('tiffread2:Unit', ['Exposure unit "',unit,'" not recognized']);
                 mm(k).Exposure = v;
         end
-    else
-        switch tok
-            case 'Binning'
-                % Binning: 1 x 1 -> [1 1]
-                mm(k).Binning = sscanf(val, '%d x %d')';
-            case 'Region'
-                mm(k).Region = sscanf(val, '%d x %d, offset at (%d, %d)')';
-            otherwise
-                field  = regexprep(tok, ' ', '');
-                if strcmp(val, 'Off')
-                    eval(['mm(k).',field,'=0;']);
-                elseif strcmp(val, 'On')
-                    eval(['mm(k).',field,'=1;']);
-                elseif isstrprop(val,'digit')
-                    eval(['mm(k).',field,'=str2num(val)'';']);
-                else
-                    eval(['mm(k).',field,'=val;']);
-                end
-        end
+%     else
+%         switch tok
+%             case 'Binning'
+%                 % Binning: 1 x 1 -> [1 1]
+%                 mm(k).Binning = sscanf(val, '%d x %d')';
+%             case 'Region'
+%                 mm(k).Region = sscanf(val, '%d x %d, offset at (%d, %d)')';
+%             otherwise
+%                 field  = regexprep(tok, ' ', '');
+%                 if strcmp(val, 'Off')
+%                     eval(['mm(k).',field,'=0;']);
+%                 elseif strcmp(val, 'On')
+%                     eval(['mm(k).',field,'=1;']);
+%                 elseif isstrprop(val,'digit')
+%                     eval(['mm(k).',field,'=str2num(val)'';']);
+%                 else
+%                     eval(['mm(k).',field,'=val;']);
+%                 end
+%         end
     end
 end
 
