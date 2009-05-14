@@ -6,7 +6,7 @@ function plotTraces(filename,plotTitle)
 
 
 gamma = 1;
-allowMinutes = false;
+allowMinutes = true;
 
 % If not files specified, prompt user for them.
 if ~exist('filename','var'),
@@ -27,6 +27,8 @@ end
 
 % Load fluorescence and FRET data
 [donor,acceptor,fret,ids,time] = loadTraces( filename );
+fret(fret>1) = 1;
+fret(fret<-0.5) = -0.5;
 [nTraces,len] = size(donor);
 
 inFrames = (time(1)==1);
@@ -114,6 +116,12 @@ end
 
 function showTrace
 
+    if allowMinutes && sampling>100,
+        sampFact=60;
+    else
+        sampFact=1;
+    end
+
     %constants
     nrows = 2;
     ncols = 1;
@@ -125,24 +133,31 @@ function showTrace
     i = molecule_no;
     dwtID = find( dwtToTraceID==i, 1 );
     
-    if allowMinutes && sampling>100,
-        time = time/60;
-    end
 
     % Load convert DWT to idealization
     if ~isempty(dwtID),
         states = dwt{dwtID}(:,1);
         times  = double(dwt{dwtID}(:,2));
         dwtTotalTime = sum(times);
-        idl = [];
-
+        sidl = [];
+        
         for j=1:numel(states),
             dtime = times(j);
-            idl = [idl repmat( model(states(j)), 1,dtime ) ];
+            sidl = [sidl repmat( states(j), 1,dtime ) ];
         end
-        idl = [ idl repmat(model(1),1,len-dwtTotalTime) ];
+        
+        newModel = model;
+        for j=1:max(states),
+            newModel(j) = mean( fret(i,sidl==j) );
+        end
+        
+        disp(newModel)
+        idl = newModel( sidl );
+        
+        %idl = [ idl repmat(model(1),1,len-dwtTotalTime) ];
+        
+        dwtTime = (dwtSampling/1000).*(0:dwtTotalTime-1);
     end
-
     % Draw fluorescence time trace
     ax(1) = subplot(nrows,ncols,1);
 
@@ -153,7 +168,8 @@ function showTrace
 %     sdm = sd( end-ceil(0.01*length(sd)) );
 %     sam = sa( end-ceil(0.01*length(sa)) );
     
-    plot( time, d,'g', time,a,'r', 'LineWidth',1.5  );
+    plot( time/sampFact, d,'g', 'LineWidth',1  ); hold on;
+    plot( time/sampFact, a,'r', 'LineWidth',1  ); hold on;
     ylabel('Fluorescence');
     ymax = max( max(d)+3,max(a)+3 );
     ylim( [-3 ymax] );
@@ -168,27 +184,22 @@ function showTrace
     ax(2) = subplot(nrows,ncols,ncols+1);
     cla;
     
-    plot( time, fret(i,:), 'bo', 'LineWidth',1.5 );
+    plot( time/sampFact, fret(i,:), 'b-', 'LineWidth',1 );
 
     % Draw idealization on top of FRET trace
     if ~isempty(dwtID),
         hold on;
-        dwtTime = (dwtSampling/1000).*(0:dwtTotalTime-1);
-        stairs( dwtTime, idl, 'r-', 'LineWidth',1 );
+        stairs( dwtTime/sampFact, idl, 'r-', 'LineWidth',1 );
     end
     
-    plot( time, fret(i,:), 'bo', 'LineWidth',1.5 );
     grid on;
     zoom on;
     ylabel('FRET');
     ylim( [-0.1 1.0] );
 
 
-    pbTime = (find( fret(i,:)~=0, 1, 'last' )*1.04) * sampling/1000;
-    if allowMinutes && sampling>100,
-        pbTime = pbTime/60;
-    end
-    
+    pbTime = (find( fret(i,:)~=0, 1, 'last' )*1.04) * sampling/sampFact/1000;
+
 %     maxlife = sum(times) * sampling/1000 +0.5;
     maxlife = max( pbTime, 5 );
     xlim( [0 maxlife] );
@@ -199,9 +210,7 @@ function showTrace
     end
     set(gca,'ytick', [0, 0.2, 0.4, 0.6, 0.8, 1.0]);
     hold off;
-    
-    % Hold the time axis consistent
-    linkaxes(ax,'x');
+
     
     %subplot(2,1,1);  set(gca,'xticklabel',[]);
     
@@ -231,24 +240,46 @@ function showTrace
         plot( hd, fluor_bins, 'g-', 'LineWidth',2 );
         hold off;
         grid on;
-        set(ax(3),'yticklabels',[]);
         set(gca,'xticklabel',[]);
+        pbaspect( [1 1 1 ] );
 
         yax = [ax(1) ax(3)];
-%         linkaxes(yax,'y');
+        linkaxes(yax,'y');
 
         % Plot distribution of FRET
         ax(4) = subplot(nrows,ncols,4);
 
         stairs( hf, fret_bins, 'b-', 'LineWidth',2 );
+        pbaspect( [1 1 1] );
         grid on;
     %     set(ax(4),'yticklabels',[]);
 
         yax = [ax(2) ax(4)];
-%         linkaxes(yax,'y');
+        linkaxes(yax,'y');
     end
     
-%     xlim( ax(1), [0 maxlife] );
+        
+    % Hold the time axis consistent
+    linkaxes([ax(1) ax(2)],'x');
+    
+    xlim( ax(1), [0 maxlife] );
+    
+%     xlim([0 10])
+
+    if nrows>=3,
+        ax3 = subplot(3,1,3);
+        
+        mfd = medianfilter(donor(i,:),9);
+        mfa = medianfilter(acceptor(i,:),9);
+        
+        s = -gradient(mfd).*gradient(mfa);
+        s(s<0)=0;
+        
+        plot( time/sampFact, s );
+        grid on;
+          
+        linkaxes([ax(1) ax(2) ax3],'x');
+    end
     
 
 end %function showTrace
