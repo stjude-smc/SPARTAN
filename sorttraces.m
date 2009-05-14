@@ -179,7 +179,7 @@ handles.Best_indexes=[];
 
 % Check for previous molecule picking on same file
 [p,fname] = fileparts( filename );
-inds_fname = [fname '_picked_inds.txt'];
+inds_fname = [p filesep fname '_picked_inds.txt'];
 
 if exist(inds_fname,'file'),
     text = 'These traces have been binned before.  ';
@@ -443,6 +443,13 @@ m = handles.molecule_no;
 
 % Same as above, but only for both donor and acceptor.
 xlim=round(get(handles.axFluor,'XLim'));
+
+% Convert axis limits to frames
+if handles.time(1)~=1,
+    dt = handles.time(2)-handles.time(1);
+    xlim = floor(xlim./(dt/1000));
+end
+
 if xlim(1)<1, xlim(1)=1; end
 if xlim(2)>handles.len, xlim(2)=handles.len; end
 
@@ -605,7 +612,8 @@ printdlg(handles.figure1);
 function plotter(handles)
 
 constants = handles.constants;
-gamma = constants.gamma;
+% gamma = constants.gamma;
+gamma = 1;
 
 m        = handles.molecule_no;
 donor    = handles.donor(m,:);
