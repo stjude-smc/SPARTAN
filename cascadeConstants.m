@@ -1,7 +1,7 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '1.3';  %pipeline release version number
+constants.version = '1.4';  %pipeline release version number
 
 
 % Correction for fluor detection efficiency.
