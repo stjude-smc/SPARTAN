@@ -1,4 +1,4 @@
-function [rates,fits,totalTimes] = lifetime_exp( dwtfilename, colors )
+function [rates,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename, colors )
 %LIFETIME_EXP  Estimates median lifetime in each state
 % 
 %   R = LIFETIME_EXP(FILE)
@@ -12,6 +12,7 @@ function [rates,fits,totalTimes] = lifetime_exp( dwtfilename, colors )
 %---- USER TUNABLE PARAMETERS ----
 
 bMakeGUI = 1;
+useCorrectedDwelltimes = 0;  % merge blinks into previous dwell
 
 % Option to remove dwells whose durations are unknown because they are
 % cropped by the start of measurement, blinking, and photobleaching, resp.
@@ -71,7 +72,11 @@ for i=1:nFiles,
             sprintf('ERROR: No such file: %s',dwtfilename{i}) );
     
     % Load DWT file (states in columns)
-    [dwells,sampling,model] = loadDwelltimes( dwtfilename{i}, dropLastDwell );
+    if useCorrectedDwelltimes
+        [dwells,sampling,model] = correctedDwelltimes( dwtfilename{i} );
+    else
+        [dwells,sampling,model] = loadDwelltimes( dwtfilename{i} );
+    end
     assert( numel(dwells) == nStates );
         
     % Create a survival plot for each state

@@ -2,6 +2,10 @@ function [dwells,sampling,model] = loadDwelltimes( dwtfilename, dropLastDwell )
 % Returns an cell array (Nx1, N states) which contains
 % a list of the dwell times (in ms) for each state.
 
+if nargin<2,
+    dropLastDwell=0;
+end
+
 % Load dwell times
 [idl,sampling,offsets,model] = LoadDWT( dwtfilename );
 nStates = length(model)/2;

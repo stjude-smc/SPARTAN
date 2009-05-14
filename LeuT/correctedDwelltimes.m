@@ -1,4 +1,4 @@
-function [dwellc] = correctedDwelltimes( dwtFilename )
+function [dwellc,sampling,model] = correctedDwelltimes( dwtFilename )
 
 
 % Load the dwell times
