@@ -553,8 +553,8 @@ for i=1:size(tokens,1)
     val = char(values(i,1));
     %fprintf( '"%s" : "%s"\n', tok, val);
     if strcmp(tok, first)
-        %k = k + 1;
-        break;
+        k = k + 1;
+        if k>1,  break;  end
     end
     if strcmp(tok, 'Exposure')
         [v, c, e, pos] = sscanf(val, '%i');
