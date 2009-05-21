@@ -1,4 +1,9 @@
 function forOrigin( filename, dwtFilename )
+% TODO: only assign low-FRET state as zero if feature is enabled;
+% and only do so for a maximum of X frames.
+
+maxBlink = 5; %frames
+
 
 % Load traces data
 if exist('filename','var'),
@@ -21,8 +26,14 @@ if ~exist('dwtFilename','var'),
         fretValues(fretValues==0.1) = 0.01;
 
         idl = dwtToIdl( dwells, traceLen,offsets );
+        
+        idl = idl';
+        blinks = rleFilter( idl==1, maxBlink );
         idl( idl==1 ) = 2; %ignore blinks
         idl( idl==0 ) = 1; 
+        idl( blinks ) = 1; %restore long blinks
+        idl = idl';
+        
         idl = fretValues(idl);
         
         if size(idl,1)<nTraces,
