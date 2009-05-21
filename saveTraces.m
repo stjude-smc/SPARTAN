@@ -46,7 +46,7 @@ function saveTracesTxt( filename, donor,acceptor,fret, ids, time )
 [Ntraces,tlen] = size(donor);
 
 if ~exist('time','var'),
-    time = 0:(tlen-1);
+    time = 1:tlen; %in frames
 end
 
 % Create IDs if not specified
@@ -150,7 +150,7 @@ function saveTracesBinary( filename, donor,acceptor, ids, time )
 [Ntraces,tlen] = size(donor);
 
 if ~exist('time','var'),
-    time = 0:(tlen-1);
+    time = 1:tlen; %in frames
 end
 
 % Verify input arguments
