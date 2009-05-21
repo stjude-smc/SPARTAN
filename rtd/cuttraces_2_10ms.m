@@ -1,4 +1,4 @@
-function ctr=cuttraces_2_10ms;
+function ctr=cuttraces_2_10ms(traceFilename,dwtFilename)
 
 
 %---Histogram bin size
@@ -67,37 +67,41 @@ sel_no=0;
 %---Open the corresonding file of traces
 files=0;
 data=[];
-[filename,filepath]=uigetfile('*.txt','Choose a traces (.txt) file:');
-if filename==0
-    disp('No traces file selected.');
-    return
-else
-    file=strcat(filepath,filename);
-    fid=fopen(file,'r');
-    time=strread(fgetl(fid),'%f')';
-    d=dir(file);
-    sig=textscan(fid,'%s',1);
-    sig=sig{:};
-    if isnan(str2double(sig))
-        fseek(fid,-ftell(fid),0);
-        time=strread(fgetl(fid),'%f')';
-        wb=waitbar(0,'Loading traces...');
-        ptr=ftell(fid);
-        while ptr~=d.bytes
-            line=fgetl(fid);
-            id=strread(line,'%s',1);
-            data_start=numel(cell2mat(id))+1;
-            data=[data; strread(line(data_start:end),'%f')'];
-            ptr=ftell(fid);
-            waitbar(ftell(fid)/d.bytes,wb);
-        end
-        fclose(fid);
-        close(wb);
+
+if nargin<1,
+    [filename,filepath]=uigetfile('*.txt','Choose a traces (.txt) file:');
+    if filename==0
+        disp('No traces file selected.');
+        return;
     else
-        fclose(fid);
-        new_data=dlmread(file,' ');
-        data=[data; new_data(2:end,:)];
+        traceFilename=strcat(filepath,filename);
     end
+end
+
+fid=fopen(traceFilename,'r');
+time=strread(fgetl(fid),'%f')';
+% d=dir(traceFilename);
+sig=textscan(fid,'%s',1);
+sig=sig{:};
+if isnan(str2double(sig))
+    fseek(fid,-ftell(fid),0);
+    time=strread(fgetl(fid),'%f')';
+    wb=waitbar(0,'Loading traces...');
+    ptr=ftell(fid);
+    while ptr~=d.bytes
+        line=fgetl(fid);
+        id=strread(line,'%s',1);
+        data_start=numel(cell2mat(id))+1;
+        data=[data; strread(line(data_start:end),'%f')'];
+        ptr=ftell(fid);
+        waitbar(ftell(fid)/d.bytes,wb);
+    end
+    fclose(fid);
+    close(wb);
+else
+    fclose(fid);
+    new_data=dlmread(file,' ');
+    data=[data; new_data(2:end,:)];
 end
 
 %---We'll only need the FRET traces
@@ -111,15 +115,21 @@ time_axis=1:LenTrace;
 frettrace_no=4:3:size(data,1);
 fret_subset=data;
 
+
 %---Open the QuB dwt file from idealization
-[dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
-if dwtfile==0
-    disp('No dwt file selected.')
-    return
-else
-    dwtfilename=strcat(dwtpath,dwtfile);
-    fid=fopen(dwtfilename,'r');
+if nargin<1
+    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
+    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
+    if dwtfile==0
+        disp('No dwt file selected.')
+        return;
+    else
+        dwtFilename=strcat(dwtpath,dwtfile);
+    end
 end
+
+fid=fopen(dwtFilename,'r');
+
 
 %---Read the dwt file one line at a time
 %---(Looking at the dwt file in a text editor will make clear what's going
@@ -456,4 +466,3 @@ switch (ans)
     case 'n'
         disp('No traces have been modified.');
 end
-        

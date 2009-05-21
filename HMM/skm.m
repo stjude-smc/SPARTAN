@@ -80,14 +80,14 @@ data(data<-0.3) = -0.3;
 
 %% Run the SKM algorithm
 
+[nTraces,nFrames] = size(data);
+
 % Here we have several choices.
 % If params.seperately = 
 % NO:  Optimize all the data together and return a single model.
 % YES: Optimize each trace individually, returning a model array
 %      and a single idealization combining all results.
-
 if isfield(params,'seperately') && params.seperately==1,
-    [nTraces,nFrames] = size(data);
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
     
@@ -106,10 +106,30 @@ else
 end
 
 
+% Add dwell in zero-state until end of trace, if requested
+% if isfield(paramers,'zeroEnd') && params.zeroEnd==1,
+    for i=1:nTraces,
+        states = dwt{i}(:,1);
+        times  = dwt{i}(:,2);
+        remainder = nFrames-sum(times)-1;
+        if remainder<=0, continue; end
+        
+        if states(end)==1
+            times(end) = times(end)+remainder;
+        else
+            states(end+1) = 1;
+            times(end+1)  = remainder;
+        end
+        
+        dwt{i} = [states times];
+    end
+% end
+
+
 end %function skm
 
 
-
+% Convert idealization to class-idealization
 
 
 
@@ -144,6 +164,13 @@ while( itr < params.maxItr ),
     [dwt,idl,offsets,vLL] = idealize( data, [imu isigma], p0, A );
     LL(itr) = sum(vLL)/nTraces;
     
+    % Convert state-list idealization to class-list
+    classes = [0; model.class];
+    for i=1:size(idl,1)
+        trace = classes( idl(i,:)+1 );
+        dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
+    end
+    
     % Display intermediate progress...
     if ~params.quiet
         if itr==1,
@@ -157,7 +184,6 @@ while( itr < params.maxItr ),
         
         disp( [imu isigma p0 A] );
     end
-    
     
     % Re-estimate FRET model parameters using idealization
     classes = [0; model.class];
@@ -174,6 +200,8 @@ while( itr < params.maxItr ),
             sigma(class) = max(sigma(class),0.01);
         end
     end
+    
+
     
     
     % Re-estimate kinetic model parameters using idealization by:
