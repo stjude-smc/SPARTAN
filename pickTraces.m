@@ -6,8 +6,8 @@ function [indexes,values] = pickTraces( stats, criteria  )
 %   speficied CRITERIA.  If a criteria is not specified, it is not applied.
 %   
 %   CRITERIA is a structure with the following allowed fields:
-%     minTotalIntesity        stats.t
-%     maxTotalIntesity
+%     minTotalIntensity        stats.t
+%     maxTotalIntensity
 %     minIntensityNoise       stats.snr_s
 %     maxIntensityNoise
 %     minTotalLifetime        stats.lifetime
@@ -79,12 +79,12 @@ end
 % Find traces which fit all the picking criteria (binary array)
 picks = logical( ones(1,Ntraces) );
 
-if isfield(criteria,'minTotalIntesity')
-    picks = picks & t > criteria.minTotalIntesity;
+if isfield(criteria,'minTotalIntensity')
+    picks = picks & t > criteria.minTotalIntensity;
 end    
 
-if isfield(criteria,'maxTotalIntesity')
-    picks = picks & t < criteria.maxTotalIntesity;
+if isfield(criteria,'maxTotalIntensity')
+    picks = picks & t < criteria.maxTotalIntensity;
 end
 
 if isfield(criteria,'minIntensityNoise')

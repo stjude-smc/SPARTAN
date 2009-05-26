@@ -101,8 +101,8 @@ handles.constants = constants;
 criteria.overlap = 1; % Remove overlapping molecules
 
 % These can be changed while running the program.
-criteria.minTotalIntesity=5000;
-criteria.maxTotalIntesity=15000;
+criteria.minTotalIntensity=5000;
+criteria.maxTotalIntensity=15000;
 criteria.minTotalLifetime=20;
 criteria.maxTotalLifetime=1485;
 criteria.minCorrelation=-1.1;
@@ -124,8 +124,8 @@ handles.sync='n';
 
 
 % Initialize input fields with values defined above.
-set(handles.MeanTotalIntensityLow,'String',num2str(handles.criteria.minTotalIntesity));
-set(handles.MeanTotalIntensityHigh,'String',num2str(handles.criteria.maxTotalIntesity));
+set(handles.MeanTotalIntensityLow,'String',num2str(handles.criteria.minTotalIntensity));
+set(handles.MeanTotalIntensityHigh,'String',num2str(handles.criteria.maxTotalIntensity));
 set(handles.fretSlopeThresh,'String',num2str(handles.criteria.minFret));
 set(handles.FluorescenceLifetime,'String',num2str(handles.criteria.minTotalLifetime));
 set(handles.FluorescenceLifetimeHigh,'String',num2str(handles.criteria.maxTotalLifetime));
@@ -645,8 +645,8 @@ sorttraces(0, handles.outfile);
 % --- Executes on button press in PickTraces.
 function PickTraces_Callback(hObject, eventdata, handles)
 
-%criteria.minTotalIntesity = str2double(get(handles.MeanTotalIntensityLow,'String'));
-%criteria.maxTotalIntesity = str2double(get(handles.MeanTotalIntensityHigh,'String'));
+%criteria.minTotalIntensity = str2double(get(handles.MeanTotalIntensityLow,'String'));
+%criteria.maxTotalIntensity = str2double(get(handles.MeanTotalIntensityHigh,'String'));
 %criteria.minFret = str2double(get(handles.fretSlopeThresh,'String'));
 %criteria.minTotalLifetime = str2double(get(handles.FluorescenceLifetime,'String'));
 %criteria.maxTotalLifetime = str2double(get(handles.FluorescenceLifetimeHigh,'String'));
@@ -839,14 +839,14 @@ guidata(hObject,handles);
 function MeanTotalIntensityBox_Callback(hObject, eventdata, handles)
 % If box is checked, get the values input by the user.
 if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minTotalIntesity=str2double(get(handles.MeanTotalIntensityLow,'String'));
-    handles.criteria.maxTotalIntesity=str2double(get(handles.MeanTotalIntensityHigh,'String'));
+    handles.criteria.minTotalIntensity=str2double(get(handles.MeanTotalIntensityLow,'String'));
+    handles.criteria.maxTotalIntensity=str2double(get(handles.MeanTotalIntensityHigh,'String'));
     set(handles.MeanTotalIntensityLow,'Enable','on');
     set(handles.MeanTotalIntensityHigh,'Enable','on');
 else
     % If the box is unchecked, use values which will nullify the criterium.
-    handles.criteria.minTotalIntesity=[];
-    handles.criteria.maxTotalIntesity=[];
+    handles.criteria.minTotalIntensity=[];
+    handles.criteria.maxTotalIntensity=[];
     set(handles.MeanTotalIntensityLow,'Enable','off');
     set(handles.MeanTotalIntensityHigh,'Enable','off');
 end
@@ -960,12 +960,12 @@ guidata(hObject,handles);
 
 
 function MeanTotalIntensityLow_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalIntesity=str2double(get(hObject,'String'));
+handles.criteria.minTotalIntensity=str2double(get(hObject,'String'));
 guidata(hObject,handles);
 
 
 function MeanTotalIntensityHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalIntesity=str2double(get(hObject,'String'));
+handles.criteria.maxTotalIntensity=str2double(get(hObject,'String'));
 guidata(hObject,handles);
 
 
