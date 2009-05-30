@@ -13,6 +13,8 @@ end
 for i=1:length(files),
     [d,a,fret] = loadTraces( files{i} );
     fret = fret';
+    fret( fret<-0.5 ) = -0.5;
+    fret( fret>1 ) = 1;
 
     % Create or get an output filename
     outfile=strrep(files{i},'.traces','.txt');

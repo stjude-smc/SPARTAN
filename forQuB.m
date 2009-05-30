@@ -45,6 +45,8 @@ end
 
 % Save the data to file
 data = fret';
+data( data<-0.5 ) = -0.5;
+data( data>1 ) = 1;
 
 fid2=fopen(outfile,'w');
 fprintf(fid2,'%f\n', data(:) );
