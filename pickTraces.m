@@ -79,6 +79,26 @@ end
 % Find traces which fit all the picking criteria (binary array)
 picks = logical( ones(1,Ntraces) );
 
+if isfield(criteria,'maxTotalSigma') && ~isempty(criteria.maxTotalSigma)
+    % Fit distribution to a Gaussian function
+    bins = 0:500:30000;
+    [histdata] = hist( t, bins );
+    histdata = histdata / sum(histdata);
+    
+    f = fit( bins',histdata', 'gauss1', 'Startpoint',[0.10,7000,2000] );
+
+%     figure;
+%     bar( bins, histdata, 1 ); hold on;
+%     plot(f);
+    
+    mu = f.b1;
+    sigma = f.c1;
+    
+    disp( [mu sigma] );
+    
+    picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
+end
+
 if isfield(criteria,'minTotalIntensity')
     picks = picks & t > criteria.minTotalIntensity;
 end    

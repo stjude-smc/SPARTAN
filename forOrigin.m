@@ -68,13 +68,23 @@ for i=1:nTraces,
     output(1:end,idx+3) = d(i,:)';
     output(1:end,idx+4) = a(i,:)';
 end
+
 %
-output(:,1) = time./60000; %in minutes
+if sampling >= 100,
+    output(:,1) = time./60000; %in minutes
+    timeUnit = 'min';
+% elseif sampling <= 10,
+%     output(:,1) = time; %in milliseconds
+%     timeUnit = 'ms';
+else
+    output(:,1) = time./1000; %in seconds
+    timeUnit = 'sec';
+end
 
 % Output header lines
 fid = fopen('traces.txt','w');
 
-fprintf(fid,'Time (min)');
+fprintf(fid,'Time (%s)',timeUnit);
 
 for i=1:nTraces,
     fprintf(fid,'\tFRET%d\tIdl%d\tDonor%d\tAcceptor%d',i,i,i,i);
