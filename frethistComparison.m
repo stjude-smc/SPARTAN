@@ -1,4 +1,4 @@
-function f = frethistComparison(titles, files)
+function f = frethistComparison(files, titles)
 % FRETHISTCOMPARISON  Overlays multiple 1D FRET histograms for comparison
 %
 %   Prompts user for locations of traces files to load.  Creates 1D
@@ -8,30 +8,29 @@ function f = frethistComparison(titles, files)
 
 
 % OPTIONS:
-forceMakePlots = 1;  %ignore existing files
-
-
-% EXTENSIONS for files used:
-dwt_ext  = '.qub.dwt';       % QuB Idealization file
-data_ext = '.qub.txt';       % forQuB raw data (not used)
-raw_ext  = '.txt';           % raw traces data
-hist_ext = '_hist.txt';      % 1D population histogram
-tdp_ext  = '.qub_tdp.txt';   % TD plot
-shist_ext= '_shist.txt';     % state occupancy histogram
-
-% constants:
-contour_bin_size = 0.025;
+nBootstrap = 100;
+constants = cascadeConstants();
+sampling = 40; %doesn't really matter, as long as its close
+contour_bin_size = 0.03;
 pophist_sumlen = 50;
+fretaxis = (-0.1:contour_bin_size:1.0)';
+nbins = length(fretaxis);
 
-colors = [ 0         0.7500    0.7500 ; ...
-           0.7500         0    0.7500 ; ...
-           0.7500    0.7500         0 ; ...
-           0.2500    0.2500    0.2500 ];
+removeDarkState = 1;
+darkModel = [constants.modelLocation 'darkstate.qmf'];
+
+
+colors = [ 0  0      0   ; ...                  % black
+           0  0.75   0.75 ; ... % cyan
+           0.75   0        0.75 ; ... % purple
+           1 0 0   ; ...                  % red
+           0.75   0.75   0 ; ...      % yellow
+           0 0.5 0 ];                     % green
 
 
 
 % Prompt user for filenames if not supplied
-if nargin < 2,
+if nargin < 1,
     disp('Select traces files, hit cancel when finished');
     files = getFiles('*.txt','Choose a traces file:');
 end
@@ -44,47 +43,98 @@ if nFiles == 0,
 end
 
 
-
+%
 figure;
 
-f = {};
+%% 
+frethist = zeros(nbins,2*nFiles);
+
+model = qub_loadModel( darkModel );
+model.mu       = [0.01 0.3];
+model.sigma    = [0.061 0.074];
+model.fixMu    = ones(1,2);
+model.fixSigma = ones(1,2);
+skmParams.quiet = 1;
 
 % Load FRET histograms
 for i=1:nFiles
     
-    base = strrep( files{i}, '.txt', '' );
-    data_fname    = files{i};
-    hist_filename = [base hist_ext];
+    % Load FRET data
+    [d,a,fret] = loadTraces( files{i} );
+    fret = fret(:,1:pophist_sumlen);
+    [nTraces,nFrames] = size(fret);
     
     
-    % Generate the contour plot if not available
-    if forceMakePlots || ~exist(hist_filename,'file') || fileIsNewer(data_fname,hist_filename)
-        makecplot( data_fname, contour_bin_size );
-    end
-    
-    % Load histogram data
-    cplotdata = load(hist_filename);
-    N = sum( cplotdata(2:end,2) );  %number of traces
-    
-    
-    % Plot histogram
-    fretaxis = cplotdata(2:end,1);      
-    histdata = cplotdata(2:end,2:pophist_sumlen+1)*100;
-    pophist  = sum(histdata,2)/N/pophist_sumlen;   %normalization
+    % Idealize data to 2-state model to eliminate dark-state dwells
+    if removeDarkState
+        
+        % Idealize to two-state model to select dark state
+        dwt = skm( fret, sampling, model, skmParams );
 
-    plot( fretaxis, pophist, 'Color',colors(i,:), 'LineWidth',2 );
-    hold on;
+        % Expand DWT into an idealization: 2=non-zero FRET state
+        idl = zeros(nTraces,nFrames);
+
+        for dwtID=1:nTraces,
+            states = dwt{dwtID}(:,1);
+            times  = double(dwt{dwtID}(:,2));
+
+            ends = cumsum( times );
+            starts = cumsum( [1; times(1:end-1)] );
+            for j=1:numel(states),
+                idl(dwtID,starts(j):ends(j)) = states(j);
+            end
+        end        
+    else
+        % Use all datapoints for histogram otherwise
+        idl = repmat(2,size(fret));
+    end %if removeDarkState
     
-    if isempty(f),
-        f = fretaxis;
+        
+    % Calculate FRET histograms from many bootstrap datasets
+    pophist = zeros(nbins,nBootstrap);
+    fret = fret(:,1:pophist_sumlen);
+    
+    for s=1:nBootstrap,
+        % Construct bootstrap datasets
+        if s==1,
+            idxBootstrap = 1:nTraces;
+        else
+            idxBootstrap = floor(rand(nTraces,1)*nTraces)+1;
+        end
+        
+        data = fret( idxBootstrap, : );     %bootstrap traces
+        data = data( idl(idxBootstrap,:)==2 ); %non-zero FRET only
+        
+        % Create FRET histogram from the bootstrapped dataset
+        histdata  = hist( data, fretaxis );
+        pophist(:,s) = histdata/sum(histdata);   %normalization
+
+        % Plot FRET histograms
+        lw = 4;
+        if s~=1,
+            lw = 1;
+        end
+        
+        plot( fretaxis, pophist(:,s), 'Color',colors(i,:), 'LineWidth',lw );
+        hold on;
+        drawnow;
     end
     
-    f = [ f pophist ];
+    pophistErrors = std(pophist,[],2);
+        
+    % Add histogram from current dataset to output
+    frethist(:,2*i-1) = pophist(:,1);
     
-%     area( fretaxis+i*0.003+(contour_bin_size/2), pophist, 'LineStyle', 'none', 'FaceColor', colors(i,:) );
-%     alpha(0.2);
-    
-    % Setup visual style
+    % Add bootstrapped errors from current dataset
+    frethist(:,2*i) = pophistErrors;
+
+    %
+%     X = [fret_axis ; fret_axis];
+%     Y = [pophist(:,1)-pophistErrors ; pophist(:,1)+pophistErrors];
+%     
+%     patch( X,Y,colors(i,:)); hold on;
+%     alpha(0.3);
+%     drawnow;
 end
 
 hold off;
@@ -94,65 +144,15 @@ xlabel( 'FRET Efficiency' );
 xlim( [0.1 1.0] );
 
 
-if nargin>0,
+if nargin>=2,
     legend( titles );
 end
 
-
+f = [fretaxis frethist];
 save( 'pophist.txt', 'f', '-ASCII' );
 
 
 end
 
 
-
-
-
-
-
-
-
-function frethist = makecplot( data_filename, contour_bin_size )
-% MAKECPLOT   creates _hist.txt FRET histogram file
-% taken from makeplots
-
-% Load data
-[d,a,fret] = LoadTraces( data_filename );
-[Nmol len] = size(fret);
-
-% Axes for histogram includes all possible data
-time_axis = 1:len;
-fret_axis = -0.1:contour_bin_size:1.0;
-
-% Initialize histogram array, setting the time step in the first row,
-% and the FRET bins in the first column. This is done for import into
-% Origin.
-frethist = zeros( length(fret_axis)+1, length(time_axis)+1 );
-frethist(1,2:end) = time_axis;
-frethist(2:end,1) = fret_axis';
-
-frethist(2:end,2:end) = hist( fret, fret_axis  );
-
-
-% Save plots to file
-histfile=strrep(data_filename,'.txt','_hist.txt');
-dlmwrite(histfile,frethist,' ');
-
-
-end %function makecplot
-
-
-
-function answer = fileIsNewer( filename1, filename2 )
-% FILEISNEWER  compare two file modification dates
-% 
-%   BOOL = FILEISNEWER( FILE1, FILE2 )
-%   Full path must be provided and files must exist.
-
-dir1 = dir(filename1);
-dir2 = dir(filename2);
-
-answer = (dir1.datenum > dir2.datenum);
-
-end
 
