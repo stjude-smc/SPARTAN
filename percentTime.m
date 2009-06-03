@@ -9,8 +9,11 @@ function [meanPT,stdPT] = percentTime( filenames )
 
 rand('twister',sum(100*clock));
 
-bootstrapN = 10000;
-
+if nargout>1
+    bootstrapN = 10000;
+else
+    bootstrapN = 1;
+end
 
 if nargin<1,
     

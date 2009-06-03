@@ -9,7 +9,11 @@ function [meanTPS,stdTPS] = transitionsPerSecond( dwtFilenames )
 
 rand('twister',sum(100*clock));
 
-bootstrapN = 1000;
+if nargout>1
+    bootstrapN = 1000;
+else
+    bootstrapN = 1;
+end
 
 
 if nargin<1,
