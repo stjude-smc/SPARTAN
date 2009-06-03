@@ -21,11 +21,12 @@ darkModel = [constants.modelLocation 'darkstate.qmf'];
 
 
 colors = [ 0  0      0   ; ...                  % black
-           0  0.75   0.75 ; ... % cyan
            0.75   0        0.75 ; ... % purple
-           1 0 0   ; ...                  % red
+           0  0.75   0.75 ; ... % cyan
+           0 0.5 0 ;                     % green
            0.75   0.75   0 ; ...      % yellow
-           0 0.5 0 ];                     % green
+           1 0 0   ; ...                  % red
+           0.6 0 0   ];                   % dark red
 
 
 
