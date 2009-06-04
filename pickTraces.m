@@ -82,10 +82,10 @@ picks = logical( ones(1,Ntraces) );
 if isfield(criteria,'maxTotalSigma') && ~isempty(criteria.maxTotalSigma)
     % Fit distribution to a Gaussian function
     bins = 0:500:30000;
-    [histdata] = hist( t, bins );
+    [histdata] = hist( t(t>0), bins );
     histdata = histdata / sum(histdata);
     
-    f = fit( bins',histdata', 'gauss1', 'Startpoint',[0.10,7000,2000] );
+    f = fit( bins',histdata', 'gauss1' );
 
 %     figure;
 %     bar( bins, histdata, 1 ); hold on;
