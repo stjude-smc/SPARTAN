@@ -24,7 +24,8 @@ function [indexes,values] = pickTraces( stats, criteria  )
 %     maxBackground
 %     maxDonorBlinks          stats.ncross
 %     minAverageFret          
-%     maxAverageFret
+%     maxAverageFret          stats.fretEvents
+%     minFretEvents
 %     minFret                 at least 1 frame above this value
 %     overlap                 (0=no filtering, 1=remove overlap, 2=only overlap)
 %     random                  remove X percent of traces randomly
@@ -97,6 +98,10 @@ if isfield(criteria,'maxTotalSigma') && ~isempty(criteria.maxTotalSigma)
     disp( [mu sigma] );
     
     picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
+end
+
+if isfield(criteria,'minFretEvents')
+    picks = picks & fretEvents > criteria.minFretEvents;
 end
 
 if isfield(criteria,'minTotalIntensity')

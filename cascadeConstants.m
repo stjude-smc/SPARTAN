@@ -9,6 +9,7 @@ constants.version = '1.4';  %pipeline release version number
 constants.gamma = 0.7; %
 
 constants.min_fret = 0.125; % above which consider acceptor dye alive
+constants.fretEventTreshold = 0.14; % FRET value used for detecting FRET events
 constants.rle_min = 5; % count alive when above min_fret for # frames
 
 constants.NBK=100; % Size of window used for calc. background statistics

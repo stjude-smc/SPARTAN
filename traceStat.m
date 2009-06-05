@@ -23,6 +23,7 @@ function retval = traceStat( donor,acceptor,fret, constants )
 %     acclife       number of frames showing FRET (in 5-frame chunks)
 %     overlap       0=okay, 1=multiple photobleaching events (overlap)
 %     avgfret       average FRET value
+%     fretEvents    number of FRET events crossing E=0.14
 %
 %   snr,snr_s,t are all corrected for gamma (sensitivity/quantum yield ratio)
 %
@@ -33,6 +34,7 @@ if nargin < 3,
     % Order matters -- will be displayed this way in autotrace!
     ln.t        = 'Mean Total Intensity';
     ln.maxFRET  = 'Highest FRET value';
+    ln.fretEvents = 'Number of FRET events';
     ln.acclife  = 'FRET Lifetime';
     ln.lifetime = 'Donor Lifetime';
     ln.corr     = 'Correlation of Fluor.';
@@ -97,7 +99,8 @@ retval = struct( ...
     'acclife',  z, ...
     'overlap',  z, ...
     'safeRegion', z, ...
-    'avgfret',  z ...
+    'avgfret',  z, ...
+    'fretEvents', z ...
 );
 
 clear lifetime;
@@ -229,6 +232,12 @@ for i=1:Ntraces
     % Statistics based on FRET distribution
     %retval(i).maxFRET = fret(i,1);
     retval(i).maxFRET = max(fret(i,:));
+    
+    
+    % Number of events crossing an arbitrary threshold
+    % TODO?: additional filtering to detect only anticorrelated events?
+    [result] = RLEncode( fret(i,:) > constants.fretEventTreshold );
+    retval(i).fretEvents = result(:,1)==1;
 end
 
 
