@@ -13,7 +13,12 @@ if nargin<1,
 end
 
 while 1,
-    [f,p] = uigetfile(filter, prompt);
-    if f==0, break; end  %user hit cancel
-    files{end+1} = [p f];
+    [f,p] = uigetfile(filter, prompt, 'MultiSelect','on');
+    
+    if iscell(f),
+        files = [files strcat(p,f)];
+    else
+        if f==0, break; end  %user hit cancel
+        files{end+1} = [p f];
+    end
 end
