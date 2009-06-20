@@ -8,6 +8,9 @@ function cplot( varargin )
 %   
 %   If no histogram specified, the user will be propted for a cplot file.
 %   Used by: autotrace, makeplots.
+%
+%   DT 090619: added time-binning for very large histograms
+%
 
 [cax,args] = axescheck(varargin{:});
 cax = newplot(cax);
@@ -37,14 +40,41 @@ end
 scale = constants.cplot_scale_factor;
 
 
+% Time-bin the data if histogram axes are very long
+binFactor = ceil( (bounds(2)-bounds(1)+1)/100 );
+
+time_axis = hist2d(1,2:end);
+fret_axis = hist2d(2:end,1);
+histdata  = hist2d(2:end,2:end);
+
+if binFactor>1,
+    [nRows,nCols] = size(histdata);
+    
+    time_axis = time_axis(1:binFactor:end);
+    nTime = numel(time_axis);
+    
+    histdata_b  = zeros( numel(fret_axis), nTime );
+    
+    for i=1:nRows
+        for j=1:nTime,
+            idx = (1:binFactor) + binFactor*(j-1);
+            idx = idx(idx<=nCols);
+            histdata_b(i,j) = mean( histdata(i,idx) );
+        end
+    end
+    
+    hist2d = zeros(nRows+1,nTime+1);
+    hist2d(2:end,1) = fret_axis;
+    hist2d(1,2:end) = time_axis;
+    hist2d(2:end,2:end) = histdata_b;
+end
+
 
 % Load Stanford colormap
 cmap = dlmread( 'frethist_colormap.txt' )/255;
 
 
 % Setup plot axes and contour levels
-% time_axis = hist2d(1,2:end);
-fret_axis = hist2d(2:end,1);
 % bounds(2) = min(bounds(2),time_axis(end));
 
 max_mol = sum( hist2d(2:end,2) )/scale;     %red=?% of total
@@ -57,9 +87,11 @@ hist2d(end,bounds(2)) = max_mol*2;
 
 
 % Draw the filled contour plot in current axis
+lims = ceil( (bounds(1):bounds(2))/binFactor );
+
 [C,hand] = contourf( cax, ...
-        bounds(1):bounds(2), fret_axis, ...
-        hist2d( 2:end, (bounds(1):bounds(2))+1 ), con );
+        time_axis(lims), fret_axis, ...
+        hist2d( 2:end, lims+1 ), con );
 
 colormap(cax,cmap);
 set(hand, 'LineColor', 'none');
