@@ -174,7 +174,6 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
         QTR_DECREF( result.getImpl() );
         
     //Generic MIL version - use a bridge interface...
-    //Under Linux, use Wine to run the program.
     #else
         QUB_Tree result;
     
@@ -184,14 +183,14 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
 
         //Run MIL via command line
         string copyCmd = "\"" + dwtFilename + "\" .mildata.dwt";
-        string milCmd = "/home/dsterry/cornell/data/Daniel2/cas/qub/miltreeiface.exe .milconfig.qtr .mildata.dwt .milresult.qtr";
+        string milLoc = "/home/dsterry/cornell/code/cascade_binary/";
+        string milCmd = "LD_LIBRARY_PATH="+milLoc+" ";
+        milCmd += milLoc + "miltreeiface .milconfig.qtr .mildata.dwt .milresult.qtr";
         #ifdef WIN32
         copyCmd = "copy /Y " + copyCmd; 
         #else
-        copyCmd = "cp -f " + copyCmd; 
-        milCmd = "wine " + milCmd;
+        copyCmd = "cp -f " + copyCmd;
         #endif
-        //milCmd = "/home/dsterry/cornell/code/cascade_git/qub/"+milCmd;
         system( copyCmd.c_str() );
         retval = system( milCmd.c_str() );
     
@@ -208,7 +207,7 @@ QUB_Tree milOptimize(string dwtFilename, string modelFilename)
             break;
         default:
             mexPrintf("(%d) ",retval);
-            mexErrMsgTxt("miltreeiface: unknown error");
+            //mexErrMsgTxt("miltreeiface: unknown error");
         }
     #endif
     

@@ -208,10 +208,11 @@ if ~handles.hasModel || ~handles.hasData,
 end
 
 % Get location to save results...
-f = [handles.dataPath 'result.qrf'];
-[f,p] = uiputfile(f,'Save results as...');
-if f==0, return; end
-resultFilename = [p f];
+% f = [handles.dataPath 'result.qrf'];
+% [f,p] = uiputfile(f,'Save results as...');
+% if f==0, return; end
+% resultFilename = [p f];
+resultFilename = 'result.qrf';
 
 % Get sampling interval of data...
 sampling = str2double( get(handles.edSampling,'String') );
@@ -280,14 +281,16 @@ tic;
 % HACK: modify model to fix mu and sigma, mimicing SKM.
 % This SHOULD be handled in the model...
 nClass = model.nClass;
-% model.fixSigma = ones(nClass,1);
-model.fixMu = ones(nClass,1);
+model.fixSigma = ones(4,1);
+model.fixMu    = ones(4,1);
+% model.fixSigma = [1; zeros(3-1,1)];
+% model.fixMu    = [1; zeros(3-1,1)];
 
 
 %----- STEP 1: Optimize params using SKM and idealize
 h = waitbar(0,'Optimizing FRET model using Baum-Welch...');
 
-skmOptions.maxItr = 100;
+skmOptions.maxItr = 40;
 skmOptions.convLL = 1e-4;
 
 skmLL = zeros(nFiles,1);
@@ -331,7 +334,7 @@ resultTree(1).skmModels = skmModels;
 resultTree.skmLL = skmLL;
 
 toc
-return;
+% return;
 
 
 %----- STEP 3: Refine kinetic parameter estimates using MIL
@@ -346,11 +349,15 @@ delete(mfname);
 qub_saveTree( model.qubTree, mfname, 'ModelFile' );
 % qub_saveModel(model,mfname);
 
+avgRates = cell(nFiles,1);
+avgStdRates = cell(nFiles,1);
+
 for i=1:nFiles
     disp( sprintf('%d: %s', i,dwtFilename{i}) );
     
     % Run MIL
-    milResults(i) = qub_milOptimize(dwtFilename{i},mfname);
+    [avgRates{i},avgStdRates{i},milResults(i)] = bootstrapMIL( ...
+                dwtFilename{i}, mfname, options.bootstrapN );
     
     waitbar(0.33+0.66*i/nFiles,h);
 end
@@ -366,22 +373,30 @@ waitbar(1,h,'Saving results...');
 
 
 rates = [];
+stdRates = [];
 nStates = model.nStates;
 
 for i=1:nFiles
-    modelTree = milResults(i).ModelFile;
-    model = qub_loadModel( modelTree );
+%     modelTree = milResults(i).ModelFile;
+%     model = qub_loadModel( modelTree );
+%     Q = model.rates';
+    Q    = avgRates{i}';
+    Qstd = avgStdRates{i}';
     
-    idx = find( ~logical(eye(nStates)) );
-    % 1->[2,3,4], 2->[1,3,4], 3->[1,2,4], 4->[1,2,3]
-    Q = model.rates';
-    Q_parts = Q(idx)';
-    
-    Q_nonzero = Q(2:end,2:end);
+    idx         = find( ~logical(eye(nStates)) );
     idx_nonzero = find( ~logical(eye(nStates-1)) );
+    
+    % 1->[2,3,4], 2->[1,3,4], 3->[1,2,4], 4->[1,2,3]
+    Q_parts   = Q(idx)';
+    Q_nonzero = Q(2:end,2:end);
     Q_nonzero = Q_nonzero(idx_nonzero)';
     
-    rates = [rates ; Q_nonzero];
+    Qstd_parts   = Qstd(idx)';
+    Qstd_nonzero = Qstd(2:end,2:end);
+    Qstd_nonzero = Qstd_nonzero(idx_nonzero)';
+    
+    rates    = [rates    ; Q_nonzero   ];
+    stdRates = [stdRates ; Qstd_nonzero];
 end
 nRates = size(rates,2);
 
@@ -415,6 +430,86 @@ end
 resultTree.rates = rates;
 
 close(h)
+
+
+
+
+
+function [avgRates,stdRates,firstResult] = bootstrapMIL( ...
+                          dwtFilename, modelFilename, nBootstrap )
+
+if nargin < 3,
+    nBootstrap = 1;
+end
+                      
+tempDWT = [tempname '.dwt'];
+
+[dwt,sampling,offsets,fret_model] = loadDWT( dwtFilename );
+nTraces = numel(dwt);
+
+nStates = numel(fret_model)/2;
+idx_nonzero = find( ~logical(eye(nStates)) );
+
+% For each bootstrap run...
+bootstrapRates = [];
+h = waitbar(0,'Bootstrapping rate estimates');
+
+% for i=1:nBootstrap,
+i = 1;
+while i<=nBootstrap
+    
+    % Construct bootstrap dataset
+    if i == 1,
+        idxBootstrap = 1:nTraces;
+    else
+        idxBootstrap = floor(rand(nTraces,1)*nTraces)+1;
+    end
+    
+    saveDWT( tempDWT, dwt(idxBootstrap), ...
+             offsets(idxBootstrap), fret_model, sampling );
+    
+    % Run MIL on the bootstrap dataset
+    result = qub_milOptimize( tempDWT, modelFilename );
+    
+    % Save the first result
+    if i == 1,
+        firstResult = result;
+    end
+    
+    % Process the results for averaging
+    modelTree = result.ModelFile;
+    model = qub_loadModel( modelTree );
+    rates = model.rates(:);
+    
+    disp( rates(:)' );
+    if any( rates(idx_nonzero) < 10e-9 )
+        warning( 'Data corruption? trying again...' );
+        continue;
+    end
+    
+    bootstrapRates(i,:) = rates(:);
+    
+    waitbar( i/nBootstrap, h );
+    i = i+1;
+end
+
+% Calculate average rates
+avgRates = sum(bootstrapRates) ./ nBootstrap;
+% avgRates = bootstrapRates(1,:);
+stdRates = std(bootstrapRates);
+
+if nBootstrap==1,
+    stdRates = zeros( size(avgRates) );
+end
+
+avgRates = reshape( avgRates, size(model.rates) );
+stdRates = reshape( stdRates, size(model.rates) );
+
+save( [dwtFilename '.ratedata.txt'], 'bootstrapRates', '-ASCII' );
+
+close(h);
+
+
 
 
 
