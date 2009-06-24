@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 04-Oct-2008 20:01:14
+% Last Modified by GUIDE v2.5 24-Jun-2009 12:27:20
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -176,9 +176,8 @@ shortNames = fieldnames(ln);
 
 
 % Add context menus to the plots to launch curve fitting
-handles.nPlots = length(handles.axStat);
-
-handles.cboNames = strcat('cboStat',{'1','2','3','4','5','6'});
+handles.cboNames = strcat('cboStat',{'1','2','3','4','5'});
+handles.nPlots = length(handles.cboNames);
 
 for id=1:handles.nPlots,
     menu = uicontextmenu;
@@ -193,19 +192,18 @@ for id=1:handles.nPlots,
            ['autotrace(''copyPlotData_Callback'',gcbo,' num2str(id) ',guidata(gcbo))'] );
    
     % Add the context menu to the axes
-    set( handles.axStat(id), 'UIContextMenu', menu );
+    set( handles.(['axStat' num2str(id)]), 'UIContextMenu', menu );
     
     % Also set options in combobox
-    set( handles.(handles.cboNames{id}), 'String', longNames );
+    set( handles.(['cboStat' num2str(id)]), 'String', longNames );
 end
 
 % Set default selections
 set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
-set( handles.cboStat2, 'Value', find(strcmp('a',shortNames))  );
-set( handles.cboStat3, 'Value', find(strcmp('lifetime',shortNames))  );
-set( handles.cboStat4, 'Value', find(strcmp('corr',shortNames))  );
-set( handles.cboStat5, 'Value', find(strcmp('snr',shortNames))   );
-set( handles.cboStat6, 'Value', find(strcmp('bg',shortNames))    );
+set( handles.cboStat2, 'Value', find(strcmp('lifetime',shortNames))  );
+set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
+set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
+set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
 
 
@@ -1026,9 +1024,9 @@ guidata(hObject,handles);
 
 
 
-% --- Executes on selection change in cboStat6.
+% --- Executes on selection change in cboStat5.
 function cboStat_Callback(hObject, eventdata, handles)
-% hObject    handle to cboStat6 (see GCBO)
+% hObject    handle to cboStat5 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -1057,18 +1055,18 @@ if length(stats)<1, return; end
 [data,binCenters] = hist( [stats.(statToPlot)], handles.nHistBins);
 data = 100*data/sum(data);  %normalize the histograms
 
-axes( handles.axStat(id) );
+axes( handles.(['axStat' num2str(id)]) );
 bar( binCenters, data, 1 );
 % xlabel(statToPlot);
 zoom on;
 grid on;
 
 if id==1,
-    ylabel( handles.axStat(1), 'Number of Traces (%)' );
+    ylabel( handles.axStat1, 'Number of Traces (%)' );
 end
 
 % Save histogram data in plot for launching cftool
-set( handles.axStat(id), 'UserData', [binCenters;data] );
+set( handles.(['axStat' num2str(id)]), 'UserData', [binCenters;data] );
 
 
 guidata(hObject,handles);
@@ -1082,7 +1080,7 @@ function launchFitTool_Callback(hObject, id, handles)
 % Callback for context menu for trace statistics plots.
 % Launches Curve Fitting Tool using the data in the selected plot.
 
-ax = handles.axStat(id);
+ax = handles.axStat5(id);
 
 % Get ID of this combo control
 histData = get(ax,'UserData');
@@ -1097,7 +1095,7 @@ function copyPlotData_Callback(hObject, id, handles)
 % Callback for context menu for trace statistics plots.
 % Launches Curve Fitting Tool using the data in the selected plot.
 
-ax = handles.axStat(id);
+ax = handles.axStat5(id);
 
 % Get ID of this combo control
 histData = get(ax,'UserData');
@@ -1115,4 +1113,40 @@ clipboard('copy', sprintf([y(1,:) '\n' y(2,:)]) );
 
 
 
+
+
+
+% --- Executes on button press in chkIntSigma.
+function chkIntSigma_Callback(hObject, eventdata, handles)
+if (get(hObject,'Value')==get(hObject,'Max'))
+    handles.criteria.maxTotalSigma = str2double(get(handles.edIntSigma,'String'));
+    set(handles.edIntSigma,'Enable','on');
+else
+    handles.criteria.maxTotalSigma=[];
+    set(handles.edIntSigma,'Enable','off');
+end
+guidata(hObject,handles);
+
+
+function edIntSigma_Callback(hObject, eventdata, handles)
+handles.criteria.maxTotalSigma = str2double(get(hObject,'String'));
+% handles.criteria.minTotalSigma = str2double(get(hObject,'String'));
+guidata(hObject,handles);
+
+
+% --- Executes on button press in chkFretEvents.
+function chkFretEvents_Callback(hObject, eventdata, handles)
+if (get(hObject,'Value')==get(hObject,'Max'))
+    handles.criteria.minFretEvents = str2double(get(handles.edFretEvents,'String'));
+    set(handles.edFretEvents,'Enable','on');
+else
+    handles.criteria.minFretEvents=[];
+    set(handles.edFretEvents,'Enable','off');
+end
+guidata(hObject,handles);
+
+
+function edFretEvents_Callback(hObject, eventdata, handles)
+handles.criteria.minFretEvents = str2double(get(hObject,'String'));
+guidata(hObject,handles);
 

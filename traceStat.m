@@ -237,7 +237,7 @@ for i=1:Ntraces
     % Number of events crossing an arbitrary threshold
     % TODO?: additional filtering to detect only anticorrelated events?
     [result] = RLEncode( fret(i,:) > constants.fretEventTreshold );
-    retval(i).fretEvents = result(:,1)==1;
+    retval(i).fretEvents = sum(result(:,1)==1);
 end
 
 

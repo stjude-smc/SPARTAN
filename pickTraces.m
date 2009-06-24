@@ -60,6 +60,7 @@ acclife = [stats.acclife];
 overlap = [stats.overlap];
 avgfret = [stats.avgfret];
 Ntraces = numel(t);
+fretEvents = [stats.fretEvents];
 
 
 
@@ -101,7 +102,7 @@ if isfield(criteria,'maxTotalSigma') && ~isempty(criteria.maxTotalSigma)
 end
 
 if isfield(criteria,'minFretEvents')
-    picks = picks & fretEvents > criteria.minFretEvents;
+    picks = picks & fretEvents >= criteria.minFretEvents;
 end
 
 if isfield(criteria,'minTotalIntensity')
