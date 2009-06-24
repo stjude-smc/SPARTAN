@@ -59,8 +59,10 @@ ncross  = [stats.ncross];
 acclife = [stats.acclife];
 overlap = [stats.overlap];
 avgfret = [stats.avgfret];
-Ntraces = numel(t);
 fretEvents = [stats.fretEvents];
+Ntraces = numel(t);
+
+picks = logical( ones(1,Ntraces) );
 
 
 
@@ -77,11 +79,35 @@ for i=1:numel(names)
 end
 
 
+% Rename fields with new standard naming
+fn = fieldnames(criteria);
+
+for i=1:numel(fn)
+    if strfind(fn{i},'min_')==1,
+        cn = fn{i}(5:end);
+        eq = '>';
+        picks = picks & eval([cn eq 'criteria.' fn{i}]);
+    elseif strfind(fn{i},'max_')==1,
+        cn = fn{i}(5:end);
+        eq = '<';
+        picks = picks & eval([cn eq 'criteria.' fn{i}]);
+    elseif strfind(fn{i},'eq_')==1,
+        cn = fn{i}(4:end);
+        eq = '==';
+    else
+        %warning('Filtering criteria not recognized...');
+        continue;
+    end
+    picks = picks & eval([cn eq 'criteria.' fn{i}]);
+end
+    
+
+
+
+
 
 % Find traces which fit all the picking criteria (binary array)
-picks = logical( ones(1,Ntraces) );
-
-if isfield(criteria,'maxTotalSigma') && ~isempty(criteria.maxTotalSigma)
+if isfield(criteria,'maxTotalSigma')
     % Fit distribution to a Gaussian function
     bins = 0:500:30000;
     [histdata] = hist( t(t>0), bins );

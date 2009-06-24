@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 24-Jun-2009 12:27:20
+% Last Modified by GUIDE v2.5 24-Jun-2009 15:22:06
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -179,6 +179,17 @@ set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
 set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
 set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
+
+%
+handles.nCriteriaBoxes = 4;
+criteriaNames = [{''}; longNames];
+
+for id=1:handles.nCriteriaBoxes
+    
+    % Set options in selection crtieria comboboxes
+    set( handles.(['cboCriteria' num2str(id)]), 'String', criteriaNames );
+
+end
 
 
 %warning off MATLAB:divideByZero
@@ -617,9 +628,29 @@ sorttraces(0, handles.outfile);
 % --- Executes on button press in PickTraces.
 function PickTraces_Callback(hObject, eventdata, handles)
 
+criteria = handles.criteria;
+
+% Update criteria for combo-box selections
+shortNames = fieldnames(handles.statLongNames);
+equalityText = {'min_','max_','eq_'};
+
+for id=1:handles.nCriteriaBoxes
+    selection = get( handles.(['cboCriteria' num2str(id)]), 'Value' );
+    if selection==1, continue; end %no selection
+    
+    equality = get(handles.(['cboEquality' num2str(id)]),'Value');
+    if equality==1, continue; end %no inequality selected
+    
+    criteriaName = [equalityText{equality-1} shortNames{selection-1}];
+    value    = str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
+    
+    criteria.(criteriaName) = value;
+end
+
+
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
-[picks,values] = pickTraces( stats, handles.criteria );
+[picks,values] = pickTraces( stats, criteria );
 clear stats;
 
 % The number of traces picked.
@@ -1054,5 +1085,126 @@ guidata(hObject,handles);
 
 
 
+
+
+
+
+
+
+
+function edCriteria1_Callback(hObject, eventdata, handles)
+% hObject    handle to edCriteria1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edCriteria1 as text
+%        str2double(get(hObject,'String')) returns contents of edCriteria1 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edCriteria1_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edCriteria1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+
+
+function edCriteria3_Callback(hObject, eventdata, handles)
+% hObject    handle to edCriteria3 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edCriteria3 as text
+%        str2double(get(hObject,'String')) returns contents of edCriteria3 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edCriteria3_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edCriteria3 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in popupmenu13.
+function popupmenu13_Callback(hObject, eventdata, handles)
+% hObject    handle to popupmenu13 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns popupmenu13 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from popupmenu13
+
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu13_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to popupmenu13 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edCriteria4_Callback(hObject, eventdata, handles)
+% hObject    handle to edCriteria4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edCriteria4 as text
+%        str2double(get(hObject,'String')) returns contents of edCriteria4 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edCriteria4_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edCriteria4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on selection change in cboEquality4.
+function cboEquality4_Callback(hObject, eventdata, handles)
+% hObject    handle to cboEquality4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = get(hObject,'String') returns cboEquality4 contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from cboEquality4
+
+
+% --- Executes during object creation, after setting all properties.
+function cboEquality4_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to cboEquality4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
 
 
