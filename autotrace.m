@@ -831,6 +831,11 @@ end
 guidata(hObject,handles);
 
 
+function FRETBinSize_Callback(hObject, eventdata, handles)
+handles.criteria.contour_bin_size=str2double(get(hObject,'String'));
+guidata(hObject,handles);
+
+
 
 %----------CHECKBOX FOR MEAN TOTAL INTENSITY CRITERIA----------
 % --- Executes on button press in MeanTotalIntensityBox.
@@ -957,71 +962,14 @@ end
 guidata(hObject,handles);
 
 
-function MeanTotalIntensityLow_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalIntensity=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function MeanTotalIntensityHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalIntensity=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function fretSlopeThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minFret=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FluorescenceLifetime_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalLifetime=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FluorescenceLifetimeHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalLifetime=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function lowThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minCorrelation=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function highThresh_Callback(hObject, eventdata, handles)
-handles.criteria.maxCorrelation=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function SignalNoiseThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minSNR=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-
-function BackgroundNoiseThresh_Callback(hObject, eventdata, handles)
-handles.criteria.maxBackground=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FRETBinSize_Callback(hObject, eventdata, handles)
-handles.criteria.contour_bin_size=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function editNCross_Callback(hObject, eventdata, handles)
-handles.criteria.maxDonorBlinks = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function editAccLife_Callback(hObject, eventdata, handles)
-handles.criteria.minFretLifetime = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
 function chkOverlap_Callback(hObject, eventdata, handles)
 handles.criteria.overlap = get(hObject,'Value');
 guidata(hObject,handles);
 
+
+function updateCriteria_Callback( hObject, handles, criteriaName )
+handles.criteria.(criteriaName) = str2double(get(hObject,'String'));
+guidata(hObject,handles);
 
 
 % --- Executes on selection change in cboStat5.
@@ -1128,11 +1076,6 @@ end
 guidata(hObject,handles);
 
 
-function edIntSigma_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalSigma = str2double(get(hObject,'String'));
-% handles.criteria.minTotalSigma = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
 
 % --- Executes on button press in chkFretEvents.
 function chkFretEvents_Callback(hObject, eventdata, handles)
@@ -1146,7 +1089,7 @@ end
 guidata(hObject,handles);
 
 
-function edFretEvents_Callback(hObject, eventdata, handles)
-handles.criteria.minFretEvents = str2double(get(hObject,'String'));
-guidata(hObject,handles);
+
+
+
 
