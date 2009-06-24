@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 24-Jun-2009 15:22:06
+% Last Modified by GUIDE v2.5 24-Jun-2009 15:37:40
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -101,13 +101,8 @@ handles.constants = constants;
 criteria.overlap = 1; % Remove overlapping molecules
 
 % These can be changed while running the program.
-% criteria.minTotalIntensity=5000;
-% criteria.maxTotalIntensity=15000;
-% criteria.minTotalLifetime=20;
-% criteria.maxTotalLifetime=1485;
 criteria.minCorrelation=-1.1;
 criteria.maxCorrelation=0.5;
-criteria.minFret=0.125;
 criteria.minSNR=8;
 criteria.maxBackground=1500;
 criteria.maxDonorBlinks = 4;
@@ -124,17 +119,12 @@ handles.sync='n';
 
 
 % Initialize input fields with values defined above.
-set(handles.MeanTotalIntensityLow,'String',num2str(5000));
-set(handles.MeanTotalIntensityHigh,'String',num2str(15000));
-set(handles.fretSlopeThresh,'String',num2str(handles.criteria.minFret));
-set(handles.FluorescenceLifetime,'String',num2str(20));
-set(handles.FluorescenceLifetimeHigh,'String',num2str(1485));
-set(handles.lowThresh,'String',num2str(handles.criteria.minCorrelation));
-set(handles.highThresh,'String',num2str(handles.criteria.maxCorrelation));
-set(handles.SignalNoiseThresh,'String',num2str(handles.criteria.minSNR));
-set(handles.BackgroundNoiseThresh,'String',num2str(handles.criteria.maxBackground));
-set(handles.editNCross,'String',num2str(handles.criteria.maxDonorBlinks));
-set(handles.editAccLife,'String',num2str(handles.criteria.minFretLifetime));
+set(handles.lowThresh,'String',num2str(criteria.minCorrelation));
+set(handles.highThresh,'String',num2str(criteria.maxCorrelation));
+set(handles.SignalNoiseThresh,'String',num2str(criteria.minSNR));
+set(handles.BackgroundNoiseThresh,'String',num2str(criteria.maxBackground));
+set(handles.editNCross,'String',num2str(criteria.maxDonorBlinks));
+set(handles.editAccLife,'String',num2str(criteria.minFretLifetime));
 
 set(handles.FRETBinSize,'String',num2str(handles.contour_bin_size));
 
@@ -181,7 +171,7 @@ set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
 
 %
-handles.nCriteriaBoxes = 4;
+handles.nCriteriaBoxes = 7;
 criteriaNames = [{''}; longNames];
 
 for id=1:handles.nCriteriaBoxes
@@ -994,7 +984,13 @@ end
 if length(stats)<1, return; end
 
 % Plot the distribution of the statistic
-[data,binCenters] = hist( [stats.(statToPlot)], handles.nHistBins);
+statData = [stats.(statToPlot)];
+if any(isnan(statData))
+    warning( 'NaN values found' );
+%     statData( isnan(statData) ) = 0;
+end
+
+[data,binCenters] = hist( statData, handles.nHistBins);
 data = 100*data/sum(data);  %normalize the histograms
 
 axes( handles.(['axStat' num2str(id)]) );
@@ -1084,127 +1080,5 @@ guidata(hObject,handles);
 
 
 
-
-
-
-
-
-
-
-
-function edCriteria1_Callback(hObject, eventdata, handles)
-% hObject    handle to edCriteria1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edCriteria1 as text
-%        str2double(get(hObject,'String')) returns contents of edCriteria1 as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function edCriteria1_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edCriteria1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-
-
-
-function edCriteria3_Callback(hObject, eventdata, handles)
-% hObject    handle to edCriteria3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edCriteria3 as text
-%        str2double(get(hObject,'String')) returns contents of edCriteria3 as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function edCriteria3_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edCriteria3 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-% --- Executes on selection change in popupmenu13.
-function popupmenu13_Callback(hObject, eventdata, handles)
-% hObject    handle to popupmenu13 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns popupmenu13 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from popupmenu13
-
-
-% --- Executes during object creation, after setting all properties.
-function popupmenu13_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to popupmenu13 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-
-function edCriteria4_Callback(hObject, eventdata, handles)
-% hObject    handle to edCriteria4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edCriteria4 as text
-%        str2double(get(hObject,'String')) returns contents of edCriteria4 as a double
-
-
-% --- Executes during object creation, after setting all properties.
-function edCriteria4_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to edCriteria4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
-
-
-% --- Executes on selection change in cboEquality4.
-function cboEquality4_Callback(hObject, eventdata, handles)
-% hObject    handle to cboEquality4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: contents = get(hObject,'String') returns cboEquality4 contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from cboEquality4
-
-
-% --- Executes during object creation, after setting all properties.
-function cboEquality4_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to cboEquality4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: popupmenu controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end
 
 
