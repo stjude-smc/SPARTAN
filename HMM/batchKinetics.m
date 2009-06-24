@@ -111,7 +111,9 @@ function btnLoadData_Callback(hObject, eventdata, handles)
 fname_txt = {};
 while 1
     [f,p] = uigetfile('*.txt','Select datafile(s) to analyze','MultiSelect','on');
-    if f==0, break; end  %user pressed "cancel"
+    if ~iscell(f)
+        if f==0, break; end  %user pressed "cancel"
+    end
     fname_txt = [fname_txt strcat(p,f)];
 end
 if isempty(fname_txt),
@@ -403,7 +405,7 @@ nRates = size(rates,2);
 % Combine rates and errors into a single matrix
 output = zeros(nFiles,nRates*2);
 output(:,1:2:end) = rates;
-output(:,2:2:end) = 0;
+output(:,2:2:end) = stdRates;
 
 % Construct names for each of the rates
 rateNames = cell(0,1);

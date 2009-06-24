@@ -38,3 +38,4 @@ constants.contour_length = 50; %default # frames to display in cplot
 
 
 constants.modelLocation = '/home/dsterry/cornell/data/Daniel/models/';
+constants.binaryLocation = '/home/dsterry/cornell/code/cascade_binary/';

@@ -10,6 +10,7 @@ using namespace std;
 
 
 
+
 //Now...how do we deal with struct arrays? -- for now just use first element.
 void structToTree( mxArray* structure, string rootName, QUB_Tree& parent )
 {
@@ -25,7 +26,9 @@ void structToTree( mxArray* structure, string rootName, QUB_Tree& parent )
         //for each field, ...
         for( fieldID=0; fieldID<nFields; ++fieldID )
         {
-            const char* fieldName = mxGetFieldNameByNumber(structure,fieldID);
+            string fn( mxGetFieldNameByNumber(structure,fieldID) );
+            replace( fn.begin(), fn.end(), '_',' ' );
+            const char* fieldName = fn.c_str();
 
             mxArray* field = mxGetFieldByNumber(structure,i,fieldID);
 
@@ -38,7 +41,7 @@ void structToTree( mxArray* structure, string rootName, QUB_Tree& parent )
                 int M = mxGetM(field);
                 int N = mxGetN(field);
 
-                //mexPrintf("%s: %d x %d ",rootName,M,N);
+                //fprintf(fid,"\n%s-%s: %d x %d ",rootName.c_str(),fieldName,M,N); fflush(fid);
 
                 if( mxIsDouble(field) )
                 {
@@ -54,13 +57,14 @@ void structToTree( mxArray* structure, string rootName, QUB_Tree& parent )
                 }
                 else if( mxIsChar(field) )
                 {
-                    char* str = mxArrayToString(field);
-                    newChild.setData( str );
-                    mxFree(str);
                     //mexPrintf("string\n");
+                    char* str = mxArrayToString(field);
+                    string str2( str );
+                    newChild.setData( str2 );
+                    mxFree(str);
                 }
-                //else
-                //  mexPrintf("unknown type\n");
+                else
+                  mexPrintf("unknown type\n");
             }
 
             //Otherwise, add it as a child node...
@@ -235,7 +239,8 @@ mxArray* treeToStruct( QUB_Tree node )
             ++tci_i;
         }
         
-        //Add field from above structure to output structure        
+        //Add field from above structure to output structure    
+        replace( childName.begin(), childName.end(), ' ','_' );
         int fieldID = mxAddField(structure,childName.c_str());
         mxSetFieldByNumber(structure,0,fieldID,twins);
     }
