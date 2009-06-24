@@ -101,10 +101,10 @@ handles.constants = constants;
 criteria.overlap = 1; % Remove overlapping molecules
 
 % These can be changed while running the program.
-criteria.minTotalIntensity=5000;
-criteria.maxTotalIntensity=15000;
-criteria.minTotalLifetime=20;
-criteria.maxTotalLifetime=1485;
+% criteria.minTotalIntensity=5000;
+% criteria.maxTotalIntensity=15000;
+% criteria.minTotalLifetime=20;
+% criteria.maxTotalLifetime=1485;
 criteria.minCorrelation=-1.1;
 criteria.maxCorrelation=0.5;
 criteria.minFret=0.125;
@@ -124,11 +124,11 @@ handles.sync='n';
 
 
 % Initialize input fields with values defined above.
-set(handles.MeanTotalIntensityLow,'String',num2str(handles.criteria.minTotalIntensity));
-set(handles.MeanTotalIntensityHigh,'String',num2str(handles.criteria.maxTotalIntensity));
+set(handles.MeanTotalIntensityLow,'String',num2str(5000));
+set(handles.MeanTotalIntensityHigh,'String',num2str(15000));
 set(handles.fretSlopeThresh,'String',num2str(handles.criteria.minFret));
-set(handles.FluorescenceLifetime,'String',num2str(handles.criteria.minTotalLifetime));
-set(handles.FluorescenceLifetimeHigh,'String',num2str(handles.criteria.maxTotalLifetime));
+set(handles.FluorescenceLifetime,'String',num2str(20));
+set(handles.FluorescenceLifetimeHigh,'String',num2str(1485));
 set(handles.lowThresh,'String',num2str(handles.criteria.minCorrelation));
 set(handles.highThresh,'String',num2str(handles.criteria.maxCorrelation));
 set(handles.SignalNoiseThresh,'String',num2str(handles.criteria.minSNR));
@@ -139,34 +139,6 @@ set(handles.editAccLife,'String',num2str(handles.criteria.minFretLifetime));
 set(handles.FRETBinSize,'String',num2str(handles.contour_bin_size));
 
 
-% % Reset CHECKBOXES to all being CHECKED by default
-% stateval = 1;
-% 
-% set(handles.MeanTotalIntensityBox,'Value', stateval);
-% % set(handles.MeanAcceptorIntensityBox,'Value',stateval);
-% set(handles.FluorescenceLifetimeBox,'Value',stateval);
-% set(handles.CorrelationCoefficientBox,'Value',stateval);
-% set(handles.SignalNoiseBox,'Value',stateval);
-% set(handles.BackgroundNoiseBox,'Value',stateval);
-% set(handles.fretThreshold,'Value',stateval);
-% set(handles.checkboxNCross,'Value',stateval);
-% set(handles.checkboxAccLife,'Value',stateval);
-% 
-% 
-% % Enable TEXTBOXES from input by default
-% stateval = 'on';
-% 
-% set(handles.MeanTotalIntensityLow,'Enable',stateval);
-% set(handles.MeanTotalIntensityHigh,'Enable',stateval);
-% set(handles.fretSlopeThresh,'Enable',stateval);
-% % set(handles.MeanAcceptorIntensity,'Enable',stateval);
-% set(handles.FluorescenceLifetime,'Enable',stateval);
-% set(handles.FluorescenceLifetimeHigh,'Enable',stateval);
-% set(handles.lowThresh,'Enable',stateval);
-% set(handles.highThresh,'Enable',stateval);
-% set(handles.editNCross,'Enable',stateval);
-% set(handles.editAccLife,'Enable',stateval);
-
 
 % Names of trace statistics -- these should be defined somewhere else!
 ln = traceStat;  %get long statistic names
@@ -176,6 +148,8 @@ shortNames = fieldnames(ln);
 
 
 % Add context menus to the plots to launch curve fitting
+% Ideally, you should be able to drop-in any variant of the interface,
+% with variable numbers of histogram boxes, etc and have it still work.
 handles.cboNames = strcat('cboStat',{'1','2','3','4','5'});
 handles.nPlots = length(handles.cboNames);
 
@@ -643,19 +617,6 @@ sorttraces(0, handles.outfile);
 % --- Executes on button press in PickTraces.
 function PickTraces_Callback(hObject, eventdata, handles)
 
-%criteria.minTotalIntensity = str2double(get(handles.MeanTotalIntensityLow,'String'));
-%criteria.maxTotalIntensity = str2double(get(handles.MeanTotalIntensityHigh,'String'));
-%criteria.minFret = str2double(get(handles.fretSlopeThresh,'String'));
-%criteria.minTotalLifetime = str2double(get(handles.FluorescenceLifetime,'String'));
-%criteria.maxTotalLifetime = str2double(get(handles.FluorescenceLifetimeHigh,'String'));
-%criteria.minCorrelation = str2double(get(handles.lowThresh,'String'));
-%criteria.maxCorrelation = str2double(get(handles.highThresh,'String'));
-%criteria.minSNR = str2double(get(handles.SignalNoiseThresh,'String'));
-%criteria.maxBackground  = str2double(get(handles.BackgroundNoiseThresh,'String'));
-%criteria.maxDonorBlinks = str2double(get(handles.editNCross,'String'));
-%criteria.minFretLifetime = str2double(get(handles.editAccLife,'String'));
-
-
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
 [picks,values] = pickTraces( stats, handles.criteria );
@@ -970,6 +931,8 @@ guidata(hObject,handles);
 function updateCriteria_Callback( hObject, handles, criteriaName )
 handles.criteria.(criteriaName) = str2double(get(hObject,'String'));
 guidata(hObject,handles);
+
+
 
 
 % --- Executes on selection change in cboStat5.
