@@ -529,10 +529,12 @@ fprintf(fid, '\n\n');
 
 
 % Save picking criteria used
+% NOTE: this does not include the specialized criteria!!!!
 fprintf(fid,'PICKING CRITERIA\n');
 
-names = fieldnames(  handles.criteria );
-vals  = struct2cell( handles.criteria );
+criteria = getSpecialCriteria( handles );
+names = fieldnames(  criteria );
+vals  = struct2cell( criteria );
 
 for i=1:numel(names),
     if isempty( vals{i} ), continue; end  %skip unchecked criteria
@@ -613,10 +615,7 @@ sorttraces(0, handles.outfile);
 
 
 
-
-%----------APPLIES PICKING CRITERIA TO TRACES----------
-% --- Executes on button press in PickTraces.
-function PickTraces_Callback(hObject, eventdata, handles)
+function criteria = getSpecialCriteria( handles )
 
 criteria = handles.criteria;
 
@@ -636,6 +635,14 @@ for id=1:handles.nCriteriaBoxes
     
     criteria.(criteriaName) = value;
 end
+
+
+
+%----------APPLIES PICKING CRITERIA TO TRACES----------
+% --- Executes on button press in PickTraces.
+function PickTraces_Callback(hObject, eventdata, handles)
+
+criteria = getSpecialCriteria( handles );
 
 
 % Find which molecules pass the selection criteria
