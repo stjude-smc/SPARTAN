@@ -72,7 +72,6 @@ randn('state',0);
 
 %---Open the corresonding file of traces
 files=0;
-data=[];
 
 if nargin<1,
     [filename,filepath]=uigetfile('*.txt','Choose a traces (.txt) file:');
@@ -84,42 +83,17 @@ if nargin<1,
     end
 end
 
-fid=fopen(traceFilename,'r');
-time=strread(fgetl(fid),'%f')';
-d=dir(traceFilename);
-sig=textscan(fid,'%s',1);
-sig=sig{:};
-if isnan(str2double(sig))
-    fseek(fid,-ftell(fid),0);
-    time=strread(fgetl(fid),'%f')';
-    wb=waitbar(0,'Loading traces...');
-    ptr=ftell(fid);
-    while ptr~=d.bytes
-        line=fgetl(fid);
-        id=strread(line,'%s',1);
-        data_start=numel(cell2mat(id))+1;
-        data=[data; strread(line(data_start:end),'%f')'];
-        ptr=ftell(fid);
-        waitbar(ftell(fid)/d.bytes,wb);
-    end
-    fclose(fid);
-    close(wb);
-else
-    fclose(fid);
-    new_data=dlmread(file,' ');
-    data=[data; new_data(2:end,:)];
-end
+[cy3,cy5,fret] = loadTraces(traceFilename);
+[nTraces,traceLen] = size(cy3);
+
 
 %---We'll only need the FRET traces
-cy3=data(1:3:end,:);
-cy5=data(2:3:end,:);
-fret=data(3:3:end,:);
 cy3zero=zeros(1,LenTrace);
 cy5zero=zeros(1,LenTrace);
 time_axis=1:LenTrace;
 
-frettrace_no=4:3:size(data,1);
-fret_subset=data;
+% frettrace_no=4:3:size(data,1);
+% fret_subset=data;
 
 
 %---Open the QuB dwt file from idealization
@@ -149,6 +123,8 @@ if nargin<1
 else
     ans='y';
 end
+
+wbh = waitbar(0,'Processing traces...');
 switch (ans)
     case 'y'
         while 1
@@ -166,7 +142,7 @@ switch (ans)
                 end
             end
             mol_no=mol_no+1;
-            disp('molecule');disp(mol_no);
+            %disp('molecule');disp(mol_no);
             %disp('dwells');disp(dwells);
             %---- make ini. states with negative meanFRET value to state 0 (delete idl mixing errors) 
             for j=1:size(dwells,1)
@@ -397,7 +373,12 @@ switch (ans)
             all_rtfret=[all_rtfret;cy3zero;cy5zero;rt_fret];
             all_rtfret_noise=[all_rtfret_noise;cy3zero;cy5zero;rt_fret_noise];
             all_rtfret_org=[all_rtfret_org;cy3zero;cy5zero;rt_fret_org];
+            
+            
+            waitbar(0.9*mol_no/nTraces,wbh);
         end
+        
+        waitbar(0.92,wbh,'Saving Traces...');
         
         all_rtfret=[time_axis;all_rtfret];
         all_rtfret_noise=[time_axis;all_rtfret_noise];
@@ -437,13 +418,13 @@ switch (ans)
         %dlmwrite('_ac120_org.txt',all_rtfret_org,' ');
          dlmwrite('allMol_ac120.txt',all_rtfret,' ');
          dlmwrite('allMol_ac120-noise.txt',all_rtfret_noise,' ');
-         dlmwrite('allMol_ac120_qub.txt',all_qubfret,' ');
-         dlmwrite('allMol_ac120-noise_qub.txt',all_qubfret_noise,' ');
+         save('allMol_ac120_qub.txt','all_qubfret','-ASCII');
+         save('allMol_ac120-noise_qub.txt','all_qubfret_noise','-ASCII');
         %---
         %--- only Molecules forming a peptide bond
         %---
         %dlmwrite('PEP_ac120_qub.txt',all_pepfret_org,' ');
-         dlmwrite('PEP120_qub.txt',all_pepfret_cut,' ');
+         save('PEP120_qub.txt','all_pepfret_cut','-ASCII');
          dlmwrite('PEP120.txt',all_PEPcy3cy5fret,' ');
         %---
         %--- only Molecules going in slow
@@ -458,7 +439,7 @@ switch (ans)
         %---
         %--- only Molecules forming no peptide bond
         %---
-         dlmwrite('noPep120_qub.txt',all_noPep_qub,' ');
+         save('noPep120_qub.txt','all_noPep_qub','-ASCII');
          dlmwrite('noPep120.txt',all_noPEPcy3cy5fret,' ');
         %---
         %--- only Molecules dissociating from the GA state
@@ -476,3 +457,5 @@ switch (ans)
     case 'n'
         disp('No traces have been modified.');
 end
+
+close(wbh);
