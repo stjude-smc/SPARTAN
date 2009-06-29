@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 24-Jun-2009 15:37:40
+% Last Modified by GUIDE v2.5 26-Jun-2009 17:17:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -257,10 +257,10 @@ OpenTracesBatch( hObject, handles );
 
 
 
-%----------BATCH ANALYSIS----------%
-% --- Executes on button press in BatchMode.
-function BatchMode_Callback(hObject, eventdata, handles)
-% hObject    handle to BatchMode (see GCBO)
+%----------OPEN ALL TRACES FILES WITHIN THE SAME DIRECTORY----------%
+% --- Executes on button press in btnOpenDirectory.
+function btnOpenDirectory_Callback(hObject, eventdata, handles)
+% hObject    handle to btnOpenDirectory (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -272,28 +272,6 @@ function BatchMode_Callback(hObject, eventdata, handles)
 % Select directory by user interface.
 datapath=uigetdir;
 if datapath==0, return; end
-
-
-% Automatically run gettraces if only STKs are available.
-% Uses automatic threshold picking, which may not work as well as a
-% manual value!
-% traces_files = dir( [datapath filesep '*.traces'] );
-% stk_files    = dir( [datapath filesep '*.stk'] );
-% stk_files    = [  stk_files  ;  dir([datapath filesep '*.stk.bz2'])  ];
-% 
-% Extract traces from unanalyzed movies, if requested
-% if numel(traces_files)>0 && numel(stk_files)>0, 
-%     answer = questdlg( ...
-%         'Traces files already created. Reprocess and overwrite?', ...
-%         'Autotrace: Reprocess movies?', 'Yes','No','No');
-%     if strcmp(answer,'Yes')
-%         gettraces_backend( datapath );
-%     end
-% else
-%     gettraces_backend( datapath );
-% end
-
-
 
 % Create list of .traces files in the directory.
 traces_files = dir( [datapath filesep '*.traces'] );
@@ -318,7 +296,114 @@ handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
 OpenTracesBatch( hObject, handles )
 
-% END FUNCTION BatchMode_Callback
+% END FUNCTION btnOpenDirectory_Callback
+
+
+
+
+
+%----------BATCH ANALYSIS----------%
+% --- Executes on button press in btnGo.
+function btnBatchMode_Callback(hObject, eventdata, handles)
+% hObject    handle to btnGo (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% This allows for autotrace2 to run in batch mode. A directory is selected,
+% and all the traces files are combined, and a single output file is
+% generated. NOTE: be careful not to combine data from different
+% experiments. Store different data sets in separate folders.
+
+% Select directory by user interface.
+datapath=uigetdir;
+if datapath==0, return; end
+
+
+% Automatically run gettraces if only STKs are available.
+% Uses automatic threshold picking, which may not work as well as a
+% manual value!
+% traces_files = dir( [datapath filesep '*.traces'] );
+% stk_files    = dir( [datapath filesep '*.stk'] );
+% stk_files    = [  stk_files  ;  dir([datapath filesep '*.stk.bz2'])  ];
+% 
+% Extract traces from unanalyzed movies, if requested
+% if numel(traces_files)>0 && numel(stk_files)>0, 
+%     answer = questdlg( ...
+%         'Traces files already created. Reprocess and overwrite?', ...
+%         'autotrace2: Reprocess movies?', 'Yes','No','No');
+%     if strcmp(answer,'Yes')
+%         gettraces_backend( datapath );
+%     end
+% else
+%     gettraces_backend( datapath );
+% end
+
+
+
+% Get a list of all traces files under the current directory
+trace_files  = rdir([datapath filesep '**' filesep '*.traces']);
+
+% Pool these files into
+data_dirs = {};
+
+for i=1:numel(trace_files),
+    % Extract path of the file
+    f = fileparts(trace_files(i).name);
+    
+    % If not already in the list, insert it
+    nMatches = sum( cellfun( @(arg)strcmp(f,arg), data_dirs ) );
+    if nMatches==0,
+        data_dirs{end+1} = f;
+    end
+end
+
+
+% For each file in the user-selected directory
+wb = waitbar(0,'Processing data....');
+
+for i=1:numel(data_dirs)
+    
+    datapath = data_dirs{i};
+    
+    % Create list of .traces files in the directory.
+    traces_files = dir( [datapath filesep '*.traces'] );
+    handles.nFiles = numel(traces_files);
+
+    if handles.nFiles == 0
+        disp('No files in this directory!');
+        return;
+    end
+
+    handles.inputdir = datapath;
+    handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
+
+
+    disp(handles.inputdir);
+    set(handles.editFilename,'String',handles.inputdir);
+
+    handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
+    handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
+
+    % Load all traces in the current directory
+    OpenTracesBatch( hObject, handles )
+    handles = guidata(hObject);
+
+    % Save picked data to handles.outfile
+    SaveTraces( handles.outfile, handles );
+    handles = guidata(hObject);
+
+    waitbar(i/numel(data_dirs),wb);
+end
+close(wb);
+
+
+% END FUNCTION btnGo_Callback
+
+
+
+
+
+
 
 
 
@@ -1084,8 +1169,6 @@ else
     set(handles.edFretEvents,'Enable','off');
 end
 guidata(hObject,handles);
-
-
 
 
 
