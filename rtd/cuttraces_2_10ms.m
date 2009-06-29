@@ -64,6 +64,12 @@ mol_no=0;
 rej_no=0;
 sel_no=0;
 
+
+% RESET the random number generator to a consistent value.
+% This enables comparison of contour plots.
+randn('state',0);
+
+
 %---Open the corresonding file of traces
 files=0;
 data=[];
@@ -80,7 +86,7 @@ end
 
 fid=fopen(traceFilename,'r');
 time=strread(fgetl(fid),'%f')';
-% d=dir(traceFilename);
+d=dir(traceFilename);
 sig=textscan(fid,'%s',1);
 sig=sig{:};
 if isnan(str2double(sig))
@@ -138,7 +144,11 @@ trace_nos=1:3000;
 emptyTrace=0; allDwells=0;
 cutEvent=0;cutMol=0;
 
-ans=input('Truncate rt-traces (y/n)?','s');
+if nargin<1
+    ans=input('Truncate rt-traces (y/n)?','s');
+else
+    ans='y';
+end
 switch (ans)
     case 'y'
         while 1
