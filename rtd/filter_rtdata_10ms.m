@@ -1,4 +1,4 @@
-function filter=filter_rtdata_10ms(tracesFile,listFile)
+function filter_rtdata_10ms(tracesFile,dwtFile,listFile)
 % FILTERRTDATA   
 % 
 %   Removes traces from datasets not in a given selection list.
@@ -8,21 +8,23 @@ function filter=filter_rtdata_10ms(tracesFile,listFile)
  
 
 % Get filenames from user
-if ~exist('samples','var'),
+if nargin<1
     [datafile,datapath] = uigetfile({'*.txt'},'Choose a traces.txt file:');
     tracesFile = [datapath datafile];
-
+end
+if nargin<2,
     [datafile,datapath] = uigetfile({'*.dwt'},'Choose a QuB DWT file:');
     dwtFile = [datapath datafile];
-    
+end
+if nargin<3,
     [datafile,datapath] = uigetfile({'*.txt'},'Choose a QuB list file:');
     listFile = [datapath datafile];
 end
 
-if datafile==0
-    disp('No files specified, exiting.');
-    return;
-end
+% if datafile==0
+%     disp('No files specified, exiting.');
+%     return;
+% end
 
 
 % Load traces file

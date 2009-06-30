@@ -1,4 +1,4 @@
-function tdp=tdplot_rtdata_10ms
+function tdp=tdplot_rtdata_10ms(dwtfilename,tracefilename,listfilename)
 
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
@@ -44,43 +44,53 @@ tdp(1,2:end)=fret_i_axis;
 tdp(2:end,1)=fret_f_axis;
 
 files=0;lst=0;
-while 1
+% while 1
     list=[];
 
     %---Open the QuB dwt file from idealization
-    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
-    if dwtfile==0
-        break
-    else
-        dwtfilename=strcat(dwtpath,dwtfile);
-        fid=fopen(dwtfilename,'r');
+    if nargin<1,
+        [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
+        if dwtfile==0
+            return;
+        else
+            dwtfilename=strcat(dwtpath,dwtfile);
+        end
     end
+    fid=fopen(dwtfilename,'r');
 
     %---Open the corresonding qub data file
-    [tracefile tracepath]=uigetfile('*.txt','Choose qub data file:');
-    if tracefile==0
-        break
-    else
-        tracefilename=strcat(tracepath,tracefile);
-        data=dlmread(tracefilename,' ');
-        files=files+1;
+    if nargin<2,
+        [tracefile tracepath]=uigetfile('*.txt','Choose qub data file:');
+        if tracefile==0
+            return;
+        else
+            tracefilename=strcat(tracepath,tracefile);
+        end
     end
+    data=dlmread(tracefilename,' ');
+    files=files+1;
 
     %---Open a QuB list file
     nodata=[];noempty=[];
-    [listfile listpath]=uigetfile('*lst.txt','Choose a QuB list file:');
-    if listfile~=0
-        listfilename=strcat(listpath,listfile);
+    
+    if nargin<3
+        [listfile listpath]=uigetfile('*lst.txt','Choose a QuB list file:');
+        if listfile==0
+            len=length(data);
+            nsegs=(len/TIME);
+            list=[1:TIME:len; TIME:TIME:len]';
+        else
+            listfilename=strcat(listpath,listfile);
+        end
+    end
+    
+    if isempty(list)
         list=dlmread(listfilename,'-')+1;
         list(:,2)=list(:,2)+1;
         nsegs=size(list,1);
         for j=1:nsegs
             nodata=[nodata;((list(j,1)-1)/TIME)+1];
         end
-    else
-        len=length(data);
-        nsegs=(len/TIME);
-        list=[1:TIME:len; TIME:TIME:len]';
     end
     
     %---Read the dwt file one line at a time
@@ -173,7 +183,7 @@ while 1
         fret=[];
     end
     fclose(fid);
-end
+% end
 ss=sum(sum(tdp(2:end,2:end)));
 disp('Total Number of Transitions:'), disp(ss(1));
 disp('No. of empty traces');disp(empty_trace);
@@ -181,7 +191,11 @@ disp('No. of data traces');disp(size(all_rtfret,1)/3);
 
 
 %--- Normalize Histogram
-ans=input('Constant Normalization Factor (y/n)?','s');
+if nargin>=2,
+    ans = 'n';
+else
+    ans=input('Constant Normalization Factor (y/n)?','s');
+end
 switch (ans)
 
     %-----Normalization of TDplot:
