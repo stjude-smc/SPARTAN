@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 04-Oct-2008 20:01:14
+% Last Modified by GUIDE v2.5 26-Jun-2009 17:17:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -101,13 +101,8 @@ handles.constants = constants;
 criteria.overlap = 1; % Remove overlapping molecules
 
 % These can be changed while running the program.
-criteria.minTotalIntensity=5000;
-criteria.maxTotalIntensity=15000;
-criteria.minTotalLifetime=20;
-criteria.maxTotalLifetime=1485;
 criteria.minCorrelation=-1.1;
 criteria.maxCorrelation=0.5;
-criteria.minFret=0.125;
 criteria.minSNR=8;
 criteria.maxBackground=1500;
 criteria.maxDonorBlinks = 4;
@@ -124,48 +119,15 @@ handles.sync='n';
 
 
 % Initialize input fields with values defined above.
-set(handles.MeanTotalIntensityLow,'String',num2str(handles.criteria.minTotalIntensity));
-set(handles.MeanTotalIntensityHigh,'String',num2str(handles.criteria.maxTotalIntensity));
-set(handles.fretSlopeThresh,'String',num2str(handles.criteria.minFret));
-set(handles.FluorescenceLifetime,'String',num2str(handles.criteria.minTotalLifetime));
-set(handles.FluorescenceLifetimeHigh,'String',num2str(handles.criteria.maxTotalLifetime));
-set(handles.lowThresh,'String',num2str(handles.criteria.minCorrelation));
-set(handles.highThresh,'String',num2str(handles.criteria.maxCorrelation));
-set(handles.SignalNoiseThresh,'String',num2str(handles.criteria.minSNR));
-set(handles.BackgroundNoiseThresh,'String',num2str(handles.criteria.maxBackground));
-set(handles.editNCross,'String',num2str(handles.criteria.maxDonorBlinks));
-set(handles.editAccLife,'String',num2str(handles.criteria.minFretLifetime));
+set(handles.lowThresh,'String',num2str(criteria.minCorrelation));
+set(handles.highThresh,'String',num2str(criteria.maxCorrelation));
+set(handles.SignalNoiseThresh,'String',num2str(criteria.minSNR));
+set(handles.BackgroundNoiseThresh,'String',num2str(criteria.maxBackground));
+set(handles.editNCross,'String',num2str(criteria.maxDonorBlinks));
+set(handles.editAccLife,'String',num2str(criteria.minFretLifetime));
 
 set(handles.FRETBinSize,'String',num2str(handles.contour_bin_size));
 
-
-% % Reset CHECKBOXES to all being CHECKED by default
-% stateval = 1;
-% 
-% set(handles.MeanTotalIntensityBox,'Value', stateval);
-% % set(handles.MeanAcceptorIntensityBox,'Value',stateval);
-% set(handles.FluorescenceLifetimeBox,'Value',stateval);
-% set(handles.CorrelationCoefficientBox,'Value',stateval);
-% set(handles.SignalNoiseBox,'Value',stateval);
-% set(handles.BackgroundNoiseBox,'Value',stateval);
-% set(handles.fretThreshold,'Value',stateval);
-% set(handles.checkboxNCross,'Value',stateval);
-% set(handles.checkboxAccLife,'Value',stateval);
-% 
-% 
-% % Enable TEXTBOXES from input by default
-% stateval = 'on';
-% 
-% set(handles.MeanTotalIntensityLow,'Enable',stateval);
-% set(handles.MeanTotalIntensityHigh,'Enable',stateval);
-% set(handles.fretSlopeThresh,'Enable',stateval);
-% % set(handles.MeanAcceptorIntensity,'Enable',stateval);
-% set(handles.FluorescenceLifetime,'Enable',stateval);
-% set(handles.FluorescenceLifetimeHigh,'Enable',stateval);
-% set(handles.lowThresh,'Enable',stateval);
-% set(handles.highThresh,'Enable',stateval);
-% set(handles.editNCross,'Enable',stateval);
-% set(handles.editAccLife,'Enable',stateval);
 
 
 % Names of trace statistics -- these should be defined somewhere else!
@@ -176,9 +138,10 @@ shortNames = fieldnames(ln);
 
 
 % Add context menus to the plots to launch curve fitting
-handles.nPlots = length(handles.axStat);
-
-handles.cboNames = strcat('cboStat',{'1','2','3','4','5','6'});
+% Ideally, you should be able to drop-in any variant of the interface,
+% with variable numbers of histogram boxes, etc and have it still work.
+handles.cboNames = strcat('cboStat',{'1','2','3','4','5'});
+handles.nPlots = length(handles.cboNames);
 
 for id=1:handles.nPlots,
     menu = uicontextmenu;
@@ -193,20 +156,30 @@ for id=1:handles.nPlots,
            ['autotrace(''copyPlotData_Callback'',gcbo,' num2str(id) ',guidata(gcbo))'] );
    
     % Add the context menu to the axes
-    set( handles.axStat(id), 'UIContextMenu', menu );
+    set( handles.(['axStat' num2str(id)]), 'UIContextMenu', menu );
     
     % Also set options in combobox
-    set( handles.(handles.cboNames{id}), 'String', longNames );
+    set( handles.(['cboStat' num2str(id)]), 'String', longNames );
 end
 
 % Set default selections
 set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
-set( handles.cboStat2, 'Value', find(strcmp('a',shortNames))  );
-set( handles.cboStat3, 'Value', find(strcmp('lifetime',shortNames))  );
-set( handles.cboStat4, 'Value', find(strcmp('corr',shortNames))  );
-set( handles.cboStat5, 'Value', find(strcmp('snr',shortNames))   );
-set( handles.cboStat6, 'Value', find(strcmp('bg',shortNames))    );
+set( handles.cboStat2, 'Value', find(strcmp('lifetime',shortNames))  );
+set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
+set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
+set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
+
+%
+handles.nCriteriaBoxes = 7;
+criteriaNames = [{''}; longNames];
+
+for id=1:handles.nCriteriaBoxes
+    
+    % Set options in selection crtieria comboboxes
+    set( handles.(['cboCriteria' num2str(id)]), 'String', criteriaNames );
+
+end
 
 
 %warning off MATLAB:divideByZero
@@ -284,10 +257,10 @@ OpenTracesBatch( hObject, handles );
 
 
 
-%----------BATCH ANALYSIS----------%
-% --- Executes on button press in BatchMode.
-function BatchMode_Callback(hObject, eventdata, handles)
-% hObject    handle to BatchMode (see GCBO)
+%----------OPEN ALL TRACES FILES WITHIN THE SAME DIRECTORY----------%
+% --- Executes on button press in btnOpenDirectory.
+function btnOpenDirectory_Callback(hObject, eventdata, handles)
+% hObject    handle to btnOpenDirectory (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -299,28 +272,6 @@ function BatchMode_Callback(hObject, eventdata, handles)
 % Select directory by user interface.
 datapath=uigetdir;
 if datapath==0, return; end
-
-
-% Automatically run gettraces if only STKs are available.
-% Uses automatic threshold picking, which may not work as well as a
-% manual value!
-% traces_files = dir( [datapath filesep '*.traces'] );
-% stk_files    = dir( [datapath filesep '*.stk'] );
-% stk_files    = [  stk_files  ;  dir([datapath filesep '*.stk.bz2'])  ];
-% 
-% Extract traces from unanalyzed movies, if requested
-% if numel(traces_files)>0 && numel(stk_files)>0, 
-%     answer = questdlg( ...
-%         'Traces files already created. Reprocess and overwrite?', ...
-%         'Autotrace: Reprocess movies?', 'Yes','No','No');
-%     if strcmp(answer,'Yes')
-%         gettraces_backend( datapath );
-%     end
-% else
-%     gettraces_backend( datapath );
-% end
-
-
 
 % Create list of .traces files in the directory.
 traces_files = dir( [datapath filesep '*.traces'] );
@@ -345,7 +296,114 @@ handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
 OpenTracesBatch( hObject, handles )
 
-% END FUNCTION BatchMode_Callback
+% END FUNCTION btnOpenDirectory_Callback
+
+
+
+
+
+%----------BATCH ANALYSIS----------%
+% --- Executes on button press in btnGo.
+function btnBatchMode_Callback(hObject, eventdata, handles)
+% hObject    handle to btnGo (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% This allows for autotrace2 to run in batch mode. A directory is selected,
+% and all the traces files are combined, and a single output file is
+% generated. NOTE: be careful not to combine data from different
+% experiments. Store different data sets in separate folders.
+
+% Select directory by user interface.
+datapath=uigetdir;
+if datapath==0, return; end
+
+
+% Automatically run gettraces if only STKs are available.
+% Uses automatic threshold picking, which may not work as well as a
+% manual value!
+% traces_files = dir( [datapath filesep '*.traces'] );
+% stk_files    = dir( [datapath filesep '*.stk'] );
+% stk_files    = [  stk_files  ;  dir([datapath filesep '*.stk.bz2'])  ];
+% 
+% Extract traces from unanalyzed movies, if requested
+% if numel(traces_files)>0 && numel(stk_files)>0, 
+%     answer = questdlg( ...
+%         'Traces files already created. Reprocess and overwrite?', ...
+%         'autotrace2: Reprocess movies?', 'Yes','No','No');
+%     if strcmp(answer,'Yes')
+%         gettraces_backend( datapath );
+%     end
+% else
+%     gettraces_backend( datapath );
+% end
+
+
+
+% Get a list of all traces files under the current directory
+trace_files  = rdir([datapath filesep '**' filesep '*.traces']);
+
+% Pool these files into
+data_dirs = {};
+
+for i=1:numel(trace_files),
+    % Extract path of the file
+    f = fileparts(trace_files(i).name);
+    
+    % If not already in the list, insert it
+    nMatches = sum( cellfun( @(arg)strcmp(f,arg), data_dirs ) );
+    if nMatches==0,
+        data_dirs{end+1} = f;
+    end
+end
+
+
+% For each file in the user-selected directory
+wb = waitbar(0,'Processing data....');
+
+for i=1:numel(data_dirs)
+    
+    datapath = data_dirs{i};
+    
+    % Create list of .traces files in the directory.
+    traces_files = dir( [datapath filesep '*.traces'] );
+    handles.nFiles = numel(traces_files);
+
+    if handles.nFiles == 0
+        disp('No files in this directory!');
+        return;
+    end
+
+    handles.inputdir = datapath;
+    handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
+
+
+    disp(handles.inputdir);
+    set(handles.editFilename,'String',handles.inputdir);
+
+    handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
+    handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
+
+    % Load all traces in the current directory
+    OpenTracesBatch( hObject, handles )
+    handles = guidata(hObject);
+
+    % Save picked data to handles.outfile
+    SaveTraces( handles.outfile, handles );
+    handles = guidata(hObject);
+
+    waitbar(i/numel(data_dirs),wb);
+end
+close(wb);
+
+
+% END FUNCTION btnGo_Callback
+
+
+
+
+
+
 
 
 
@@ -556,10 +614,12 @@ fprintf(fid, '\n\n');
 
 
 % Save picking criteria used
+% NOTE: this does not include the specialized criteria!!!!
 fprintf(fid,'PICKING CRITERIA\n');
 
-names = fieldnames(  handles.criteria );
-vals  = struct2cell( handles.criteria );
+criteria = getSpecialCriteria( handles );
+names = fieldnames(  criteria );
+vals  = struct2cell( criteria );
 
 for i=1:numel(names),
     if isempty( vals{i} ), continue; end  %skip unchecked criteria
@@ -640,27 +700,39 @@ sorttraces(0, handles.outfile);
 
 
 
+function criteria = getSpecialCriteria( handles )
+
+criteria = handles.criteria;
+
+% Update criteria for combo-box selections
+shortNames = fieldnames(handles.statLongNames);
+equalityText = {'min_','max_','eq_'};
+
+for id=1:handles.nCriteriaBoxes
+    selection = get( handles.(['cboCriteria' num2str(id)]), 'Value' );
+    if selection==1, continue; end %no selection
+    
+    equality = get(handles.(['cboEquality' num2str(id)]),'Value');
+    if equality==1, continue; end %no inequality selected
+    
+    criteriaName = [equalityText{equality-1} shortNames{selection-1}];
+    value    = str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
+    
+    criteria.(criteriaName) = value;
+end
+
+
 
 %----------APPLIES PICKING CRITERIA TO TRACES----------
 % --- Executes on button press in PickTraces.
 function PickTraces_Callback(hObject, eventdata, handles)
 
-%criteria.minTotalIntensity = str2double(get(handles.MeanTotalIntensityLow,'String'));
-%criteria.maxTotalIntensity = str2double(get(handles.MeanTotalIntensityHigh,'String'));
-%criteria.minFret = str2double(get(handles.fretSlopeThresh,'String'));
-%criteria.minTotalLifetime = str2double(get(handles.FluorescenceLifetime,'String'));
-%criteria.maxTotalLifetime = str2double(get(handles.FluorescenceLifetimeHigh,'String'));
-%criteria.minCorrelation = str2double(get(handles.lowThresh,'String'));
-%criteria.maxCorrelation = str2double(get(handles.highThresh,'String'));
-%criteria.minSNR = str2double(get(handles.SignalNoiseThresh,'String'));
-%criteria.maxBackground  = str2double(get(handles.BackgroundNoiseThresh,'String'));
-%criteria.maxDonorBlinks = str2double(get(handles.editNCross,'String'));
-%criteria.minFretLifetime = str2double(get(handles.editAccLife,'String'));
+criteria = getSpecialCriteria( handles );
 
 
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
-[picks,values] = pickTraces( stats, handles.criteria );
+[picks,values] = pickTraces( stats, criteria );
 clear stats;
 
 % The number of traces picked.
@@ -833,6 +905,11 @@ end
 guidata(hObject,handles);
 
 
+function FRETBinSize_Callback(hObject, eventdata, handles)
+handles.criteria.contour_bin_size=str2double(get(hObject,'String'));
+guidata(hObject,handles);
+
+
 
 %----------CHECKBOX FOR MEAN TOTAL INTENSITY CRITERIA----------
 % --- Executes on button press in MeanTotalIntensityBox.
@@ -959,76 +1036,21 @@ end
 guidata(hObject,handles);
 
 
-function MeanTotalIntensityLow_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalIntensity=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function MeanTotalIntensityHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalIntensity=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function fretSlopeThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minFret=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FluorescenceLifetime_Callback(hObject, eventdata, handles)
-handles.criteria.minTotalLifetime=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FluorescenceLifetimeHigh_Callback(hObject, eventdata, handles)
-handles.criteria.maxTotalLifetime=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function lowThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minCorrelation=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function highThresh_Callback(hObject, eventdata, handles)
-handles.criteria.maxCorrelation=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function SignalNoiseThresh_Callback(hObject, eventdata, handles)
-handles.criteria.minSNR=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-
-function BackgroundNoiseThresh_Callback(hObject, eventdata, handles)
-handles.criteria.maxBackground=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function FRETBinSize_Callback(hObject, eventdata, handles)
-handles.criteria.contour_bin_size=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function editNCross_Callback(hObject, eventdata, handles)
-handles.criteria.maxDonorBlinks = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
-function editAccLife_Callback(hObject, eventdata, handles)
-handles.criteria.minFretLifetime = str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
 function chkOverlap_Callback(hObject, eventdata, handles)
 handles.criteria.overlap = get(hObject,'Value');
 guidata(hObject,handles);
 
 
+function updateCriteria_Callback( hObject, handles, criteriaName )
+handles.criteria.(criteriaName) = str2double(get(hObject,'String'));
+guidata(hObject,handles);
 
-% --- Executes on selection change in cboStat6.
+
+
+
+% --- Executes on selection change in cboStat5.
 function cboStat_Callback(hObject, eventdata, handles)
-% hObject    handle to cboStat6 (see GCBO)
+% hObject    handle to cboStat5 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -1054,21 +1076,27 @@ end
 if length(stats)<1, return; end
 
 % Plot the distribution of the statistic
-[data,binCenters] = hist( [stats.(statToPlot)], handles.nHistBins);
+statData = [stats.(statToPlot)];
+if any(isnan(statData))
+    warning( 'NaN values found' );
+%     statData( isnan(statData) ) = 0;
+end
+
+[data,binCenters] = hist( statData, handles.nHistBins);
 data = 100*data/sum(data);  %normalize the histograms
 
-axes( handles.axStat(id) );
+axes( handles.(['axStat' num2str(id)]) );
 bar( binCenters, data, 1 );
 % xlabel(statToPlot);
 zoom on;
 grid on;
 
 if id==1,
-    ylabel( handles.axStat(1), 'Number of Traces (%)' );
+    ylabel( handles.axStat1, 'Number of Traces (%)' );
 end
 
 % Save histogram data in plot for launching cftool
-set( handles.axStat(id), 'UserData', [binCenters;data] );
+set( handles.(['axStat' num2str(id)]), 'UserData', [binCenters;data] );
 
 
 guidata(hObject,handles);
@@ -1082,7 +1110,7 @@ function launchFitTool_Callback(hObject, id, handles)
 % Callback for context menu for trace statistics plots.
 % Launches Curve Fitting Tool using the data in the selected plot.
 
-ax = handles.axStat(id);
+ax = handles.axStat5(id);
 
 % Get ID of this combo control
 histData = get(ax,'UserData');
@@ -1097,7 +1125,7 @@ function copyPlotData_Callback(hObject, id, handles)
 % Callback for context menu for trace statistics plots.
 % Launches Curve Fitting Tool using the data in the selected plot.
 
-ax = handles.axStat(id);
+ax = handles.axStat5(id);
 
 % Get ID of this combo control
 histData = get(ax,'UserData');
@@ -1113,6 +1141,34 @@ clipboard('copy', sprintf([y(1,:) '\n' y(2,:)]) );
 
 
 
+
+
+
+
+
+% --- Executes on button press in chkIntSigma.
+function chkIntSigma_Callback(hObject, eventdata, handles)
+if (get(hObject,'Value')==get(hObject,'Max'))
+    handles.criteria.maxTotalSigma = str2double(get(handles.edIntSigma,'String'));
+    set(handles.edIntSigma,'Enable','on');
+else
+    handles.criteria.maxTotalSigma=[];
+    set(handles.edIntSigma,'Enable','off');
+end
+guidata(hObject,handles);
+
+
+
+% --- Executes on button press in chkFretEvents.
+function chkFretEvents_Callback(hObject, eventdata, handles)
+if (get(hObject,'Value')==get(hObject,'Max'))
+    handles.criteria.minFretEvents = str2double(get(handles.edFretEvents,'String'));
+    set(handles.edFretEvents,'Enable','on');
+else
+    handles.criteria.minFretEvents=[];
+    set(handles.edFretEvents,'Enable','off');
+end
+guidata(hObject,handles);
 
 
 
