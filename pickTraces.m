@@ -86,11 +86,9 @@ for i=1:numel(fn)
     if strfind(fn{i},'min_')==1,
         cn = fn{i}(5:end);
         eq = '>';
-        picks = picks & eval([cn eq 'criteria.' fn{i}]);
     elseif strfind(fn{i},'max_')==1,
         cn = fn{i}(5:end);
         eq = '<';
-        picks = picks & eval([cn eq 'criteria.' fn{i}]);
     elseif strfind(fn{i},'eq_')==1,
         cn = fn{i}(4:end);
         eq = '==';
@@ -98,7 +96,7 @@ for i=1:numel(fn)
         %warning('Filtering criteria not recognized...');
         continue;
     end
-    picks = picks & eval([cn eq 'criteria.' fn{i}]);
+    picks = picks & eval(['[stats.' cn ']' eq 'criteria.' fn{i}]);
 end
     
 
