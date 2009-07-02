@@ -182,6 +182,9 @@ for id=1:handles.nCriteriaBoxes
 end
 
 
+handles.isBatchMode = 0;
+
+
 %warning off MATLAB:divideByZero
 
 % Choose default command line output for autotrace
@@ -318,6 +321,7 @@ function btnBatchMode_Callback(hObject, eventdata, handles)
 datapath=uigetdir;
 if datapath==0, return; end
 
+handles.isBatchMode = 1;
 
 % Automatically run gettraces if only STKs are available.
 % Uses automatic threshold picking, which may not work as well as a
@@ -387,6 +391,8 @@ for i=1:numel(data_dirs)
     % Load all traces in the current directory
     OpenTracesBatch( hObject, handles )
     handles = guidata(hObject);
+    
+    waitbar((i-0.5)/numel(data_dirs),wb);
 
     % Save picked data to handles.outfile
     SaveTraces( handles.outfile, handles );
@@ -396,6 +402,8 @@ for i=1:numel(data_dirs)
 end
 close(wb);
 
+handles.isBatchMode = 0;
+guidata(hObject,handles);
 
 % END FUNCTION btnGo_Callback
 
@@ -416,7 +424,8 @@ handles.nTracesPerFile = zeros(handles.nFiles,1);
 
 % Open each file of traces and build the raw data array. Works the same as
 % above, but loops through each file in the directory.
-wb=waitbar(0,'Loading traces...');
+if ~handles.isBatchMode, wb=waitbar(0,'Loading traces...'); end
+
 for k=1:handles.nFiles  % for each file...    
     
     % Load the traces file.
@@ -444,10 +453,10 @@ for k=1:handles.nFiles  % for each file...
     handles.nTracesPerFile(k) = Ntraces;
     handles.ids = [handles.ids ids];
     
-    waitbar(k/handles.nFiles,wb);
-    
+    if ~handles.isBatchMode, waitbar(k/handles.nFiles,wb); end
+
 end 
-close(wb);
+if ~handles.isBatchMode, close(wb); end
 
 handles.len = len;
 handles.Ntraces = sum(handles.nTracesPerFile);
@@ -514,7 +523,7 @@ disp( ['Saving to ' qub_fname] );
 fprintf(fid,'%d ', handles.timeAxis);
 fprintf(fid,'\n');
 
-wb=waitbar(0,'Saving traces...');
+if ~handles.isBatchMode, wb=waitbar(0,'Saving traces...'); end
 
 pick_offset = [0; cumsum(handles.nTracesPerFile)];
 
@@ -565,12 +574,12 @@ for index = 1:handles.nFiles  %for each file in batch...
     end % for each molecule
     
     
-    waitbar(index/handles.nFiles,wb);
+    if ~handles.isBatchMode, waitbar(index/handles.nFiles,wb); end
     
 end % for each file
 fclose(fid);
 fclose(qubfid);
-close(wb);
+if ~handles.isBatchMode, close(wb); end
 
 
 % Generate log file containing informtion about how the traces were picked.
