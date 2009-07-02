@@ -2,9 +2,7 @@ function combineDatasets( filenames, outFilename )
 
 %%
 if nargin<1,
-%     filenames = getFiles('*.txt','Select traces files');
-    [files,p] = uigetfile('*.txt','Select traces files','Multiselect','on');
-    filenames = strcat(p, files);
+    filenames = getFiles('*.txt');
 end
 
 if nargin<2,
