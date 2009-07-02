@@ -1,4 +1,4 @@
-function output = accTime( tracesFiles )
+function output = accTime( tracesFiles, titles )
 %ACCPLOT  Plot time-dependant progrssion to tRNA accommodated state
 % 
 %   OUTPUT = accTime(FILENAMES)
@@ -22,6 +22,16 @@ if nargin<1,
 end
 
 nFiles = numel(tracesFiles);
+if nFiles<1, return; end
+
+% Load model for idealization
+constants = cascadeConstants;
+
+model = qub_loadModel( [constants.modelLocation 'tet_selection.qmf'] );
+model.fixMu    = ones( model.nStates,1 );
+model.fixSigma = ones( model.nStates,1 );
+fretModel = [model.mu' model.sigma']';
+skmParams.quiet = 1;
 
 for i=1:nFiles,
     
@@ -31,38 +41,43 @@ for i=1:nFiles,
     end
     
     % Load FRET data
-    [d,a,fret] = loadTraces( tracesFiles{i} );
+    [d,a,fret,ids,time] = loadTraces( tracesFiles{i} );
     [nTraces,traceLen] = size(fret);
     clear d; clear a;
+    assert( time(1)~=1, 'No time axis found' );
+    sampling = time(2)-time(1);
+    %assert( sampling==100 ); %ms
 
-    % Load idealization
+    % Idealize FRET data
     dwtFilename = strrep(tracesFiles{i},'.txt','.qub.dwt');
-    [dwt,sampling,offsets,model] = loadDWT(dwtFilename);
-    % nTraces = numel(dwt);
-    % idl = dwtToIdl( dwt, traceLen, offsets );
-    assert( sampling==100 ); %ms
+    [dwt,newModel,LL,offsets] = skm( fret, sampling, model, skmParams );
+    saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
+    
+    % Load idealization
+%     [dwt,sampling,offsets,model] = loadDWT(dwtFilename);
+%     assert( sampling==100 ); %ms
 
     % Find time at which accommodation occurs: estimated as
     % the point  at which a stable ~0.55 FRET state is achieved > 1 sec.
-    accTime = zeros(nTraces,1);
+    accTime = zeros(numel(dwt),1);
 
-    for j=1:nTraces
+    for j=1:numel(dwt)
 
         states = double( dwt{j}(:,1) );
-        times  = double( dwt{j}(:,2) );
+        times  = double( dwt{j}(:,2) ) .* sampling/1000;
         timeline = cumsum( [1; times] );
 
-        % Find the first (if any) dwell in high-FRET longer than 1 sec
-        selection = (states==3) & (times>=30);
+        % Find the first (if any) dwell in high-FRET longer than 3 sec
+        selection = (states==3) & (times>=1);
         idx = find( selection, 1, 'first' );
 
         if ~isempty(idx),
-            accTime(j) = timeline(idx)*(sampling/1000);
+            accTime(j) = timeline(idx);
         end
     end
     
     % Save accommodation progression curve to output
-    [N,X] = hist(accTime(accTime>0),0:1:600);    
+    [N,X] = hist(accTime(accTime>0),0:0.5:300);    
     NC = cumsum(N);
 %     stairs(X,NC/nTraces)
 %     ylim([0 1]);
@@ -77,11 +92,14 @@ for i=1:nFiles,
 end %for each file
 
 cla;
-stairs( output(:,1), output(:,2:end) );
+stairs( output(:,1), output(:,2:end), 'LineWidth',2 );
 ylim( [0,1] );
+xlim( [0,120] )
+set(gca,'xtick',0:30:120);
 xlabel('Time (sec)');
 ylabel('Fraction Accommodated');
 
+if nargin>1, legend(titles); end
 
 save('accTime.txt','output','-ASCII');
 

@@ -89,11 +89,11 @@ fretRange = [-0.1 0.99];
 
 % Length (in frames) of population histograms
 % pophist_sumlen = constants.contour_length;
-pophist_sumlen = 50;
+pophist_sumlen = 600;
 
 % axis bounds for contour plot and 1D population histogram
 contour_bounds = [1 pophist_sumlen -0.1 1.0];
-contour_bin_size = 0.025;
+contour_bin_size = 0.035;
 
 % colors for statehist, in order
 colors = [ 0 0 0 ; 0 0.5 0 ; 1 0 0 ; ...
@@ -104,8 +104,8 @@ colors = [ 0 0 0 ; 0 0.5 0 ; 1 0 0 ; ...
 
 % OPTIONS
 force_remake_tdplot = false;  %regenerate statehist and tdplots
-no_statehist = false;  % do not use state occupancy histograms
-no_tdp       = false;  % do not use TD plots
+no_statehist = true;  % do not use state occupancy histograms
+no_tdp       = true;  % do not use TD plots
 ignoreState0 = true;   % do not include the first (lowest FRET) state in
                        % state occupancy histograms
 hideText     = false;  % don't display N=, t/s, etc on plots
@@ -359,8 +359,10 @@ end
 
 
 % Scale histograms to match
-axis( histx, [contour_bounds(3:4) 0 histmax] );
-linkaxes( histx, 'xy' );
+if exist('histx','var')
+    axis( histx, [contour_bounds(3:4) 0 histmax] );
+    linkaxes( histx, 'xy' );
+end
 
 drawnow;
 
@@ -451,11 +453,6 @@ end %function makeplots
 
 function frethist = makecplot( data_filename, contour_bin_size)
 % MAKECPLOT   creates _hist.txt FRET histogram file
-
-if nargin>1
-    contour_bin_size = 0.030;  
-end
-
 
 % Load data
 [d,a,fret] = loadTraces( data_filename );

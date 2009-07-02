@@ -41,7 +41,7 @@ scale = constants.cplot_scale_factor;
 
 
 % Time-bin the data if histogram axes are very long
-binFactor = ceil( (bounds(2)-bounds(1)+1)/100 );
+binFactor = ceil( (bounds(2)-bounds(1)+1)/50 );
 
 time_axis = hist2d(1,2:end);
 fret_axis = hist2d(2:end,1);
