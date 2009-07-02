@@ -51,6 +51,7 @@ if nargin < 3,
     ln.d        = 'Mean Donor Intensity';
     
     ln.avgfret  = 'Average FRET value';
+    ln.timeSaturated = 'Frames with saturated intensity';
     
     retval = ln;
     return;
@@ -102,7 +103,8 @@ retval = struct( ...
     'safeRegion', z, ...
     'avgfret',  z, ...
     'fretEvents', z, ...
-    'firstFRET', z ...
+    'firstFRET', z, ...
+    'timeSaturated', z ...
 );
 
 clear lifetime;
@@ -240,6 +242,10 @@ for i=1:Ntraces
     % TODO?: additional filtering to detect only anticorrelated events?
     [result] = RLEncode( fret(i,:) > constants.fretEventTreshold );
     retval(i).fretEvents = sum( result(:,1)==1 );
+    
+    % Number of frames with saturated intensity (max of 16-bit int)
+    retval(i).timeSaturated = ...
+           sum( donor(i,donorRange)>30000 | acceptor(i,donorRange)>30000 );
 end
 
 
