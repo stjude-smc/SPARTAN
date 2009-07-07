@@ -1,4 +1,4 @@
-function accTime_script(filenames, titles)
+function accPlots(filenames, titles)
 
 
 
@@ -28,11 +28,14 @@ if nargin<2,
 end
 
 % Setup settings
-makeplotsOptions.pophistSumlen = 600; %2 min. at 200ms
-% makeplotsOptions.cplot_scale_factor = 15; %2 min. at 200ms
+makeplotsOptions.constants = cascadeConstants;
+makeplotsOptions.constants.cplot_scale_factor = 15;
+makeplotsOptions.pophist_sumlen = 600; %2 min. at 200ms
+makeplotsOptions.contour_bin_size  = 0.03;
+makeplotsOptions.fretRange = [-0.1 0.8];
 
-selectionCriteria.min_lifetime  = 300; %donor lifetime
-selectionCriteria.min_snr       = 8; 
+selectionCriteria.min_lifetime  = 600; %donor lifetime
+selectionCriteria.min_snr       = 8; %SNR1
 selectionCriteria.max_ncross    = 4; %Cy3 blinks
 selectionCriteria.eq_overlap    = 0; %single molecules only
 selectionCriteria.maxTotalSigma = 2; %total intensity w/i 2 sigma
@@ -53,13 +56,13 @@ for i=1:nFiles,
     
     % Display contour plots with extended axes
     h = subplot(1,nFiles+1,i);
-    makeplots( autoFilenames(i), titles(i), 'targetAxes', {h} );
-    xlim([0 makeplotsOptions.pophistSumlen]);
+    makeplotsOptions.targetAxes = {h};
+    
+    makeplots( autoFilenames(i), titles(i), makeplotsOptions );
     set(gca, 'xtick', [0:150:600] );
     set(gca, 'xticklabel',{'0','30','60','90','120'} );
     xlabel('Time (sec)');
     if i>1, ylabel(''); end
-    %ylim([-0.1 0.8]);
 end
 
 

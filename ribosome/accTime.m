@@ -15,6 +15,15 @@ function output = accTime( tracesFiles, titles )
 % Cascade smFRET Analysis Pipeline, Copyright (C) 2009 Daniel Terry
 % Date Created: June 18, 2009
 
+
+%%
+
+sumlen = 120; %sec = 5 min.
+
+
+
+%%
+
 output = [];
 
 if nargin<1,
@@ -94,8 +103,8 @@ end %for each file
 cla;
 stairs( output(:,1), output(:,2:end), 'LineWidth',2 );
 ylim( [0,1] );
-xlim( [0,120] )
-set(gca,'xtick',0:30:120);
+xlim( [0,sumlen] )
+set(gca,'xtick',0:30:sumlen);
 xlabel('Time (sec)');
 ylabel('Fraction Accommodated');
 
