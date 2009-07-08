@@ -71,7 +71,7 @@ f1 = figure;
 
 set(f1,'defaultaxesfontsize',16);
 set(f1,'defaulttextfontsize',18);
-set(f1,'Position',[1905 272 672 513]);
+set(f1,'Position',[264   405   672   513]);
 
 
 %left bottom width height

@@ -120,7 +120,7 @@ if isfield(criteria,'maxTotalSigma')
     mu = f.b1;
     sigma = f.c1;
     
-    disp( [mu sigma] );
+%     disp( [mu sigma] );
     
     picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
 end
