@@ -442,7 +442,7 @@ function btnSubBoth_Callback(hObject, eventdata, handles, mode)
 m = handles.molecule_no;
 
 % Same as above, but only for both donor and acceptor.
-xlim=round(get(handles.axFluor,'XLim'));
+xlim=get(handles.axFluor,'XLim');
 
 % Convert axis limits to frames
 if handles.time(1)~=1,
