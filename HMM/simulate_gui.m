@@ -105,6 +105,8 @@ sigma     = eval( get(handles.edSigma,'String') );
 rates     = eval( get(handles.edRates,'String') );
 startProb = eval( get(handles.edStartProb,'String') );
 
+totalTon = eval( get(handles.edTotalTon,'String') );
+
 totalIntensity    = str2double( get(handles.edTotalIntensity,   'String') );
 stdTotalIntensity = str2double( get(handles.edStdTotalIntensity,'String') );
 snr = str2double( get(handles.edSNR,  'String') );
@@ -128,7 +130,8 @@ options = { 'totalIntensity',totalIntensity, ...
             'stdTotalIntensity',stdTotalIntensity, ...
             'stdFluorescence',stdFluorescence, ...
             'randomSeed',randomSeed, ...
-            'startProb',startProb };
+            'startProb',startProb, ...
+            'kBleach', 1/totalTon };
 
 
 % Check parameter values for sanity?

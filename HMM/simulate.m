@@ -91,8 +91,7 @@ end
 if isfield(optargs,'kBleach')
     kBleach = optargs.kBleach;
 else
-    kBleach  = 0.2;
-%     kBleach = 0;
+    kBleach = 0;
 end
 
 
@@ -119,6 +118,7 @@ else
     p0 = p0(1,:);
     p0 = p0/sum(p0);
 end
+
 
 clear A;
 
@@ -257,11 +257,16 @@ if stdFluorescence~=0
     
     % Simulate donor photobleaching
     if kBleach > 0,
+        pbTimes = -log(rand(1,nTraces))./(0.7*kBleach);
+        pbTimes = ceil(pbTimes*simFramerate);
+        
         for i=1:nTraces,
-            pbtime = (pbTimes(i)/binFactor)+10;
+            pbtime = (pbTimes(i)/binFactor);
             pbtime = round( min(pbtime,traceLen) );
+            pbtime = max(1,pbtime);
 
             donor(i,pbtime:end) = 0;
+            acceptor(i,pbtime:end) = 0;
         end
     end
     
@@ -270,23 +275,27 @@ if stdFluorescence~=0
     acceptor = acceptor + 0.075*donor;
     
     % Add noise to fluorescence traces, recalculate FRET
+    alive = donor~=0;
     donor    = donor    + stdFluorescence*randn(size(donor));
     acceptor = acceptor + stdFluorescence*randn(size(donor));
     fret = acceptor./(donor+acceptor);
-    fret(fret>1) = 1;
+    fret(~alive) = 0; %set undefined values to zero
+    assert( ~any(isnan( fret(:) )) );
+    %fret(fret>1) = 1;
     
-    if kBleach > 0,
-        for i=1:nTraces,
-            pbtime = (pbTimes(i)/binFactor)+10;
-            pbtime = round( min( pbtime, traceLen-10 ) );
-            
-            %set background noise to constant value... (hack)
-            donor(i,pbtime:end) = 500*randn(1+traceLen-pbtime,1);
-            acceptor(i,pbtime:end) = 500*randn(1+traceLen-pbtime,1);
-            
-            fret(i,pbtime:end) = 0;
-        end
-    end
+%     if kBleach > 0,
+%         for i=1:nTraces,
+%             pbtime = (pbTimes(i)/binFactor);
+%             pbtime = round( min(pbtime,traceLen) );
+%             pbtime = max(1,pbtime);
+%             
+%             %set background noise to constant value... (hack)
+%             donor(i,pbtime:end) = 500*randn(1+traceLen-pbtime,1);
+%             acceptor(i,pbtime:end) = 500*randn(1+traceLen-pbtime,1);
+%             
+%             fret(i,pbtime:end) = 0;
+%         end
+%     end
     
 
 % If fluorescence noise is not specified, add noise directly to fret
