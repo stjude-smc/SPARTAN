@@ -663,6 +663,8 @@ function SaveProperties_Callback(hObject, eventdata, handles)
 
 % Retrieve trace statistics, extract to matrix
 stats = getappdata(handles.figure1,'infoStruct');
+stats = stats(handles.inds_picked);
+
 data = cellfun( @double, struct2cell(stats) );
 data = squeeze(data);
 names = fieldnames(stats);
