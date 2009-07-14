@@ -31,7 +31,7 @@ fretModel1 = [model1.mu' model1.sigma']';
 
 % Load FRET data (seperated events)
 [donor,acceptor,fret,ids,time] = loadTraces('ips.txt');
-nTraces = size(fret,1);
+[nTraces,traceLen] = size(fret);
 
 % Idealize FRET data using SKM
 params.maxItr = 10;
@@ -61,6 +61,21 @@ frethist_norm_10ms( 'ips.flt.txt' );
 title('Basic Post-synchronized Histogram');
 
 
+% Create FRET histograms for Origin
+
+%% Generate a list file
+[nTraces,traceLen] = size(fret);
+x = repmat( [1 traceLen-1],[nTraces,1] );
+% y = repmat( offsets', [1,2] );
+y = repmat( [0:traceLen:(nTraces*traceLen-1)]', [1,2] );
+list = x+y-1;
+dlmwrite( 'ips1DHst.flt.lst.txt',list, ...
+          'delimiter','-', 'precision','%-10.f' );
+
+% Make 1D histograms from dark and non-zero FRET states
+statehist_2stateModel_v3( 'ips1DHst.flt.qub.dwt', ...
+           'ips.flt.qub.txt', 'ips1DHst.flt.lst.txt', ...
+           10, 420);
 
 
 %% ---- 7. Identify outliers in QUB
