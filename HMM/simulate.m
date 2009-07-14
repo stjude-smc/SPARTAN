@@ -112,9 +112,13 @@ A( find(eye(nStates)) ) = 1-sum(A,2);
 
 
 % Predict steady-state probabilities for use as initial probabilities.
-p0 = A^10000;
-p0 = p0(1,:);
-p0 = p0/sum(p0);
+if isfield(optargs,'startProb') && ~isempty(optargs.startProb)
+    p0 = optargs.startProb;
+else
+    p0 = A^10000;
+    p0 = p0(1,:);
+    p0 = p0/sum(p0);
+end
 
 clear A;
 

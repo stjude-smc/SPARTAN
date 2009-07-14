@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 28-Feb-2009 15:52:14
+% Last Modified by GUIDE v2.5 14-Jul-2009 11:00:58
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -103,6 +103,7 @@ sampling = sampling/1000;
 mu        = eval( get(handles.edMu,   'String') );
 sigma     = eval( get(handles.edSigma,'String') );
 rates     = eval( get(handles.edRates,'String') );
+startProb = eval( get(handles.edStartProb,'String') );
 
 totalIntensity    = str2double( get(handles.edTotalIntensity,   'String') );
 stdTotalIntensity = str2double( get(handles.edStdTotalIntensity,'String') );
@@ -126,7 +127,8 @@ end
 options = { 'totalIntensity',totalIntensity, ...
             'stdTotalIntensity',stdTotalIntensity, ...
             'stdFluorescence',stdFluorescence, ...
-            'randomSeed',randomSeed };
+            'randomSeed',randomSeed, ...
+            'startProb',startProb };
 
 
 % Check parameter values for sanity?
@@ -205,101 +207,6 @@ fclose(fid);
 
 %% -------------------  CALLBACK FUNCTIONS  -------------------
 
-function edNstates_Callback(hObject, eventdata, handles)
-% hObject    handle to edNstates (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edNstates as text
-%        str2double(get(hObject,'String')) returns contents of edNstates as a double
-
-
-
-function edMu_Callback(hObject, eventdata, handles)
-% hObject    handle to edMu (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edMu as text
-%        str2double(get(hObject,'String')) returns contents of edMu as a double
-
-
-
-
-function edSigma_Callback(hObject, eventdata, handles)
-% hObject    handle to edSigma (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edSigma as text
-%        str2double(get(hObject,'String')) returns contents of edSigma as a double
-
-
-
-
-function edit4_Callback(hObject, eventdata, handles)
-% hObject    handle to edit4 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit4 as text
-%        str2double(get(hObject,'String')) returns contents of edit4 as a double
-
-
-
-
-function edSampling_Callback(hObject, eventdata, handles)
-% hObject    handle to edSampling (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edSampling as text
-%        str2double(get(hObject,'String')) returns contents of edSampling as a double
-
-
-
-
-function edRates_Callback(hObject, eventdata, handles)
-% hObject    handle to edRates (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edRates as text
-%        str2double(get(hObject,'String')) returns contents of edRates as a double
-
-
-
-function edit7_Callback(hObject, eventdata, handles)
-% hObject    handle to edit7 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit7 as text
-%        str2double(get(hObject,'String')) returns contents of edit7 as a double
-
-
-
-function edNtraces_Callback(hObject, eventdata, handles)
-% hObject    handle to edNtraces (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edNtraces as text
-%        str2double(get(hObject,'String')) returns contents of edNtraces as a double
-
-
-
-
-
-function edNframes_Callback(hObject, eventdata, handles)
-% hObject    handle to edNframes (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edNframes as text
-%        str2double(get(hObject,'String')) returns contents of edNframes as a double
-
-
 
 function edTotalIntensity_Callback(hObject, eventdata, handles)
 % hObject    handle to edTotalIntensity (see GCBO)
@@ -355,87 +262,5 @@ S = I/(sqrt(2)*SNR);
 % text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
 text = sprintf('Noise = %0.1f',S );
 set(handles.txtNoise, 'String', text);
-
-
-
-function edit14_Callback(hObject, eventdata, handles)
-% hObject    handle to edit14 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edit14 as text
-%        str2double(get(hObject,'String')) returns contents of edit14 as a double
-
-
-
-function edRandomSeed_Callback(hObject, eventdata, handles)
-% hObject    handle to edRandomSeed (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edRandomSeed as text
-%        str2double(get(hObject,'String')) returns contents of edRandomSeed as a double
-
-
-
-function edTotalTon_Callback(hObject, eventdata, handles)
-% hObject    handle to edTotalTon (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edTotalTon as text
-%        str2double(get(hObject,'String')) returns contents of edTotalTon as a double
-
-
-
-function edTon_Callback(hObject, eventdata, handles)
-% hObject    handle to edTon (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edTon as text
-%        str2double(get(hObject,'String')) returns contents of edTon as a double
-
-
-
-function edToff_Callback(hObject, eventdata, handles)
-% hObject    handle to edToff (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edToff as text
-%        str2double(get(hObject,'String')) returns contents of edToff as a double
-
-
-
-function edit20_Callback(hObject, eventdata, handles)
-% hObject    handle to edTotalIntensity (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edTotalIntensity as text
-%        str2double(get(hObject,'String')) returns contents of edTotalIntensity as a double
-
-
-
-
-function stdTotalIntensity_Callback(hObject, eventdata, handles)
-% hObject    handle to edStdTotalIntensity (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edStdTotalIntensity as text
-%        str2double(get(hObject,'String')) returns contents of edStdTotalIntensity as a double
-
-
-
-
-function edit22_Callback(hObject, eventdata, handles)
-% hObject    handle to edSNR (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edSNR as text
-%        str2double(get(hObject,'String')) returns contents of edSNR as a double
 
 
