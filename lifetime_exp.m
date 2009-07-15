@@ -12,7 +12,7 @@ function [rates,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename
 %---- USER TUNABLE PARAMETERS ----
 
 bMakeGUI = 1;
-useCorrectedDwelltimes = 0;  % merge blinks into previous dwell
+useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
 
 % Option to remove dwells whose durations are unknown because they are
 % cropped by the start of measurement, blinking, and photobleaching, resp.
@@ -179,6 +179,8 @@ set(h2,'defaulttextfontsize',18);
 % Make figure that overlays decay curves for direct comparison
 ax = [];
 
+output = dwellaxis';
+
 if nargin<2,
     colors = colormap;
     nlevels = size(colors,1);
@@ -194,9 +196,9 @@ for i=1:nFiles,
         
         plot( dwellaxis, dwellhist{i,j}, '-', 'Color',colors(i,:), 'LineWidth',2 );
 %         plot( dwellaxis, dwellhist{i,j}, 'r-', 'LineWidth',2 );
-        xlim( [0 1.5] );
+        xlim( [0 60] );
         ylim( [0 1] );
-        set(gca,'ytick',[0:0.25:1]);
+        set(gca,'ytick',[0:10:60]);
         hold on;
         
 %         if j==2,
@@ -210,8 +212,32 @@ for i=1:nFiles,
     end
 end
 
+legend;
 % linkaxes(ax,'y');
 
+
+%------ Save results to file for plotting in Origin
+
+% Output header lines
+fid = fopen('lifetime_exp.txt','w');
+fprintf(fid,'Time (sec)\t');
+
+for j=2:nStates,
+    for i=1:nFiles
+        [p,name] = fileparts( dwtfilename{i} );
+        fprintf(fid,'State%d %s\t',j,name);
+        output = [output dwellhist{i,j}];
+    end
+end
+fprintf(fid,'\n');
+
+% Output data
+for i=1:size(output,1),
+    fprintf(fid,'%d\t',output(i,:));
+    fprintf(fid,'\n');
+end
+
+fclose(fid);
 
 
 %% Create GUI environment for cycling through rates
