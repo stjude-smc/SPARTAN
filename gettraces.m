@@ -132,6 +132,16 @@ if strfind(filename,'.stk.bz2'),
     % Delete the compressed movie -- we no longer need it!
     delete( z_fname );
 
+elseif strfind(filename,'.movie'),
+    fid = fopen( filename, 'r' );
+    stkSize = fread( fid, 3, 'int16' );
+    stkX = stkSize(1); stkY = stkSize(2); Nframes = stkSize(3);
+%     time = fread( fid, Nframes, 'float' );
+    stk = fread( fid, stkX*stkY*Nframes, 'int16' );
+    stk = reshape(stk,stkSize');
+    fclose(fid);
+    time = 1:Nframes;
+    
 else
     % Load stk movie -- stk(X,Y,frame number)
     [stk,time] = tiffread(filename);
@@ -497,7 +507,7 @@ overlap=zeros(1,nMols);
 for i=1:nMols,
     for j=i+1:nMols,
         % quickly ignore molecules way beyond the threshold
-        if centroidy(j)-centroidy(i) > overlap_thresh
+        if abs(centroidy(j)-centroidy(i)) > overlap_thresh
             break;
         end
         % otherwise, we have to check more precisely
