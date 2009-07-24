@@ -15,6 +15,37 @@ nFiles = numel(filenames);
 
 if nFiles<1, return; end
 
+
+%% Load data
+nTraces = 0;
+traceLen = zeros(nFiles,1);
+d = cell(0,1); a=d; f=d; ids=d; time=d;
+
+for i=1:nFiles,
+
+    % Load traces from file
+    [d_in,a_in,f_in,ids_in,time_in] = loadTraces(filenames{i});
+    d{i} = d_in;
+    a{i} = a_in;
+    f{i} = f_in;
+    ids{i} = ids_in;
+    time{i} = time_in;
+    
+    nTraces = nTraces+size(d{i},1);
+    traceLen(i) = size(d{i},2);
+end
+minTraceLen = min( traceLen );
+
+% Resize traces so they are all the same length
+for i=1:nFiles,
+    d{i} = d{i}(:,1:minTraceLen);
+    a{i} = a{i}(:,1:minTraceLen);
+    f{i} = f{i}(:,1:minTraceLen);
+    time{i} = time{i}(:,1:minTraceLen);
+end
+
+
+
 %%
 
 d_out = [];
@@ -24,25 +55,19 @@ ids_out = {};
 
 h = waitbar(0,'Combining datasets');
 
-nTraces = 0;
-
 for i=1:nFiles,
 
-    % Load traces from file
-    [d,a,f,ids,time] = loadTraces(filenames{i});
-    nTraces = nTraces+size(d,1);
-
     % Add data to combined dataset
-    d_out = [d_out; d];
-    a_out = [a_out; a];
-    f_out = [f_out; f];
-    ids_out = [ids_out ids];
+    d_out = [d_out; d{i}];
+    a_out = [a_out; a{i}];
+    f_out = [f_out; f{i}];
+    ids_out = [ids_out ids{i}];
     
     waitbar(0.9*i/nFiles,h);
 end
 
 assert( size(f_out,1)==nTraces );
-saveTraces( outFilename, 'txt', d_out,a_out,f_out,ids_out,time );
+saveTraces( outFilename, 'txt', d_out,a_out,f_out,ids_out,time{1} );
 
 forQuB2( {outFilename} );
 
