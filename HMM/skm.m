@@ -111,6 +111,8 @@ end
     for i=1:nTraces,
         states = dwt{i}(:,1);
         times  = dwt{i}(:,2);
+        if numel(states)<1, continue; end
+        
         remainder = nFrames-sum(times)-1;
         if remainder<=0, continue; end
         
@@ -168,6 +170,7 @@ while( itr < params.maxItr ),
     classes = [0; model.class];
     for i=1:size(idl,1)
         trace = classes( idl(i,:)+1 );
+        if sum(trace>0)==0, continue; end
         dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
     end
     

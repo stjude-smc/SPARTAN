@@ -69,7 +69,12 @@ for i=1:nTraces,
 %     traceLen = length(trace);
     traceLen = find(trace~=0, 1,'last');
     trace = trace(1:traceLen);
-
+    
+    if isempty(traceLen) || traceLen<1,
+        dwt{i} = zeros(0,nStates);
+        continue;
+    end
+    
     % Precompute emmission probability matrix
     Bx = zeros(nStates,traceLen);
     for s=1:nStates,
