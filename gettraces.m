@@ -81,8 +81,17 @@ image_t = stkData.stk_top - stkData.background;
 [nrow ncol] = size(image_t);
 
 if ~isfield(params,'don_thresh') || params.don_thresh==0
-   % would be better to use std over time than space?
-   don_thresh = 10*std2( stkData.background(1+3:nrow-3,1+3:ncol/2-3) );
+    if ~isfield(params,'thresh_std')
+        thresh_std = 8;
+    else
+        thresh_std = params.thresh_std;
+    end
+
+    % Automatically threshold setting based on variance of
+    % background intensity at end of movie.
+    endBG = sort( stkData.endBackground(:) );
+    endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
+    don_thresh = thresh_std*std( endBG_lowerHalf );
 else
    don_thresh = params.don_thresh-mean2(stkData.background);
 end
@@ -190,10 +199,15 @@ end
 background=imresize(temp,[stkX stkY],'bilinear');
 % handles.background = mean( stk(:,:,end-4:end), 3 );
 
+% Also create a background image from the last few frames;
+% useful for defining a threshold.
+endBackground = double(  stk(:,1:stkX/2,       end-11:end-1)   ...
+                      +  stk(:,(1+stkX/2):end, end-11:end-1)   );
 
 stkData.stk = stk;
 stkData.stk_top = stk_top;
 stkData.background = background;
+stkData.endBackground = endBackground;
 stkData.time = time;
 
 [stkData.stkX,stkData.stkX,stkData.stkX] = size(stk);
@@ -271,10 +285,19 @@ for file = stk_files'
     [nrow ncol] = size(image_t);
 
     if ~isfield(params,'don_thresh') || params.don_thresh==0
-       % would be better to use std over time than space?
-       don_thresh = 10*std2( stkData.background(1+3:nrow-3,1+3:ncol/2-3) );
+        if ~isfield(params,'thresh_std')
+            thresh_std = 8;
+        else
+            thresh_std = params.thresh_std;
+        end
+        
+        % Automatically threshold setting based on variance of
+        % background intensity at end of movie.
+        endBG = sort( stkData.endBackground(:) );
+        endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
+        don_thresh = thresh_std*std( endBG_lowerHalf );
     else
-       don_thresh = params.don_thresh-mean2(stkData.background);
+        don_thresh = params.don_thresh-mean2(stkData.background);
     end
 
     % Find peak locations from total intensity
