@@ -64,10 +64,6 @@ function gettraces_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for gettraces
 handles.output = hObject;
 
-% Initialize global variables
-% handles.CODE_PATH='/home/dsterry/Documents/cornell/blanchard/code/';
-handles.CODE_PATH = '';
-
 % Update handles structure
 guidata(hObject, handles);
 
@@ -100,7 +96,7 @@ function openstk_Callback(hObject, eventdata, handles)
 
 % Load stk file
 [datafile,datapath]=uigetfile( ...
-    '*.stk;*.stk.bz2','Choose a stk file');
+    '*.stk;*.stk.bz2;*.movie','Choose a stk file');
 if datafile==0, return; end
 
 handles.stkfile = strcat(datapath,datafile);
@@ -110,9 +106,6 @@ handles = OpenStk( handles.stkfile, handles, hObject );
 
 
 set(handles.getTraces,'Enable','on');
-% set(handles.getTracesCy5,'Enable','on');
-% set(handles.batchmode,'Enable','on');
-
 guidata(hObject,handles);
 
 
@@ -133,11 +126,11 @@ colortable=colortable'/255;
 fclose(fid);
 
 % Load movie data
-% [stk,handles.stk_top,handles.background,handles.time] = OpenStk2(filename);
 [stkData] = gettraces( filename );
 handles.stk_top = stkData.stk_top;
 handles.background = stkData.background;
 handles.time = stkData.time;
+handles.endBG = stkData.endBackground;
 
  % Since the image stack is very large, it is stored in ApplicationData
  % instead of GUIData for memory efficiency
@@ -223,6 +216,7 @@ if recursive
     stk_files  = rdir([direct filesep '**' filesep '*.stk*']);
 else
     stk_files  = rdir([direct filesep '*.stk*']);
+    stk_files  = [stk_files rdir([direct filesep '*.movie'])];
 end
 
 h = waitbar(0,'Extracting traces from movies...');
@@ -292,18 +286,11 @@ function handles = getTraces_Callback(hObject, eventdata, handles)
 overlap_thresh = str2double(get(handles.overlap,'String'));
 
 % Donor threshold is relative to background level.
-% If not chosen by user, is 7x standard dev. of background
+% If not chosen by user, is 10x standard dev. of background
 don_thresh = str2double(get(handles.donthresh,'String'));
 
 image_t=handles.stk_top-handles.background;
 [nrow ncol] = size(image_t);
-
-if don_thresh==0
-   % would be better to use std over time than space?
-   don_thresh = 10*std2( handles.background(1+3:nrow-3,1+3:ncol/2-3) );
-else
-    don_thresh = don_thresh-mean2(handles.background);
-end
 
 params.overlap_thresh = overlap_thresh;
 params.don_thresh = don_thresh;
