@@ -7,9 +7,7 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %    [STK,PEAKS,IMG] = GETTRACES( FILENAME, PARAMS )
 %    Loads a movie from FILENAME, finds fluorescence peaks, and returns
 %    their locations (PEAKS) as a Nx2 matrix (x,y).  IMG is the image used
-%    for selecting intensity peaks.  PARAMS (optional) specifies the
-%    intensity threshold (don_thresh) and minimal peak seperation
-%    (overlap_thresh).
+%    for selecting intensity peaks.
 %
 %    [STK,PEAKS,IMG] = gettraces( FILENAME, PARAMS, OUTFILE )
 %    As above, but also extracts traces from the PEAKS locations and saves
@@ -25,6 +23,13 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %    option to check all child folders (recursive) and option to skip
 %    movies that have already been processed (skipExisting).
 %
+%    PARAMS is a struct with any of the following options:
+%     - don_thresh:     total (D+A) intensity threshold for pick selection
+%                       (if 0, threshold is automatically selected).
+%     - overlap_thresh: peaks are rejected if they are closer than this radius.
+%     - nPixelsIntegrated: number of pixels proximal to each peak to sum
+%          to produce fluorescence traces. Higher values capture more
+%          intensity, but also capture more noise...
 
 % TODO: also return unfiltered peak list (overlap=0) so overlap statistics
 % can be displayed in scripts that call this function.
@@ -111,7 +116,7 @@ peaks = [peaksX peaksY];
 if nargin>=3 && ischar(varargin{3}),
     outputFilename = varargin{3};
     integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
-        outputFilename, stkData.time );
+        outputFilename, stkData.time, params );
 end
     
 return;
@@ -252,6 +257,7 @@ if params.recursive
     stk_files  = rdir([direct filesep '**' filesep '*.stk*']);
 else
     stk_files  = rdir([direct filesep '*.stk*']);
+    stk_files  = [stk_files rdir([direct filesep '*.movie'])];
 end
 
 
@@ -306,7 +312,7 @@ for file = stk_files'
     
     % Save the traces to file
     integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
-        traceFname, stkData.time );
+        traceFname, stkData.time, params );
     
     % Save entry in log file
     fprintf(log_fid, '%.0f %s\n', size(peaks,1)/2, file.name);
@@ -559,31 +565,49 @@ don_y = tempy(indexes);
 
 
 % function saveTraces( handles, hObject )
-function integrateAndSave( stk, stk_top, peaks, stk_fname, time )
-% NOTE: can find which pixels to use by correlation (original code did so?)
+function integrateAndSave( stk, stk_top, peaks, stk_fname, time, params )
+% NOTE: can find which pixels to use by correlation
 
 [stkX,stkY,Nframes] = size(stk);
 
+
+% Specify the number of most intense proximal pixels to sum when generating
+% fluorescence traces (depends on experimental point-spread function).
+if nargin>=6 && isfield(params,'nPixelsToSum')
+    nPixelsToSum = params.nPixelsToSum;
+else
+    % Use empirically determined values for standard cameras...
+    if stkX == 128
+        nPixelsToSum=9;
+    elseif stkX == 170
+        nPixelsToSum=4;
+    elseif stkX == 256
+        nPixelsToSum=4;
+    elseif stkX == 512
+        nPixelsToSum=16;
+    end
+end
+
+% Specify region over which to search for intensity to integrate.
 if stkX == 128
     squarewidth=3;
-    NumPixels=5;  %unoptimized
 elseif stkX == 170
     squarewidth=3;
-    NumPixels=4;
 elseif stkX == 256
     squarewidth=3;
-    NumPixels=4;
 elseif stkX == 512
     squarewidth=5;
-    NumPixels=16;
 end
+assert( squarewidth^2>=nPixelsToSum, 'Integration window too small' );
+
+
 
 % Get x,y coordinates of picked peaks
 Npeaks = size(peaks,2)/2;
 x = peaks(1,:);
 y = peaks(2,:);
 
-regions=zeros(NumPixels,2,2*Npeaks);  %pixel#, dimension(x,y), peak#
+regions=zeros(nPixelsToSum,2,2*Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
@@ -600,7 +624,8 @@ for m=1:2*Npeaks
     % Get pixels whose intensity is greater than the median (max=NumPixels).
     % We just want the centroid to avoid adding noise ...
     % A is x-coord, B is Y-coord of the top <NumPixels> pixels
-    [A,B]=find( peak>=center(squarewidth*squarewidth-NumPixels+1), NumPixels );
+    [A,B]=find( peak>=center(squarewidth*squarewidth-nPixelsToSum+1), ...
+                nPixelsToSum );
     
     % Define a region over which to integrate each peak
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];

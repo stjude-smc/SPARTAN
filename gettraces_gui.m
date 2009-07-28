@@ -216,6 +216,7 @@ if recursive
     stk_files  = rdir([direct filesep '**' filesep '*.stk*']);
 else
     stk_files  = rdir([direct filesep '*.stk*']);
+    stk_files  = [stk_files rdir([direct filesep '*.movie'])];
 end
 
 h = waitbar(0,'Extracting traces from movies...');
