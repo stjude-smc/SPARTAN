@@ -578,7 +578,7 @@ if nargin>=6 && isfield(params,'nPixelsToSum')
 else
     % Use empirically determined values for standard cameras...
     if stkX == 128
-        nPixelsToSum=9;
+        nPixelsToSum=5;
     elseif stkX == 170
         nPixelsToSum=4;
     elseif stkX == 256
