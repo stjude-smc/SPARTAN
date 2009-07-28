@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 14-Jul-2009 11:00:58
+% Last Modified by GUIDE v2.5 24-Jul-2009 09:11:02
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -106,15 +106,14 @@ rates     = eval( get(handles.edRates,'String') );
 startProb = eval( get(handles.edStartProb,'String') );
 
 totalTon = eval( get(handles.edTotalTon,'String') );
+% Ton      = str2double( get(handles.edTon,      'String') );
+% Toff     = str2double( get(handles.edToff,     'String') );
 
 totalIntensity    = str2double( get(handles.edTotalIntensity,   'String') );
 stdTotalIntensity = str2double( get(handles.edStdTotalIntensity,'String') );
 snr = str2double( get(handles.edSNR,  'String') );
-stdFluorescence = totalIntensity/(sqrt(2)*snr);
-
-% totalTon = str2double( get(handles.edTotalTon, 'String') );
-% Ton      = str2double( get(handles.edTon,      'String') );
-% Toff     = str2double( get(handles.edToff,     'String') );
+stdBackground = totalIntensity/(sqrt(2)*snr);
+stdPhoton    = str2double( get(handles.edStdPhoton,   'String') );
 
 randomSeed = str2double( get(handles.edRandomSeed,'String') );
 
@@ -128,7 +127,8 @@ end
 % Compile array of optional arguments to simulate...
 options = { 'totalIntensity',totalIntensity, ...
             'stdTotalIntensity',stdTotalIntensity, ...
-            'stdFluorescence',stdFluorescence, ...
+            'stdBackground',stdBackground, ...
+            'stdPhoton',stdBackground, ...
             'randomSeed',randomSeed, ...
             'startProb',startProb, ...
             'kBleach', 1/totalTon };
@@ -265,5 +265,209 @@ S = I/(sqrt(2)*SNR);
 % text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
 text = sprintf('Noise = %0.1f',S );
 set(handles.txtNoise, 'String', text);
+
+
+
+function edStdPhoton_Callback(hObject, eventdata, handles)
+% hObject    handle to edStdPhoton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edStdPhoton as text
+%        str2double(get(hObject,'String')) returns contents of edStdPhoton as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edStdPhoton_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edStdPhoton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edGamma_Callback(hObject, eventdata, handles)
+% hObject    handle to edGamma (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edGamma as text
+%        str2double(get(hObject,'String')) returns contents of edGamma as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edGamma_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edGamma (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit27_Callback(hObject, eventdata, handles)
+% hObject    handle to edit27 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit27 as text
+%        str2double(get(hObject,'String')) returns contents of edit27 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit27_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit27 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit28_Callback(hObject, eventdata, handles)
+% hObject    handle to edStdPhoton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edStdPhoton as text
+%        str2double(get(hObject,'String')) returns contents of edStdPhoton as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit28_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edStdPhoton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in btnMoviesBrowse.
+function btnMoviesBrowse_Callback(hObject, eventdata, handles)
+% hObject    handle to btnMoviesBrowse (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in chkSimFluorescence.
+function chkSimFluorescence_Callback(hObject, eventdata, handles)
+% hObject    handle to chkSimFluorescence (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+val  = get(hObject,'Value');
+
+% If checking, enable fluorescence simulation parameter boxes
+if val,
+    set( handles.edTotalItensity,'Enable','on' );
+    set( handles.edStdTotalItensity,'Enable','on' );
+    set( handles.edSNR,'Enable','on' );
+    set( handles.edStdPhoton,'Enable','on' );
+    
+% If unchecking, disable them.
+else
+    
+
+end
+
+
+% --- Executes on button press in chkSimulateMovies.
+function chkSimulateMovies_Callback(hObject, eventdata, handles)
+% hObject    handle to chkSimulateMovies (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of chkSimulateMovies
+
+
+% --- Executes on button press in pushbutton3.
+function pushbutton3_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton3 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in btnSaveParameters.
+function btnSaveParameters_Callback(hObject, eventdata, handles)
+% hObject    handle to btnSaveParameters (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in btnLoadParameters.
+function btnLoadParameters_Callback(hObject, eventdata, handles)
+% hObject    handle to btnLoadParameters (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in pushbutton5.
+function pushbutton5_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton5 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function edit29_Callback(hObject, eventdata, handles)
+% hObject    handle to edit29 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit29 as text
+%        str2double(get(hObject,'String')) returns contents of edit29 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit29_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit29 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function edit30_Callback(hObject, eventdata, handles)
+% hObject    handle to edit30 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit30 as text
+%        str2double(get(hObject,'String')) returns contents of edit30 as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit30_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit30 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
 
 
