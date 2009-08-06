@@ -83,7 +83,6 @@ end
     
 % Generate image that will be used to select peaks
 image_t = stkData.stk_top - stkData.background;
-[nrow ncol] = size(image_t);
 
 if ~isfield(params,'don_thresh') || params.don_thresh==0
     if ~isfield(params,'thresh_std')
@@ -101,7 +100,7 @@ else
    don_thresh = params.don_thresh-mean2(stkData.background);
 end
 
-overlap_thresh = 2.1;
+overlap_thresh = 0;
 if isfield(params,'overlap_thresh')
     overlap_thresh = params.overlap_thresh;
 end
@@ -178,13 +177,10 @@ if stkX == 128
     den=4;  %not optimized
 elseif stkX == 170
     den=5;
-%     set(handles.overlap,'String', 2.1);
 elseif stkX == 256
     den=8;
-%     set(handles.overlap,'String', 2.5);
 elseif stkX == 512
     den=16;
-%     set(handles.overlap,'String', 4.5);
 end
 
 background = stk_top;  %**
@@ -215,8 +211,7 @@ stkData.background = background;
 stkData.endBackground = endBackground;
 stkData.time = time;
 
-[stkData.stkX,stkData.stkX,stkData.stkX] = size(stk);
-stkData.nFrames = size(stk,3);
+[stkData.stkX,stkData.stkY,stkData.nFrames] = size(stk);
 
 % END FUNCTION OpenStk
 
@@ -241,7 +236,7 @@ if ~isfield(params,'don_thresh'),
     params.don_thresh = 0;
 end
 if ~isfield(params,'overlap_thresh'),
-    params.overlap_thresh = 2.1;
+    params.overlap_thresh = 0;
 end
 
 % Create header for log file
@@ -576,7 +571,7 @@ function integrateAndSave( stk, stk_top, peaks, stk_fname, time, params )
 if nargin>=6 && isfield(params,'nPixelsToSum')
     nPixelsToSum = params.nPixelsToSum;
 else
-    % Use empirically determined values for standard cameras...
+    % Use empirically determined values for Photometrics Cascade cameras.
     if stkX == 128
         nPixelsToSum=5;
     elseif stkX == 170
@@ -587,19 +582,8 @@ else
         nPixelsToSum=16;
     end
 end
-
-% Specify region over which to search for intensity to integrate.
-if stkX == 128
-    squarewidth=3;
-elseif stkX == 170
-    squarewidth=3;
-elseif stkX == 256
-    squarewidth=3;
-elseif stkX == 512
-    squarewidth=5;
-end
-assert( squarewidth^2>=nPixelsToSum, 'Integration window too small' );
-
+swChoices   = (3:20).^2;
+squarewidth = find( nPixelsToSum<=swChoices, 1,'first' )+2;
 
 
 % Get x,y coordinates of picked peaks
@@ -641,7 +625,11 @@ idx = sub2ind( s(1:2), regions(:,1,:), regions(:,2,:) );
 
 for k=1:Nframes,
     frame = double(stk(:,:,k));
-    traces(:,k) = sum( frame(idx) );
+    if nPixelsToSum>1
+        traces(:,k) = sum( frame(idx) );
+    else
+        traces(:,k) = diag( frame(y,x) );
+    end
 end
 
 clear stk;
