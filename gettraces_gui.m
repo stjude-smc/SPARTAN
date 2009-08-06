@@ -202,11 +202,13 @@ disp(direct);
 
 % Get list of files in current directory (option: and all subdirectories)
 if recursive
-    movieFilenames  = rdir([direct filesep '**' filesep '*.stk*']);
-    movieFilenames  = [movieFilenames rdir([direct filesep '**' filesep '*.movie'])];
+    movieFilenames  = rdir([direct filesep '**' filesep '*.stk']);
+    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.stk.bz2'])];
+    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.movie'])];
 else
-    movieFilenames  = rdir([direct filesep '*.stk*']);
-    movieFilenames  = [movieFilenames rdir([direct filesep '*.movie'])];
+    movieFilenames  = rdir([direct filesep '*.stk']);
+    movieFilenames  = [movieFilenames; rdir([direct filesep '*.stk.bz2'])];
+    movieFilenames  = [movieFilenames; rdir([direct filesep '*.movie'])];
 end
 
 nFiles = length(movieFilenames);
