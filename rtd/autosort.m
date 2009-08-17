@@ -79,6 +79,7 @@ sDonor    = zeros(0,traceLen);
 sAcceptor = zeros(0,traceLen);
 sFRET     = zeros(0,traceLen);
 sIDs      = cell(0,1);
+hasEvents = zeros(nTraces,1); %1 if trace has at least one accepted event
 nTracesWithEvents = 0;
 
 if showWB
@@ -182,7 +183,10 @@ for m=1:nTraces,
     ends    = ends(accept);
     nEvents = length(starts);
     
-    if nEvents>=1, nTracesWithEvents = nTracesWithEvents+1; end
+    if nEvents>=1,
+        nTracesWithEvents = nTracesWithEvents+1;
+        hasEvents(m) = 1;
+    end
     
     % Save events into seperate traces
     for i=1:nEvents
@@ -238,9 +242,15 @@ if nargout==0
     [datapath] = fileparts(filename);
     datapath = [datapath filesep];
 
+    % Save each event as a seperate trace
     saveTraces( [datapath 'ips.txt'],     'txt', sDonor,sAcceptor,sFRET,sIDs );
-    saveTraces( [datapath 'ips.qub.txt'], 'qub', sFRET ); 
-
+    saveTraces( [datapath 'ips.qub.txt'], 'qub', sFRET );
+    
+    % Save the set of traces that have at least one event.
+    idxTracesWithEvents = find( hasEvents );
+    saveTraces( [datapath 'tracesWithEvents.txt'],'txt', d(idxTracesWithEvents,:), ...
+        a(idxTracesWithEvents,:), f(idxTracesWithEvents,:), ids(idxTracesWithEvents) );
+    
 % Otherwise, Save FRET data to output
 else
     output = sFRET;
