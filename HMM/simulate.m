@@ -16,7 +16,7 @@
 %    OPTIONAL Parameter values:
 %      'totalIntensity'     ->  for simulated fluorescence trajectories (10000)
 %      'stdTotalIntensity'  ->  std of distribution (0)
-%          *** if stdFluorescence is set, traces will have varying
+%          *** if stdBackground is set, traces will have varying
 %          signal-to-noise ratios! 
 %      'stdPhoton'      ->  noise within fluorescence traces (multiplicitive)
 %      'stdBackground'  ->  background noise (additive)
@@ -57,20 +57,31 @@ Q( Q<=0 ) = eps;
 % PARSE OPTIONAL PARAMETER VALUES: initial kinetic parameter values
 optargs = struct( varargin{:} );
 
-if isfield(optargs,'totalIntensity') % total intensity of fluorescence
+if isfield(optargs,'totalIntensity') && ~isempty(optargs.totalIntensity)
     totalIntensity = optargs.totalIntensity;
+    assert( totalIntensity>=0, 'totalIntensity must be a positive number' );
 else
     totalIntensity = 10000;
 end
 
-if isfield(optargs,'stdTotalIntensity')
+if isfield(optargs,'stdTotalIntensity') && ~isempty(optargs.stdTotalIntensity)
     stdTotalIntensity = optargs.stdTotalIntensity;
+    assert( stdTotalIntensity>=0, 'stdBackground must be a positive number' );
 else
     stdTotalIntensity = 0;
 end
 
-if isfield(optargs,'stdPhoton')
+
+if isfield(optargs,'stdBackground') && ~isempty(optargs.stdBackground)
+    stdBackground = optargs.stdBackground;
+    assert( stdBackground>=0, 'stdBackground must be a positive number' );
+else
+    stdBackground = 0;
+end
+
+if isfield(optargs,'stdPhoton') && ~isempty(optargs.stdPhoton)
     stdPhoton = optargs.stdPhoton;
+    assert( stdPhoton>=0, 'stdPhoton must be a positive number' );
 else
     stdPhoton = 0;
 end
@@ -82,7 +93,7 @@ else
 end
 
 %random number generator seed value
-if isfield(optargs,'randomSeed') && optargs.randomSeed~=0
+if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
     randomSeed = optargs.randomSeed;
 else
     randomSeed  = 1272729;
@@ -90,8 +101,9 @@ else
 end
 
 % Simulated acceptor photobleaching rate (0 disables)
-if isfield(optargs,'kBleach')
+if isfield(optargs,'kBleach') && ~isempty(optargs.kBleach)
     kBleach = optargs.kBleach;
+    assert(kBleach~=Inf,'kBleach must be finite');
 else
     kBleach = 0;
 end
@@ -100,29 +112,25 @@ end
 
 %%
 
-simFramerate = 1000; %1ms
+simFramerate = 1000; %1000/sec = 1ms frames
 binFactor = simFramerate/framerate;
 % roundTo = 25; %ms
 
 tic;
 
 
-% Construct transition probability matrix (A) for 1ms simulation
-A = Q./simFramerate;
-A( find(eye(nStates)) ) = 1-sum(A,2);
-
-
 % Predict steady-state probabilities for use as initial probabilities.
 if isfield(optargs,'startProb') && ~isempty(optargs.startProb)
     p0 = optargs.startProb;
+    assert( sum(p0)<=1 & sum(p0)>=0.99 & all(p0<=1), 'p0 is not normalized' );
 else
+    % If not specified, estimate the equilibrium probabilities.
+    A = Q./simFramerate;
+    A( logical(eye(nStates)) ) = 1-sum(A,2);
     p0 = A^10000;
     p0 = p0(1,:);
     p0 = p0/sum(p0);
 end
-
-
-clear A;
 
 
 
@@ -245,7 +253,7 @@ end
 randn('state',111+randomSeed);
 
 % Add read/background noise to fluorescence and recalculate FRET
-if stdPhoton~=0 || stdBackground~=0
+if stdBackground~=0 || stdPhoton ~=0
     % Generate total intensity profile
     variation = stdTotalIntensity*randn( nTraces,1 );
     intensity = totalIntensity + variation;
@@ -257,7 +265,7 @@ if stdPhoton~=0 || stdBackground~=0
     
     % Simulate donor photobleaching
     if kBleach > 0,
-        pbTimes = -log(rand(1,nTraces))./(0.7*kBleach);
+        pbTimes = -log(rand(1,nTraces))./(0.5*kBleach);
         pbTimes = ceil(pbTimes*simFramerate);
         
         for i=1:nTraces,
@@ -269,30 +277,33 @@ if stdPhoton~=0 || stdBackground~=0
             acceptor(i,pbtime:end) = 0;
         end
     end
-    
-    % Simulate fluctuations in fluorescence intensity (shot noise,etc).
-    donor    = donor    .* (1+ stdPhoton*randn(size(donor)) );
-    acceptor = acceptor .* (1+ stdPhoton*randn(size(donor)) );
-    
-    % Simulate the effect of donor->acceptor channel crosstalk
+        
+    % Simulate the effect of photophysical noise. Here the variance
+    % is propotional to the intensity of the signal.
+    donor    = donor    .*  (1+ stdPhoton*randn(size(donor))    );
+    acceptor = acceptor .*  (1+ stdPhoton*randn(size(acceptor)) );
+
+    % Simulate the effect of donor->acceptor channel crosstalk.
+    % In principle this signal should include all noise except read noise.
     acceptor = acceptor + 0.075*donor;
     
-    % Add background noise to fluorescence traces
+    % Add background and read noise to fluorescence traces. Here the
+    % variance is invariant of the signal.
     alive = donor~=0;
     donor    = donor    + stdBackground*randn(size(donor));
     acceptor = acceptor + stdBackground*randn(size(donor));
     
-    % Generate final FRET trajectories
+    % Recalculate FRET from fluorescence traces
     fret = acceptor./(donor+acceptor);
     fret(~alive) = 0; %set undefined values to zero
     assert( ~any(isnan( fret(:) )) );
-    %fret(fret>1) = 1;
     
-
+    
 % If fluorescence noise is not specified, add noise directly to fret
 % and generate perfectly correlated donor/acceptor fluorescence traces.
 % THIS DOES NOT WORK!
 else
+    error('Direct FRET simulation not supported');
     fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
     donor    = (1-fret).*totalIntensity;
     acceptor = totalIntensity-donor;

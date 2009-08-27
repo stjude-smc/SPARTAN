@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 14-Jul-2009 11:00:58
+% Last Modified by GUIDE v2.5 27-Aug-2009 11:22:53
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -56,6 +56,7 @@ function simulate_gui_OpeningFcn(hObject, eventdata, handles, varargin)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to simulate_gui (see VARARGIN)
+
 
 % Choose default command line output for simulate_gui
 handles.output = hObject;
@@ -88,98 +89,80 @@ function btnSimulate_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Prompt use for location to save file in...
+disp( handles.options );
+
+
+%----- Prompt use for location to save file in...
 [f,p] = uiputfile('*.txt','Save simulated data as...');
 if f==0, return; end  %user pressed "cancel"
 fname_txt = [p f];
 
-% Gather parameter values from GUI
-nStates   = str2double( get(handles.edNstates,  'String') );
-traceLen  = str2double( get(handles.edNframes,  'String') );
-nTraces   = str2double( get(handles.edNtraces,  'String') );
-sampling = str2double( get(handles.edSampling,'String') );
-sampling = sampling/1000;
 
-mu        = eval( get(handles.edMu,   'String') );
-sigma     = eval( get(handles.edSigma,'String') );
-rates     = eval( get(handles.edRates,'String') );
-startProb = eval( get(handles.edStartProb,'String') );
+%----- Gather parameter values from GUI, prepare for calling simulate()
+options = handles.options;
 
-totalTon = eval( get(handles.edTotalTon,'String') );
+nTraces  = options.nTraces;
+traceLen = options.traceLen;
+nStates  = options.nStates;
+sampling = options.sampling/1000;
 
-totalIntensity    = str2double( get(handles.edTotalIntensity,   'String') );
-stdTotalIntensity = str2double( get(handles.edStdTotalIntensity,'String') );
-snr = str2double( get(handles.edSNR,  'String') );
-stdFluorescence = totalIntensity/(sqrt(2)*snr);
+options.stdBackground = options.totalIntensity/(sqrt(2)*options.snr);
+options.kBleach = 1/options.totalTimeOn;
 
-% totalTon = str2double( get(handles.edTotalTon, 'String') );
-% Ton      = str2double( get(handles.edTon,      'String') );
-% Toff     = str2double( get(handles.edToff,     'String') );
-
-randomSeed = str2double( get(handles.edRandomSeed,'String') );
-
-
-%
-if numel(sigma)==1,
-    sigma = repmat(sigma,size(mu));
+if numel(options.sigma)==1,
+    options.sigma = repmat(options.sigma,nStates);
+elseif isempty(options.sigma),
+    % Use a default value (not used for simulation)
+    options.sigma = repmat(0.1,1,nStates);
 end
 
-
-% Compile array of optional arguments to simulate...
-options = { 'totalIntensity',totalIntensity, ...
-            'stdTotalIntensity',stdTotalIntensity, ...
-            'stdFluorescence',stdFluorescence, ...
-            'randomSeed',randomSeed, ...
-            'startProb',startProb, ...
-            'kBleach', 1/totalTon };
-
-
-% Check parameter values for sanity?
-if numel(mu)~=nStates || numel(sigma)~=nStates,
-    error('simulate_gui:btnSimulate_Callback','Inconsistent number of states...');
-end
-
-% Generate Q matrix
+% Generate Q matrix from rates specified in GUI
 Q = zeros(nStates,nStates);
 idx = find( ~logical(eye(nStates)) );
-r = rates';
+r = options.rates';
 Q(idx) = r(:);
 Q = Q';
 
-% Add blinking kinetic parameters to matrix...
 
 
-% Run simulate
+%----- Check parameter values for sanity?
+if numel(options.mu)~=nStates,
+    error('simulate_gui:btnSimulate_Callback','Inconsistent number of states...');
+end
+
+
+%----- Run simulate and save results
 dataSize = [nTraces traceLen];
-model = [mu' sigma'];
+fretModel = [options.mu' options.sigma'];
 
-[dwt,fret,donor,acceptor] = simulate( dataSize, sampling, model, Q, options{:} );
-time = 1000*sampling*[0:(traceLen-1)];
+[dwt,fret,donor,acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
+time = 1000*sampling*( 0:(traceLen-1) );
 
-% Save resulting data
-fname_qub = strrep(fname_txt, '.txt', '.qub.txt');
+% Save resulting raw traces files
 fname_trc = strrep(fname_txt, '.txt', '.traces');
-
-% saveTraces( fname_qub, 'qub', fret );
-% saveTraces( fname_txt, 'txt', donor,acceptor,fret );
 saveTraces( fname_trc, 'traces', donor,acceptor, [], time );
 
+% Produce a .txt data file, as if it had been processed by autotrace/sorttraces.
+% Traces without a descernable bleaching event are removed.
 [d,a,f,ids,time] = loadTraces(fname_trc);
+
+stats = traceStat(d,a,f);
+sel = [stats.snr]>=1;
+d = d(sel,:);
+a = a(sel,:);
+f = f(sel,:);
+ids = ids(sel);
+
 saveTraces( fname_txt, 'txt', d,a,f,ids,time );
 
 % Save the underlying state trajectory
 fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
 
 offsets = (0:(nTraces-1))*traceLen;
-% dwt = cell(nTraces,1);
-% 
-% for i=1:nTraces,
-%     dwt{i} = RLEncode( idl(i,:) );
-% end
+saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
-saveDWT( fname_idl, dwt, offsets, model, 1 );
 
-% save a log file detailing the input parameters...
+%----- Save a log file detailing the input parameters...
 logname = strrep( fname_txt, '.txt','.log' );
 fid = fopen(logname,'w');
 
@@ -190,19 +173,19 @@ fprintf(fid, '\n\nSimulating %d traces of length %d at %d sec/frame.', ...
              nTraces, traceLen, sampling);
 
 fprintf(fid, '\n\nFRET mean: ');
-fprintf(fid, '%0.2f ', model(:,1) );
+fprintf(fid, '%0.2f ', fretModel(:,1) );
 fprintf(fid, '\nFRET stdev: ');
-fprintf(fid, '%0.2f ', model(:,2) );
+fprintf(fid, '%0.2f ', fretModel(:,2) );
 
-fprintf(fid, '\n\nTotal Intensity: %d ', totalIntensity );
-fprintf(fid, '\nStdev Total Intensity: %d ', stdTotalIntensity );
-fprintf(fid, '\nSNR: %d ', snr );
-fprintf(fid, '\nStdev Fluorescence: %f ', stdFluorescence );
+fprintf(fid, '\n\nTotal Intensity: %d ', options.totalIntensity );
+fprintf(fid, '\nStdev Total Intensity: %d ', options.stdTotalIntensity );
+fprintf(fid, '\nSNR: %d ', options.snr );
+fprintf(fid, '\nStdev Fluorescence: %f ', options.stdPhoton );
 
 fprintf(fid, '\n\nRate Matrix:\n');
 fprintf(fid, '%s', get(handles.edRates,'String'));
 
-fprintf(fid, '\n\nRandom seed: %d',randomSeed );
+fprintf(fid, '\n\nRandom seed: %d',options.randomSeed );
 
 fclose(fid);
 
@@ -210,45 +193,23 @@ fclose(fid);
 
 %% -------------------  CALLBACK FUNCTIONS  -------------------
 
+function fieldChanged_Callback(hObject,fieldName)
+% This function is called whenever a GUI textbox's value is updated.
+% The value extracted from the current control and saved into the
+% options structure, using the given fieldName.
+% If the value in the GUI is invalid, an error will be raised in str2num.
 
-function edTotalIntensity_Callback(hObject, eventdata, handles)
-% hObject    handle to edTotalIntensity (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+handles = guidata(hObject);
 
-% Hints: get(hObject,'String') returns contents of edTotalIntensity as text
-%        str2double(get(hObject,'String')) returns contents of edTotalIntensity as a double
+value = get(hObject,'String');
+handles.options.(fieldName) = str2num(value);
 
-I  = str2double(get(handles.edTotalIntensity,'String'));
-IS = str2double(get(handles.edStdTotalIntensity,'String'));
-SNR  = str2double(get(handles.edSNR,'String'));
-
-S = I/(sqrt(2)*SNR);
-
-% text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
-text = sprintf('Noise = %0.1f',S );
-set(handles.txtNoise, 'String', text);
+% Update handles structure
+guidata(hObject, handles);
 
 
-function edStdTotalIntensity_Callback(hObject, eventdata, handles)
-% hObject    handle to edStdTotalIntensity (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
-% Hints: get(hObject,'String') returns contents of edStdTotalIntensity as text
-%        str2double(get(hObject,'String')) returns contents of edStdTotalIntensity as a double
-I  = str2double(get(handles.edTotalIntensity,'String'));
-IS = str2double(get(handles.edStdTotalIntensity,'String'));
-SNR  = str2double(get(handles.edSNR,'String'));
-
-S = I/(sqrt(2)*SNR);
-
-% text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
-text = sprintf('Noise = %0.1f',S );
-set(handles.txtNoise, 'String', text);
-
-
-function edSNR_Callback(hObject, eventdata, handles)
+% function edSNR_Callback(hObject, eventdata, handles)
 % hObject    handle to edSNR (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -256,14 +217,75 @@ function edSNR_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of edSNR as text
 %        str2double(get(hObject,'String')) returns contents of edSNR as a double
 
-I  = str2double(get(handles.edTotalIntensity,'String'));
-IS = str2double(get(handles.edStdTotalIntensity,'String'));
-SNR  = str2double(get(handles.edSNR,'String'));
+% I  = str2double(get(handles.edTotalIntensity,'String'));
+% IS = str2double(get(handles.edStdTotalIntensity,'String'));
+% SNR  = str2double(get(handles.edSNR,'String'));
+% 
+% S = I/(sqrt(2)*SNR);
+% 
+% % text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
+% text = sprintf('Noise = %0.1f',S );
+% set(handles.txtNoise, 'String', text);
 
-S = I/(sqrt(2)*SNR);
 
-% text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
-text = sprintf('Noise = %0.1f',S );
-set(handles.txtNoise, 'String', text);
+
+% --- Executes on button press in chkSimFluorescence.
+function chkSimFluorescence_Callback(hObject, eventdata, handles)
+% hObject    handle to chkSimFluorescence (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+val  = get(hObject,'Value');
+
+% If checking, enable fluorescence simulation parameter boxes
+if val,
+    set( handles.edTotalItensity,'Enable','on' );
+    set( handles.edStdTotalItensity,'Enable','on' );
+    set( handles.edSNR,'Enable','on' );
+    set( handles.edStdPhoton,'Enable','on' );
+    
+    % Re-add these values from the options structure
+    
+% If unchecking, disable them.
+else
+    % Disable text boxes
+    set( handles.edTotalItensity,'Enable','off' );
+    set( handles.edStdTotalItensity,'Enable','off' );
+    set( handles.edSNR,'Enable','off' );
+    set( handles.edStdPhoton,'Enable','off' );
+    
+    % Remove these values from the options structure
+end
+
+
+% --- Executes on button press in chkSimulateMovies.
+function chkSimulateMovies_Callback(hObject, eventdata, handles)
+% hObject    handle to chkSimulateMovies (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of chkSimulateMovies
+
+
+
+% --- Executes on button press in btnSaveParameters.
+function btnSaveParameters_Callback(hObject, eventdata, handles)
+% hObject    handle to btnSaveParameters (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in btnLoadParameters.
+function btnLoadParameters_Callback(hObject, eventdata, handles)
+% hObject    handle to btnLoadParameters (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in btnBrowseMovie.
+function btnBrowseMovie_Callback(hObject, eventdata, handles)
+% hObject    handle to btnBrowseMovie (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
 
 
