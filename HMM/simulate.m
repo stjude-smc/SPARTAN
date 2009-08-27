@@ -59,33 +59,37 @@ Q( Q<=0 ) = eps;
 % PARSE OPTIONAL PARAMETER VALUES: initial kinetic parameter values
 optargs = struct( varargin{:} );
 
-if isfield(optargs,'totalIntensity') % total intensity of fluorescence
+if isfield(optargs,'totalIntensity') && ~isempty(optargs.totalIntensity)
     totalIntensity = optargs.totalIntensity;
+    assert( totalIntensity>=0, 'totalIntensity must be a positive number' );
 else
     totalIntensity = 10000;
 end
 
-if isfield(optargs,'stdTotalIntensity')
+if isfield(optargs,'stdTotalIntensity') && ~isempty(optargs.stdTotalIntensity)
     stdTotalIntensity = optargs.stdTotalIntensity;
+    assert( stdTotalIntensity>=0, 'stdBackground must be a positive number' );
 else
     stdTotalIntensity = 0;
 end
 
-if isfield(optargs,'stdBackground')
+if isfield(optargs,'stdBackground') && ~isempty(optargs.stdBackground)
     stdBackground = optargs.stdBackground;
+    assert( stdBackground>=0, 'stdBackground must be a positive number' );
 else
     stdBackground = 0;
 end
 
-if isfield(optargs,'stdPhoton')
+if isfield(optargs,'stdPhoton') && ~isempty(optargs.stdPhoton)
     stdPhoton = optargs.stdPhoton;
+    assert( stdPhoton>=0, 'stdPhoton must be a positive number' );
 else
     stdPhoton = 0;
 end
 
 
 %random number generator seed value
-if isfield(optargs,'randomSeed') && optargs.randomSeed~=0
+if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
     randomSeed = optargs.randomSeed;
 else
     randomSeed  = 1272729;
@@ -93,8 +97,9 @@ else
 end
 
 % Simulated acceptor photobleaching rate (0 disables)
-if isfield(optargs,'kBleach')
+if isfield(optargs,'kBleach') && ~isempty(optargs.kBleach)
     kBleach = optargs.kBleach;
+    assert(kBleach~=Inf,'kBleach must be finite');
 else
     kBleach = 0;
 end
@@ -103,29 +108,25 @@ end
 
 %%
 
-simFramerate = 1000; %1ms
+simFramerate = 1000; %1000/sec = 1ms frames
 binFactor = simFramerate/framerate;
 % roundTo = 25; %ms
 
 tic;
 
 
-% Construct transition probability matrix (A) for 1ms simulation
-A = Q./simFramerate;
-A( find(eye(nStates)) ) = 1-sum(A,2);
-
-
 % Predict steady-state probabilities for use as initial probabilities.
 if isfield(optargs,'startProb') && ~isempty(optargs.startProb)
     p0 = optargs.startProb;
+    assert( sum(p0)<=1 & sum(p0)>=0.99 & all(p0<=1), 'p0 is not normalized' );
 else
+    % If not specified, estimate the equilibrium probabilities.
+    A = Q./simFramerate;
+    A( logical(eye(nStates)) ) = 1-sum(A,2);
     p0 = A^10000;
     p0 = p0(1,:);
     p0 = p0/sum(p0);
 end
-
-
-clear A;
 
 
 
@@ -221,8 +222,6 @@ rand('twister',s);
 if kBleach > 0,
     pbTimes = -log(rand(1,nTraces))./kBleach;
     pbTimes = ceil(pbTimes*simFramerate);
-    
-%     pbTimes( pbTimes>(size(idl,2)-
 
     for i=1:nTraces,
         idl(i,pbTimes(i):end) = 1;  % set the state to blinking
@@ -300,6 +299,7 @@ if stdBackground~=0 || stdPhoton ~=0
 % If fluorescence noise is not specified, add noise directly to fret
 % and generate perfectly correlated donor/acceptor fluorescence traces.
 else
+    error('Direct FRET simulation not supported');
     fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
     donor    = (1-fret).*totalIntensity;
     acceptor = totalIntensity-donor;
