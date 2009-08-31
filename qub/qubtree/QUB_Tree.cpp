@@ -18,8 +18,8 @@ void QTR_API trickMSVC6intoExportingTemplateMemberFunctions() {
 	crap.setData(QTR_TYPE_SHORT,     (short)             0  );
 	crap.setData(QTR_TYPE_UINT,      (unsigned int)      0  );
 	crap.setData(QTR_TYPE_INT,       (int)               0  );
-	crap.setData(QTR_TYPE_ULONG,     (unsigned long)     0  );
-	crap.setData(QTR_TYPE_LONG,      (long)              0  );
+	crap.setData(QTR_TYPE_ULONG,     (unsigned long long)0  );
+	crap.setData(QTR_TYPE_LONG,      (long long)         0  );
 	crap.setData(QTR_TYPE_FLOAT,     (float)             0.0);
 	crap.setData(QTR_TYPE_DOUBLE,    (double)            0.0);
 	crap.setData(QTR_TYPE_LDOUBLE,   (long double)       0.0);
@@ -30,8 +30,8 @@ void QTR_API trickMSVC6intoExportingTemplateMemberFunctions() {
 	crap.dataAs( 0, 0, (short)           0   );
 	crap.dataAs( 0, 0, (unsigned int)    0   );
 	crap.dataAs( 0, 0, (int)             0   );
-	crap.dataAs( 0, 0, (unsigned long)   0   );
-	crap.dataAs( 0, 0, (long)            0   );
+	crap.dataAs( 0, 0, (unsigned long long)   0   );
+	crap.dataAs( 0, 0, (long long)            0   );
 	crap.dataAs( 0, 0, (float)           0.0 );
 	crap.dataAs( 0, 0, (double)          0.0 );
 	crap.dataAs( 0, 0, (long double)     0.0 );
@@ -42,8 +42,8 @@ void QTR_API trickMSVC6intoExportingTemplateMemberFunctions() {
 	crap.dataAs( 0, (short)           0   );
 	crap.dataAs( 0, (unsigned int)    0   );
 	crap.dataAs( 0, (int)             0   );
-	crap.dataAs( 0, (unsigned long)   0   );
-	crap.dataAs( 0, (long)            0   );
+	crap.dataAs( 0, (unsigned long long)   0   );
+	crap.dataAs( 0, (long long)            0   );
 	crap.dataAs( 0, (float)           0.0 );
 	crap.dataAs( 0, (double)          0.0 );
 	crap.dataAs( 0, (long double)     0.0 );
@@ -365,12 +365,6 @@ QUB_Tree QUB_Tree::siblingSameName() const {
 
 QUB_Tree QUB_Tree::operator[] (string childName) const
 {
-	if( childName.length()>200 )
-	{
-		cout << childName.length() << endl;
-		cout << childName.capacity() << endl;
-		cout << childName.c_str() << endl;
-	}
 	iterator it = find( childName );
 	if ( (*it).isNull() )
 		it.insert( childName );
@@ -622,10 +616,10 @@ bool CopyCastFillFrom( T *into, unsigned int intolen, T *defs, QUB_Tree from,
 	CopyCastFill( into, defs, (int*)fromdat, intolen, datalen );
 	break;
       case QTR_TYPE_ULONG:
-	CopyCastFill( into, defs, (unsigned long*)fromdat, intolen, datalen );
+	CopyCastFill( into, defs, (unsigned long long*)fromdat, intolen, datalen );
 	break;
       case QTR_TYPE_LONG:
-	CopyCastFill( into, defs, (long*)fromdat, intolen, datalen );
+	CopyCastFill( into, defs, (long long*)fromdat, intolen, datalen );
 	break;
       case QTR_TYPE_FLOAT:
 	CopyCastFill( into, defs, (float*)fromdat, intolen, datalen );
@@ -689,10 +683,10 @@ bool CopyCastFillRowsFrom( T *into, QUB_Tree from, unsigned int firstRow, unsign
 				CopyCastFill( into, (T*) 0, (int*)fromdat, rowlen, rowlen );
 				break;
 			  case QTR_TYPE_ULONG:
-				CopyCastFill( into, (T*) 0, (unsigned long*)fromdat, rowlen, rowlen );
+				CopyCastFill( into, (T*) 0, (unsigned long long*)fromdat, rowlen, rowlen );
 				break;
 			  case QTR_TYPE_LONG:
-				CopyCastFill( into, (T*) 0, (long*)fromdat, rowlen, rowlen );
+				CopyCastFill( into, (T*) 0, (long long*)fromdat, rowlen, rowlen );
 				break;
 			  case QTR_TYPE_FLOAT:
 				CopyCastFill( into, (T*) 0, (float*)fromdat, rowlen, rowlen );

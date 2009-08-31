@@ -23,7 +23,7 @@
 #include <string>
 
 #if defined(_WIN32)
-//#include <windows.h>
+#include <windows.h>
 #else
 
 #endif
@@ -139,6 +139,7 @@ typedef struct QTR_Impl {
 	int           readers; //* # of readers, or NODE_WRITING
 	
 	struct QTR_Impl *root; // 0 for root nodes
+        void            *dataMem; // base address of data in memory (if not in file)
 	
 	} QTR_Impl;
 

@@ -1,3 +1,5 @@
 *~
 *.pdb
 *.asv
+*.a
+qub/qubtree/obj/*

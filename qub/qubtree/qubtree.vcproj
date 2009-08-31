@@ -1,63 +1,38 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8.00"
+	Version="7.10"
 	Name="qubtree"
-	ProjectGUID="{65AB3DC0-501A-4369-8E0B-4670B07C5BBA}"
-	>
+	SccProjectName=""
+	SccLocalPath="">
 	<Platforms>
 		<Platform
-			Name="Win32"
-		/>
+			Name="Win32"/>
 	</Platforms>
-	<ToolFiles>
-	</ToolFiles>
 	<Configurations>
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory=".\..\qubsuite"
 			IntermediateDirectory="c:\output\Obj\qubtree"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
 			CharacterSet="2"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				PreprocessorDefinitions="NDEBUG"
-				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
-				TargetEnvironment="1"
-				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
-				HeaderFileName=""
-			/>
+			WholeProgramOptimization="TRUE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
+				GlobalOptimizations="TRUE"
 				InlineFunctionExpansion="2"
-				EnableIntrinsicFunctions="true"
+				EnableIntrinsicFunctions="TRUE"
 				FavorSizeOrSpeed="1"
 				AdditionalIncludeDirectories="..\include,..\qubcommon"
 				PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_USRDLL;QUBTREE_EXPORTS"
-				StringPooling="true"
+				StringPooling="TRUE"
 				RuntimeLibrary="2"
-				BufferSecurityCheck="true"
-				EnableFunctionLevelLinking="true"
-				RuntimeTypeInfo="true"
+				BufferSecurityCheck="TRUE"
+				EnableFunctionLevelLinking="TRUE"
+				RuntimeTypeInfo="TRUE"
 				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile="\output\Obj\qubtree/qubtree.pch"
 				AssemblerListingLocation="c:\output\Obj\qubtree/"
@@ -65,97 +40,68 @@
 				ProgramDataBaseFileName="c:\output\Obj\qubtree/"
 				BrowseInformation="1"
 				WarningLevel="3"
-				SuppressStartupBanner="true"
-				CompileAs="0"
-			/>
+				SuppressStartupBanner="TRUE"
+				CompileAs="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1033"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				OutputFile="..\qubsuite\qubtree.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
+				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories=""
 				ProgramDatabaseFile=".\..\qubsuite/qubtree.pdb"
 				ImportLibrary=".\..\qubsuite/qubtree.lib"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="NDEBUG"
+				MkTypLibCompatible="TRUE"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
+				HeaderFileName=""/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
 			OutputDirectory="..\qubsuite"
 			IntermediateDirectory="c:\output\debug\Obj\qubtree"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
 			CharacterSet="2"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				PreprocessorDefinitions="_DEBUG"
-				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
-				TargetEnvironment="1"
-				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
-				HeaderFileName=""
-			/>
+			WholeProgramOptimization="FALSE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\include,..\qubcommon"
 				PreprocessorDefinitions="_REENTRANT;WIN32;__WIN32__;_WINDOWS;_USRDLL;QUBTREE_EXPORTS"
-				StringPooling="true"
+				StringPooling="TRUE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="2"
-				EnableFunctionLevelLinking="true"
-				ForceConformanceInForLoopScope="true"
-				RuntimeTypeInfo="true"
+				EnableFunctionLevelLinking="TRUE"
+				ForceConformanceInForLoopScope="TRUE"
+				RuntimeTypeInfo="TRUE"
 				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile="\output\debug\Obj\qubtree/qubtree.pch"
 				AssemblerListingLocation="c:\output\debug\Obj\qubtree/"
@@ -163,102 +109,73 @@
 				ProgramDataBaseFileName="c:\output\debug\Obj\qubtree/"
 				BrowseInformation="1"
 				WarningLevel="3"
-				SuppressStartupBanner="true"
+				SuppressStartupBanner="TRUE"
 				DebugInformationFormat="4"
-				CompileAs="0"
-			/>
+				CompileAs="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="_DEBUG"
-				Culture="1033"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				OutputFile="..\qubsuite\qubtree.dll"
 				LinkIncremental="2"
-				SuppressStartupBanner="true"
+				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories=""
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\..\qubsuite/qubtree.pdb"
 				ImportLibrary=".\..\qubsuite/qubtree.lib"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="_DEBUG"
+				MkTypLibCompatible="TRUE"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
+				HeaderFileName=""/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Release py24|Win32"
 			OutputDirectory="$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
 			CharacterSet="2"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				PreprocessorDefinitions="NDEBUG"
-				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
-				TargetEnvironment="1"
-				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
-				HeaderFileName=""
-			/>
+			WholeProgramOptimization="TRUE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="2"
+				GlobalOptimizations="TRUE"
 				InlineFunctionExpansion="2"
-				EnableIntrinsicFunctions="true"
+				EnableIntrinsicFunctions="TRUE"
 				FavorSizeOrSpeed="1"
 				AdditionalIncludeDirectories="..\include,..\qubcommon;c:\python24\include"
 				PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_USRDLL;QUBTREE_EXPORTS"
-				StringPooling="true"
+				StringPooling="TRUE"
 				RuntimeLibrary="2"
-				BufferSecurityCheck="true"
-				EnableFunctionLevelLinking="true"
-				RuntimeTypeInfo="true"
+				BufferSecurityCheck="TRUE"
+				EnableFunctionLevelLinking="TRUE"
+				RuntimeTypeInfo="TRUE"
 				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile="\output\Obj\qubtree/qubtree.pch"
 				AssemblerListingLocation="\output\Obj\qubtree/"
@@ -266,98 +183,69 @@
 				ProgramDataBaseFileName="\output\Obj\qubtree/"
 				BrowseInformation="1"
 				WarningLevel="3"
-				SuppressStartupBanner="true"
-				CompileAs="0"
-			/>
+				SuppressStartupBanner="TRUE"
+				CompileAs="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1033"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="python24.lib odbc32.lib odbccp32.lib"
 				OutputFile="$(ConfigurationName)\qubtree.dll"
 				LinkIncremental="1"
-				SuppressStartupBanner="true"
+				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="c:\python24\libs"
 				ProgramDatabaseFile=".\..\qubsuite/qubtree.pdb"
 				ImportLibrary=".\..\qubsuite/qubtree.lib"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="NDEBUG"
+				MkTypLibCompatible="TRUE"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
+				HeaderFileName=""/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="1033"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Debug py24|Win32"
 			OutputDirectory="$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="2"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
 			UseOfMFC="0"
-			ATLMinimizesCRunTimeLibraryUsage="false"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
 			CharacterSet="2"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				PreprocessorDefinitions="_DEBUG"
-				MkTypLibCompatible="true"
-				SuppressStartupBanner="true"
-				TargetEnvironment="1"
-				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
-				HeaderFileName=""
-			/>
+			WholeProgramOptimization="FALSE">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\include,..\qubcommon;c:\python24\include"
 				PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_USRDLL;QUBTREE_EXPORTS"
-				StringPooling="true"
+				StringPooling="TRUE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="2"
-				EnableFunctionLevelLinking="true"
-				ForceConformanceInForLoopScope="true"
-				RuntimeTypeInfo="true"
+				EnableFunctionLevelLinking="TRUE"
+				ForceConformanceInForLoopScope="TRUE"
+				RuntimeTypeInfo="TRUE"
 				UsePrecompiledHeader="0"
 				PrecompiledHeaderFile="\output\debug\Obj\qubtree/qubtree.pch"
 				AssemblerListingLocation="\output\debug\Obj\qubtree/"
@@ -365,57 +253,50 @@
 				ProgramDataBaseFileName="\output\debug\Obj\qubtree/"
 				BrowseInformation="1"
 				WarningLevel="3"
-				SuppressStartupBanner="true"
+				SuppressStartupBanner="TRUE"
 				DebugInformationFormat="4"
-				CompileAs="0"
-			/>
+				CompileAs="0"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="_DEBUG"
-				Culture="1033"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="python24.lib odbc32.lib odbccp32.lib"
 				OutputFile="c:\python24\Lib\site-packages\qubtree.pyd"
 				LinkIncremental="2"
-				SuppressStartupBanner="true"
+				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="c:\python24\libs"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\..\qubsuite/qubtree.pdb"
 				ImportLibrary=".\..\qubsuite/qubtree.lib"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="_DEBUG"
+				MkTypLibCompatible="TRUE"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName=".\..\qubsuite/qubtree.tlb"
+				HeaderFileName=""/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="_DEBUG"
+				Culture="1033"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
 	<References>
@@ -423,296 +304,241 @@
 	<Files>
 		<Filter
 			Name="Source Files"
-			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
-			>
+			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
 			<File
-				RelativePath="..\QUBCommon\istream_readline.cpp"
-				>
+				RelativePath="..\QUBCommon\istream_readline.cpp">
 			</File>
 			<File
-				RelativePath="QTR_NodeFunc.cpp"
-				>
+				RelativePath="QTR_NodeFunc.cpp">
 				<FileConfiguration
-					Name="Release|Win32"
-					>
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32"
-					>
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release py24|Win32"
-					>
+					Name="Release py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug py24|Win32"
-					>
+					Name="Debug py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="QUB_QTR_Impl.cpp"
-				>
+				RelativePath="QUB_QTR_Impl.cpp">
 				<FileConfiguration
-					Name="Release|Win32"
-					>
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32"
-					>
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release py24|Win32"
-					>
+					Name="Release py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug py24|Win32"
-					>
+					Name="Debug py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="QUB_Tree.cpp"
-				>
+				RelativePath="QUB_Tree.cpp">
 				<FileConfiguration
-					Name="Release|Win32"
-					>
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32"
-					>
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release py24|Win32"
-					>
+					Name="Release py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug py24|Win32"
-					>
+					Name="Debug py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="QUB_Tree_text.cpp"
-				>
+				RelativePath="QUB_Tree_text.cpp">
 				<FileConfiguration
-					Name="Release|Win32"
-					>
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32"
-					>
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release py24|Win32"
-					>
+					Name="Release py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug py24|Win32"
-					>
+					Name="Debug py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="StringsInterned.cpp"
-				>
+				RelativePath="StringsInterned.cpp">
 				<FileConfiguration
-					Name="Release|Win32"
-					>
+					Name="Release|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|Win32"
-					>
+					Name="Debug|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release py24|Win32"
-					>
+					Name="Release py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="2"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;NDEBUG;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug py24|Win32"
-					>
+					Name="Debug py24|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						Optimization="0"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions="_REENTRANT;WIN32;_WINDOWS;_MBCS;_USRDLL;QUBTREE_EXPORTS;$(NoInherit)"
 						BasicRuntimeChecks="3"
-						BrowseInformation="1"
-					/>
+						BrowseInformation="1"/>
 				</FileConfiguration>
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
-			Filter="h;hpp;hxx;hm;inl"
-			>
+			Filter="h;hpp;hxx;hm;inl">
 			<File
-				RelativePath="..\include\AutoMutex.h"
-				>
+				RelativePath="..\include\AutoMutex.h">
 			</File>
 			<File
-				RelativePath="..\QUBCommon\istream_readline.h"
-				>
+				RelativePath="..\QUBCommon\istream_readline.h">
 			</File>
 			<File
-				RelativePath="QTR_NodeFunc.h"
-				>
+				RelativePath="QTR_NodeFunc.h">
 			</File>
 			<File
-				RelativePath="QUB_QTR_Impl.h"
-				>
+				RelativePath="QUB_QTR_Impl.h">
 			</File>
 			<File
-				RelativePath="QUB_Tree.h"
-				>
+				RelativePath="QUB_Tree.h">
 			</File>
 			<File
-				RelativePath="StringsInterned.h"
-				>
+				RelativePath="StringsInterned.h">
 			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
-			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
-			>
+			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe">
 		</Filter>
 	</Files>
 	<Globals>

@@ -205,6 +205,7 @@ QTR_Impl * New_QTR_Impl(int iRefs) {
 	*((int*) & impl->ondisk.flags) = (QTR_FLAG_PRELOAD | QTR_FLAG_CHANGED);	// default for new nodes
 	impl->refs = iRefs;			// if 0, don't return a new ref, just leave one with parent
 	impl->loadStart = impl->loadEnd = QTR_LOAD_NONE;
+	impl->dataMem = 0;
 	return impl;
 	}
 
@@ -237,6 +238,13 @@ int QTR_Read( QTR_Impl *impl ) {	// using file/root and fileStart
 	if ( 1 != fread( &(impl->ondisk), sizeof(QTR_OnDisk), 1, impl->root->file->handle ) ) {
 		memset(&(impl->ondisk), 0, sizeof(QTR_OnDisk));
 		return -1;
+	}
+        for ( int i=0; i<QTR_NRSV-1; ++i ) {
+	  // stop before reserved[NRSV-1] because GEM's QF.cpp seems to corrupt this byte
+	  if ( impl->ondisk.reserved[i] ) {
+		memset(&(impl->ondisk), 0, sizeof(QTR_OnDisk));
+		return -1;
+	  }
 	}
 
 	//----- Clear existing name 
@@ -414,12 +422,13 @@ int QTR_MoveData( QTR_Impl *impl, QTR_File *from, QTR_File *to ){
 		unsigned int ll = impl->loadEnd;
 		QTR_LoadRows( impl, 0, impl->ondisk.dataCount - 1, 1 );
 		if ( impl->data ) { // successfully loaded -- enough memory
-			impl->ondisk.dataPos = (unsigned long) impl->data;
+			impl->dataMem = impl->data;
 			impl->data = ((char *) impl->data) + lf * impl->ondisk.dataSize;
 			impl->loadStart = lf;
 			impl->loadEnd = ll;
 		}
 		else {
+			impl->dataMem = 0;
 			impl->ondisk.dataPos = 0;
 			impl->ondisk.dataType = QTR_TYPE_EMPTY;
 			impl->ondisk.dataSize = 0;
@@ -431,6 +440,7 @@ int QTR_MoveData( QTR_Impl *impl, QTR_File *from, QTR_File *to ){
 	else { // memory to file
 		QTR_LoadRows( impl, 0, impl->ondisk.dataCount - 1, 1 );
 		impl->ondisk.dataPos = 0;
+		impl->dataMem = 0;
 
 		// should really unload portions to disk, and restore prev.load.bounds, but...
 		impl->loadStart = 0;
@@ -690,6 +700,16 @@ QTR_API QTR_Impl * QTR_Clone( QTR_Impl *other, int deep ){
 }
 
 //-----------------------------------------------------------------------------
+void QTR_MarkClean(QTR_Impl *node)
+{
+	QTR_SetFlag(node, QTR_FLAG_CHANGED | QTR_FLAG_CHILDCHANGED, 0);
+	QTR_Impl *child = node->child;
+	while ( child ) {
+		QTR_MarkClean(child);
+		child = child->sibling;
+	}
+}
+
 QTR_API QTR_Impl * QTR_Open( const char *path, int readOnly ){
     QTR_Impl *impl = NULL;
     QTR_File *file = new QTR_File;
@@ -723,6 +743,8 @@ QTR_API QTR_Impl * QTR_Open( const char *path, int readOnly ){
 
 	fseek(file->handle, 0, SEEK_END);
 	file->frontier = ftell(file->handle);
+
+	QTR_MarkClean( impl );
 
 	return impl;
     } catch (...) {
@@ -1116,7 +1138,8 @@ QTR_API int QTR_SetupData( QTR_Impl *impl, QTR_DataType dtype, unsigned int size
 			impl->ondisk.dataPos = 0;
 		}
 		else {
-			delete [] (char *) impl->ondisk.dataPos;
+			delete [] (char *) impl->dataMem;
+			impl->dataMem = 0;
 		}
 		curBytes = 0;
 	}
@@ -1131,7 +1154,7 @@ QTR_API int QTR_SetupData( QTR_Impl *impl, QTR_DataType dtype, unsigned int size
 
 			if ( data ) {
 				data[ reqBytes ] = 0; // in case of string
-				impl->ondisk.dataPos = (unsigned long) data;
+				impl->dataMem = data;
 			}
 			else {
 				impl->ondisk.dataType = QTR_TYPE_EMPTY;
@@ -1162,10 +1185,11 @@ QTR_API int QTR_SetupStringData( QTR_Impl *impl, int count ) {
 
 //-----------------------------------------------------------------------------
 QTR_API int QTR_ResizeData( QTR_Impl *impl, unsigned int newnr ){
+	unsigned int prevnr = impl->ondisk.dataCount;
+	if ( prevnr == newnr )
+		return 0;
 	if ( ! newnr )
 		return QTR_ClearData( impl );
-
-	unsigned int prevnr = impl->ondisk.dataCount;
 	if ( ! prevnr )
 		return -1; // need valid type, size to resize with
 
@@ -1205,7 +1229,7 @@ QTR_API int QTR_ResizeData( QTR_Impl *impl, unsigned int newnr ){
 		temp = impl->ondisk.dataPos;
 	}
 	else if ( inMem ) {
-		prevData = (char *) impl->ondisk.dataPos;
+ 	        prevData = (char *) impl->dataMem;
 	}
 	else {
 		prevLoc = impl->ondisk.dataPos;
@@ -1215,14 +1239,15 @@ QTR_API int QTR_ResizeData( QTR_Impl *impl, unsigned int newnr ){
 	impl->ondisk.dataCount = newnr;
 	QTR_SetFlag( impl, QTR_FLAG_DATA_IN_NODE, 0 );
 	if ( inMem ) {
-		impl->ondisk.dataPos = (unsigned long) new char[ rowBytes * newnr + 1 ];
+		impl->dataMem = new char[ rowBytes * newnr + 1 ];
 	}
 	else {
 		impl->ondisk.dataPos = 0;
+		impl->dataMem = 0;
 	}
 
-	if ( inMem && (! inNode) && (! impl->ondisk.dataPos) ) {
-		impl->ondisk.dataPos = (unsigned long) prevData;
+	if ( inMem && (! inNode) && (! impl->dataMem) ) {
+		impl->dataMem = prevData;
 		impl->ondisk.dataCount = prevnr;
 		if ( restoreLoadFirst != QTR_LOAD_NONE )
 			QTR_LoadRows( impl, restoreLoadFirst, restoreLoadLast, 0 );
@@ -1261,9 +1286,10 @@ QTR_API int QTR_ClearData( QTR_Impl *impl ){
 		QTR_SetFlag( impl, QTR_FLAG_DATA_IN_NODE, 0 );
 	}
 	else if ( ! impl->root->file ) {
-		delete [] (char *) impl->ondisk.dataPos;
+	  delete [] (char*) impl->dataMem;
 	}
 	
+	impl->dataMem = 0;
 	impl->ondisk.dataPos = 0;
 	impl->ondisk.dataType = QTR_TYPE_EMPTY;
 	impl->ondisk.dataSize = 0;
@@ -1316,7 +1342,7 @@ QTR_API int QTR_LoadRows( QTR_Impl *impl, unsigned int firstRow, unsigned int la
 	if ( ! impl->root->file ) {
 		impl->loadStart = firstRow;
 		impl->loadEnd = lastRow;
-		impl->data = ((char *) impl->ondisk.dataPos) + byteStart;
+		impl->data = ((char *) impl->dataMem) + byteStart;
 		QTR_Unlock( impl );
 		return 0;
 	}
@@ -1450,7 +1476,7 @@ QTR_API unsigned int QTR_GetRows( QTR_Impl *impl, void *buf, unsigned int first,
 		}
 	}
 	else {
-		memcpy( buf, ((char *) impl->ondisk.dataPos) + first * rowBytes, (last - first + 1) * rowBytes );
+		memcpy( buf, ((char *) impl->dataMem) + first * rowBytes, (last - first + 1) * rowBytes );
 		QTR_Unlock( impl );
 		return ( last - first + 1 );
 	}
@@ -1524,7 +1550,7 @@ QTR_API unsigned int QTR_SetRows( QTR_Impl *impl, const void *buf, unsigned int 
 		}
 	}
 	else {
-		memcpy( ((char *) impl->ondisk.dataPos) + first * rowBytes, buf, (last - first + 1) * rowBytes );
+		memcpy( ((char *) impl->dataMem) + first * rowBytes, buf, (last - first + 1) * rowBytes );
 		QTR_Unlock( impl );
 		return ( last - first + 1 );
 	}

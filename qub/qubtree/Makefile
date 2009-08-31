@@ -1,12 +1,11 @@
 CC = gcc
 CCFLAGS = 
 CCP = g++
-CCPFLAGS = -fPIC -I.
+CCPFLAGS = -fPIC -Iinclude
 #-O2
 LN = g++
 LNFLAGS = -shared -fPIC -lpthread -g
-TARGET_DIR = ../../../cascade_binary/
-OBJ = ${TARGET_DIR}/qubtree_obj
+OBJ = obj
 
 OBJS =  ${OBJ}/QUB_QTR_Impl.o \
 	${OBJ}/StringsInterned.o \
@@ -15,16 +14,19 @@ OBJS =  ${OBJ}/QUB_QTR_Impl.o \
 	${OBJ}/QTR_NodeFunc.o \
 	${OBJ}/QUB_Tree_text.o
 
-default: ${TARGET_DIR}/libqubtree.a
+LIBRARY = ../../../cascade_binary/
 
-libqubtree.a: ${OBJS}
-	ar rcs ${TARGET_DIR}/libqubtree.a ${OBJS}
 
-libqubtree.so: ${OBJS}
-	${LN} ${LNFLAGS} -o ${TARGET_DIR}/libqubtree.a ${OBJS}
+default: libqubtree_static.a ${LIBRARY}/libqubtree.so
+
+libqubtree_static.a: ${OBJS}
+	ar rcs libqubtree_static.a ${OBJS}
+
+${LIBRARY}/libqubtree.so: ${OBJS}
+	${LN} ${LNFLAGS} -o $@ ${OBJS}
 
 clean:
-	rm -f ${OBJ}/*
+	rm -f ${OBJ}/* libqubtree_static.a ${LIBRARY}/libqubtree.so
 
 
 ${OBJ}/QUB_QTR_Impl.o: QUB_QTR_Impl.cpp QUB_QTR_Impl.h StringsInterned.h

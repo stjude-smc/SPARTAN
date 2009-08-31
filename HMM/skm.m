@@ -87,6 +87,7 @@ data(data<-0.3) = -0.3;
 % NO:  Optimize all the data together and return a single model.
 % YES: Optimize each trace individually, returning a model array
 %      and a single idealization combining all results.
+
 if isfield(params,'seperately') && params.seperately==1,
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
@@ -107,7 +108,7 @@ end
 
 
 % Add dwell in zero-state until end of trace, if requested
-% if isfield(paramers,'zeroEnd') && params.zeroEnd==1,
+% if isfield(params,'zeroEnd') && params.zeroEnd==1,
     for i=1:nTraces,
         states = dwt{i}(:,1);
         times  = dwt{i}(:,2);
@@ -119,8 +120,8 @@ end
         if states(end)==1
             times(end) = times(end)+remainder;
         else
-            states(end+1) = 1;
-            times(end+1)  = remainder;
+            states = [states ; 1];
+            times  = [times ; remainder];
         end
         
         dwt{i} = [states times];
@@ -128,10 +129,12 @@ end
 % end
 
 
+
+
 end %function skm
 
 
-% Convert idealization to class-idealization
+
 
 
 
@@ -181,12 +184,13 @@ while( itr < params.maxItr ),
         else
             disp( sprintf('%d: %f (%f)', itr, LL(itr), LL(itr)-LL(itr-1) ));
             if (LL(end)-LL(end-1))<0,
-                warning('SKM: LL is decreasing...');
+                disp('SKM Warning: LL is decreasing...');
             end
         end
         
         disp( [imu isigma p0 A] );
     end
+    
     
     % Re-estimate FRET model parameters using idealization
     classes = [0; model.class];
@@ -203,8 +207,6 @@ while( itr < params.maxItr ),
             sigma(class) = max(sigma(class),0.01);
         end
     end
-    
-
     
     
     % Re-estimate kinetic model parameters using idealization by:

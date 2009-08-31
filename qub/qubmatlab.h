@@ -8,8 +8,6 @@
 #include "qubtree/QUB_Tree.h"
 
 
-#define ASSERT(a,b) if(!a){mexErrMsgTxt(b);}
-
 //useful shortcuts to make MEX/C++ look like Matlab
 #define numel mxGetNumberOfElements
 #define isfield(A,B) mxGetFieldNumber(A,B)!=-1

@@ -10,10 +10,10 @@ using namespace std;
 template<class T>
 class QUB_Heap{
 private:
-	vector<T> elts;
+	std::vector<T> elts;
 
 public:
-	typedef typename vector<T>::iterator iterator;
+	typedef typename std::vector<T>::iterator iterator;
 
 	void push(T& x) {
 		elts.push_back(x);

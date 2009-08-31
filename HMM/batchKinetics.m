@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 % Edit the above text to modify the response to help batchKinetics
 
-% Last Modified by GUIDE v2.5 13-Mar-2009 01:47:25
+% Last Modified by GUIDE v2.5 06-Aug-2009 12:31:35
 
 
 %% GUI Callbacks
@@ -61,6 +61,13 @@ handles.output = hObject;
 handles.hasModel = 0;
 handles.hasData = 0;
 
+options.sampling = 0.025;
+options.bootstrapN = 1;
+options.deadTime = 0.5;
+options.idealizeMethod = 'Segmental k-means';
+options.kineticsMethod = 'MIL Together';
+handles.options = options;
+
 % Update handles structure
 guidata(hObject, handles);
 
@@ -80,25 +87,6 @@ varargout{1} = handles.output;
 
 
 
-function edSampling_Callback(hObject, eventdata, handles)
-% hObject    handle to edSampling (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-handles.sampling = str2double( get(handles.edSampling,'String') );
-guidata(hObject, handles);
-
-
-function edBootstrapN_Callback(hObject, eventdata, handles)
-% hObject    handle to edBootstrapN (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% bootstrapN = str2double( get(hObject,'String') );
-% if boostrapN<1,
-%     warning('
-%     set(hObject,'String',1'
-
 
 %% CALLBACKS: Loading Data...
 
@@ -111,9 +99,7 @@ function btnLoadData_Callback(hObject, eventdata, handles)
 fname_txt = {};
 while 1
     [f,p] = uigetfile('*.txt','Select datafile(s) to analyze','MultiSelect','on');
-    if ~iscell(f)
-        if f==0, break; end  %user pressed "cancel"
-    end
+    if p==0, break; end  %user pressed "cancel"
     fname_txt = [fname_txt strcat(p,f)];
 end
 if isempty(fname_txt),
@@ -128,9 +114,12 @@ handles.dataFilenames = fname_txt;
 handles.dataPath = p;
 handles.hasData = 1;
 
-% If a model is already loaded, enable the Execute button
+% If a model is loaded, enable the Execute button & update GUI
 if handles.hasModel,
     set(handles.btnExecute,'Enable','on');
+    
+    text = sprintf('%d dataset files loaded.',numel(fname_txt));
+    set(handles.txtFileInfo,'String',text);
 end
 
 guidata(hObject, handles);
@@ -168,7 +157,8 @@ handles.model = model;
 handles.hasModel = 1;
 
 % Update model status text -- FIXME
-info = sprintf('FRET values: %s',mat2str(model.mu(model.class)));
+info = sprintf('FRET values: %s\n',mat2str(model.mu(model.class)));
+info = [ info sprintf('FRET stdev: %s\n',mat2str(model.sigma(model.class))) ];
 set(handles.txtModelInfo,'String',info);
 
 % If data are already loaded, enable the Execute button
@@ -194,61 +184,51 @@ guidata(hObject, handles);
 
 
 
+
 %% CALLBACKS: Execution...
 
 
 % --- Executes on button press in btnExecute.
 function btnExecute_Callback(hObject, eventdata, handles)
-% hObject    handle to btnExecute (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Run the data analysis pipeline with user-specified data & model.
 
+% Verify data and model have been specified by user in GUI.
 if ~handles.hasModel || ~handles.hasData,
     set(handles.btnExecute,'Enable','off');
     warning('Missing model or data');
     return;
 end
 
-% Get location to save results...
-% f = [handles.dataPath 'result.qrf'];
-% [f,p] = uiputfile(f,'Save results as...');
-% if f==0, return; end
-% resultFilename = [p f];
-resultFilename = 'result.qrf';
+% Process analysis parameters from GUI
+options  = handles.options;
+model = handles.model;
 
-% Get sampling interval of data...
-sampling = str2double( get(handles.edSampling,'String') );
-sampling = sampling/1000; %to seconds
+if isfield(options,'fixFret'),
+    assert( all(options.fixFret<=model.nStates) );
+    model.fixMu = zeros(model.nStates,1);
+    model.fixMu( options.fixFret ) = 1;
+end
+if isfield(options,'fixStdev'),
+    assert( all(options.fixStdev<=model.nStates) );
+    model.fixSigma = zeros(model.nStates,1);
+    model.fixSigma( options.fixStdev ) = 1;
+end
 
-% Get optimizer options
-bootstrapN = floor( str2double(get(handles.edBootstrapN,'String')) );
-options.bootstrapN = max(1,bootstrapN);
-
-% Run the optimizer...
+% Update GUI for "Running" status.
 set(handles.btnExecute,'Enable','off');
 set(handles.btnStop,'Enable','on');
 
-% t0 = clock;
-delete('resultTree.mat');
-delete('mil_result.qtr');
-delete('result.qmf');
-delete('result.qrf');
-resultTree = runParamOptimizer(handles.model,handles.dataFilenames, ...
-                                        sampling,options);
+% Run the analysis algorithms...
+resultTree = runParamOptimizer(model,handles.dataFilenames,options);
 
-% Save results
-% Users can see visually plot the results using another program. FIXME
+% Save results to file for later processing by the user.
 save('resultTree.mat','resultTree');
 % qub_saveTree(resultTree,resultFilename);
 % qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 
-% Finish up...
-% et = etime(t0,clock);
-% disp(sprintf('Run time: %d:%d:%d (h:m:s)',et(4:6)));
-
+% Update GUI for finished status.
 set(handles.btnStop,'Enable','off');
 set(handles.btnExecute,'Enable','on');
-
 disp('Finished!');
 
 
@@ -271,76 +251,118 @@ set(handles.btnExecute,'Enable','on');
 
 
 %% Parameter optimization engine...
+%  ========================================================================
 
-function resultTree = runParamOptimizer( model,dataFilenames,sampling,options)
+function resultTree = runParamOptimizer( model,dataFilenames,options)
 
 resultTree = struct([]);
 
-nFiles = numel(dataFilenames);
-tic;
-
-
-% HACK: modify model to fix mu and sigma, mimicing SKM.
-% This SHOULD be handled in the model...
-nClass = model.nClass;
-model.fixSigma = ones(4,1);
-model.fixMu    = ones(4,1);
-% model.fixSigma = [1; zeros(3-1,1)];
-% model.fixMu    = [1; zeros(3-1,1)];
-
-
-%----- STEP 1: Optimize params using SKM and idealize
-h = waitbar(0,'Optimizing FRET model using Baum-Welch...');
-
-skmOptions.maxItr = 40;
-skmOptions.convLL = 1e-4;
-
-skmLL = zeros(nFiles,1);
-
-for i=1:nFiles
-    filename = dataFilenames{i};
-    sprintf('%d: %s', i,filename);
-    
-    % Load data
-    [d,a,data] = loadTraces(dataFilenames{i});
-    
-    % First pass idealization: 
-    [dwt,m,LL,offsets] = skm( ...
-                                data, sampling, model, skmOptions );
-    skmModels(i) = m;
-    skmLL(i) = LL(end);
-    
-    % Updated idealization where the rate model is re-estimated
-    % for each individual trace. This allows for some kinetic
-    % heterogeneity across the ensemble -- but nobody knows
-    % if this is a good idea or not...
-%     if doSeperately
-%         skmOptions2 = skmOptions;
-%         skmOptions2.seperately = 1;
-%         skmOptions2.quiet = 1;
-%         [dwt] = skm( data, sampling, model, skmOptions2 );
-%     end
-
-    mu = skmModels(i).mu;
-    sigma = skmModels(i).sigma;
-    fretModel = [mu sigma];
-    
-    % Save the idealization
-    dwtFilename{i} = strrep(filename,'.txt','.qub.dwt');
-    saveDWT( dwtFilename{i}, dwt, offsets, fretModel, 1000*sampling );
-    
-    waitbar(0.33*i/nFiles,h);
-end
-
-resultTree(1).skmModels = skmModels;
-resultTree.skmLL = skmLL;
-
-toc
+% disp(options);
+% disp(model);
+% 
 % return;
 
 
-%----- STEP 3: Refine kinetic parameter estimates using MIL
-waitbar(0.66,h,'Refining kinetic model using QuB...');
+h = waitbar(0,'Initializing...');
+
+% ...
+sampling = options.sampling;
+
+nFiles = numel(dataFilenames);
+
+
+% Setup algorithm settings
+skmOptions.maxItr = 40;
+skmOptions.convLL = 1e-4;
+bwOptions = skmOptions;
+thresholdOptions = struct([]);
+
+
+% Remove intermediate files from previous runs.
+warning('off','MATLAB:DELETE:FileNotFound');
+delete('resultTree.mat');
+delete('mil_result.qtr');
+delete('result.qmf');
+delete('result.qrf');
+delete('bwmodel.qmf');
+
+
+if ~strcmp(options.idealizeMethod,'Do Nothing'),
+    %----- STEP 1: Optimize params using SKM and idealize
+    waitbar(0,h,'Idealizing data using Segmental k-means...');
+    
+    skmLL = zeros(nFiles,1);
+
+    for i=1:nFiles
+        filename = dataFilenames{i};
+        sprintf('%d: %s', i,filename);
+
+        % Load data
+        [d,a,data] = loadTraces(dataFilenames{i});
+
+        % Idealize data using user-specified algorithm...
+        if strcmp(options.idealizeMethod,'Segmental k-means'),
+            
+            [dwt,optModel,LL,offsets] = skm( data, sampling, model, skmOptions );
+            skmLL(i) = LL(end);
+            
+        elseif strcmp(options.idealizeMethod,'Baum-Welch'),
+            
+            result = BWoptimize( data, sampling, model, bwOptions );
+            [dwt,offsets,LL] = idealize( data, sampling, optModel );
+            skmLL(i) = LL;
+            
+        elseif  strcmp(options.idealizeMethod,'Thresholding'),
+            
+            [dwt,offsets,optModel] = tIdealize( data, model, thresholdOptions );
+            skmLL(i) = 0;
+            
+        end
+        
+        % Remove final zero-state dwell, if it exists.
+        % These dwells confuse MIL.
+        keep = ones(numel(dwt),1);
+        for j=1:numel(dwt),
+            states = dwt{j}(:,1);
+            if states(end)==1,
+                dwt{j} = dwt{j}(1:end-1,:);
+                if numel(states)==1,
+                    keep(j) = 0;
+                end
+            end
+        end
+        dwt = dwt( logical(keep) );
+        offsets = offsets( logical(keep) );
+        
+        % Save results
+        skmModels(i) = optModel;
+
+        % Save the idealization
+        dwtFilename = strrep(filename,'.txt','.qub.dwt');
+        fretModel = [skmModels(i).mu skmModels(i).sigma];
+        saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
+
+        waitbar(0.33*i/nFiles,h);
+        drawnow;
+    end
+
+    % Save results
+    resultTree(1).skmModels = skmModels;
+    resultTree.skmLL = skmLL;
+end
+
+
+% If no further action is neccessary, exit.
+if strcmp(options.kineticsMethod,'Do Nothing'),
+    close(h);
+    return;
+end
+
+
+
+
+%----- STEP 2: Refine kinetic parameter estimates using MIL
+waitbar(0.33,h,'Refining kinetic model using QuB...');
 
 % Eventually, we want to use the Baum-Welch optimized model
 % as a starting point for QuB... FIXME...
@@ -349,28 +371,33 @@ waitbar(0.66,h,'Refining kinetic model using QuB...');
 mfname = 'bwmodel.qmf';
 delete(mfname);
 qub_saveTree( model.qubTree, mfname, 'ModelFile' );
-% qub_saveModel(model,mfname);
 
 avgRates = cell(nFiles,1);
 avgStdRates = cell(nFiles,1);
 
 for i=1:nFiles
-    disp( sprintf('%d: %s', i,dwtFilename{i}) );
+    dwtFilename = strrep(dataFilenames{i},'.txt','.qub.dwt');
+    disp( sprintf('%d: %s', i,dwtFilename) );
     
+    % Verify the idealization has been performed
+    if ~exist(dwtFilename,'file'),
+        error('File not idealized. Select an idealization method.');
+    end
+
     % Run MIL
+    waitbarBounds = 0.33+0.66*[(i-1) i]/nFiles;
     [avgRates{i},avgStdRates{i},milResults(i)] = bootstrapMIL( ...
-                dwtFilename{i}, mfname, options.bootstrapN );
-    
-    waitbar(0.33+0.66*i/nFiles,h);
+                dwtFilename, mfname, options.bootstrapN, h,waitbarBounds );
+
+    waitbar(waitbarBounds(end),h);
+    drawnow;
 end
 
-%delete(mfname);
+% Save results
+resultTree(1).milResults = milResults;
 
-resultTree.milResults = milResults;
 
-toc
-
-%----- STEP 4: Compile results into a qubtree
+%----- STEP 3: Compile results into a qubtree
 waitbar(1,h,'Saving results...');
 
 
@@ -384,19 +411,19 @@ for i=1:nFiles
 %     Q = model.rates';
     Q    = avgRates{i}';
     Qstd = avgStdRates{i}';
-    
+
     idx         = find( ~logical(eye(nStates)) );
     idx_nonzero = find( ~logical(eye(nStates-1)) );
-    
+
     % 1->[2,3,4], 2->[1,3,4], 3->[1,2,4], 4->[1,2,3]
     Q_parts   = Q(idx)';
     Q_nonzero = Q(2:end,2:end);
     Q_nonzero = Q_nonzero(idx_nonzero)';
-    
+
     Qstd_parts   = Qstd(idx)';
     Qstd_nonzero = Qstd(2:end,2:end);
     Qstd_nonzero = Qstd_nonzero(idx_nonzero)';
-    
+
     rates    = [rates    ; Q_nonzero   ];
     stdRates = [stdRates ; Qstd_nonzero];
 end
@@ -431,14 +458,23 @@ end
 
 resultTree.rates = rates;
 
-close(h)
+close(h);
+
+
+%-------------------- END FUNCTION runParamOptimizer ---------------------
 
 
 
 
 
+
+
+
+
+%%
 function [avgRates,stdRates,firstResult] = bootstrapMIL( ...
-                          dwtFilename, modelFilename, nBootstrap )
+                          dwtFilename, modelFilename, nBootstrap, ...
+                          waitbarHandle,waitbarBounds )
 
 if nargin < 3,
     nBootstrap = 1;
@@ -450,17 +486,19 @@ tempDWT = [tempname '.dwt'];
 nTraces = numel(dwt);
 
 nStates = numel(fret_model)/2;
-idx_nonzero = find( ~logical(eye(nStates)) );
+X = eye(nStates);
+X(1,:) = 1; X(:,1) = 1;
+idx_nonzero = find( ~logical(X) );
 
 % For each bootstrap run...
 bootstrapRates = [];
-h = waitbar(0,'Bootstrapping rate estimates');
 
 % for i=1:nBootstrap,
 i = 1;
 while i<=nBootstrap
     
-    % Construct bootstrap dataset
+    % Construct bootstrap dataset. If only one is requested, use the
+    % trivial set so that the results are intuitive.
     if i == 1,
         idxBootstrap = 1:nTraces;
     else
@@ -485,19 +523,24 @@ while i<=nBootstrap
     
     disp( rates(:)' );
     if any( rates(idx_nonzero) < 10e-9 )
-        warning( 'Data corruption? trying again...' );
+        warning( 'Key rate estimated as zero. Ignoring result.' );
+        continue;
+    end
+
+    if any( rates(~logical(eye(nStates))) > 10^3 )
+        warning( 'Rate estimate way out of range. Ignoring.' );
         continue;
     end
     
     bootstrapRates(i,:) = rates(:);
     
-    waitbar( i/nBootstrap, h );
+    fractionDone = waitbarBounds(1)+(i/nBootstrap)*diff(waitbarBounds);
+    waitbar( fractionDone, waitbarHandle );
     i = i+1;
 end
 
 % Calculate average rates
-avgRates = sum(bootstrapRates) ./ nBootstrap;
-% avgRates = bootstrapRates(1,:);
+avgRates = bootstrapRates(1,:);
 stdRates = std(bootstrapRates);
 
 if nBootstrap==1,
@@ -509,16 +552,133 @@ stdRates = reshape( stdRates, size(model.rates) );
 
 save( [dwtFilename '.ratedata.txt'], 'bootstrapRates', '-ASCII' );
 
-close(h);
 
 
 
 
+%% Other GUI Callbacks
+%  ========================================================================
+
+
+
+% --- Executes on button press in chkFixFret.
+function chkFixFret_Callback(hObject, eventdata, handles)
+% Idealization options: Fix FRET values checkbox
+
+state = get(hObject,'Value');
+
+if ~state,
+    % unchecked - remove setting
+    set(handles.edFixFret,'Enable','off');
+    if isfield(handles.options,'fixFret')
+        handles.options = rmfield( handles.options, 'fixFret' );
+    end
+else
+    % checked - restore previous settings
+    set(handles.edFixFret,'Enable','on');
+    text = get(handles.edFixFret,'String');
+    handles.options.fixFret = str2num(text);
+end
+guidata(hObject, handles);
+
+
+% --- Executes on button press in chkFixStdev.
+function chkFixStdev_Callback(hObject, eventdata, handles)
+% Idealization options: Fix FRET standard deviations checkbox
+
+state = get(hObject,'Value');
+
+if ~state,
+    % unchecked - remove setting
+    set(handles.edFixStdev,'Enable','off');
+    if isfield(handles.options,'fixStdev')
+        handles.options = rmfield( handles.options, 'fixStdev' );
+    end
+else
+    % checked - restore previous settings
+    set(handles.edFixStdev,'Enable','on');
+    text = get(handles.edFixStdev,'String');
+    handles.options.fixStdev = str2num(text);
+end
+guidata(hObject, handles);
+
+
+% --- Executes on selection change in cboIdealizationMethod.
+function cboIdealizationMethod_Callback(hObject, eventdata, handles)
+% Idealization options: idealization method combo box
+
+% Update method to use for idealization
+text = get(hObject,'String');
+handles.options.idealizeMethod = text{get(hObject,'Value')};
+guidata(hObject, handles);
+
+% If user selected "Do Nothing", disable idealization option controls.
+if get(hObject,'Value')==1,
+    set(handles.edFixFret,'Enable','off');
+    set(handles.edFixStdev,'Enable','off');
+    set(handles.chkFixFret,'Enable','off');
+    set(handles.chkFixStdev,'Enable','off');
+else
+    set(handles.chkFixFret,'Enable','on');
+    set(handles.chkFixStdev,'Enable','on');
+    % Update text box states
+    chkFixFret_Callback( handles.chkFixFret, [], handles );
+    chkFixStdev_Callback( handles.chkFixStdev, [], handles );
+end
+    
+    
+% --- Executes on selection change in cboKineticsMethod.
+function cboKineticsMethod_Callback(hObject, eventdata, handles)
+% Idealization options: idealization method combo box
+
+% Update method to use for kinetic parameter estimation.
+text = get(hObject,'String');
+handles.options.kineticsMethod = text{get(hObject,'Value')};
+guidata(hObject, handles);
+
+% If user selected "Do Nothing", disable idealization option controls.
+if get(hObject,'Value')==1,
+    set(handles.edBootstrapN,'Enable','off');
+    set(handles.edDeadTime,'Enable','off');
+else
+    set(handles.edBootstrapN,'Enable','on');
+    set(handles.edDeadTime,'Enable','on');
+end
 
 
 
 
+function edSampling_Callback(hObject, eventdata, handles)
+% Input data options: experimental sampling interval.
+sampling = str2double( get(handles.edSampling,'String') );
+handles.options.sampling = sampling/1000; %convert to seconds.
+guidata(hObject, handles);
 
 
+function edFixFret_Callback(hObject, eventdata, handles)
+% Idealization options: fix FRET values to specified values.
+handles.options.fixFret = str2num( get(hObject,'String') );
+guidata(hObject, handles);
 
+
+function edFixStdev_Callback(hObject, eventdata, handles)
+% Idealization options: fix FRET standard deviationsto specified values.
+handles.options.fixStdev = str2num( get(hObject,'String') );
+guidata(hObject, handles);
+
+
+function edBootstrapN_Callback(hObject, eventdata, handles)
+% Kinetic estimation options: number of bootstrap samples to test
+
+N = floor(str2double( get(hObject,'String') ));
+N = max(1,N); %must be at least =1.
+set(hObject,'String',num2str(N));
+handles.options.bootstrapN = N;
+guidata(hObject, handles);
+
+
+function edDeadTime_Callback(hObject, eventdata, handles)
+% Idealization options: fix FRET standard deviationsto specified values.
+handles.options.deadTime = str2double( get(hObject,'String') );
+guidata(hObject, handles);
 
