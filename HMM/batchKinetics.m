@@ -309,8 +309,13 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         elseif strcmp(options.idealizeMethod,'Baum-Welch'),
             
             result = BWoptimize( data, sampling, model, bwOptions );
-            [dwt,offsets,LL] = idealize( data, sampling, optModel );
-            skmLL(i) = LL;
+            fretModel = [model.mu' model.sigma'];
+            optModel = model;
+            % TODO: update optModel with optimized parameter values.
+            
+            [dwt,idl,offsets,LL] = idealize( ...
+                    data, fretModel, result.p0, result.A );
+            skmLL(i) = mean(LL);
             
         elseif  strcmp(options.idealizeMethod,'Thresholding'),
             
@@ -324,11 +329,33 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         keep = ones(numel(dwt),1);
         for j=1:numel(dwt),
             states = dwt{j}(:,1);
+            times  = dwt{j}(:,2);
+            
+            % Remove last dwell if in dark state. These dwells result from the
+            % photobleached state, which is not considered in kinetic analysis.
             if states(end)==1,
-                dwt{j} = dwt{j}(1:end-1,:);
-                if numel(states)==1,
-                    keep(j) = 0;
+                states = states(1:end-1);
+                times  = times(1:end-1);
+            end
+            
+            % Remove last dwell, which is cut short due to photobleaching.
+            % This prevents bias in kinetic parameter estimation because
+            % the last dwell is frequently an artificial "step" from
+            % high FRET to the dark state.
+            if numel(states)<1,
+                keep(j) = 0;
+            else
+                if times(end)<=1
+                    states = states(1:end-1);
+                    times  = times(1:end-1);
                 end
+            end
+            
+            % Save changes, marking empty traces for removal (keep=0)
+            if numel(states)==0,
+                keep(j) = 0;
+            else
+                dwt{j} = [states times];
             end
         end
         dwt = dwt( logical(keep) );

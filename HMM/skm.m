@@ -108,7 +108,7 @@ end
 
 
 % Add dwell in zero-state until end of trace, if requested
-% if isfield(params,'zeroEnd') && params.zeroEnd==1,
+if isfield(params,'zeroEnd') && params.zeroEnd==1,
     for i=1:nTraces,
         states = dwt{i}(:,1);
         times  = dwt{i}(:,2);
@@ -126,7 +126,7 @@ end
         
         dwt{i} = [states times];
     end
-% end
+end
 
 
 
@@ -146,7 +146,6 @@ function [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params)
 nStates = size(initialModel.rates,1);
 nClass  = numel(initialModel.mu);
 
-% assert( nStates==nClass, 'SKM: aggregate states not supported.' );
 
 % Setup initial conditions
 itr = 1; %number of iterations so far
@@ -161,21 +160,13 @@ p0 = reshape(model.p0,nStates,1);
 
 while( itr < params.maxItr ),
 
-    % Idealize the data using the Viterbi algorithm
-    % NOTE: this is the slowest step and should be optimized!
+    % Idealize the data using the Viterbi algorithm (slow step)
     imu    = mu( model.class );
     isigma = sigma( model.class );
     
     [dwt,idl,offsets,vLL] = idealize( data, [imu isigma], p0, A );
     LL(itr) = sum(vLL)/nTraces;
     
-    % Convert state-list idealization to class-list
-    classes = [0; model.class];
-    for i=1:size(idl,1)
-        trace = classes( idl(i,:)+1 );
-        if sum(trace>0)==0, continue; end
-        dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
-    end
     
     % Display intermediate progress...
     if ~params.quiet
@@ -195,23 +186,26 @@ while( itr < params.maxItr ),
     % Re-estimate FRET model parameters using idealization
     classes = [0; model.class];
     for class=1:nClass,
+        % Get all datapoints assigned to <class>
         edata = data(classes(idl+1)==class);
         
         if length(edata)<1, continue; end
         
+        % Resestimate parameters as their expectation from observations.
         if ~model.fixMu(class)
             mu(class) = mean( edata );
         end
         if ~model.fixSigma(class)
             sigma(class) = std( edata );
-            sigma(class) = max(sigma(class),0.01);
+            sigma(class) = max(sigma(class),0.01); %prevent convergace to 0
         end
     end
     
     
-    % Re-estimate kinetic model parameters using idealization by:
+    % Re-estimate kinetic model parameters using idealization by: 
     % counting number of each type of transition occuring in idl
     % and dividing by the total time spent in the source state.
+    % (this is a slow step - should be optimized).
     A = estimateA(idl,nStates);
     
     

@@ -12,6 +12,8 @@ function [alphas,LLcarry] = BWforward( Bx, A, s0 )
 %
 % DAB 2008.3.30
 
+s0 = reshape( s0, 1, numel(s0) ); %insure p0 is a row vector
+
 NT = size(Bx,1);
 Nstates = size(A,1);
 alphas = zeros(NT,Nstates);

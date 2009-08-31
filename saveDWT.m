@@ -53,6 +53,8 @@ for ctrSeg=1:nSegments,
     
     % Substract 1 from state numbers (QuB uses 0-based)
     segment(:,1) = segment(:,1)-1;
+    assert( all(segment(:,1))<nStates, 'Invalid state number' );
+    
     % Convert frames to ms
     segment(:,2) = segment(:,2)*sampling;
     
