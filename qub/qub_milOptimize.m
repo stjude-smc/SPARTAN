@@ -66,7 +66,7 @@ end
 filename = filename{1};
 
 % Setup and run the MIL interface shell command
-cmd = [filename ' .milconfig.qtr .mildata.dwt .milresult.qtr'];
+cmd = ['"' filename '" .milconfig.qtr .mildata.dwt .milresult.qtr'];
 
 % For UNIX/Linux systems, the locations of the supporting QuB
 % shared libraries must be explicitly specified, even though
@@ -74,7 +74,7 @@ cmd = [filename ' .milconfig.qtr .mildata.dwt .milresult.qtr'];
 % does not have this problem.
 if isunix
     milPath = fileparts(filename);
-    cmd = ['LD_LIBRARY_PATH=' milPath ' ' cmd];
+    cmd = ['LD_LIBRARY_PATH="' milPath '" ' cmd];
 end
 
 % Run MIL.
