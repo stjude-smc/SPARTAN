@@ -231,8 +231,8 @@ function OpenTracesFile_Callback(hObject, eventdata, handles)
 % Open file with user-interface.
 [datafile,datapath] = uigetfile( {'*.traces';'*.txt'},'Choose a traces file:', ...
                                  'MultiSelect','on');
+if datapath==0, return; end
 if ~iscell(datafile), datafile = {datafile}; end
-if ~iscell(datafile) && datafile==0, return; end
 filename = strcat(datapath,datafile);
 
 if isempty(filename),  return;  end
