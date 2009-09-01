@@ -155,10 +155,13 @@ ids = ids(sel);
 
 saveTraces( fname_txt, 'txt', d,a,f,ids,time );
 
-% Save the underlying state trajectory
-fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
+% Save the underlying state trajectory.
+% Only traces passing autotrace are saved so that the "true" idealization
+% can be directly compared to estimations.
+dwt = dwt(sel);
+offsets = (0:(numel(dwt)-1))*traceLen * (sampling*1000);
 
-offsets = (0:(nTraces-1))*traceLen;
+fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
 saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
 

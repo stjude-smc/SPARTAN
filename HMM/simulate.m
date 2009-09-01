@@ -114,7 +114,6 @@ end
 
 simFramerate = 1000; %1000/sec = 1ms frames
 binFactor = simFramerate/framerate;
-% roundTo = 25; %ms
 
 tic;
 
@@ -182,7 +181,7 @@ for i=1:nTraces,
         % Round to 1ms time resolution
         if exist('roundTo','var')
             dwellTime = round(dwellTime/roundTo)*roundTo;
-            if dwellTime<25,  %FIXME: framerate dependant test!
+            if dwellTime<binFactor,
                 itr = itr+1;
                 continue;
             end
