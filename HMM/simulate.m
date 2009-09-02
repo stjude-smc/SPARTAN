@@ -39,6 +39,12 @@ if nargin<1,
 end
 
 
+% CONSTANTS
+
+%donor bleaching is half as fast as apparent acceptor bleaching
+kBleachDonorFactor = 0.5; 
+
+
 %%
 % PARSE REQUIRED PARAMETER VALUES
 nTraces  = dataSize(1);
@@ -100,13 +106,18 @@ else
     %randomSeed = sum(100*clock);
 end
 
-% Simulated acceptor photobleaching rate (0 disables)
+% Simulated acceptor photobleaching rate (0 disables).
+% Data will have an *apparent* acceptor bleaching rate of this value.
+% Actual value used in simulation also depends on donor bleaching rate.
 if isfield(optargs,'kBleach') && ~isempty(optargs.kBleach)
     kBleach = optargs.kBleach;
     assert(kBleach~=Inf,'kBleach must be finite');
 else
     kBleach = 0;
 end
+
+kBleachDonor    = kBleachDonorFactor*kBleach;
+kBleachAcceptor = kBleach - kBleachDonor;
 
 
 
@@ -136,11 +147,23 @@ end
 %%
 
 rand('twister',101+randomSeed);
-
-s = rand();
+savedSeed = rand(); % save a seed for later that is not dependant
+                    % on how many timesrand() is called.
 
 % Generate a set of uniform random numbers for choosing states
 h = waitbar(0,'Simulating...');
+
+
+
+%--- Draw lifetimes for each trace before photobleaching
+rand('twister',savedSeed);
+
+if kBleach > 0,
+    pbTimes = -log(rand(1,nTraces))./kBleachAcceptor;
+    pbTimes = ceil(pbTimes*simFramerate);
+end
+
+
 
 %--- Generate noiseless state trajectory at 1 ms
 idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
@@ -151,7 +174,7 @@ for i=1:nTraces,
     % Choose the initial state
     curState = find( rand <= cumsum(p0), 1, 'first' );
     
-    % Draw dwell times from exponential distribution
+    % Draw dwell times from exponential distribution.
     % This is important so that results change as little as possible
     % when a single parameter is modified.
     endTime = 1000*(traceLen*sampling); %in ms
@@ -161,14 +184,13 @@ for i=1:nTraces,
     randData = rand(floor(endTime),nStates);
     itr=1;
     
-    while sum(times)<endTime,
+    while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
         
         assert( itr<floor(endTime), 'simulate: N. dwells exceeded RNG buffer size' );
         
         % Draw dwell time from exponential distribution
         tau = 1000./ Q( curState, : ); %in ms.
         choices = -tau .* log( randData(itr,:) );
-        %choices(curState) = Inf;
         
         % Choose event that happens first
         [dwellTime,nextState] = min( choices );
@@ -213,23 +235,12 @@ for i=1:nTraces,
 
     idl(i,:) = trace;
     
+    % Truncate idealization from photobleaching times
+    idl(i,pbTimes(i):end) = 1;  % set the state to blinking
+    
     waitbar(i/(nTraces*2),h);
 end
 
-
-
-
-%--- Chop each trace to simulate exponential photobleaching of acceptor dye
-rand('twister',s);
-
-if kBleach > 0,
-    pbTimes = -log(rand(1,nTraces))./kBleach;
-    pbTimes = ceil(pbTimes*simFramerate);
-
-    for i=1:nTraces,
-        idl(i,pbTimes(i):end) = 1;  % set the state to blinking
-    end 
-end
 
 
 %--- Generate and and time-average the noiseless FRET trajectories (slow)
@@ -264,7 +275,7 @@ if stdBackground~=0 || stdPhoton ~=0
     
     % Simulate donor photobleaching
     if kBleach > 0,
-        pbTimes = -log(rand(1,nTraces))./(0.5*kBleach);
+        pbTimes = -log(rand(1,nTraces))./kBleachDonor;
         pbTimes = ceil(pbTimes*simFramerate);
         
         for i=1:nTraces,
@@ -328,18 +339,12 @@ assert( factor >= 1 );
 assert( floor(factor)==factor, 'binFretData: only integer values accepted' );
 
 traceLen = numel(trace);
-
 nFrames2 = floor(traceLen/factor);
-output = zeros( 1,nFrames2 );
 
-for j=1:nFrames2
-
-    s = factor*(j-1) +1;
-    e = factor*j;
-
-    output( j ) = mean( trace(s:e) );
-
-end
+% Group each set of frames to be averaged as its own column vector.
+% Then, each group is time averaged by taking the mean of each vector.
+x = reshape(trace,[factor nFrames2]);
+output = mean(x);
 
 
 end %FUNCTION binFretData
