@@ -1,17 +1,32 @@
-function tsqComparison(files)
+function [tBleachAcceptor,tBleachDonor] = tsqComparison(files,titles)
 
 
 
 nBins = 40;  
 
 % Get list of files to compare from user
-if ~exist('files','var'),
-    files = getFiles
+if nargin<1,
+    files = getFiles;
 end
 nFiles = numel(files);
 
+% Make titles for files if none are provided
+if nargin<2
+    % Remove underscores (subscript)
+    titles = strrep(files,'_',' ');
 
-% 
+    % Strip off path, leaving just filename
+    for i=1:nFiles,
+        titles{i} = strip_path( titles{i} );
+    end
+end
+
+if ~iscell(files),  files={files};  end
+if ~iscell(titles), files={titles}; end
+
+
+%% Load data and calculate photobleaching and intensity information.
+
 % cumsum histograms of lifetime must have same axes for each file
 % in terms of frames.  for now, just set aside space for number of bins.
 names = cell(nFiles,1);
@@ -28,8 +43,8 @@ for i=1:nFiles,
     
     if ~exist('sampling','var')
         if time(1)==1,
-            f = inputdlg('What is the sampling interval (in ms) for this data?');
-            sampling = str2double(f)
+            framerate = inputdlg('What is the sampling interval (in ms) for this data?');
+            sampling = str2double(framerate)
         else
             sampling = time(2)-time(1)
         end
@@ -63,19 +78,64 @@ for i=1:nFiles,
     
 end
 
-bins = [0 binCenters];
+
+%% Save data for import into Origin.
+
+bins = [0 binCenters]';
+donorLifetime = donorLifetime';
+fretLifetime  = fretLifetime';
 
 % Save intensity information
 save( 'meanIntensity.txt', 'meanIntensity', '-ASCII' );
 
 % Save donor bleaching information
-fl = [bins' donorLifetime'];
+fl = [bins donorLifetime];
 save( 'donorlife.txt', 'fl', '-ASCII' );
 
 % Save acceptor bleaching information
-fl = [bins' fretLifetime'];
+fl = [bins fretLifetime];
 save( 'acclife.txt', 'fl', '-ASCII' );
 
 
+%% Display results to user for immediate interpretation.
+
+% Show Donor photobleaching raw data
+subplot( 1,2,1 );
+plot( bins, donorLifetime,'LineWidth',2 );
+title( 'Donor lifetime' );
+ylabel('Fraction photobleached');
+xlabel('Time (sec)');
+
+% Show Acceptor photobleaching raw data
+subplot( 1,2,2 );
+plot( bins, fretLifetime,'LineWidth',2 );
+title(' Acceptor Lifetime' );
+ylabel('Fraction photobleached');
+xlabel('Time (sec)');
+legend( titles );
+
+% Fit bleaching rates to exponential decays
+tBleachDonor    = zeros(nFiles,1);
+tBleachAcceptor = zeros(nFiles,1);
+
+for i=1:nFiles
+    expFit1 = fit( bins,donorLifetime(:,i), 'exp1' );
+    expFit2 = fit( bins,fretLifetime(:,i), 'exp1' );
+    
+    tBleachDonor(i)    = expFit1.b;
+    tBleachAcceptor(i) = expFit2.b;
+end
 
 
+
+end %function tsqComparison
+
+
+
+%%
+function output = strip_path( filename )
+
+pos = find( filename==filesep );
+output = filename(pos(end)+1:end);
+
+end
