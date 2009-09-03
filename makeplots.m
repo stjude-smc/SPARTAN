@@ -49,13 +49,15 @@ options.colors = [ 0 0 0 ; 0 0.5 0   ; 1 0 0 ; ...
           0.2500    0.2500    0.2500 ];
 
 % OPTIONS
-options.force_remake_tdplot = false;  %regenerate statehist and tdplots
+options.force_remake_tdplot = true;  %regenerate statehist and tdplots
 options.no_statehist = false;  % do not use state occupancy histograms
 options.no_tdp       = false;  % do not use TD plots
 options.ignoreState0 = true;   % do not include the first (lowest FRET) state in
-                       % state occupancy histograms
+                               %    state occupancy histograms
 options.hideText     = false;  % don't display N=, t/s, etc on plots
-                       
+
+options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
+
 if options.ignoreState0,
    options.colors = options.colors(2:end,:); 
 end
@@ -99,6 +101,8 @@ elseif isnumeric(varargin{1})
 else
     samples = varargin{1};
 end
+
+if ~iscell(samples), samples={samples}; end
 
 
 %% Get optional parameter values
@@ -204,8 +208,9 @@ for i=1:nSamples,
     data_date = max( datadir.datenum, dwtdir.datenum );
     
     if numel(tdpdir)==0 || data_date>tdpdir.datenum || options.force_remake_tdplot
+        options.tdp_fret_axis = constants.tdp_fret_axis;
         disp('New data detected: generating TD plot hist...');
-        tdplot(dwt_fname,data_fname);  % save file: '_tdp.txt' extension
+        tdplot(dwt_fname,data_fname,options);  % save file: '_tdp.txt' extension
     end
     
     
