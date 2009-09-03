@@ -201,6 +201,8 @@ for i=1:nFiles,
         set(gca,'ytick',[0:10:60]);
         hold on;
         
+        title( ['State ' num2str(j) ' Lifetime'] );
+        
 %         if j==2,
             ylabel(gca, 'Dwell Count (%)' );
 %         else

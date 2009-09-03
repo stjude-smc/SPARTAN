@@ -50,8 +50,8 @@ options.colors = [ 0 0 0 ; 0 0.5 0   ; 1 0 0 ; ...
 
 % OPTIONS
 options.force_remake_tdplot = false;  %regenerate statehist and tdplots
-options.no_statehist = true;  % do not use state occupancy histograms
-options.no_tdp       = true;  % do not use TD plots
+options.no_statehist = false;  % do not use state occupancy histograms
+options.no_tdp       = false;  % do not use TD plots
 options.ignoreState0 = true;   % do not include the first (lowest FRET) state in
                        % state occupancy histograms
 options.hideText     = false;  % don't display N=, t/s, etc on plots
@@ -215,7 +215,7 @@ for i=1:nSamples,
     shdir = dir(shist_fname);
     
     if numel(shdir)==0 || data_date>shdir.datenum || options.force_remake_tdplot
-        fretaxis = contour_bounds(3):contour_bin_size:contour_bounds(4);
+        fretaxis = options.contour_bounds(3):options.contour_bin_size:options.contour_bounds(4);
         
         disp('New data detected: generating state hist...');
         shist = statehist( dwt_fname, data_fname, fretaxis );
@@ -348,7 +348,7 @@ for i=1:numel(samples),  %for each sample
         [nBins,nStates] = size(histdata);
         
         % If requested, remove 0-FRET peak and renormalize
-        if ignoreState0
+        if options.ignoreState0
             nStates = nStates-1;
             
             histdata = histdata(:,2:end);
@@ -459,7 +459,7 @@ for i=1:nSamples,  %for each sample
     tplot( tdp );
     
     % Formatting
-    if ~hideText,
+    if ~options.hideText,
         text( 0.43,0.8, sprintf('N_t=%.0f',t), 'FontSize',14, ...
               'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(i) );
         text( 0.43,0.0, sprintf('t/s=%.1f',t/total_time), 'FontSize',14, ...

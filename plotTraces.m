@@ -151,7 +151,7 @@ function showTrace
             newModel(j) = mean( fret(i,sidl==j) );
         end
         
-        disp(newModel)
+        %disp(newModel)
         idl = newModel( sidl );
         
         %idl = [ idl repmat(model(1),1,len-dwtTotalTime) ];
