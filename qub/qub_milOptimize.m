@@ -1,7 +1,14 @@
-function resultTree = qub_milOptimize( dwtFilename, modelFilename )
+function resultTree = qub_milOptimize( dwtFilenames, modelFilename, options )
+% qub_milOptimize   Optimize kinetic model using QuB's MIL algorithm
 %
+%   RESULT = qub_milOptimize( DWT, MODEL, options )
+%   returns a QuB_Tree structure (RESULT) containing the result of using
+%   the maximum likelihood model optimization algorithm (MIL) implemented
+%   in QuB (qub.buffalo.edu). MIL uses dwell-time data in the file DWT.
+%   MODEL is the starting point for optimization.
 %
-%
+%   OPTIONS is a structure that can include the following fields:
+%    * maxIter: Maximum number of interations (int)
 %
 %
 
@@ -13,12 +20,32 @@ function resultTree = qub_milOptimize( dwtFilename, modelFilename )
 %  - figure out why zeros are being returned...
 
 
+% Process input arguments
+if nargin<2,
+    error('Not enough input arguments');
+end
+if nargin<3,
+    options = struct([]);
+end
+
+% Verify input settings
+if isfield(options,'use_segments') && strcmp(options.use_segments,'together'),
+    error('MIL Together is only supported method.');
+end
+
+
+
 % Load initial model
 model = qub_loadTree( modelFilename );
 model.data = 'Initial';
 
+
 %----- Load configuration settings
-maxIter = 100;
+if isfield(options,'maxIter')
+    maxIter = options.maxIter;
+else
+    maxIter = 100;
+end
 
 config.ModelFile = model;
 config.MaxIterations.data = int32(maxIter);
@@ -43,73 +70,78 @@ end
 qub_saveTree( config,'.milconfig.qtr','Properties' );
 
 
-%----- Save idealization data
-copyfile( dwtFilename,'.mildata.dwt' );
-
 
 %----- Run the external MIL interface program
 
 % Find the MIL interface program, verify there's only one
 if isunix,
-    filename = locate('miltreeiface');
+    milFilename = locate('miltreeiface');
 elseif ispc
-    filename = locate('miltreeiface.exe');
+    milFilename = locate('miltreeiface.exe');
 elseif ismac
     error('Macs are not yet supported.');
 end
 
-if numel(filename)<1,
+if numel(milFilename)<1,
     error('miltreeiface program not found. Make sure it is in your path.');
-elseif numel(filename)>1,
+elseif numel(milFilename)>1,
     warning('More than one miltreeiface program on path.')
 end
-filename = filename{1};
+milFilename = milFilename{1};
 
-% Setup and run the MIL interface shell command
-cmd = ['"' filename '" .milconfig.qtr .mildata.dwt .milresult.qtr'];
 
-% For UNIX/Linux systems, the locations of the supporting QuB
-% shared libraries must be explicitly specified, even though
-% they are in the same location as the executable. Windows
-% does not have this problem.
-if isunix
-    milPath = fileparts(filename);
-    cmd = ['LD_LIBRARY_PATH="' milPath '" ' cmd];
+% Compile a job queue of MIL commands to run
+if ~iscell(dwtFilenames), dwtFilenames={dwtFilenames}; end
+nDwtFiles = numel(dwtFilenames);
+
+commands    = cell(nDwtFiles,1);
+outputFiles = cell(nDwtFiles,1);
+
+for i=1:nDwtFiles,
+    % Save idealization data for processing by this instance.
+    outputFiles{i} = sprintf('.milresult%d.qtr',i);
+
+    % Setup and run the MIL interface shell command
+    commands{i} = sprintf('"%s" .milconfig.qtr "%s" "%s"', ...
+                          milFilename, dwtFilenames{i}, outputFiles{i} );
+
+    % For UNIX/Linux systems, the locations of the supporting QuB
+    % shared libraries must be explicitly specified, even though
+    % they are in the same location as the executable. Windows
+    % does not have this problem.
+    if isunix
+        milPath = fileparts(milFilename);
+        commands{i} = ['LD_LIBRARY_PATH="' milPath '" ' commands{i}];
+    end
 end
 
-% Run MIL.
-[retval,stdout] = system(cmd);
+% Run the job queue
+result = jobQueue( commands, outputFiles );
 
-
-%----- Process the results from MIL
-disp( sprintf('Executed: %s',cmd) );
-disp( '------- BEGIN OUTPUT -------' );
-disp( stdout );
-disp( '------- END OUTPUT -------' );
-
-switch retval
-    case -1
-        error('miltreeiface: incorrect args');
-    case -2
-        error('miltreeiface: invalid or missing DWT file');
-    case 0
-        %Success: load the result for later processing
-        resultTree = qub_loadTree('.milresult.qtr');
-    otherwise
-        error('miltreeiface unknown error (%d)',retval);
+if ~all(result),
+    % At least one result failed. Remember that with the way things are
+    % written now, a result that fails without saving a file will not be
+    % correctly recognized - the command above will never complete!!
+    error('MIL failed');
 end
 
-errorCode = resultTree.ErrorCode.data;
-LL = resultTree.LL.data;
-iter = resultTree.Iterations.data;
-disp( sprintf(' * E=%d LL=%f I=%d',errorCode,LL,iter ));
+% Process the results
+for i=1:nDwtFiles,
+    resultTree(i) = qub_loadTree( outputFiles{i} );
 
-switch errorCode
-    case 0
-        %success
-    case -3
-        warning('MIL: Exceeded maximum number of iterations.');
-    otherwise
-        error('MIL failed: %d',errorCode);
-end
-            
+    errorCode = resultTree(i).ErrorCode.data;
+    LL = resultTree(i).LL.data;
+    iter = resultTree(i).Iterations.data;
+    disp( sprintf(' * E=%d LL=%f I=%d',errorCode,LL,iter ));
+
+    switch errorCode
+        case 0
+            %success
+        case -3
+            warning('MIL: Exceeded maximum number of iterations.');
+        otherwise
+            error('MIL failed: %d',errorCode);
+    end
+    
+end % for each DWT file.
+

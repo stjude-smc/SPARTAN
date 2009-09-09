@@ -414,7 +414,7 @@ for i=1:nFiles
     % Run MIL
     waitbarBounds = 0.33+0.66*[(i-1) i]/nFiles;
     [avgRates{i},avgStdRates{i},milResults(i)] = bootstrapMIL( ...
-                dwtFilename, mfname, options.bootstrapN, h,waitbarBounds );
+                dwtFilename, mfname, options.bootstrapN );
 
     waitbar(waitbarBounds(end),h);
     drawnow;
@@ -501,15 +501,14 @@ close(h);
 
 %%
 function [avgRates,stdRates,firstResult] = bootstrapMIL( ...
-                          dwtFilename, modelFilename, nBootstrap, ...
-                          waitbarHandle,waitbarBounds )
+                          dwtFilename, modelFilename, nBootstrap )
 
 if nargin < 3,
     nBootstrap = 1;
 end
-                      
-tempDWT = [tempname '.dwt'];
 
+
+% Load the dwell-time data and the model.
 [dwt,sampling,offsets,fret_model] = loadDWT( dwtFilename );
 nTraces = numel(dwt);
 
@@ -518,53 +517,62 @@ X = eye(nStates);
 X(1,:) = 1; X(:,1) = 1;
 idx_nonzero = find( ~logical(X) );
 
-% For each bootstrap run...
-bootstrapRates = [];
 
-% for i=1:nBootstrap,
-i = 1;
-while i<=nBootstrap
-    
-    % Construct bootstrap dataset. If only one is requested, use the
-    % trivial set so that the results are intuitive.
+% Construct a set of bootstrap samples of the dwell-time data.
+% These samples are then processed by MIL in parallel using the
+% jobQueue function.
+% idxBootstrap = cell(nBootstrap,1);
+tempDwtNames = cell(nBootstrap,1);
+
+for i=1:nBootstrap,
+    % The first bootstrap sample is all data (no sampling) - this insures
+    % that the "mean" result is always the same, as expected.
     if i == 1,
         idxBootstrap = 1:nTraces;
     else
         idxBootstrap = floor(rand(nTraces,1)*nTraces)+1;
     end
     
-    saveDWT( tempDWT, dwt(idxBootstrap), ...
+    tempDwtNames{i} = [tempname '.dwt'];
+    saveDWT( tempDwtNames{i}, dwt(idxBootstrap), ...
              offsets(idxBootstrap), fret_model, sampling );
+end
+
+% Run MIL
+result = qub_milOptimize( tempDwtNames, modelFilename );
+
+% Process the results.
+bootstrapRates = [];
+
+for i=1:nBootstrap,
     
-    % Run MIL on the bootstrap dataset
-    result = qub_milOptimize( tempDWT, modelFilename );
-    
-    % Save the first result
+    % Save the first result as "the" result; others are only informative of
+    % the error in the analysis.
     if i == 1,
-        firstResult = result;
+        firstResult = result(i);
     end
     
     % Process the results for averaging
-    modelTree = result.ModelFile;
+    modelTree = result(i).ModelFile;
     model = qub_loadModel( modelTree );
     rates = model.rates(:);
     
     disp( rates(:)' );
     if any( rates(idx_nonzero) < 10e-9 )
-        warning( 'Key rate estimated as zero. Ignoring result.' );
-        continue;
+        error( 'Key rate estimated as zero. Ignoring result.' );
+%         continue;
     end
 
     if any( rates(~logical(eye(nStates))) > 10^3 )
-        warning( 'Rate estimate way out of range. Ignoring.' );
-        continue;
+        error( 'Rate estimate way out of range. Ignoring.' );
+%         continue;
     end
     
     bootstrapRates(i,:) = rates(:);
     
-    fractionDone = waitbarBounds(1)+(i/nBootstrap)*diff(waitbarBounds);
-    waitbar( fractionDone, waitbarHandle );
-    i = i+1;
+%     fractionDone = waitbarBounds(1)+(i/nBootstrap)*diff(waitbarBounds);
+%     waitbar( fractionDone, waitbarHandle );
+%     i = i+1;
 end
 
 % Calculate average rates
@@ -580,6 +588,12 @@ stdRates = reshape( stdRates, size(model.rates) );
 
 save( [dwtFilename '.ratedata.txt'], 'bootstrapRates', '-ASCII' );
 
+
+% Delete temporary data to save disk space.
+for i=1:numel(tempDwtNames),
+    delete( tempDwtNames{i} );
+end
+delete('.milresult*');
 
 
 
