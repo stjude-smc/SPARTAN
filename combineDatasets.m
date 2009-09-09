@@ -33,6 +33,10 @@ for i=1:nFiles,
     
     nTraces = nTraces+size(d{i},1);
     traceLen(i) = size(d{i},2);
+    
+    if traceLen(i)<1,
+        error( ['File is empty: ' filenames{i}] );
+    end
 end
 minTraceLen = min( traceLen );
 

@@ -42,7 +42,7 @@ nTrans = 0;   %total number of transitions
 total_time = 0;  %total time in frames
 
 %---Open the QuB dwt file from idealization
-[dwt,sampling,offsets,fretModel] = loadDWT(dwtfilename);
+[dwt,sampling,offsets] = loadDWT(dwtfilename);
 nTraces = numel(dwt);
 
 %---Open the corresonding qub data file (slowest step)
@@ -63,41 +63,36 @@ for i=1:nTraces
 
     % If the option is specified, ignore dark state dwells (see makeplots.m)
     if isfield(options,'hideBlinksInTDPlots') && options.hideBlinksInTDPlots,
+        
+        % Find dark state dwell regions in the FRET data and remove them.
+        idl = dwtToIdl( dwt(i), sum(times), 0 );
+        trace = trace( idl>1 );
+        
         % Remove dwells in lowest FRET state (assuming it is the dark state)
         indsToSave = states>1;
         states = states(indsToSave);
         times  = times(indsToSave);
         
-        % Find dark state dwell regions in the FRET data and remove them.
-        idl = dwtToIdl( dwt(i), sum(times), 0 );
-        trace = trace( idl~=1 );
-        
-        % Combine dwells that are now in the same state by adding times of
-        % each duplicate dwell into one bigger dwell and removing the
-        % duplicates.
-        duplicates = find( diff(states)==0 );
-        times(duplicates) = times(duplicates)+times(duplicates+1);
-        times(duplicates+1) = 0;
-        
-        toSave = find( times~=0 );
-        states = states(toSave);
-        times  = times(toSave);
+        % Combine dwells that are now in the same state by converting into%
+        % an idealization and then back to a dwell-time sequence.
+        idl = dwtToIdl( {[states times]}, sum(times), 0 );
+        dwells = RLEncode(idl);
+        states = dwells(:,1);
+        times  = dwells(:,2);
     end
     
     assert( all(diff(states)~=0 ) );
     
     nDwells = numel(times);
-    if nDwells==0, continue; end
+    if nDwells<1, continue; end
 
-    dwt_start = offsets(i) +1;
-    dwt_end = dwt_start + sum(times)-1;
     nTrans = nTrans+nDwells-1;
-    total_time = total_time + sum( times(states>0) );
+    total_time = total_time + sum(times);
 
 
     %---Convert the lists of initial and final dwell times into lists of
     %---initial and final FRET values (mean over dwell)
-    if dwt_end>numel(data),
+    if offsets(i)+sum(times) > numel(data),
         disp(tracefilename);
         error('DWT index exceeds data size. Are you sure the framerate is correct? (%d)', sampling);
     end
@@ -110,6 +105,8 @@ for i=1:nTraces
     for j=1:nDwells
         fret(j) = mean(  trace( ti(j):tf(j) )  );
     end
+    
+    %assert(  all( abs(diff(fret))>0.1 )  );
     
 
     % Place FRET values into contour bins

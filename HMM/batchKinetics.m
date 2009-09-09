@@ -482,6 +482,7 @@ for i=1:nFiles,
     fprintf(fid, '\n%s',  fname );
     fprintf(fid, '\t%.4f', output(i,:));
 end
+fclose(fid);
 
 resultTree.rates = rates;
 
