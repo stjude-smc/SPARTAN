@@ -559,20 +559,16 @@ for i=1:nBootstrap,
     
     disp( rates(:)' );
     if any( rates(idx_nonzero) < 10e-9 )
-        error( 'Key rate estimated as zero. Ignoring result.' );
-%         continue;
+        warning( 'Key rate estimated as zero. Ignoring result.' );
+        continue;
     end
 
-    if any( rates(~logical(eye(nStates))) > 10^3 )
-        error( 'Rate estimate way out of range. Ignoring.' );
-%         continue;
+    if any( rates(~logical(eye(nStates))) > 2*1000/sampling )
+        warning( 'Rate estimate way out of range. Ignoring.' );
+        continue;
     end
     
     bootstrapRates(i,:) = rates(:);
-    
-%     fractionDone = waitbarBounds(1)+(i/nBootstrap)*diff(waitbarBounds);
-%     waitbar( fractionDone, waitbarHandle );
-%     i = i+1;
 end
 
 % Calculate average rates

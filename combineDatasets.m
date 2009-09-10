@@ -31,17 +31,15 @@ for i=1:nFiles,
     ids{i} = ids_in;
     time{i} = time_in;
     
-    nTraces = nTraces+size(d{i},1);
-    traceLen(i) = size(d{i},2);
-    
-    if traceLen(i)<1,
-        error( ['File is empty: ' filenames{i}] );
-    end
+    nTraces = nTraces+size(d_in,1);
+    traceLen(i) = numel(time_in);
+    assert( traceLen(i)>1 );
 end
 minTraceLen = min( traceLen );
 
 % Resize traces so they are all the same length
 for i=1:nFiles,
+    if isempty(d{i}), continue; end
     d{i} = d{i}(:,1:minTraceLen);
     a{i} = a{i}(:,1:minTraceLen);
     f{i} = f{i}(:,1:minTraceLen);
@@ -72,8 +70,6 @@ end
 
 assert( size(f_out,1)==nTraces );
 saveTraces( outFilename, 'txt', d_out,a_out,f_out,ids_out,time{1} );
-
-forQuB2( {outFilename} );
 
 waitbar(1,h);
 close(h);
