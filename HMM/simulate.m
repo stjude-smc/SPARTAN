@@ -92,12 +92,6 @@ else
     stdPhoton = 0;
 end
 
-if isfield(optargs,'stdBackground')
-    stdBackground = optargs.stdBackground;
-else
-    stdBackground = 0;
-end
-
 %random number generator seed value
 if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
     randomSeed = optargs.randomSeed;

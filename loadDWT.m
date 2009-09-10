@@ -5,14 +5,15 @@ function [dwells,sampling,offsets,model] = loadDWT(dwtfilename)
 %   Loads a .dwt file (DWTFILENAME), returning the sequence of DWELLS
 %   as a cell array (Nx1, where N=number of traces). Each element has
 %   an Mx2 matrix of the state number (1-based) and the duration
-%   (in frames), where M=number of dwells. SAMPLING is milliseconds.  
+%   (in frames), where M=number of dwells. SAMPLING is milliseconds.
+%   If no filename is given, the user is prompted for one.
 %
 
 dwells  = cell(1);
 offsets = zeros(1);
 
 % Ask user for file if none specified.
-if nargin<1,
+if nargin<1 || isempty(dwtfilename),
     [f,p] = uigetfile('*.dwt','Select a DWT file');
     if f==0, return; end
     dwtfilename = [p f];

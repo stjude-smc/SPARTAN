@@ -1,8 +1,13 @@
 function resizeTraces( traceLen )
-% RESIZEQUB   Change length of a .traces file
-% 
-% If traceLen < actual, the traces will be cropped.
-% If traceLen > actual, the last data value will be appended
+% resizeTraces   Change length of a .traces files
+%
+%   resizeTraces( TRACE_LEN )
+%   loads all .traces files in the directory specified by the user,
+%   resizes them to the TRACE_LEN, saves them back to their original
+%   filenames. This ensures that all files will be the same length.
+%
+%   If traceLen < actual, the traces will be cropped.
+%   If traceLen > actual, the last data value will be appended
 % 
 
 direct=uigetdir('','Choose directory of traces:');

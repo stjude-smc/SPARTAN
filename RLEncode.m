@@ -1,4 +1,11 @@
 function output = RLEncode( x )
+% RLEncode   run-length encoding
+% 
+%   OUTPUT = RLEncode( INPUT )
+%   produces a run-length encoded version of the 1xN vector INPUT. OUTPUT
+%   is a Nx2 array, where the first column are the values of each run and
+%   the second column are the lengths of each run.
+%
 
 x = reshape( x, [1 numel(x)] );
 

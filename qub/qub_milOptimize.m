@@ -1,11 +1,11 @@
 function resultTree = qub_milOptimize( dwtFilenames, modelFilename, options )
 % qub_milOptimize   Optimize kinetic model using QuB's MIL algorithm
 %
-%   RESULT = qub_milOptimize( DWT, MODEL, options )
+%   RESULT = qub_milOptimize( FILE, MODEL, options )
 %   returns a QuB_Tree structure (RESULT) containing the result of using
 %   the maximum likelihood model optimization algorithm (MIL) implemented
-%   in QuB (qub.buffalo.edu). MIL uses dwell-time data in the file DWT.
-%   MODEL is the starting point for optimization.
+%   in QuB (qub.buffalo.edu). Dwell-time data in FILE is used by MIL to
+%   optimize the starting MODEL until convergence.
 %
 %   OPTIONS is a structure that can include the following fields:
 %    * maxIter: Maximum number of interations (int)

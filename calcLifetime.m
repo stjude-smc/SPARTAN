@@ -1,4 +1,12 @@
 function life = calcLifetime(total,TAU,NSTD)
+% CALCLIFETIME  Determine photobleaching lifetimes
+% 
+%   LIFE = calcLifetime( DATA, TAU, NSTD )
+%   calculates the length of each trace before the last photobleaching
+%   event, which is assumed to occur when the signal falls below a
+%   threshold specified by NSTD. The DATA are first median filtered using a
+%   window size of TAU to reduce the effect of noise. DATA is typically the
+%   sum of donor and acceptor intensities in FRET experiments.
 
 [Ntraces,len] = size(total);
 life = repmat(len,[Ntraces 1]);  %default value = maximum trace length

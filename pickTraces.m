@@ -1,37 +1,26 @@
 function [indexes,values] = pickTraces( stats, criteria  )
 % PICKTRACES  Loads fluorescence trace files
 %
-%   INDEXES = PICK_TRACES( STATS, CRITERIA )
+%   [INDEXES,VALUES] = PICK_TRACES( STATS, CRITERIA )
 %   Finds INDEXES of traces whose STATS (from traceStat.m) pass the
 %   speficied CRITERIA.  If a criteria is not specified, it is not applied.
+%   The stat VALUES of the selected traces are also returned.
 %   
-%   CRITERIA is a structure with the following allowed fields:
-%     minTotalIntensity        stats.t
-%     maxTotalIntensity
-%     minIntensityNoise       stats.snr_s
-%     maxIntensityNoise
-%     minTotalLifetime        stats.lifetime
-%     maxTotalLifetime
-%     minFretLifetime         stats.acc_life
-%     maxFretLifetime
-%     minCorrelation          stats.corr
-%     maxCorrelation 
-%     minCorrD                stats.corrd
-%     maxCorrD 
-%     minSNR                  stats.snr
-%     maxSNR  (not implemented)
-%     maxNNR                  stats.nnr
-%     maxBackground
-%     maxDonorBlinks          stats.ncross
-%     minAverageFret          
-%     maxAverageFret          stats.fretEvents
-%     minFretEvents
-%     minFret                 at least 1 frame above this value
-%     overlap                 (0=no filtering, 1=remove overlap, 2=only overlap)
-%     random                  remove X percent of traces randomly
-%     
-%   Using these names is recommended for all filtering code, even if it
-%   doesn't use this function.
+%   CRITERIA is a structure, whose fields are named with a qualifier (min,
+%   max, eq) and a stat name (from STATS). Below are some examples:
+%     criteria.min_lifetime  = 10; %at least 10 frames of donor lifetime.
+%     criteria.max_ncross    = 4;  %no more than 4 donor blinking events.
+%     criteria.eq_fretEvents = 1;  %exactly 1 FRET event.
+%   
+%   If a criteria name is not recognized (because the corrosponding STAT is
+%   not recognized), it will is ignored. For a better description of what
+%   each criteria will select for, see traceStat.m.
+%
+%   There is one special criterion that does not follow this pattern. This
+%   criterion will select only traces whose total intensity (t) is within 2
+%   standard deviations of the mean, calculated using histogram fitting.
+%     critiera.maxTotalSigma = 2;
+
 
 % Set defaults for criteria not specified
 % defaults = constants.defaultCriteria;
@@ -40,7 +29,6 @@ function [indexes,values] = pickTraces( stats, criteria  )
 % for i=1:numel(fields),
 %     criteria.(fields(i)) = defaults.(fields(i));
 % end
-
 
 
 % Get trace stat values
@@ -112,17 +100,16 @@ if isfield(criteria,'maxTotalSigma')
     histdata = histdata / sum(histdata);
     
     f = fit( bins',histdata', 'gauss1' );
-
-%     figure;
-%     bar( bins, histdata, 1 ); hold on;
-%     plot(f);
-    
     mu = f.b1;
     sigma = f.c1;
     
-%     disp( [mu sigma] );
-    
     picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
+    
+    % Display result of fitting (for debugging code).
+    %figure;
+    %bar( bins, histdata, 1 ); hold on;
+    %plot(f);
+    %disp( [mu sigma] );
 end
 
 if isfield(criteria,'minFretEvents')

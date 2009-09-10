@@ -13,18 +13,11 @@ bootstrapN = 10000;
 
 
 if nargin<1,
-    
-    filenames = cell(1,0);
-    
     % Request filenames from user
-    while 1,
-        [file path]=uigetfile('*.dwt','Choose an idealization file:');
-        if file==0, break; end  %user hit "cancel"
-
-        filenames{end+1} = [path filesep file];
-        disp( filenames{end} );
-    end
+    filenames = getFiles('*.dwt','Choose an idealization file:');
+    
 else
+    % If only a single file is specified, turn it into a cell array
     if ischar(filenames),
         filenames = {filenames};
     end
@@ -32,37 +25,34 @@ end
 
 nFiles = numel(filenames);
 
-if nFiles == 0,
+if nFiles<1,
     disp('No files specified, exiting.');
     return;
 end
 
 
+% Load dwell lifetime info from idealization data
 meanPT = zeros(0,0);
 stdPT = zeros(0,0);
 
-% Load dwell lifetime info from idealization data
 for i=1:nFiles,
-    
-    [meanPT(i,:),stdPT(i,:)] = TotalTime( filenames{i}, bootstrapN );
-    
-    % Make sure all idealizations have the same number of states
-%     assert( size(output,1)==0 || numel(totals) == size(output,2), ...
-%       'Model mismatch' );
-    
+    [meanPT(i,:),stdPT(i,:)] = calcPT( filenames{i}, bootstrapN );
 end %for each file
 
 
 
+end % FUNCTION percentTime
 
-function [meanPT,stdPT] = TotalTime( dwtfilename, bootstrapN )
 
-nStates = 4;
+
+
+
+function [meanPT,stdPT] = calcPT( dwtfilename, bootstrapN )
 
 % Load DWT data
-dwells = loadDWT( dwtfilename );
+[dwells,sampling,offsets,fretModel] = loadDWT( dwtfilename );
+nStates = numel(fretModel/4);
 nTraces = length(dwells);
-
 
 % Calculate percent time of each trace seperately
 tracePT = zeros( nTraces,nStates );
@@ -106,6 +96,8 @@ end %for each subset
 meanPT = mean( bootstrapPT, 1 );
 stdPT  = std( bootstrapPT, 0, 1 );
 
+
+end % FUNCTION calcPT
 
 
 

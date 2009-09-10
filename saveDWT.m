@@ -1,12 +1,12 @@
 function saveDWT(filename, idealization, offsets, model, sampling )
 % SAVEDWT  Saves a QuB-format idealization dwell time file
 %     
-%   SaveDWT( FILE, IDEALIZATION, OFFSETS, MODEL, SAMPLING )
-%   Saves the IDEALIZATION data into FILENAME.  sampling is in ms.
-%   MODEL is a Nx2 matrix of mean and stdev values for each state.
-%   IDEALIZATION is a cell array containing dwell-time matrices on N
-%   traces.  Each cell element is a 2xM matrix, with state+dwell time
-%   pairs in each row.  Times are in *frames* and states are 1-based.
+%   SaveDWT( FILE, DWT, OFFSETS, MODEL, SAMPLING )
+%   Saves the Dwell-Times data (DWT) to FILENAME.  SAMPLING is in ms.
+%   MODEL is a Nx2 matrix of mean and stdev values for each of N  states.
+%   DWT is a cell array containing dwell-time matrices on N traces.
+%   Each cell element is a 2xM matrix, with state+dwell time pairs in
+%   each row (see saveDWT.m).  Times are in *frames* and states are 1-based.
 %   All necessary conversion are made within this function.
 %   OFFSETS is an array of indexes for the start of each segment
 %   into the parent data file (.qub.txt).

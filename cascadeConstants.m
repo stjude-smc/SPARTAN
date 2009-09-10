@@ -1,7 +1,7 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '1.5';  %pipeline release version number
+constants.version = '1.6';  %pipeline release version number
 
 
 % Correction for fluor detection efficiency.
@@ -36,6 +36,6 @@ constants.cplot_scale_factor = 8;
 constants.contour_length = 50; %default # frames to display in cplot
 
 
-
-constants.modelLocation  = '/home/dsterry/data/Daniel/models/';
+% 
+constants.modelLocation = '/home/dsterry/data/Daniel/models/';
 constants.nProcessors = 2;

@@ -19,7 +19,7 @@ if exist('maxNumCompThreads','builtin'),
     numProcesses = maxNumCompThreads;
 else
     constants = cascadeConstants;
-    numProcesses = constants.nProcessors
+    numProcesses = constants.nProcessors;
 end
 
 

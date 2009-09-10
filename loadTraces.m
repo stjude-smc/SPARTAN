@@ -19,8 +19,6 @@ function [donor,acceptor,fret,ids,time] = loadTraces( ...
 %   are made and FRET is calculated.
 %
 
-% TODO: rearrange output parameters to be: TIME,F,D,A,IDS since we
-% often only use the FRET data.
 % TODO: make constants the last parameter, since it is rarely used.
 
 if nargin<1,
