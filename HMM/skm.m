@@ -129,8 +129,6 @@ if isfield(params,'zeroEnd') && params.zeroEnd==1,
 end
 
 
-
-
 end %function skm
 
 
@@ -157,6 +155,7 @@ sigma = reshape(model.sigma,nClass,1);
 A = model.rates*(sampling/1000);
 A( logical(eye(nStates)) ) = 1-sum(A,2);
 p0 = reshape(model.p0,nStates,1);
+classes = [0; model.class];
 
 while( itr < params.maxItr ),
 
@@ -183,25 +182,6 @@ while( itr < params.maxItr ),
     end
     
     
-    % Re-estimate FRET model parameters using idealization
-    classes = [0; model.class];
-    for class=1:nClass,
-        % Get all datapoints assigned to <class>
-        edata = data(classes(idl+1)==class);
-        
-        if length(edata)<1, continue; end
-        
-        % Resestimate parameters as their expectation from observations.
-        if ~model.fixMu(class)
-            mu(class) = mean( edata );
-        end
-        if ~model.fixSigma(class)
-            sigma(class) = std( edata );
-            sigma(class) = max(sigma(class),0.01); %prevent convergace to 0
-        end
-    end
-    
-    
     % Re-estimate kinetic model parameters using idealization by: 
     % counting number of each type of transition occuring in idl
     % and dividing by the total time spent in the source state.
@@ -217,7 +197,35 @@ while( itr < params.maxItr ),
         p0(state) = sum( idl(:,1)==state )/nTraces;
     end
     p0 = p0/sum(p0);
-
+    
+    
+    % Convert state-list idealization to class-list.
+    % NOTE that the above re-estimation methods must be BEFORE this line or
+    % they will not work correctly.
+    idlClasses = classes( idl+1 );
+    for i=1:size(idl,1)
+        trace = idlClasses(i,:);
+        dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
+    end
+    
+    
+    % Re-estimate FRET model parameters using idealization
+    for class=1:nClass,
+        % Get all datapoints assigned to <class>
+        edata = data( idlClasses==class );
+        
+        if length(edata)<1, continue; end
+        
+        % Resestimate parameters as their expectation from observations.
+        if ~model.fixMu(class)
+            mu(class) = mean( edata );
+        end
+        if ~model.fixSigma(class)
+            sigma(class) = std( edata );
+            sigma(class) = max(sigma(class),0.01); %prevent convergace to 0
+        end
+    end
+    
     
     % Check for convergence
     if length(LL)>1 && abs(LL(end)-LL(end-1))<params.convLL,
@@ -227,6 +235,10 @@ while( itr < params.maxItr ),
     itr = itr+1;
 
 end %for each iteration...
+
+% Convert state list into class list for idealization
+idl = classes( idl+1 );
+
 
 % disp(vLL);
 
