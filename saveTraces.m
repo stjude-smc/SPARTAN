@@ -71,7 +71,10 @@ elseif ~isempty(ids) && numel(ids)~=Ntraces
 end
 
 if any( isnan(donor(:)) | isnan(acceptor(:)) | isnan(fret(:)) )
-    error('Cannot save NaN values!');
+    warning('Cannot save NaN values! Converting to zeros');
+    donor( isnan(donor(:)) ) = 0;
+    acceptor( isnan(acceptor(:)) ) = 0;
+    fret( isnan(fret(:)) ) = 0;
 end
 
 

@@ -582,9 +582,9 @@ else
         nPixelsToSum=16;
     end
 end
-swChoices   = (1:2:19).^2;
-squarewidth = find( nPixelsToSum<=swChoices, 1,'first' );
-
+swChoices = (1:2:19);
+idx = find( nPixelsToSum<=(swChoices.^2), 1,'first' );
+squarewidth = swChoices(idx);
 
 % Get x,y coordinates of picked peaks
 Npeaks = size(peaks,2)/2;

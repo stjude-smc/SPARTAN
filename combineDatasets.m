@@ -43,6 +43,8 @@ for i=1:nFiles,
     ids{i} = ids_in;
     time{i} = time_in;
     
+    assert( ~any(isnan(d_in(:))) & ~any(isnan(a_in(:))) & ~any(isnan(f_in(:))) );
+    
     nTraces = nTraces+size(d_in,1);
     traceLen(i) = numel(time_in);
     assert( traceLen(i)>1 );
@@ -57,7 +59,7 @@ for i=1:nFiles,
     d{i} = d{i}(:,1:minTraceLen);
     a{i} = a{i}(:,1:minTraceLen);
     f{i} = f{i}(:,1:minTraceLen);
-    time{i} = time{i}(:,1:minTraceLen);
+    time{i} = time{i}(1:minTraceLen);
 end
 
 
@@ -68,7 +70,6 @@ d_out = [];
 a_out = [];
 f_out = [];
 ids_out = {};
-
 
 for i=1:nFiles,
 
@@ -82,6 +83,7 @@ for i=1:nFiles,
 end
 
 assert( size(f_out,1)==nTraces );
+
 saveTraces( outFilename, 'txt', d_out,a_out,f_out,ids_out,time{1} );
 
 waitbar(1,h);
