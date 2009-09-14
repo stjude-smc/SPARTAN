@@ -120,7 +120,7 @@ files=0;
         times=dwells(:,2)/DT;      %unit of times is frames
         states=dwells(:,1);
         ndwells=numel(times);
-        disp('mol');disp(i);disp(dwells);
+        %disp('mol');disp(i);disp(dwells);
 
         %---Convert the lists of initial and final dwell times into lists of
         %---initial and final FRET values
@@ -164,12 +164,12 @@ files=0;
                 if dwells(j,2)<ulimit
                     ulimit=ulimit-dwells(j,2);
                 end
-                disp('up-Limit');disp(ulimit);
+                %disp('up-Limit');disp(ulimit);
                 
                 if dwells(j,2)<llimit
                     llimit=llimit-dwells(j,2);
                 end
-                disp('lw-Limit');disp(llimit);
+                %disp('lw-Limit');disp(llimit);
                 
             elseif dwells(j,1)==0
                 hst=hist(seg(ti:tf,1),fret_axis)';

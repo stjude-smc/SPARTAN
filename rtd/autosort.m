@@ -240,7 +240,9 @@ disp( sprintf('Found %.0f events from %.0f traces (%.0f total)', ...
 % If no ouput arguments specified, save the data to file
 if nargout==0
     [datapath] = fileparts(filename);
-    datapath = [datapath filesep];
+    if ~isempty(datapath)
+        datapath = [datapath filesep];
+    end
 
     % Save each event as a seperate trace
     saveTraces( [datapath 'ips.txt'],     'txt', sDonor,sAcceptor,sFRET,sIDs );
