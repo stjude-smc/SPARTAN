@@ -30,7 +30,11 @@ options.tdp_fret_axis = constants.tdp_fret_axis;
 options.normalize = 'total time';
 
 % Modify options if they are specified in the argument list.
-if nargin>=2,
+if nargin==2,
+    assert( isstruct(varargin{1}) );
+    options = catstruct( options, varargin{1} );
+
+elseif nargin>3,    
     assert( iscell(varargin) & mod(numel(varargin),2)==0, ...
             'Incorrect format for optional arguments list' );
     vopt = struct(varargin{:});

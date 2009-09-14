@@ -13,7 +13,11 @@ function tplot(tdp, varargin)
 constants = cascadeConstants();
 options.tdp_max = constants.tdp_max;
 
-if nargin>=2,
+if nargin==2,
+    assert( isstruct(varargin{1}) );
+    options = catstruct( options, varargin{1} );
+
+elseif nargin>3,    
     assert( iscell(varargin) & mod(numel(varargin),2)==0, ...
             'Incorrect format for optional arguments list' );
     vopt = struct(varargin{:});
