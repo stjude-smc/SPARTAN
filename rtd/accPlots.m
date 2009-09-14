@@ -33,6 +33,8 @@ makeplotsOptions.constants.cplot_scale_factor = 15;
 makeplotsOptions.pophist_sumlen = 600; %2 min. at 200ms
 makeplotsOptions.contour_bin_size  = 0.03;
 makeplotsOptions.fretRange = [-0.1 0.8];
+makeplotsOptions.no_tdp = 1;
+makeplotsOptions.no_statehist = 1;
 
 selectionCriteria.min_lifetime  = 600; %donor lifetime
 selectionCriteria.min_snr       = 8; %SNR1

@@ -16,6 +16,7 @@ function [vPath,vLL,tLL] = forward_viterbi(start_p, trans_p, emit_p)
 % Nice explainations:  http://www.comp.leeds.ac.uk/roger/HiddenMarkovModels/
 % html_dev/viterbi_algorithm
 
+[nStates,nObs] = size( emit_p );
 
 % Add a small number to all probabilities to prevent overflow (-Inf LL)
 start_p = start_p+eps;
