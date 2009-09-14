@@ -1,202 +1,126 @@
-function tdp=tdplot_rtdata_10ms(dwtfilename,tracefilename,listfilename)
+function tdp=tdplot_rtdata_10ms(dwtfilename,tracefilename)
 
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
 %---QuB first, and the dwell times saved in a .dwt file.
 
 %---JBM, 12/06
-%---modiefied for rt-Data
+%---modified for rt-Data
+%---DT: modified to simplify code for automation (9/14/09)
 
-%---Histogram bin size
-BIN=0.035; 
-%---Time step (ms)
-DT=10;
-%---Length of a trace (frames)
-TIME=2500;
+
 %---Length of dwell (in ms) in state MAX_DWELL_STATE, after which the trace is
 %---eliminated. Deactivate this by making MAX_DWELL very large.
 MAX_DWELL=10000;
-MAX_DWELL_STATE=3;
+MAX_DWELL_STATE=4;
 
 %---Histogram axes
+BIN=0.035;
 fret_i_axis=-0.2:BIN:1.2;
-fret_f_axis=-0.2:BIN:1.2;
+fret_f_axis=fret_i_axis;
 
-%---Allocate some memory for later
-h_i=[];
-h_f=[];
-fret=[];
-fret_all=[];
-all_rtfret=[];
-all_qubfret=[];
-time_axis=1:TIME;
-rt_fret=zeros(1,TIME);
-rt_cy3=zeros(1,TIME);
-rt_cy5=zeros(1,TIME);
-time_axis=1:TIME;
 
-%---Molecule counter
-sel_mol_no=0;
-mol_no=0;
 %---Initialize the 2d histogram
 tdp=zeros(numel(fret_f_axis)+1,numel(fret_i_axis)+1);
-tdp(1,2:end)=fret_i_axis;
-tdp(2:end,1)=fret_f_axis;
 
-files=0;lst=0;
-% while 1
-    list=[];
 
-    %---Open the QuB dwt file from idealization
-    if nargin<1,
-        [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
-        if dwtfile==0
-            return;
+%---Open the QuB dwt file from idealization
+if nargin<1,
+    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
+    if dwtfile==0
+        return;
+    end
+    
+    dwtfilename=strcat(dwtpath,dwtfile);
+end
+
+%---Open the corresonding FRET data file
+if nargin<2,
+    [tracefile tracepath]=uigetfile('*.txt','Choose FRET data file:');
+    if tracefile==0
+        return;
+    end
+    
+    tracefilename=strcat(tracepath,tracefile);
+end
+
+
+% Load FRET data.
+[d,a,data] = loadTraces(tracefilename);
+[nTraces,traceLen] = size(data);
+data = data';
+data = data(:);
+
+% Load dwell-time information
+[dwt,sampling,offsets] = loadDWT(dwtfilename);
+nsegs = numel(dwt);
+
+
+%---Read the dwt file one line at a time
+for i=1:nsegs
+    
+    % Load dwell-time information for this trace.
+    dwells = dwt{i};
+    
+    if isempty(dwells), continue; end
+
+    times=dwells(:,2); %unit dwells: multiple of 40ms, unit of times is images!
+    states=dwells(:,1); %starts at 1, unlike DWT file.
+    ndwells=numel(times);
+
+    
+    % Load FRET data for this trace.
+    seg = data( offsets(i)+(1:traceLen-1) );
+
+    
+    %---
+    %---Convert the lists of initial and final dwell times into lists of
+    %---initial and final FRET values
+    %---
+    fret=[];
+    
+    for j=1:ndwells
+        if states(j)==MAX_DWELL_STATE && times(j)>=MAX_DWELL
+            break
+        end
+        if j==1 
+            ti=1;
+            tf=times(j,1);
         else
-            dwtfilename=strcat(dwtpath,dwtfile);
+            ti=tf+1;
+            tf=ti+times(j,1)-1;
         end
-    end
-    fid=fopen(dwtfilename,'r');
 
-    %---Open the corresonding qub data file
-    if nargin<2,
-        [tracefile tracepath]=uigetfile('*.txt','Choose qub data file:');
-        if tracefile==0
-            return;
+        if states(j)==MAX_DWELL_STATE && times(j)>=3
+            fret=[fret mean(seg(ti:ti+3,1))];
         else
-            tracefilename=strcat(tracepath,tracefile);
+            fret=[fret mean(seg(ti:tf,1))];
         end
     end
-    data=dlmread(tracefilename,' ');
-    files=files+1;
 
-    %---Open a QuB list file
-    nodata=[];noempty=[];
-    
-    if nargin<3
-        [listfile listpath]=uigetfile('*lst.txt','Choose a QuB list file:');
-        if listfile==0
-            len=length(data);
-            nsegs=(len/TIME);
-            list=[1:TIME:len; TIME:TIME:len]';
-        else
-            listfilename=strcat(listpath,listfile);
-        end
+    ndwells=numel(fret);
+
+    %---Add fret values to histogram.
+    for k=1:ndwells-1
+        h_i=hist(fret(k),fret_i_axis);
+        h_f=hist(fret(k+1),fret_f_axis);
+        indi=find(h_i>0);
+        indf=find(h_f>0);
+        tdp(indf+1,indi+1)=tdp(indf+1,indi+1)+1;
     end
-    
-    if isempty(list)
-        list=dlmread(listfilename,'-')+1;
-        list(:,2)=list(:,2)+1;
-        nsegs=size(list,1);
-        for j=1:nsegs
-            nodata=[nodata;((list(j,1)-1)/TIME)+1];
-        end
-    end
-    
-    %---Read the dwt file one line at a time
-    %---(Looking at the dwt file in a text editor will make clear what's going
-    %---on here)
-    empty_trace=0;
-    for i=1:nsegs
-        dwells=[];
+end
 
-        line=fgetl(fid);
-        if ~ischar(line)
-            break;
-        end
-
-        if line(1)=='S'
-            line=fgetl(fid);
-        end
-
-        %---Make a list of dwells from one trace at a time
-        while line(1)~='S'
-            tmp=strread(line);
-            dwells=[dwells; tmp];
-
-            line=fgetl(fid);
-            if ~ischar(line)
-                break;
-            end
-        end
-    
-        if isempty(dwells)
-            continue
-        end
-        seg=data(list(i,1):list(i,2),1);
-%         disp('molecule');disp(((list(i,1)-1)/TIME)+1);
-%         disp('dwells');disp(dwells);
-        
-        nonzero=find(dwells(:,2));
-        dwells=dwells(size(dwells,1)-size(nonzero,1)+1:end,1:2);
-        times=dwells(:,2)/DT; %unit dwells: multiple of 40ms, unit of times is images!
-        states=dwells(:,1);
-        ndwells=numel(times);
-        
-        %---
-        %---Store Trace as inputfile for FREThist & QUB if not empty
-        %---
-        rt_fret=zeros(1,TIME);
-        qub_fret=zeros(TIME,1);
-        if ndwells>1
-            rt_fret=seg';
-            all_rtfret=[all_rtfret;rt_cy3;rt_cy5;rt_fret];
-            all_qubfret=[all_qubfret;seg];
-        else 
-            empty_trace=empty_trace+1;
-        end
-        
-        %---
-        %---Convert the lists of initial and final dwell times into lists of
-        %---initial and final FRET values
-        %---
-        for j=1:ndwells
-            if states(j)==MAX_DWELL_STATE & times(j)>=MAX_DWELL
-                break
-            end
-            if j==1 
-                ti=1;
-                tf=times(j,1);
-            else
-                ti=tf+1;
-                tf=ti+times(j,1)-1;
-            end
-            
-            if states(j)==MAX_DWELL_STATE & times(j)>=3
-                fret=[fret mean(seg(ti:ti+3,1))];
-            else
-                fret=[fret mean(seg(ti:tf,1))];
-            end
-            fret_all=[fret_all; mean(seg(ti:tf,1))];
-        end
-     
-        ndwells=numel(fret);
-        
-        %---Add fret values to histogram.
-        for k=1:ndwells-1
-            h_i=hist(fret(k),fret_i_axis);
-            h_f=hist(fret(k+1),fret_f_axis);
-            indi=find(h_i>0);
-            indf=find(h_f>0);
-            tdp(indf+1,indi+1)=tdp(indf+1,indi+1)+1;
-        end
-        fret=[];
-    end
-    fclose(fid);
-% end
 ss=sum(sum(tdp(2:end,2:end)));
-disp('Total Number of Transitions:'), disp(ss(1));
-disp('No. of empty traces');disp(empty_trace);
-disp('No. of data traces');disp(size(all_rtfret,1)/3);
+disp( sprintf('Found %d transitions in %d traces',ss,nTraces) );
 
 
 %--- Normalize Histogram
 if nargin>=2,
-    ans = 'n';
+    answer = 'n';
 else
-    ans=input('Constant Normalization Factor (y/n)?','s');
+    answer=input('Constant Normalization Factor (y/n)?','s');
 end
-switch (ans)
+switch (answer)
 
     %-----Normalization of TDplot:
     case 'n'
@@ -222,13 +146,7 @@ end
 
 
 %--- Save Files
-if files>1
-    [outfilename outfilepath]=uiputfile('_tdp.txt','Save tdp file as:');
-    outfile=strcat(outfilepath,outfilename);
-else
-    outfile=strrep(tracefilename,'.txt','_tdp.txt');
-end
+outfile=strrep(tracefilename,'.txt','_tdp.txt');
 dlmwrite(outfile,tdp,' ');
-%dlmwrite('all_fret.txt',fret_all,' ');
-%dlmwrite('_flt-ips.txt',all_rtfret,' ');
-%dlmwrite('_flt-ips_qub.txt',all_qubfret,' ');
+
+

@@ -28,6 +28,7 @@ function saveDWT(filename, idealization, offsets, model, sampling )
 % verify input arguments
 assert( iscell(idealization), 'Idealization must be a cell array' );
 assert( numel(idealization)==numel(offsets), 'Offsets do not match idealization' );
+assert( size(model,2)==2, 'Incorrect model dimensions' );
 
 nSegments = numel(idealization);
 
@@ -36,6 +37,11 @@ nSegments = numel(idealization);
 if ~iscell(model),
     model = model';
     nStates = numel(model)/2;
+    
+    fretValues = model(:,1);
+    if any( diff(fretValues)<=0 ),
+        warning('saveDWT: FRET values are non-increasing!');
+    end
 else
     nStates = numel(model{1})/2;
 end

@@ -1,4 +1,4 @@
-function tdp=tdplot(dwtfilename,tracefilename,options)
+function tdp=tdplot(dwtfilename,tracefilename,varargin)
 
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
@@ -6,10 +6,11 @@ function tdp=tdplot(dwtfilename,tracefilename,options)
 
 % Performance note: textscan > load > dlmread for speed
 
-%---JBM, 12/06
+
+
 
 % Get filenames from user if not passed
-if ~exist('tracefilename','var')
+if nargin<2
      %---Open the QuB dwt file from idealization
     [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     if dwtfile==0, return;  end
@@ -23,14 +24,23 @@ if ~exist('tracefilename','var')
     tracefilename=strcat(tracepath,tracefile);
 end
 
-% Load constants used
-if nargin<3,
-    options = cascadeConstants();
-elseif ~isfield(options,'tdp_fret_axis'),
-    constants = cascadeConstants;
-    options.tdp_fret_axis = constants.tdp_fret_axis;
+% Load default values for plotting options.
+constants = cascadeConstants;
+options.tdp_fret_axis = constants.tdp_fret_axis;
+options.normalize = 'total time';
+
+% Modify options if they are specified in the argument list.
+if nargin>=2,
+    assert( iscell(varargin) & mod(numel(varargin),2)==0, ...
+            'Incorrect format for optional arguments list' );
+    vopt = struct(varargin{:});
+    options = catstruct( options, vopt );
 end
 
+
+
+
+%%
 
 %---Histogram axes
 fret_axis = options.tdp_fret_axis;
@@ -132,16 +142,27 @@ for i=1:nTraces
 end % for each segment in selection list
 
 
+
+% Normalize the plot
+tdpData = tdp(2:end,2:end);
+
+if strcmpi(options.normalize,'total time')
+    maxVal = total_time*DT/1000;  %in sec -- independant of framerate
+
+    tdp(1,1) = maxVal;  %save the normalization factor (not plotted)
+    tdp(2:end,2:end) = tdpData/double(maxVal);
+    
+elseif strcmpi(options.normalize,'total transitions')
+    maxVal = sum( tdpData(:) )/100; %percent in each bin
+    
+    tdp(1,1) = maxVal; %max value=total # of transitions
+    tdp(2:end,2:end) = tdpData/double(maxVal);
+    
+end
+
+% Save the normalized plot to disk.
 outfile=strrep(dwtfilename,'.dwt','_tdp.txt');
-
-
-% Normalize the plot and write to disk
-max_val = total_time*DT/1000;  %in sec -- independant of framerate
-
-tdp(1,1) = max_val;  %save the normalization factor (not plotted)
-tdp(2:end,2:end) = tdp(2:end,2:end)/double(max_val);
 dlmwrite(outfile,tdp,' ');
-
 
 
 % NOTE: the t here is all transitions, including to 0-FRET

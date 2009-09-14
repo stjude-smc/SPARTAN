@@ -37,5 +37,9 @@ constants.contour_length = 50; %default # frames to display in cplot
 
 
 % 
-constants.modelLocation = '/home/dsterry/data/Daniel/models/';
+if ispc,
+    constants.modelLocation = 'C:\Analysis Files\models';
+else
+    constants.modelLocation = '/home/dsterry/data/Daniel/models/';
+end
 constants.nProcessors = 2;

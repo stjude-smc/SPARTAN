@@ -264,20 +264,28 @@ disp('no. Cutoff-Events');disp(cutEvent);
 %--- mean mean FRET-value
 z = zeros( size(cy3) );
  saveTraces( 'allMol_ac120.txt','txt', z,z, fret_noNoise, ids,time_axis );
+ saveTraces( 'allMol_ac120.qub.txt','qub', fret_noNoise );
+ 
 waitbar(0.925,wbh,'Saving Traces...');
+
  saveTraces( 'allMol_ac120-noise.txt','txt', z,z, fret_noise, ids,time_axis );
+ saveTraces( 'allMol_ac120-noise.qub.txt','qub', fret_noise );
+ 
 waitbar(0.95,wbh,'Saving Traces...');
 %---
 %--- only Molecules forming a peptide bond
 %---
  saveTraces('PEP120.txt','txt',cy3(pepSelected,:),cy5(pepSelected,:), ...
             fret(pepSelected,:), ids(pepSelected), time_axis );
+ saveTraces( 'PEP120.qub.txt','qub', fret(pepSelected,:) );
+ 
 waitbar(0.975,wbh,'Saving Traces...');
 %---
 %--- only Molecules forming no peptide bond
 %---
  saveTraces('noPep120.txt','txt',cy3(noPepSelected,:),cy5(noPepSelected,:), ...
             fret(noPepSelected,:),ids(noPepSelected), time_axis );
+ saveTraces( 'noPep120.qub.txt','qub', fret(noPepSelected,:) );
 
 waitbar(1,wbh);
 close(wbh);

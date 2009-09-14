@@ -147,9 +147,9 @@ function showTrace
         end
         
         newModel = model;
-        for j=1:max(states),
-            newModel(j) = mean( fret(i,sidl==j) );
-        end
+%         for j=1:max(states),
+%             newModel(j) = mean( fret(i,sidl==j) );
+%         end
         
         %disp(newModel)
         idl = newModel( sidl );

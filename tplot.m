@@ -1,4 +1,4 @@
-function tplot(tdp, constants, varargin)
+function tplot(tdp, varargin)
 % TPLOT  Draws a transition density contour plot
 %
 %   TPLOT( TDP, ... )
@@ -9,16 +9,22 @@ function tplot(tdp, constants, varargin)
 %Plots transition density plot created by tdplot from a file, or from the
 %variable tdp entered at command line.
 
-% If not given, load constants
-if nargin<2,
-    constants = cascadeConstants();
+% Load optional arguments
+constants = cascadeConstants();
+options.tdp_max = constants.tdp_max;
+
+if nargin>=2,
+    assert( iscell(varargin) & mod(numel(varargin),2)==0, ...
+            'Incorrect format for optional arguments list' );
+    vopt = struct(varargin{:});
+    options = catstruct( options, vopt );
 end
 
 
 % Load TD Plot data
 tdpfile=0;
 if nargin==0
-    [tdpfile tdppath]=uigetfile('_tdp.txt','Choose tdplot:');
+    [tdpfile tdppath]=uigetfile('*_tdp.txt','Choose tdplot:');
     if tdpfile==0
         disp('No File Selected.')
         return
@@ -36,14 +42,9 @@ CMAP_PATH='frethist_colormap.txt';
 cmap=dlmread(CMAP_PATH,' ')/255;
 
 % Setup contour levels
-% top=max(max(tdp(2:end,2:end)));
-% disp(top);
-top = constants.tdp_max;
-% top = 0.5;
-% nl = size(cmap,1)-1;
+top = options.tdp_max;
 con=0:(top/13):top;
-
-tdp(end,end) = 1;  % hack to make colorscale fixed
+tdp(end,end) = 10;  % hack to make colorscale fixed
 
 % draw contour plot
 % figure;

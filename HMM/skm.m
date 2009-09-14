@@ -98,9 +98,9 @@ if isfield(params,'seperately') && params.seperately==1,
                                      sampling, initialModel, params );
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
-        
-        if nargout>3, error('no offsets'); end
     end
+    
+    offsets = nFrames*((1:nTraces)-1);
 else
     % Optimize a single model and idealize all data using this model.
     [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params);
@@ -200,9 +200,8 @@ while( itr < params.maxItr ),
     
     
     % Convert state-list idealization to class-list.
-    % NOTE that the above re-estimation methods must be BEFORE this line or
-    % they will not work correctly.
     idlClasses = classes( idl+1 );
+    idlClasses = reshape( idlClasses, size(idl) );
     for i=1:size(idl,1)
         trace = idlClasses(i,:);
         dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
@@ -238,6 +237,7 @@ end %for each iteration...
 
 % Convert state list into class list for idealization
 idl = classes( idl+1 );
+reshape( idlClasses, size(idl) );
 
 
 % disp(vLL);
