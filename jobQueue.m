@@ -34,6 +34,14 @@ for i=1:nCommands,
     delete(outputFiles{i});
 end
 
+% Force each command to run in the background without
+% creating a new console window. This prevents clutter.
+if ispc,
+    commands = strcat( {'start "MIL Background Execution" /B '}, commands );
+elseif isunix
+    commands = strcat( commands, {' &'} );
+end
+
 % Create a queue of commands to run
 queue = struct( 'command',commands, 'outputFile',outputFiles, ...
                 'isRunning',0, 'isDone',0 );
@@ -67,11 +75,10 @@ while( ~all( [queue.isDone] ) )
         % Loop through all commands in the queue, checking if a command has
         % finished.
         for unitID=idleUnits(:)',
-            % Launch the command listed in this unit. The '&' will cause
-            % the command to be run in the background.
-            system( [commands{unitID} ' &'] );
+            % Launch the command listed in this unit.
+            system( commands{unitID} );
             queue(unitID).isRunning = 1;
-            disp(['Started job #' num2str(unitID)]);
+            disp( sprintf('Started job #%d: %s',unitID,commands{unitID}) );
         end
 
     end

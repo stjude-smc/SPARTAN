@@ -1,4 +1,4 @@
-function [dwells,sampling,offsets,model] = loadDWT(dwtfilename)
+function [dwells,sampling,offsets,modelOut] = loadDWT(dwtfilename)
 % LOADDWT  Loads a QuB idealization dwell time file
 %     
 %   [DWELLS,SAMPLING,OFFSETS,FRET_MODEL] = LoadDWT( DWTFILENAME )
@@ -52,6 +52,12 @@ while 1,
     
 end
 fclose(fid);
+
+% Convert model information into the expected matrix shape.
+assert( mod(numel(model),2)==0, 'Bad FRET model definition' );
+modelOut = zeros( numel(model)/2, 2 );
+modelOut(:,1) = model(1:2:end); %FRET values
+modelOut(:,2) = model(2:2:end); %standard deviations
 
 if ~exist('sampling','var'),
     error('Malformed DWT file');

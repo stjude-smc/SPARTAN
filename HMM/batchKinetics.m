@@ -136,7 +136,8 @@ function btnBrowseModel_Callback(hObject, eventdata, handles)
 % Get list of data files from user
 fname = get(handles.edModelFilename,'String');
 if isempty(fname)
-    fname = '*.qmf';
+    constants = cascadeConstants;
+    fname = [constants.modelLocation filesep '*.qmf'];
 end
 
 [f,p] = uigetfile(fname,'Select a QuB model file...');

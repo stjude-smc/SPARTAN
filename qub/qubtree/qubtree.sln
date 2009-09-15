@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual C++ Express 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qubtree", "qubtree.vcproj", "{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug py24|Win32 = Debug py24|Win32
+		Debug|Win32 = Debug|Win32
+		Release py24|Win32 = Release py24|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Debug py24|Win32.ActiveCfg = Debug py24|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Debug py24|Win32.Build.0 = Debug py24|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Debug|Win32.Build.0 = Debug|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Release py24|Win32.ActiveCfg = Release py24|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Release py24|Win32.Build.0 = Release py24|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Release|Win32.ActiveCfg = Release|Win32
+		{A4C7EDB7-9032-4DF8-80A8-A29D5C8357B9}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
