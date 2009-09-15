@@ -61,6 +61,7 @@ selectionCriteria.min_maxFRET = 0.14;   %at least one frame with FRET>0.14
 selectionCriteria.min_lifetime = 20;    %donor lifetime > 20 frames
 selectionCriteria.min_snr = 6;          %SNR1 at least 6:1
 selectionCriteria.max_ncross = 3;       %less than 4 donor blinking events
+selectionCriteria.max_firstFRET = 0.14; %ignore accommodated traces.
 
 % Select traces according to selection criteria
 d_out = []; a_out = []; f_out = []; ids_out = {};
