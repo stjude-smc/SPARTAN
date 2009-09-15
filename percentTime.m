@@ -51,7 +51,7 @@ function [meanPT,stdPT] = calcPT( dwtfilename, bootstrapN )
 
 % Load DWT data
 [dwells,sampling,offsets,fretModel] = loadDWT( dwtfilename );
-nStates = numel(fretModel/4);
+nStates = numel(fretModel)/2;
 nTraces = length(dwells);
 
 % Calculate percent time of each trace seperately

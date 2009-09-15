@@ -45,7 +45,7 @@ end
 dwt_fname = strrep( filename, '.txt', '.qub.dwt' );
 if ~isTracesFile && exist(dwt_fname,'file')
     [dwt,dwtSampling,offsets,model] = loadDWT( dwt_fname );
-    model = model(1:2:end);
+    model = model(:,1);
     dwtSampling = double(dwtSampling)
     
     % Look for simulated idealization data

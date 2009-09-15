@@ -197,34 +197,33 @@ for i=1:nSamples,
     
     
     %---- GENERATE TD PLOT HISTOGRAMS
-    
-    if options.no_tdp, continue; end
-    
-    % Speed: create TD plot hist only if new or if data files have changed
-    datadir = dir(data_fname);
-    dwtdir  = dir(dwt_fname);
-    tdpdir =  dir(tdp_fname);
-    
-    data_date = max( datadir.datenum, dwtdir.datenum );
-    
-    if numel(tdpdir)==0 || data_date>tdpdir.datenum || options.force_remake_tdplot
-        options.tdp_fret_axis = constants.tdp_fret_axis;
-        disp('New data detected: generating TD plot hist...');
-        tdplot(dwt_fname,data_fname,options);  % save file: '_tdp.txt' extension
+    if ~options.no_tdp,
+        % Speed: create TD plot hist only if new or if data files have changed
+        datadir = dir(data_fname);
+        dwtdir  = dir(dwt_fname);
+        tdpdir =  dir(tdp_fname);
+
+        data_date = max( datadir.datenum, dwtdir.datenum );
+
+        if numel(tdpdir)==0 || data_date>tdpdir.datenum || options.force_remake_tdplot
+            options.tdp_fret_axis = constants.tdp_fret_axis;
+            disp('New data detected: generating TD plot hist...');
+            tdplot(dwt_fname,data_fname,options);  % save file: '_tdp.txt' extension
+        end
     end
     
     
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
-    if options.no_statehist, continue; end
-    
-    shdir = dir(shist_fname);
-    
-    if numel(shdir)==0 || data_date>shdir.datenum || options.force_remake_tdplot
-        fretaxis = options.contour_bounds(3):options.contour_bin_size:options.contour_bounds(4);
-        
-        disp('New data detected: generating state hist...');
-        shist = statehist( dwt_fname, data_fname, fretaxis );
-        save( shist_fname, 'shist', '-ASCII' );
+    if ~options.no_statehist,
+        shdir = dir(shist_fname);
+
+        if numel(shdir)==0 || data_date>shdir.datenum || options.force_remake_tdplot
+            fretaxis = options.contour_bounds(3):options.contour_bin_size:options.contour_bounds(4);
+
+            disp('New data detected: generating state hist...');
+            shist = statehist( dwt_fname, data_fname, fretaxis );
+            save( shist_fname, 'shist', '-ASCII' );
+        end
     end
 end
 
