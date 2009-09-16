@@ -195,16 +195,17 @@ for i=1:nSamples,
         any_tdps = true;
     end
     
+    % Check the creation time of relevant data files to see if either of
+    % the following steps has to be performed.
+    datadir = dir(data_fname);
+    dwtdir  = dir(dwt_fname);
+    tdpdir =  dir(tdp_fname);
+
+    data_date = max( datadir.datenum, dwtdir.datenum );
     
     %---- GENERATE TD PLOT HISTOGRAMS
     if ~options.no_tdp,
         % Speed: create TD plot hist only if new or if data files have changed
-        datadir = dir(data_fname);
-        dwtdir  = dir(dwt_fname);
-        tdpdir =  dir(tdp_fname);
-
-        data_date = max( datadir.datenum, dwtdir.datenum );
-
         if numel(tdpdir)==0 || data_date>tdpdir.datenum || options.force_remake_tdplot
             options.tdp_fret_axis = constants.tdp_fret_axis;
             disp('New data detected: generating TD plot hist...');
