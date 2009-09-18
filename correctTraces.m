@@ -13,12 +13,15 @@ function [donor,acceptor,fret] = correctTraces( ...
 
 % TODO: gamma correction (whole pipeline), background drift correction?
 
+if nargin<2,
+    error('CorrectTraces: not all required parameters given!')
+end
 if nargin<3,
-    error('CorrectTraces: no all required parameters given!')
+    constants = cascadeConstants;
 end
 
 % Extract just the traces requested (default=all)
-if exist('indexes','var') && ~isempty(indexes),
+if nargin>=4 && ~isempty(indexes),
     donor = donor(indexes,:);
     acceptor = acceptor(indexes,:);
 end
