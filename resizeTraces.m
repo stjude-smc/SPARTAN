@@ -24,10 +24,17 @@ for file = files',
     
     % ---- Read traces file
     filename = [direct filesep file.name];
-    [donor,accep] = LoadTraces( filename,constants );
+    [donor,accep,f,ids,time] = LoadTraces( filename );
     [nTraces,actualLen] = size(donor);
     
-    % ---- Expand traces    
+    % ---- Reconstruct time axis (assuming linear, contiguous acquisition)
+    dt = time(2)-time(1);
+    time = cumsum( [time(1) repmat(dt,1,traceLen-1)] );
+    
+    % ---- Undo crosstalk correction (otherwise it will be done twice).
+    accep = accep - constants.crosstalk*donor;
+    
+    % ---- Modify traces, if they do not match the target trace length.
     if traceLen == actualLen,
         %no changes needed
         continue;
@@ -46,29 +53,9 @@ for file = files',
     
     disp( sprintf('Resizing %.0f to %.0f: %s',actualLen,traceLen,file.name) );
     
+    % ---- Save the results.
+    saveTraces( filename,'traces',donor,accep,ids,time );
     
-    % ---- Reconstruct traces matrix
-    
-    traces = zeros( nTraces*2, traceLen );
-    traces(1:2:end,:) = donor;
-    traces(2:2:end,:) = accep;
-    
-    % ---- Save modified traces to file.
-    
-    [p,name,e,v] = fileparts(filename);
-
-    fid=fopen(filename,'w');
-
-    fwrite(fid,traceLen,'int32');
-    fwrite(fid,nTraces*2,'int16');  % max of 32,000 traces!
-
-    for j=1:nTraces;
-        fprintf(fid, '%s_%d-', name, j);
-    end
-    
-    fwrite(fid,traces,'int16');
-    fclose(fid);
-    clear traces; 
     
 end
 
