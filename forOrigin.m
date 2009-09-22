@@ -22,8 +22,8 @@ if ~exist('dwtFilename','var'),
         dwtFilename = [p f];
         [dwells,sampling,offsets,model] = loadDWT(dwtFilename);
         
-        fretValues = model(1:2:end);
-        fretValues(fretValues==0.1) = 0.01;
+        fretValues = model(:,1);
+        fretValues(fretValues==0.1) = 0.01; %for LeuT?
 
         idl = dwtToIdl( dwells, traceLen,offsets );
         
