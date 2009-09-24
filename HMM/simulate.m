@@ -195,15 +195,7 @@ for i=1:nTraces,
         end
         
         % Round to 1ms time resolution
-        if exist('roundTo','var')
-            dwellTime = round(dwellTime/roundTo)*roundTo;
-            if dwellTime<binFactor,
-                itr = itr+1;
-                continue;
-            end
-        else
-            dwellTime = round(dwellTime);
-        end
+        dwellTime = round(dwellTime);
         
         states(end+1) = curState;
         times(end+1) = dwellTime;
@@ -226,11 +218,12 @@ for i=1:nTraces,
         dtime = round( times(j) );
         trace = [trace repmat( states(j), 1,dtime ) ];
     end
-
-    idl(i,:) = trace;
     
     % Truncate idealization from photobleaching times
-    idl(i,pbTimes(i):end) = 1;  % set the state to blinking
+    trace(pbTimes(i):end) = 1;  % set the state to blinking
+
+    % Save results to output data.
+    idl(i,:) = trace;
     
     waitbar(i/(nTraces*2),h);
 end

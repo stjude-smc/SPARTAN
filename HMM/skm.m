@@ -204,6 +204,7 @@ while( itr < params.maxItr ),
     idlClasses = reshape( idlClasses, size(idl) );
     for i=1:size(idl,1)
         trace = idlClasses(i,:);
+        if all(trace<=0), continue; end  %nothing here...
         dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
     end
     

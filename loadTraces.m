@@ -52,6 +52,19 @@ else
     error( ['Filetype not recognized (' ext ')'] );
 end
 
+%If IDs are not present, create them
+if isempty(ids)
+    [p,name] = fileparts(filename);
+    name = [name '_'];
+
+    nTraces = size(donor,1);
+    ids  = cell(nTraces,1);
+    ids(:) = {name};
+    strcat( ids, char((1:nTraces)+47)' );
+
+    ids = ids';
+end
+
 end %function LoadTraces
 
 
@@ -59,8 +72,10 @@ end %function LoadTraces
 %--------------------  LOAD TEXT FILES ------------------------
 function [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes )
 
+% Open the traces file
 fid=fopen(filename,'r');
 
+% Read the time axis header
 time=strread(fgetl(fid),'%f')';
 len=length(time);
 assert( len>1, 'Cannot parse forQuB file!');
@@ -72,10 +87,11 @@ sig=textscan(fid,'%s',1);
 sig=sig{:};
 hasIDs = isnan(str2double(sig));
 
-
+% Get the time axis
 fseek(fid,-ftell(fid),0);
 time=strread(fgetl(fid),'%f')';
 
+% Extract intensity information (and IDs) from file.
 ids = cell(0,1);
 i = 1;
 Data = cell(0);
@@ -95,25 +111,28 @@ while 1
 end
 Data = cell2mat(Data)';
 
-if hasIDs,  ids = ids(1:3:end-2);  end
-
-
+% Split data into donor, acceptor, and FRET channels.
 donor=Data(1:3:end-2,:);
 acceptor=Data(2:3:end-1,:);
 fret  = Data(3:3:end,:);
-%         Ntraces=2*(size(Data,1))/3;
 assert( all( size(fret)==size(donor)) );
 
-
 % Select only molecules specified
-if exist('indexes','var') && ~isempty(indexes),
-    donor = donor(indexes,:);
-    acceptor = acceptor(indexes,:);
-    fret = fret(indexes,:);
-    ids = ids{indexes};
+if nargin<2 || isempty(indexes),
+    indexes = 1:size(donor,1);
 end
 
+donor = donor(indexes,:);
+acceptor = acceptor(indexes,:);
+fret = fret(indexes,:);
 
+% Get trace IDs, if available...
+if hasIDs,
+    ids = ids(1:3:end-2);
+    ids = ids(indexes);
+end
+
+% Clean up
 fclose(fid);
 clear Data;
 
@@ -145,13 +164,9 @@ else
     assert( length(time)==len, 'loadTraces: Time axis size mismatch' );
 end
 
-fclose(fid);
-
 % Parse the data into donor, acceptor, etc. arrays.
 donor    = double( Data(1:2:end-1,:) );
 acceptor = double( Data(2:2:end,  :) );
-
-clear Data;
 
 % Make an adjustment for crosstalk on the camera
 acceptor = acceptor - constants.crosstalk*donor;
@@ -159,6 +174,9 @@ acceptor = acceptor - constants.crosstalk*donor;
 % Subtract background and calculate FRET
 [donor,acceptor,fret] = correctTraces(donor,acceptor,constants,indexes);
 
+% Clean up
+clear Data;
+fclose(fid);
 
 end %function LoadTracesBinary
 
@@ -178,25 +196,15 @@ fid=fopen(filename,'r');
 len=fread(fid,1,'int32');
 Ntraces=fread(fid,1,'int16');
 
-%If IDs are not present, create them
-[p,name] = fileparts(filename);
-name = [name '_'];
-
-ids  = cell(Ntraces,1);
-ids(:) = {name};
-strcat( ids, char((1:Ntraces)+47)' );
-
-ids = ids';
-
 % Read data
 Data = fread( fid, [Ntraces+1 len], 'int16' );
-time = Data(1,:);
-Data = Data(2:end,:);
-
 fclose(fid);
+
 % Parse the data into donor, acceptor, etc. arrays.
-donor    = double( Data(1:2:end-1,:) );
-acceptor = double( Data(2:2:end,  :) );
+time     = double( Data(1,:) );
+donor    = double( Data(2:2:end-1,:) );
+acceptor = double( Data(3:2:end,  :) );
+ids = {};
 
 clear Data;
 

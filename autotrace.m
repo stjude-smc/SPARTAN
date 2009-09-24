@@ -93,7 +93,6 @@ end
 
 %---- PROGRAM CONSTANTS
 constants = cascadeConstants();
-
 handles.constants = constants;
 
 
@@ -229,30 +228,35 @@ function OpenTracesFile_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Open file with user-interface.
-[datafile,datapath] = uigetfile( {'*.traces';'*.txt'},'Choose a traces file:', ...
-                                 'MultiSelect','on');
-if datapath==0, return; end
+filter = {'*.traces*;*.traces.old;*.txt','All traces files (*.txt, *.traces)'; ...
+          '*.txt','Autotrace Files (*.txt)'; ...
+          '*.traces*','Raw traces files (*.traces)'};
+      
+[datafile,datapath] = uigetfile( filter,'Choose a traces file:', ...
+                                                'MultiSelect','on');
+
+if datapath==0, return; end %user hit cancel
+
+
+% Convert filename list into a cell array
 if ~iscell(datafile), datafile = {datafile}; end
 filename = strcat(datapath,datafile);
 
-if isempty(filename),  return;  end
-if ~iscell(filename),  filename = {filename};  end
-
+% Save file list for later use.
 handles.inputdir = datapath;
 handles.inputfiles = filename;
-handles.nFiles = numel( filename );
 
+% Update GUI listing of number of files and file types
 disp(handles.inputfiles);
-if numel( handles.inputfiles ) == 1,
+if numel(filename) == 1,
     set(handles.editFilename,'String',handles.inputfiles{1});
 else
     set(handles.editFilename,'String',handles.inputdir);
 end
 
-handles.outfile = strrep(filename{1}, '.traces', '_auto.txt');
-handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
-
+% Load the traces files.
 OpenTracesBatch( hObject, handles );
+
 
 % END FUNCTION OpenTracesFile_Callback
 
@@ -274,13 +278,12 @@ function btnOpenDirectory_Callback(hObject, eventdata, handles)
 
 % Select directory by user interface.
 datapath=uigetdir;
-if datapath==0, return; end
+if datapath==0, return; end %user hit cancel.
 
 % Create list of .traces files in the directory.
 traces_files = dir( [datapath filesep '*.traces'] );
-handles.nFiles = numel(traces_files);
 
-if handles.nFiles == 0
+if numel(traces_files) == 0
     disp('No files in this directory!');
     return;
 end
@@ -288,15 +291,11 @@ end
 handles.inputdir = datapath;
 handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
 
-
+% Update the GUI with the new data location name.
 disp(handles.inputdir);
 set(handles.editFilename,'String',handles.inputdir);
 
-handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
-handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
-
-
-
+% Load the traces files.
 OpenTracesBatch( hObject, handles )
 
 % END FUNCTION btnOpenDirectory_Callback
@@ -322,26 +321,6 @@ datapath=uigetdir;
 if datapath==0, return; end
 
 handles.isBatchMode = 1;
-
-% Automatically run gettraces if only STKs are available.
-% Uses automatic threshold picking, which may not work as well as a
-% manual value!
-% traces_files = dir( [datapath filesep '*.traces'] );
-% stk_files    = dir( [datapath filesep '*.stk'] );
-% stk_files    = [  stk_files  ;  dir([datapath filesep '*.stk.bz2'])  ];
-% 
-% Extract traces from unanalyzed movies, if requested
-% if numel(traces_files)>0 && numel(stk_files)>0, 
-%     answer = questdlg( ...
-%         'Traces files already created. Reprocess and overwrite?', ...
-%         'autotrace2: Reprocess movies?', 'Yes','No','No');
-%     if strcmp(answer,'Yes')
-%         gettraces_backend( datapath );
-%     end
-% else
-%     gettraces_backend( datapath );
-% end
-
 
 
 % Get a list of all traces files under the current directory
@@ -381,12 +360,9 @@ for i=1:numel(data_dirs)
     handles.inputdir = datapath;
     handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
 
-
+    % Update GUI listing of number of files and file types
     disp(handles.inputdir);
     set(handles.editFilename,'String',handles.inputdir);
-
-    handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
-    handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
     % Load all traces in the current directory
     OpenTracesBatch( hObject, handles )
@@ -418,15 +394,21 @@ guidata(hObject,handles);
 
 function OpenTracesBatch( hObject, handles )
 
+nFiles = numel( handles.inputfiles );
+
+% Determine default filename to use when saving.
+handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
+handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
+
 handles.ids = cell(0);  % trace names (name_file#_trace#)
-handles.nTracesPerFile = zeros(handles.nFiles,1);
+handles.nTracesPerFile = zeros(nFiles,1);
 
 
 % Open each file of traces and build the raw data array. Works the same as
 % above, but loops through each file in the directory.
 if ~handles.isBatchMode, wb=waitbar(0,'Loading traces...'); end
 
-for k=1:handles.nFiles  % for each file...    
+for k=1:nFiles  % for each file...    
     
     % Load the traces file.
     % If raw data, corrections for background and crosstalk are made
@@ -453,7 +435,7 @@ for k=1:handles.nFiles  % for each file...
     handles.nTracesPerFile(k) = Ntraces;
     handles.ids = [handles.ids ids];
     
-    if ~handles.isBatchMode, waitbar(k/handles.nFiles,wb); end
+    if ~handles.isBatchMode, waitbar(k/nFiles,wb); end
 
 end 
 if ~handles.isBatchMode, close(wb); end
@@ -525,9 +507,10 @@ fprintf(fid,'\n');
 
 if ~handles.isBatchMode, wb=waitbar(0,'Saving traces...'); end
 
+nFiles = numel(handles.nTracesPerFile);
 pick_offset = [0; cumsum(handles.nTracesPerFile)];
 
-for index = 1:handles.nFiles  %for each file in batch...
+for index = 1:nFiles  %for each file in batch...
     
     %---- Load trace data from file, make corrections
     % inds_picked is indexes as if all the traces data were in one huge array.
@@ -574,7 +557,7 @@ for index = 1:handles.nFiles  %for each file in batch...
     end % for each molecule
     
     
-    if ~handles.isBatchMode, waitbar(index/handles.nFiles,wb); end
+    if ~handles.isBatchMode, waitbar(index/nFiles,wb); end
     
 end % for each file
 fclose(fid);
@@ -695,13 +678,11 @@ function ViewPickedTraces_Callback(hObject, eventdata, handles)
 if inputfile==0, return; end
 
 handles.outfile=[inputpath inputfile];
+guidata(hObject,handles);
 
 
 % Save picked data to handles.outfile
 SaveTraces( handles.outfile, handles );
-
-guidata(hObject,handles);
-
 
 % Run sorttraces interface so traces can be viewed
 % Could pass description/title as third param (currently empty!)
@@ -712,6 +693,8 @@ sorttraces(0, handles.outfile);
 
 
 function criteria = getSpecialCriteria( handles )
+% Generate a selection criteria structure (see pickTraces.m) using the
+% "Specialized Selection Criteria" drop-down boxes.
 
 criteria = handles.criteria;
 
@@ -743,7 +726,7 @@ criteria = getSpecialCriteria( handles );
 
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
-[picks,values] = pickTraces( stats, criteria );
+picks = pickTraces( stats, criteria );
 clear stats;
 
 % The number of traces picked.
@@ -762,13 +745,11 @@ set(handles.MoleculesPicked,'String', ...
             sprintf('%d of %d',[handles.picked_mols,handles.Ntraces]));
 set(handles.SaveContourPlot,'Enable','off');
 
-
-
-
+% Save data in handles object.
 guidata(hObject,handles);
 
 
-% Replot
+% Update trace statistic histograms for traces passing selection criteria.
 nAxes = length( handles.cboNames );
 
 for i=1:nAxes,
@@ -788,8 +769,10 @@ end
 % --- Executes on button press in MakeContourPlot.
 function MakeContourPlot_Callback(hObject, eventdata, handles)
 % Builds and displays contour plot.
+% TODO: Figure out why plots made with makeplots from file and passing data
+% directly give different results.
 
-if 0,  % simpler way to do it...but slower.
+if 1,  % simpler way to do it...but slower.
     % Save current selections as a temporary file
     filename = [tempname '_auto.txt'];
     SaveTraces( filename, handles );
@@ -805,22 +788,23 @@ end
 constants = handles.constants;
 
 
-h2=waitbar(0,'Making contour plot...');
+wbh=waitbar(0,'Making contour plot...');
 
 pick_offset = [0; cumsum(handles.nTracesPerFile)];
+nFiles = numel( handles.nTracesPerFile );
     
 % Axes for histogram:
-time_axis=1:handles.len;  %sd(2)
+time_axis=1:handles.len;
 fret_axis=-0.1:handles.contour_bin_size:1.0;
 
 % Initialize histogram array, setting the time step in the first row,
 % and the FRET bins in the first column. This is done for import into
 % Origin.
-handles.frethist = zeros( length(fret_axis)+1, length(time_axis)+1 );
-handles.frethist(1,2:end) = time_axis;
-handles.frethist(2:end,1) = fret_axis';
+frethist = zeros( length(fret_axis)+1, length(time_axis)+1 );
+frethist(1,2:end) = time_axis;
+frethist(2:end,1) = fret_axis';
 
-for index = 1:handles.nFiles  %for each file in batch...
+for index = 1:nFiles  %for each file in batch...
 
     % inds_picked is indexes as if all the traces data were in one huge array.
     % This is translating into an offset at the start of this particular file
@@ -832,10 +816,11 @@ for index = 1:handles.nFiles  %for each file in batch...
 
     filename = handles.inputfiles{index};
 
+    % Load data, no seperation of events or synchornization.
     if handles.sync == 'n',
         [donor,acceptor,fret] = loadTraces(filename,constants,picks);
 
-    % If a synchronization method is selected, apply it here...
+    % Seperate events and synchornize to 
     elseif handles.sync == 's',
         fret = autosort( filename, picks );
         nTraces = size(fret,1);
@@ -858,22 +843,23 @@ for index = 1:handles.nFiles  %for each file in batch...
         fret = [fret ; repmat(NaN,1,handles.len)];
     end
 
-    handles.frethist(2:end,2:end) = handles.frethist(2:end,2:end) + ...
+    frethist(2:end,2:end) = frethist(2:end,2:end) + ...
                                     hist( fret, fret_axis  );
 
-    waitbar(index/handles.nFiles,h2);
+    waitbar(index/nFiles,wbh);
 end %for each file of traces
 
 % Plot the histograms
 [p,title] = fileparts(handles.outfile);
 title = strrep( title,'_',' ' );
-makeplots( handles.frethist, title );
+makeplots( frethist, title );
 
 set(handles.SaveContourPlot,'Enable','on');
 
 
-
-close(h2);  %close waitbar
+% Clean up and save FRET histogram data for saving.
+close(wbh);  %close waitbar
+handles.frethist = frethist;
 guidata(hObject,handles);
 
 
@@ -889,7 +875,6 @@ dlmwrite(histfile,handles.frethist,' ');
 
 % GUI stuff
 set(hObject,'Enable','off');
-guidata(hObject,handles);
 
 
 
@@ -917,7 +902,7 @@ guidata(hObject,handles);
 
 
 function FRETBinSize_Callback(hObject, eventdata, handles)
-handles.criteria.contour_bin_size=str2double(get(hObject,'String'));
+handles.contour_bin_size=str2double(get(hObject,'String'));
 guidata(hObject,handles);
 
 
@@ -1059,7 +1044,8 @@ guidata(hObject,handles);
 
 
 
-% --- Executes on selection change in cboStat5.
+% --- Executes on selection change in any of the drop down boxes above each
+%     of the trace statistic histogram plots.
 function cboStat_Callback(hObject, eventdata, handles)
 % hObject    handle to cboStat5 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
