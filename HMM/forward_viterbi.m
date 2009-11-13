@@ -18,14 +18,15 @@ function [vPath,vLL,tLL] = forward_viterbi(start_p, trans_p, emit_p)
 
 [nStates,nObs] = size( emit_p );
 
-% Add a small number to all probabilities to prevent overflow (-Inf LL)
-start_p = start_p+eps;
-trans_p = trans_p+eps;
-emit_p  = emit_p+eps;
-
+% Calculate log probabilities.
+% Set a minimal value to probabilities to prevent underflow.
 lsp = log( start_p );
 ltp = log( trans_p );
 lep = log( emit_p  );
+
+lsp(lsp==-Inf) = -1e10;
+ltp(ltp==-Inf) = -1e10;
+lep(lep==-Inf) = -1e10;
 
 % Setup data structures used for finding the most likely path.
 delta = zeros( nStates, nObs );  %partial probabilities

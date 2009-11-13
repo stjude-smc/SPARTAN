@@ -50,9 +50,6 @@ nStates = numel(mu);
 
 start_p = reshape(start_p,[nStates,1]);
 
-C = 1./(sqrt(2*pi)*sigma); %gaussian leading coefficient
-D = 2*(sigma.^2);  %exponential denominator
-
 assert( all(trans_p(:)>=0) && all(start_p>=0) );
 
 
@@ -73,15 +70,17 @@ for i=1:nTraces,
         continue;
     end
     
-    % Precompute emmission probability matrix
+    % Precompute emmission probability matrix.
+    % This ist reated as if using descretized Gaussian distributions with
+    % a bin size of 0.001. While the values are computed explicitly, the
+    % probabilities should be very similar. While slightly slower, this
+    % method is simple and easy in MATLAB.
     Bx = zeros(nStates,traceLen);
     for s=1:nStates,
-        %Bx(s,:) = C(s) .* exp(-  ((trace-mu(s)).^2) ./ D(s)  );
-        Bx(s,:) = normpdf( trace, mu(s), sigma(s) )/6;
+        Bx(s,:) = 0.001*normpdf( trace, mu(s), sigma(s) );
     end
     
     % Find the most likely viterbi path in model space
-    % (totalLL is the probability of the observation sequence given the model)
     [vPath, vLL] = forward_viterbi(start_p, trans_p, Bx);
     
     % Convert sequence of state assignments to dwell-times at each state

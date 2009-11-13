@@ -199,15 +199,15 @@ int forwardViterbi(
     
     ptr = lsp+nStates;
     while( (--ptr)>=lsp )
-        *ptr = log(*ptr);
+        *ptr = (*ptr>0 ? log(*ptr) : -1.0e10);
     
     ptr = ltp+(nStates*nStates);
     while( (--ptr)>=ltp )
-        *ptr = log(*ptr);
+        *ptr = (*ptr>0 ? log(*ptr) : -1.0e10);
     
     ptr = lep+(nObs*nStates);
     while( (--ptr)>=lep )
-        *ptr = log(*ptr);
+        *ptr = (*ptr>0 ? log(*ptr) : -1.0e10);
         
         
     // Initialization

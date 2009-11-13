@@ -72,6 +72,10 @@ if ~isfield(params,'convLL')
     params.convLL = 1e-4;
 end
 
+if ~isfield(params,'fixRates')
+    params.fixRates = 0;
+end
+
 % Modify data to fall within specified ranges...
 data(data>1) = 1;
 data(data<-0.3) = -0.3;
@@ -152,10 +156,16 @@ LL = [];
 model = initialModel;
 mu = reshape(model.mu,nClass,1);
 sigma = reshape(model.sigma,nClass,1);
-A = model.rates*(sampling/1000);
-A( logical(eye(nStates)) ) = 1-sum(A,2);
 p0 = reshape(model.p0,nStates,1);
 classes = [0; model.class];
+
+
+% Calculate correct Q matrix from rates...
+Q = model.rates;
+Q( logical(eye(size(Q))) ) = 0;
+Q( logical(eye(size(Q))) ) = -sum( Q,2 );
+dt = (sampling/1000);
+A = expm( Q.*dt );
 
 while( itr < params.maxItr ),
 
@@ -186,7 +196,9 @@ while( itr < params.maxItr ),
     % counting number of each type of transition occuring in idl
     % and dividing by the total time spent in the source state.
     % (this is a slow step - should be optimized).
-    A = estimateA(idl,nStates);
+    if params.fixRates<1,
+        A = estimateA(idl,nStates);
+    end
     
     
     % Re-estimate initial probabilities.
@@ -281,7 +293,7 @@ for n=1:nTraces
     end
 end
 
-normFact = repmat(sum(A,2),1,nStates);
+normFact = repmat(sum(A,2),1,nStates); %sum over rows.
 normFact(normFact==0) = 1; %prevent division by zero
 
 A2 = A./normFact;

@@ -34,8 +34,8 @@ fretModel2 = [model2.mu' model2.sigma'];
 skmParams.maxItr = 10;
 skmParams.convLL = 0.01;
 skmParams.zeroEnd = 1;
-skmParams.seperately = 1;
 skmParams.quiet = 1;
+skmParams.fixRates = 1;
 
 
 %% 3. Run gettraces to extract traces from movies
