@@ -255,7 +255,7 @@ for i=1:nFiles
     nTraces(i) = handles.num;
     
     guidata(hObject,handles);
-    waitbar(i/nFiles);
+    waitbar(i/nFiles, h);
 end
 close(h);
 

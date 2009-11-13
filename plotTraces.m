@@ -13,9 +13,9 @@ if ~exist('filename','var'),
     [datafile,datapath] = uigetfile({'*.txt'},'Choose a traces file:');
     if datafile==0, return; end  %user hit "cancel"
     filename = [datapath filesep datafile];
-    
-    isTracesFile = ~isempty( strfind(filename,'.traces') );
 end
+
+isTracesFile = ~isempty( strfind(filename,'.traces') );
 
 
 % Generate plot titles 

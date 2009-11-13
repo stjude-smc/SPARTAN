@@ -104,6 +104,7 @@ if isfield(criteria,'maxTotalSigma')
     sigma = f.c1;
     
     picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
+    picks = picks & (t > mu - sigma*criteria.maxTotalSigma);
     
     % Display result of fitting (for debugging code).
     %figure;

@@ -173,13 +173,13 @@ stk_top = mean(movie,3);
 % 1. Divide the image into den*den squares
 % 2. For each square, find the fifth lowest number
 % 3. Rescaling these values back to the original image size
-if stkX == 128
+if stkX <= 128
     den=4;  %not optimized
-elseif stkX == 170
+elseif stkX <= 170
     den=5;
-elseif stkX == 256
+elseif stkX <= 256
     den=8;
-elseif stkX == 512
+elseif stkX <= 512
     den=16;
 end
 

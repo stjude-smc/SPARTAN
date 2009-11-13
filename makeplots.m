@@ -38,6 +38,9 @@ options.fretRange = [-0.1 0.99];
 % Length (in frames) of population histograms
 options.pophist_sumlen = constants.contour_length;
 
+% Remove X frames from beginning of movies to avoid effect of gain drift.
+options.pophist_offset = 0;
+
 % axis bounds for contour plot and 1D population histogram
 options.contour_bin_size = 0.03;
 
@@ -271,7 +274,7 @@ for i=1:numel(samples),  %for each sample
         end
         
         disp('Generating colorplot...');
-        cplotdata = makecplot( filename, options.contour_bin_size );
+        cplotdata = makecplot( filename, options );
     else
         cplotdata = load(hist_filename);
     end
@@ -494,16 +497,19 @@ end %function makeplots
 
 %% =============== FCN TO MAKE CONTOUR PLOTS =============== 
 
-function frethist = makecplot( data_filename, contour_bin_size)
+function frethist = makecplot( data_filename, options)
 % MAKECPLOT   creates _hist.txt FRET histogram file
 
 % Load data
 [d,a,fret] = loadTraces( data_filename );
+
+% Cut off first few frames to get rid of gain drift.
+fret = fret( :, (1+options.pophist_offset:end) );
 [Nmol len] = size(fret);
 
 % Axes for histogram includes all possible data
 time_axis = 1:len;
-fret_axis = -0.1:contour_bin_size:1.0;
+fret_axis = -0.1:options.contour_bin_size:1.2;
 
 % Initialize histogram array, setting the time step in the first row,
 % and the FRET bins in the first column. This is done for import into
@@ -518,6 +524,12 @@ frethist(2:end,2:end) = hist( fret, fret_axis  );
 % Save plots to file
 histfile=strrep(data_filename,'.txt','_hist.txt');
 dlmwrite(histfile,frethist,' ');
+
+% Save plots to file
+frethistn = frethist;
+frethistn(2:end,2:end) = frethistn(2:end,2:end)/Nmol;
+histfile=strrep(data_filename,'.txt','_normhist.txt');
+dlmwrite(histfile,frethistn,' ');
 
 
 end %function makecplot

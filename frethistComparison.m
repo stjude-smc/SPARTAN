@@ -13,6 +13,7 @@ constants = cascadeConstants();
 sampling = 40; %doesn't really matter, as long as its close
 contour_bin_size = 0.03;
 pophist_sumlen = 50;
+pophist_offset = 0; %for removing contributions of gain drift set=10.
 fretaxis = (-0.1:contour_bin_size:1.0)';
 nbins = length(fretaxis);
 
@@ -62,7 +63,7 @@ for i=1:nFiles
     
     % Load FRET data
     [d,a,fret] = loadTraces( files{i} );
-    fret = fret(:,1:pophist_sumlen);
+    fret = fret( :, pophist_offset+(1:pophist_sumlen) );
     [nTraces,nFrames] = size(fret);
     
     

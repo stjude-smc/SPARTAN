@@ -172,6 +172,14 @@ handles.filename = filename;
 [handles.Ntraces,handles.len] = size(handles.donor);
 
 
+% Make sure time axis is in seconds (not frames)
+if handles.time(1)==1,
+    f = inputdlg('What is the sampling interval (in ms) for this data?');
+    sampling = str2double(f)
+    handles.time = sampling.*(0:handles.len-1);
+end
+
+
 % Trace indexes of binned molecules
 handles.NoFRETs_indexes=[];
 handles.FRETs_indexes=[];
