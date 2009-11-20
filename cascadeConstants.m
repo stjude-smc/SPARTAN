@@ -1,10 +1,10 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '1.6';  %pipeline release version number
+constants.version = '1.7';  %pipeline release version number
 
 
-% Correction for fluor detection efficiency.
+% Correction factor for fluor detection efficiency.
 % 
 constants.gamma = 0.7; %
 
@@ -17,7 +17,9 @@ constants.NBK=100; % Size of window used for calc. background statistics
 constants.NSTD=8; % PB detection threshold (see CalcLifetime)
 constants.TAU=9; % median filter window size (PB detection).
 
-constants.overlap_nstd=5; % multiple PB detection threshold $
+constants.gettracesThresholdStd = 8; %see gettraces.m
+
+constants.overlap_nstd=5; % multiple PB detection threshold
 constants.blink_nstd=4;% set FRET=0 below threshold (donor is blinking)
 
 

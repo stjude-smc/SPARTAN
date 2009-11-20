@@ -86,7 +86,8 @@ image_t = stkData.stk_top - stkData.background;
 
 if ~isfield(params,'don_thresh') || params.don_thresh==0
     if ~isfield(params,'thresh_std')
-        thresh_std = 8;
+        constants = cascadeConstants;
+        thresh_std = constants.gettracesThresholdStd;
     else
         thresh_std = params.thresh_std;
     end
@@ -573,7 +574,7 @@ if nargin>=6 && isfield(params,'nPixelsToSum')
 else
     % Use empirically determined values for Photometrics Cascade cameras.
     if stkX == 128
-        nPixelsToSum=5;
+        nPixelsToSum=4;
     elseif stkX == 170
         nPixelsToSum=4;
     elseif stkX == 256
@@ -654,18 +655,19 @@ saveTraces( save_fname, 'traces', donor,acceptor, [], time );
 
 % Save the locations of the picked peaks for later lookup.
 % FORMAT:  mol_name, don x, don y, acc x, acc y
-% filename=strrep(handles.stkfile,'.stk','.loc.txt');
-% fid = fopen(filename,'w');
-% 
-% for j=1:nTrances/2;
-%     don_x = x(2*j-1);
-%     don_y = y(2*j-1);
-%     acc_x = x(2*j);
-%     acc_y = y(2*j);
-%     
-%     fprintf(fid, '%s_%d- %d %d %d %d\n', name, j, don_x,don_y,acc_x,acc_y);
-% end
-% 
-% fclose(fid);
+if isfield(params,'saveLocations') && params.saveLocations,
+    filename=strrep(stk_fname,'.stk','.loc.txt');
+    fid = fopen(filename,'w');
 
+    for j=1:Npeaks,
+        don_x = x(2*j-1);
+        don_y = y(2*j-1);
+        acc_x = x(2*j);
+        acc_y = y(2*j);
+
+        fprintf(fid, '%s_%d %d %d %d %d\n', name, j, don_x,don_y,acc_x,acc_y);
+    end
+
+    fclose(fid);
+end
 

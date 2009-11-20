@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 05-Aug-2009 18:13:45
+% Last Modified by GUIDE v2.5 19-Nov-2009 18:50:24
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -68,6 +68,7 @@ handles.output = hObject;
 % params.don_thresh = 0; %not specified = auto pick
 params.overlap_thresh = 2.5;
 params.nPixelsToSum   = 4;
+params.saveLocations  = 0;
 
 set( handles.txtIntensityThreshold,'String','' );
 set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
@@ -142,11 +143,13 @@ setappdata(handles.figure1,'stkData', stkData);
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 low = min(min(handles.stk_top));
 high = max(max(handles.stk_top));
-high = ceil(high*2);
+high = min( ceil(high*1.5), 32000 );
+val = (low+high)/2;
 
 set(handles.scaleSlider,'min',low);
-set(handles.scaleSlider,'max',high);
-set(handles.scaleSlider,'value', (low+high)/2);
+set(handles.scaleSlider,'max',32000); %uint32 maxmimum value
+set(handles.scaleSlider,'value', val);
+set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 %
 image_t    = handles.stk_top-stkData.background+mean2(stkData.background);
@@ -370,9 +373,16 @@ clear stkData;
 % --- Executes on slider movement.
 function scaleSlider_Callback(hObject, eventdata, handles)
 % Update axes color limits from new slider value
-set( handles.axDonor,    'CLim',[get(hObject,'min') get(hObject,'value')] );
-set( handles.axAcceptor, 'CLim',[get(hObject,'min') get(hObject,'value')] );
-set( handles.axTotal,    'CLim',[get(hObject,'min')*2 get(hObject,'value')*2] );
+val = get(hObject,'value');
+minimum = get(hObject,'min');
+
+val = max(val,minimum+1); %prevent errors in GUI
+
+set( handles.axDonor,    'CLim',[minimum val] );
+set( handles.axAcceptor, 'CLim',[minimum val] );
+set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+
+set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 guidata(hObject,handles);
 
@@ -410,6 +420,37 @@ if ~isempty( text )
 elseif isfield(handles.params,'nPixelsToSum');
     handles.params = rmfield( handles.params,'nPixelsToSum' );
 end
+guidata(hObject,handles);
+
+
+
+
+% --- Executes on button press in chkSaveLocations.
+function chkSaveLocations_Callback(hObject, eventdata, handles)
+% Update gettraces parameters using specified values
+handles.params.saveLocations = get(handles.chkSaveLocations,'Value');
+guidata(hObject,handles);
+
+
+
+
+function txtMaxIntensity_Callback(hObject, eventdata, handles)
+% Update axes color limits from new slider value
+val = str2num( get(hObject,'String') );
+minimum = get(handles.scaleSlider,'min');
+maximum = get(handles.scaleSlider,'max');
+
+val = max(val,minimum+1); %prevent errors in GUI
+maximum = max(val,maximum);
+
+set( handles.scaleSlider, 'Value',val );
+set( handles.scaleSlider, 'max',maximum );
+set( handles.axDonor,    'CLim',[minimum val] );
+set( handles.axAcceptor, 'CLim',[minimum val] );
+set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+
+set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
+
 guidata(hObject,handles);
 
 
