@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 27-Aug-2009 11:22:53
+% Last Modified by GUIDE v2.5 17-Nov-2009 17:59:47
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -290,5 +290,3 @@ function btnBrowseMovie_Callback(hObject, eventdata, handles)
 % hObject    handle to btnBrowseMovie (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-

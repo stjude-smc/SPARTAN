@@ -54,10 +54,6 @@ framerate = 1/sampling;
 mu    = model(:,1);
 sigma = model(:,2);
 nStates = length(mu);
-
-% Zero probabilities must be avoided, because they can lead
-% to zero probability traces, which will cause an overflow/crash.
-Q( Q<=0 ) = eps;
  
 
 % PARSE OPTIONAL PARAMETER VALUES: initial kinetic parameter values
@@ -92,12 +88,18 @@ else
     stdPhoton = 0;
 end
 
+if isfield(optargs,'gamma') && ~isempty(optargs.gamma)
+    gamma = optargs.gamma;
+    assert( gamma>0, 'gamma must be a positive number' );
+else
+    gamma = 1;
+end
+
 %random number generator seed value
 if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
     randomSeed = optargs.randomSeed;
 else
     randomSeed  = 1272729;
-    %randomSeed = sum(100*clock);
 end
 
 % Simulated acceptor photobleaching rate (0 disables).
@@ -126,15 +128,26 @@ tic;
 % Predict steady-state probabilities for use as initial probabilities.
 if isfield(optargs,'startProb') && ~isempty(optargs.startProb)
     p0 = optargs.startProb;
-    assert( sum(p0)<=1 & sum(p0)>=0.99 & all(p0<=1), 'p0 is not normalized' );
+    assert( abs(sum(p0)-1)<=1e-4, 'p0 is not normalized' );
+    assert( numel(p0)==nStates, 'p0 is the wrong size' );
 else
+    % Calculate A matrix from rates using the matrix exponential method.
+    Qorig = Q;
+    Q( logical(eye(size(Q))) ) = 0;
+    Q( logical(eye(size(Q))) ) = -sum( Q,2 );
+    dt = 1/simFramerate;
+    A = expm( Q.*dt );
+    Q = Qorig;
+    
     % If not specified, estimate the equilibrium probabilities.
-    A = Q./simFramerate;
-    A( logical(eye(nStates)) ) = 1-sum(A,2);
     p0 = A^10000;
     p0 = p0(1,:);
     p0 = p0/sum(p0);
 end
+
+% FRET values are adjusted here so that they match the input values
+% after the introduction of the gamma artifact later.
+mu = mu ./ ( mu + gamma - gamma*mu );
 
 
 
@@ -180,7 +193,7 @@ for i=1:nTraces,
     
     while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
         
-        assert( itr<floor(endTime), 'simulate: N. dwells exceeded RNG buffer size' );
+        assert( itr<size(randData,1), 'simulate: N. dwells exceeded RNG buffer size' );
         
         % Draw dwell time from exponential distribution
         tau = 1000./ Q( curState, : ); %in ms.
@@ -260,6 +273,12 @@ if stdBackground~=0 || stdPhoton ~=0
     donor    = (1-noiseless_fret).*intensity;
     acceptor = intensity-donor;
     
+    % Alter fluorescence traces to simulate non-equal collection efficiencies
+    % for donor and acceptor fluorescence intensities. The factor gamma
+    % is a correction for this effect.
+    % Not that this alters total fluorescence intensities!
+    donor = (1/gamma)*donor;
+    
     % Simulate donor photobleaching
     if kBleach > 0,
         pbTimes = -log(rand(1,nTraces))./kBleachDonor;
@@ -274,6 +293,14 @@ if stdBackground~=0 || stdPhoton ~=0
             acceptor(i,pbtime:end) = 0;
         end
     end
+    
+    % Rescale fluorescence intensities so that the total intensity
+    % (and SNR) are roughly the same as if there was not gamma correction.
+    nNonZero = sum( donor(:)>0 );
+    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero
+    donor    = donor*    (totalIntensity/obsIntensity);
+    acceptor = acceptor* (totalIntensity/obsIntensity);
+    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero
         
     % Simulate the effect of photophysical noise. Here the variance
     % is propotional to the intensity of the signal.
