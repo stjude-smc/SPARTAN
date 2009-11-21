@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 17-Nov-2009 17:59:47
+% Last Modified by GUIDE v2.5 20-Nov-2009 16:32:51
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -89,18 +89,35 @@ function btnSimulate_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-disp( handles.options );
+options = handles.options;
+disp( options );
 
 
-%----- Prompt use for location to save file in...
+%----- Prompt user for location to save file in...
 [f,p] = uiputfile('*.txt','Save simulated data as...');
 if f==0, return; end  %user pressed "cancel"
 fname_txt = [p f];
 
 
-%----- Gather parameter values from GUI, prepare for calling simulate()
-options = handles.options;
+%----- If requested, prompt user for background movie location:
+simMovies   = get(handles.chkSimulateMovies,'Value');
 
+if simMovies
+    % Get movie location from user.
+    bgMovieDir = uigetdir;
+    if ~ischar(bgMovieDir), return; end
+
+    % Verify there are background movies to use.
+    d = dir( [bgMovieDir filesep '*.stk'] );
+    bgMovieFilenames = strcat( [bgMovieDir filesep], {d.name} );
+    
+    if numel(bgMovieFilenames)<1,
+        error('No movies found');
+    end
+end
+
+
+%----- Gather parameter values from GUI, prepare for calling simulate()
 nTraces  = options.nTraces;
 traceLen = options.traceLen;
 nStates  = options.nStates;
@@ -132,15 +149,30 @@ end
 
 
 %----- Run simulate and save results
+
+% If background movies will be simulated, we don't want to
+% add background noise twice.
+if simMovies
+    options.stdBackground = 0;
+end
+
+% Simulate FRET and fluorescence traces
 dataSize = [nTraces traceLen];
 fretModel = [options.mu' options.sigma'];
 
 [dwt,fret,donor,acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
 time = 1000*sampling*( 0:(traceLen-1) );
 
+% Generate ids for the traces
+[p,name] = fileparts(fname_txt);
+ids = cell(nTraces,1);
+for j=1:nTraces;
+    ids{j} = sprintf('%s_%d', name, j);
+end
+
 % Save resulting raw traces files
 fname_trc = strrep(fname_txt, '.txt', '.traces');
-saveTraces( fname_trc, 'traces', donor,acceptor, [], time );
+saveTraces( fname_trc, 'traces', donor,acceptor, ids, time );
 
 % Produce a .txt data file, as if it had been processed by autotrace/sorttraces.
 % Traces without a descernable bleaching event are removed.
@@ -148,10 +180,7 @@ saveTraces( fname_trc, 'traces', donor,acceptor, [], time );
 
 stats = traceStat(d,a,f);
 sel = [stats.snr]>=1;
-d = d(sel,:);
-a = a(sel,:);
-f = f(sel,:);
-ids = ids(sel);
+d = d(sel,:); a = a(sel,:); f = f(sel,:); ids = ids(sel);
 
 saveTraces( fname_txt, 'txt', d,a,f,ids,time );
 
@@ -165,7 +194,17 @@ fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
 saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
 
+%----- Simulate wide-field fluroescence movies using simulated trajectories.
+if simMovies
+    % Run simulateMovie.m with user-provided parameter values.
+    % TODO?: Peak locations are saved in simulateMovie for accuracy evaluation.
+     simulateMovie( fname_trc, bgMovieFilenames, options );
+end
+
+
 %----- Save a log file detailing the input parameters...
+% TODO: save ALL parameters values.
+
 logname = strrep( fname_txt, '.txt','.log' );
 fid = fopen(logname,'w');
 
@@ -194,7 +233,7 @@ fclose(fid);
 
 
 
-%% -------------------  CALLBACK FUNCTIONS  -------------------
+%% -------------------  GUI CALLBACK FUNCTIONS  -------------------
 
 function fieldChanged_Callback(hObject,fieldName)
 % This function is called whenever a GUI textbox's value is updated.
@@ -211,64 +250,28 @@ handles.options.(fieldName) = str2num(value);
 guidata(hObject, handles);
 
 
-
-% function edSNR_Callback(hObject, eventdata, handles)
-% hObject    handle to edSNR (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edSNR as text
-%        str2double(get(hObject,'String')) returns contents of edSNR as a double
-
-% I  = str2double(get(handles.edTotalIntensity,'String'));
-% IS = str2double(get(handles.edStdTotalIntensity,'String'));
-% SNR  = str2double(get(handles.edSNR,'String'));
-% 
-% S = I/(sqrt(2)*SNR);
-% 
-% % text = sprintf('Noise = %0.1f ± %0.1f',I/S,IS/S );
-% text = sprintf('Noise = %0.1f',S );
-% set(handles.txtNoise, 'String', text);
-
-
-
 % --- Executes on button press in chkSimFluorescence.
 function chkSimFluorescence_Callback(hObject, eventdata, handles)
-% hObject    handle to chkSimFluorescence (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-val  = get(hObject,'Value');
-
-% If checking, enable fluorescence simulation parameter boxes
-if val,
-    set( handles.edTotalItensity,'Enable','on' );
-    set( handles.edStdTotalItensity,'Enable','on' );
-    set( handles.edSNR,'Enable','on' );
-    set( handles.edStdPhoton,'Enable','on' );
-    
-    % Re-add these values from the options structure
-    
-% If unchecking, disable them.
-else
-    % Disable text boxes
-    set( handles.edTotalItensity,'Enable','off' );
-    set( handles.edStdTotalItensity,'Enable','off' );
-    set( handles.edSNR,'Enable','off' );
-    set( handles.edStdPhoton,'Enable','off' );
-    
-    % Remove these values from the options structure
-end
+controls = {'edTotalItensity','edStdTotalItensity','edSNR','edStdPhoton','edGamma'};
+handleCheckbox( get(hObject,'Value'), controls, handles );
 
 
 % --- Executes on button press in chkSimulateMovies.
 function chkSimulateMovies_Callback(hObject, eventdata, handles)
-% hObject    handle to chkSimulateMovies (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+controls = {'edDensity','edSigmaPSF'};
+handleCheckbox( get(hObject,'Value'), controls, handles );
 
-% Hint: get(hObject,'Value') returns toggle state of chkSimulateMovies
 
+% ---
+function handleCheckbox( val, controlNames, handles )
+% If val=1, enable all controls listed in controlNames,
+% if val=0, disable all controls listed.
+if val, state='on'; else state='off'; end
+
+ for i=1:numel(controlNames),
+    set( handles.(controlNames{i}),'Enable',state );
+ end
+ 
 
 
 % --- Executes on button press in btnSaveParameters.
@@ -281,12 +284,5 @@ function btnSaveParameters_Callback(hObject, eventdata, handles)
 % --- Executes on button press in btnLoadParameters.
 function btnLoadParameters_Callback(hObject, eventdata, handles)
 % hObject    handle to btnLoadParameters (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-
-% --- Executes on button press in btnBrowseMovie.
-function btnBrowseMovie_Callback(hObject, eventdata, handles)
-% hObject    handle to btnBrowseMovie (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
