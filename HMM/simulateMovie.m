@@ -74,7 +74,7 @@ if ~isfield(params,'density') || isempty(params.density),
 end
 
 if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
-    params.edgeBuffer = ceil(sigmaPSF*3);
+    params.edgeBuffer = ceil(sigmaPSF*4);
 end
 
  
@@ -115,14 +115,23 @@ for n=1:numel(bgMovieFilenames)
     
     % If user requests a regular grid of positions, add some small
     % variability (up to 1 pixel) to approximate random placement.
-    if isfield(params,'grid') && params.grid,
-        spacing = ceil(5*sigmaPSF);
+    if isfield(params,'grid') && ~isempty(params.grid) && params.grid,
+        % Assign a minimal spacing between peaks (3 std's on each side).
+        minSpacing = ceil(8*sigmaPSF);
         
+        % Calculate a spacing that best approximates the requested density.
+        % If the spacing is too small to avoid overlap, reassign.
+        idealSpacing = sqrt(  ( (stkX/2-2*border)*(stkY-2*border) )/params.density  )-1;
+        spacing = max(minSpacing, floor(idealSpacing));
+        
+        % Assign mean fluorophore positions.
         x = (1+border):spacing:(stkX/2-border);  nX = numel(x);
         y = (1+border):spacing:(stkY-border);    nY = numel(y);
         x = repmat( x, [nY 1] );
         y = repmat( y, [nX 1] )';
         
+        % Position each fluorophore at a random position within the
+        % central pixel to simulate random placement.
         donorPos = [y(:) x(:)];
         donorPos = donorPos + rand(size(donorPos))-0.5;
     

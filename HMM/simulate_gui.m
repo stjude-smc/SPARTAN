@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 20-Nov-2009 16:32:51
+% Last Modified by GUIDE v2.5 24-Nov-2009 17:03:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -258,8 +258,21 @@ handleCheckbox( get(hObject,'Value'), controls, handles );
 
 % --- Executes on button press in chkSimulateMovies.
 function chkSimulateMovies_Callback(hObject, eventdata, handles)
-controls = {'edDensity','edSigmaPSF'};
+controls = {'edDensity','edSigmaPSF','chkGrid'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
+
+
+% --- Executes on button press in chkGrid.
+function chkGrid_Callback(hObject, eventdata, handles)
+% Save selection in parameter list.
+if get(hObject,'Value'),
+    handles.options.grid = 1;
+else
+    handles.options = rmfield(handles.options,'grid');
+end
+
+% Update handles structure
+guidata(hObject, handles);
 
 
 % ---
