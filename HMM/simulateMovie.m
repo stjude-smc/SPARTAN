@@ -1,4 +1,4 @@
-function stkOutput = simulateMovie(varargin)
+function peakLocations = simulateMovie(varargin)
 %% simulateMovie   Simulate wide-field smFRET movies from fluorescence data
 % 
 %    simulateMovie( donor, acceptor, bgMovieFilenames, params )
@@ -77,6 +77,10 @@ if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
     params.edgeBuffer = ceil(sigmaPSF*4);
 end
 
+if ~isfield(params,'useAllMovies') || isempty(params.useAllMovies),
+    params.useAllMovies = 0;
+end
+
  
 % Initialize random number generator. Insure values are not correlated
 % if traces are generated with the same random seed.
@@ -96,6 +100,7 @@ acceptor = acceptor + constants.crosstalk*donor;
 
 [nTracesTotal,traceLen] = size(donor);
 nTracesUsed = 0;
+peakLocations = cell(0,1);
 
 h = waitbar(0,'Distributing fluorescence information...'); tic;
 
@@ -146,10 +151,13 @@ for n=1:numel(bgMovieFilenames)
     
     % Verify there are enough traces to fully populate the movie
     nPeaks = size(donorPos,1);
-    if nPeaks>(nTracesTotal-nTracesUsed)
+    if ~params.useAllMovies && nPeaks>(nTracesTotal-nTracesUsed)
         disp('Not enough traces to fill this movie');
         break;
     end
+    
+    % Save peak locations for later comparison (Dy,Dx,Ay,Ax).
+    peakLocations{n} = [donorPos donorPos+stkX/2];
     
 
     % --- 3. Distribute fluorescence intensities into a point-spread function
@@ -157,7 +165,7 @@ for n=1:numel(bgMovieFilenames)
     A = 1/(2*pi* sigmaPSF^2); % 2D Gaussian normalization factor
     
     for i=1:nPeaks,
-        traceID = i+nTracesUsed;
+        traceID = mod(i+nTracesUsed-1,nTracesTotal)+1;
         d = donor(traceID,:);
         a = acceptor(traceID,:);
         
@@ -179,7 +187,11 @@ for n=1:numel(bgMovieFilenames)
             end
         end
 
-        waitbar( (0.95*i+nTracesUsed)/nTracesTotal, h );
+        if ~params.useAllMovies
+            waitbar( (0.95*i+nTracesUsed)/nTracesTotal, h );
+        else
+            waitbar( n/numel(bgMovieFilenames), h );
+        end
     end
 
     % --- 4. Save newly generated movie to file
@@ -193,7 +205,11 @@ for n=1:numel(bgMovieFilenames)
     fwrite( fid, stkOutput, 'int16' );
     fclose(fid);
     
-    waitbar( ((i+nTracesUsed)/nTracesTotal), h );
+    if ~params.useAllMovies
+        waitbar( (i+nTracesUsed)/nTracesTotal, h );
+    else
+        waitbar( n/numel(bgMovieFilenames), h );
+    end
     nTracesUsed = nTracesUsed +nPeaks;
 end
 
