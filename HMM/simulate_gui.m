@@ -203,32 +203,29 @@ end
 
 
 %----- Save a log file detailing the input parameters...
-% TODO: save ALL parameters values.
+constants = cascadeConstants;
 
 logname = strrep( fname_txt, '.txt','.log' );
 fid = fopen(logname,'w');
 
 t = clock;
-fprintf(fid, 'Run time:  %d/%d/%d %d:%d', t(1:5));
+fprintf(fid, 'Run time:  %d/%d/%d %d:%d  (v%s)', t(1:5), constants.version);
 
-fprintf(fid, '\n\nSimulating %d traces of length %d at %d sec/frame.', ...
-             nTraces, traceLen, sampling);
+% Save values of all other constants used
+fprintf(fid, '\n\nSIMULATION PARAMETERS');
 
-fprintf(fid, '\n\nFRET mean: ');
-fprintf(fid, '%0.2f ', fretModel(:,1) );
-fprintf(fid, '\nFRET stdev: ');
-fprintf(fid, '%0.2f ', fretModel(:,2) );
+names = fieldnames(  options );
+vals  = struct2cell( options );
 
-fprintf(fid, '\n\nTotal Intensity: %d ', options.totalIntensity );
-fprintf(fid, '\nStdev Total Intensity: %d ', options.stdTotalIntensity );
-fprintf(fid, '\nSNR: %d ', options.snr );
-fprintf(fid, '\nStdev Fluorescence: %f ', options.stdPhoton );
+for i=1:numel(names),
+    if numel( vals{i} )==1,
+        fprintf(fid, '\n  %22s:  %.2f', names{i}, vals{i} );
+    elseif numel( vals{i} )>1,
+        fprintf(fid, '\n  %22s:  %s', names{i}, mat2str(vals{i}) );
+    end
+end
 
-fprintf(fid, '\n\nRate Matrix:\n');
-fprintf(fid, '%s', get(handles.edRates,'String'));
-
-fprintf(fid, '\n\nRandom seed: %d',options.randomSeed );
-
+fprintf(fid,'\n\n');
 fclose(fid);
 
 
@@ -255,11 +252,18 @@ function chkSimFluorescence_Callback(hObject, eventdata, handles)
 controls = {'edTotalItensity','edStdTotalItensity','edSNR','edStdPhoton','edGamma'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
 
+% Update handles structure
+handles.options.simFluorscence = get(hObject,'Value');
+guidata(hObject, handles);
 
 % --- Executes on button press in chkSimulateMovies.
 function chkSimulateMovies_Callback(hObject, eventdata, handles)
 controls = {'edDensity','edSigmaPSF','chkGrid'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
+
+% Update handles structure
+handles.options.simMovies = get(hObject,'Value');
+guidata(hObject, handles);
 
 
 % --- Executes on button press in chkGrid.
