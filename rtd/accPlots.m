@@ -45,8 +45,11 @@ selectionCriteria.maxTotalSigma = 2; %total intensity w/i 2 sigma
 
 for i=1:nFiles,
     
-    % Filter traces file
+    % Load traces data
     [d,a,f,ids,time] = loadTraces( filenames{i} );
+    sampling = time(2)-time(1);
+    
+    % Filter traces file    
     stats = traceStat(d,a,f);
     idxPicked = pickTraces( stats, selectionCriteria );
     d = d(idxPicked,:);
@@ -61,8 +64,7 @@ for i=1:nFiles,
     makeplotsOptions.targetAxes = {h};
     
     makeplots( autoFilenames(i), titles(i), makeplotsOptions );
-    set(gca, 'xtick', [0:150:600] );
-    set(gca, 'xticklabel',{'0','30','60','90','120'} );
+    set(gca, 'xtick', (0:30:120)/(sampling/1000) );
     xlabel('Time (sec)');
     if i>1, ylabel(''); end
 end

@@ -18,7 +18,8 @@ function output = accTime( tracesFiles, titles )
 
 %%
 
-sumlen = 120; %sec = 5 min.
+sumlen = 120; % in seconds
+cutoffTime = 1; % in seconds
 
 
 
@@ -55,6 +56,7 @@ for i=1:nFiles,
     clear d; clear a;
     assert( time(1)~=1, 'No time axis found' );
     sampling = time(2)-time(1);
+    endTime = sampling/1000 * time(end);
     %assert( sampling==100 ); %ms
 
     % Idealize FRET data
@@ -76,8 +78,8 @@ for i=1:nFiles,
         times  = double( dwt{j}(:,2) ) .* sampling/1000;
         timeline = cumsum( [1; times] );
 
-        % Find the first (if any) dwell in high-FRET longer than 3 sec
-        selection = (states==3) & (times>=1);
+        % Find the first (if any) dwell in high-FRET longer than cutoffTime sec.
+        selection = (states==3) & (times>=cutoffTime);
         idx = find( selection, 1, 'first' );
 
         if ~isempty(idx),
@@ -86,7 +88,7 @@ for i=1:nFiles,
     end
     
     % Save accommodation progression curve to output
-    [N,X] = hist(accTime(accTime>0),0:0.5:300);    
+    [N,X] = hist(accTime(accTime>0),0:(sampling/1000):endTime);    
     NC = cumsum(N);
 %     stairs(X,NC/nTraces)
 %     ylim([0 1]);
