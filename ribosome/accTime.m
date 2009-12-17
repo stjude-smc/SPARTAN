@@ -56,8 +56,6 @@ for i=1:nFiles,
     clear d; clear a;
     assert( time(1)~=1, 'No time axis found' );
     sampling = time(2)-time(1);
-    endTime = sampling/1000 * time(end);
-    %assert( sampling==100 ); %ms
 
     % Idealize FRET data
     dwtFilename = strrep(tracesFiles{i},'.txt','.qub.dwt');
@@ -70,13 +68,13 @@ for i=1:nFiles,
 
     % Find time at which accommodation occurs: estimated as
     % the point  at which a stable ~0.55 FRET state is achieved > 1 sec.
-    accTime = zeros(numel(dwt),1);
+    accTime = repmat(-1,numel(dwt),1);
 
     for j=1:numel(dwt)
 
         states = double( dwt{j}(:,1) );
         times  = double( dwt{j}(:,2) ) .* sampling/1000;
-        timeline = cumsum( [1; times] );
+        timeline = cumsum( [0; times] );
 
         % Find the first (if any) dwell in high-FRET longer than cutoffTime sec.
         selection = (states==3) & (times>=cutoffTime);
@@ -88,10 +86,11 @@ for i=1:nFiles,
     end
     
     % Save accommodation progression curve to output
-    [N,X] = hist(accTime(accTime>0),0:(sampling/1000):endTime);    
+    [N,X] = hist(accTime(accTime>=0), 0:(sampling/1000):sumlen );    
     NC = cumsum(N);
-%     stairs(X,NC/nTraces)
-%     ylim([0 1]);
+
+    N = reshape( N, [1 numel(N)] );
+    X = reshape( X, [1 numel(X)] );
 
     if isempty(output)
         output = [X' (NC/nTraces)'];
