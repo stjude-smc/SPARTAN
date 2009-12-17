@@ -30,7 +30,7 @@ options.tdp_fret_axis = constants.tdp_fret_axis;
 options.normalize = 'total time';
 
 % Modify options if they are specified in the argument list.
-if nargin==2,
+if nargin==3,
     assert( isstruct(varargin{1}) );
     options = catstruct( options, varargin{1} );
 
@@ -93,7 +93,7 @@ for i=1:nTraces
         fretData = fretData( idl>1 );
         
         % Remove dwells in lowest FRET state (assuming it is the dark state)
-        indsToSave = states>1;
+        indsToSave = states>0;
         states = states(indsToSave);
         times  = times(indsToSave);
         
