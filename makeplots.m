@@ -293,8 +293,14 @@ for i=1:numel(samples),  %for each sample
     end
     
     % Draw the contour plot
-    cplot( ax, cplotdata, options.contour_bounds, constants );
+    cplotdata_disp = cplot( ax, cplotdata, options.contour_bounds, constants );
     
+    % Save the data, as it is drawn (including binning) to disk
+    % for plotting in Origin.
+    cplotdata_disp(2:end,2:end) = cplotdata_disp(2:end,2:end)/N(i);
+    histfile=strrep(hist_filename,'_hist.txt','_normhist.txt');
+    dlmwrite(histfile,cplotdata_disp,' ');
+
     % Formatting
     title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
     
@@ -526,10 +532,10 @@ histfile=strrep(data_filename,'.txt','_hist.txt');
 dlmwrite(histfile,frethist,' ');
 
 % Save plots to file
-frethistn = frethist;
-frethistn(2:end,2:end) = frethistn(2:end,2:end)/Nmol;
-histfile=strrep(data_filename,'.txt','_normhist.txt');
-dlmwrite(histfile,frethistn,' ');
+% frethistn = frethist;
+% frethistn(2:end,2:end) = frethistn(2:end,2:end)/Nmol;
+% histfile=strrep(data_filename,'.txt','_normhist.txt');
+% dlmwrite(histfile,frethistn,' ');
 
 
 end %function makecplot
