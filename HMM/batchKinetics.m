@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 % Edit the above text to modify the response to help batchKinetics
 
-% Last Modified by GUIDE v2.5 06-Aug-2009 12:31:35
+% Last Modified by GUIDE v2.5 15-Dec-2009 15:43:18
 
 
 %% GUI Callbacks
@@ -65,6 +65,7 @@ options.sampling = 0.025;
 options.bootstrapN = 1;
 options.deadTime = 0.5;
 options.idealizeMethod = 'Segmental k-means';
+options.seperately = 1; %SKM: analyze each trace individually
 options.kineticsMethod = 'MIL Together';
 handles.options = options;
 
@@ -275,6 +276,11 @@ nFiles = numel(dataFilenames);
 % Setup algorithm settings
 skmOptions.maxItr = 40;
 skmOptions.convLL = 1e-4;
+skmOptions.seperately = options.seperately;
+if skmOptions.seperately,
+    skmOptions.quiet = 1;
+end
+
 bwOptions = skmOptions;
 thresholdOptions = struct([]);
 
@@ -362,8 +368,15 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         dwt = dwt( logical(keep) );
         offsets = offsets( logical(keep) );
         
-        % Save results
-        skmModels(i) = optModel;
+        % Save results.
+        % NOTE: there is no one result when each trace is optimized seperately.
+        % An "average" model is extracted instead.
+        skmModels(i) = optModel(1);
+        if ~skmOptions.seperately,
+            skmModels(i).mu    = mean( [optModel.mu], 2 );
+            skmModels(i).sigma = mean( [optModel.sigma], 2 );
+            skmModels(i).LL    = mean( [optModel.LL], 2 );
+        end
 
         % Save the idealization
         dwtFilename = strrep(filename,'.txt','.qub.dwt');
@@ -574,7 +587,8 @@ end
 
 % Calculate average rates
 avgRates = bootstrapRates(1,:);
-stdRates = std(bootstrapRates);
+% avgRates = mean(bootstrapRates,1);
+stdRates = std(bootstrapRates,0,1);
 
 if nBootstrap==1,
     stdRates = zeros( size(avgRates) );
@@ -721,3 +735,9 @@ function edDeadTime_Callback(hObject, eventdata, handles)
 handles.options.deadTime = str2double( get(hObject,'String') );
 guidata(hObject, handles);
 
+
+% --- Executes on button press in chkIdealizeSeperately.
+function chkIdealizeSeperately_Callback(hObject, eventdata, handles)
+% Idealization options: fix FRET standard deviationsto specified values.
+handles.options.seperately = get(hObject,'Value');
+guidata(hObject, handles);
