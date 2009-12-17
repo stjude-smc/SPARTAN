@@ -141,7 +141,8 @@ setappdata(handles.figure1,'stkData', stkData);
 
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-low = min(min(handles.stk_top));
+% low = min(min(handles.stk_top));
+low=0;
 high = max(max(handles.stk_top));
 high = min( ceil(high*1.5), 32000 );
 val = (low+high)/2;
@@ -152,7 +153,7 @@ set(handles.scaleSlider,'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 %
-image_t    = handles.stk_top-stkData.background+mean2(stkData.background);
+image_t    = handles.stk_top-stkData.background;
 [nrow,ncol] = size(image_t);
 
 donor_t    = image_t(:,1:ncol/2);

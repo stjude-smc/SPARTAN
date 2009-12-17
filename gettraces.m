@@ -30,6 +30,9 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %     - nPixelsIntegrated: number of pixels proximal to each peak to sum
 %          to produce fluorescence traces. Higher values capture more
 %          intensity, but also capture more noise...
+%     - saveLocations: write a text file with the locations of each peak to
+%          file.
+%
 
 % TODO: also return unfiltered peak list (overlap=0) so overlap statistics
 % can be displayed in scripts that call this function.
@@ -45,6 +48,22 @@ if nargin==0,
 end
 
 
+%------ Load parameter values (always second parameter!)
+if nargin<2, %provide defaults if no parameters given.
+    params.don_thresh = 0;
+    params.overlap_thresh = 2.1;
+else
+    params = varargin{2};
+end
+
+% If any parameters are not specified, give a default value of 0.
+% This way, we don't have to constantly check if a parameter exists.
+paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations'};
+for i=1:numel(paramNames),
+    if ~isfield(params,paramNames{i})
+        params.(paramNames{i}) = 0;
+    end
+end
 
     
 %------ If a structure is specified, load as STK data
@@ -53,17 +72,11 @@ if nargin>=1 && isstruct(varargin{1}),
 
 %------ Otherwise, load an individual file
 elseif nargin>=1 && ischar(varargin{1}) && ~isdir(varargin{1}),
-    stkData = OpenStk2( varargin{1} );
+    stkData = OpenStk( varargin{1} );
 
-%------ If a directory name is given, run in batch mode
+%------ If a directory name is given, run in batch mode and then terminate.
 elseif nargin>=1 && ischar(varargin{1}) && isdir(varargin{1})
-    if nargin>=2,
-        params = varargin{2};
-        batchmode( varargin{1}, params );
-    else
-        batchmode( varargin{1} );
-    end
-    
+    batchmode( varargin{1}, params );
     return;
 
 else
@@ -74,17 +87,11 @@ end
 
 
 %------ Find peaks of intensity corrosponding to isolated single molecules
-params.don_thresh = 0;
-params.overlap_thresh = 2.1;
 
-if nargin>=2,
-    params = varargin{2};
-end
-    
 % Generate image that will be used to select peaks
 image_t = stkData.stk_top - stkData.background;
 
-if ~isfield(params,'don_thresh') || params.don_thresh==0
+if ~params.don_thresh
     if ~isfield(params,'thresh_std')
         constants = cascadeConstants;
         thresh_std = constants.gettracesThresholdStd;
@@ -96,18 +103,13 @@ if ~isfield(params,'don_thresh') || params.don_thresh==0
     % background intensity at end of movie.
     endBG = sort( stkData.endBackground(:) );
     endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
-    don_thresh = thresh_std*std( endBG_lowerHalf );
+    params.don_thresh = thresh_std*std( endBG_lowerHalf );
 else
-   don_thresh = params.don_thresh-mean2(stkData.background);
-end
-
-overlap_thresh = 0;
-if isfield(params,'overlap_thresh')
-    overlap_thresh = params.overlap_thresh;
+    params.don_thresh = params.don_thresh-mean2(stkData.background);
 end
 
 % Find peak locations from total intensity
-[peaksX,peaksY] = getPeaks( image_t, don_thresh, overlap_thresh );
+[peaksX,peaksY] = getPeaks( image_t, params.don_thresh, params.overlap_thresh );
 peaks = [peaksX peaksY];
 
 
@@ -126,7 +128,7 @@ return;
 
 
 
-function [stkData] = OpenStk2(filename)
+function [stkData] = OpenStk(filename)
 
 % If the movie is compressed, deflate it to a temporary location first
 if strfind(filename,'.stk.bz2'),
@@ -223,72 +225,50 @@ stkData.time = time;
 
 function batchmode(direct,params)
 
-if nargin<2,
-    params = struct([]);
-end
+h = waitbar(0,'Extracting traces from movies...');
 
-if ~isfield(params,'skipExisting'),
-    params(1).skipExisting = 0;
-end
-if ~isfield(params,'recursive')
-    params.recursive = 0;
-end
-if ~isfield(params,'don_thresh'),
-    params.don_thresh = 0;
-end
-if ~isfield(params,'overlap_thresh'),
-    params.overlap_thresh = 0;
-end
-
-% Create header for log file
-log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
-fprintf(log_fid, 'Donor Thresh = %.1f\n',params.don_thresh);
-fprintf(log_fid, 'Overlap = %.1f\n',params.overlap_thresh);
-% fprintf(log_fid, 'Acceptor Thresh = %.1f\n',acc_thresh);
-
-fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
 
 % Get list of files in current directory (option: and all subdirectories)
 if params.recursive
-    stk_files  = rdir([direct filesep '**' filesep '*.stk*']);
+    movieFilenames  = rdir([direct filesep '**' filesep '*.stk']);
+    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.stk.bz2'])];
+    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.movie'])];
 else
-    stk_files  = rdir([direct filesep '*.stk*']);
-    stk_files  = [stk_files rdir([direct filesep '*.movie'])];
+    movieFilenames  = rdir([direct filesep '*.stk']);
+    movieFilenames  = [movieFilenames; rdir([direct filesep '*.stk.bz2'])];
+    movieFilenames  = [movieFilenames; rdir([direct filesep '*.movie'])];
 end
 
+nFiles = length(movieFilenames);
 
-% For each file in the user-selected directory
-i = 0;
-nFiles = length(stk_files);
-for file = stk_files'
-    
-    i = i+1;
+
+% Process each file in the user selected directory.
+nTraces  = zeros(nFiles,1); % number of peaks found in file X
+existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
+
+for i=1:nFiles,
     
     % Skip if previously processed (.traces file exists)
-    stk_fname = strrep(file.name,'.bz2','');
+    stk_fname = strrep(movieFilenames(i).name,'.bz2','');
     [p,name]=fileparts(stk_fname);
     traceFname = [p filesep name '.traces'];
     
     if params.skipExisting && exist(traceFname,'file'),
-        %disp( ['Skipping (already processed): ' stk_fname] );
-        fprintf(log_fid, 'Skip %s\n', file.name);
+        disp( ['Skipping (already processed): ' stk_fname] );
+        existing(i) = 1;
         continue;
     end
     
-    if ~exist('h','var')
-        h = waitbar(0,'Extracting traces from movies...');
-    end
-    
     % Load STK file
-    stkData = OpenStk2( file.name );
+    stkData = OpenStk( movieFilenames(i).name );
     
     % Pick molecules using default parameter values
     image_t = stkData.stk_top - stkData.background;
-    [nrow ncol] = size(image_t);
 
-    if ~isfield(params,'don_thresh') || params.don_thresh==0
+    if ~params.don_thresh
         if ~isfield(params,'thresh_std')
-            thresh_std = 8;
+            constants = cascadeConstants;
+            thresh_std = constants.gettracesThresholdStd;
         else
             thresh_std = params.thresh_std;
         end
@@ -305,20 +285,43 @@ for file = stk_files'
     % Find peak locations from total intensity
     [peaksX,peaksY] = getPeaks( image_t, don_thresh, params.overlap_thresh );
     peaks = [peaksX peaksY];
+    nTraces(i) = numel(peaksX)/2;
     
     % Save the traces to file
     integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
         traceFname, stkData.time, params );
     
-    % Save entry in log file
-    fprintf(log_fid, '%.0f %s\n', size(peaks,1)/2, file.name);
-    
     waitbar(i/nFiles); drawnow;
 end
 
-if exist('h','var')
-    close(h);
+
+% ----- Create log file with results
+log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
+
+% Log parameter values used in gettraces
+fprintf(log_fid,'GETTRACES PARAMETERS:\n');
+
+names = fieldnames(  params );
+vals  = struct2cell( params );
+
+for i=1:numel(names),
+    fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
 end
+
+% Log list of files processed by gettraces
+fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
+
+for i=1:nFiles
+    if existing(i),
+        fprintf(log_fid, 'SKIP %s\n', movieFilenames(i).name);
+    else
+        fprintf(log_fid, '%.0f %s\n', nTraces(i), movieFilenames(i).name);
+    end
+end
+
+
+% Clean up
+close(h);
 
 fclose(log_fid);
 
@@ -353,7 +356,7 @@ acc_x = don_x + (ncol/2);
 acc_y = don_y;
 
 
-%---- 6. Output results
+%---- 6. Save results for output
 
 picksX = zeros(nPicked*2,1);
 picksY = zeros(nPicked*2,1);
@@ -365,102 +368,28 @@ for i=1:nPicked,
     picksY(2*i)   = acc_y(i);
 end    
 
-return;  %skip everything else!
 
 
-%---- 2. Estimate coordinates of acceptor-side peaks
+%---- 7. Estimate coordinates of acceptor-side peaks to verify alignment.
 
-% Initial guess: simple translation to right half (no rotation, scale)
-acc_x = don_x + (ncol/2);
-acc_y = don_y;
+align_acc_x = acc_x;
+align_acc_y = acc_y;
 
 for j=1:nPicked,
-
     % Refine acceptor peak positions by finding local maxima
     % within the 3x3 grid around the initial guess.
     temp = image_t( acc_y(j)-1:acc_y(j)+1, acc_x(j)-1:acc_x(j)+1 );
     [maxy, maxx] = find(temp==max(max(temp)),1);
-    acc_x(j) = acc_x(j) +maxx-2;
-    acc_y(j) = acc_y(j) +maxy-2;
-    
+    align_acc_x(j) = align_acc_x(j) +maxx-2;
+    align_acc_y(j) = align_acc_y(j) +maxy-2;
 end
 
-% OR do the following:
-% help says do not use if scale changes in transform
-%acceptor_points = cpcorr( acceptor_points, donor_points, acceptor_t, donor_t );
-
-
-%---- 3. Create mapping function: donor to acceptor side
-% ...to account for misalignment of DualView.  The transform is then 
-% applied to get predicted Cy5 peak positions.
-% 
-%   Tranform matrix format:
-%   scale X | shear Y | 0
-%   shear X | scale Y | 0
-%   trans X | trans Y | 1
-% 
-% NOTE that the image is a grid, so transforms of non-integer amounts
-% have stochastic effects going from continuous to discrete cooredinates.
-% 
-% AFFINE works best
-% 
-
-if nPicked<5, 
-    % If less than 5 molecules, don't attempt to derive a transform,
-    % just use translation
-    disp( 'Warning: Too few molecules to create transformation' );
-    f = [1 0 0 ; 0 1 0 ; ncol/2 0 1];
-else
-    donor_points    = [don_x ; don_y]';
-    acceptor_points = [acc_x ; acc_y]';
-
-    tform = cp2tform(acceptor_points,donor_points,'linear conformal');  %image proc TK
-    f = tform.tdata.Tinv;
-    
-%     u = [0 1]; v=[0 0];
-%     [tx,ty] = tformfwd(tform, u,v);
-%     dx = tx(2)-tx(1)
-%     dy = ty(2)-ty(1)
-%     angle = (180/pi) * atan2(dy, dx) 
-%     scale = 1 / sqrt(dx^2 + dy^2)
+% Verify the alignment
+x_align = mean( align_acc_y-acc_y );
+y_align = mean( align_acc_y-acc_y );
+if abs(x_align)+abs(y_align)>0.5,
+    warning('gettraces:align','DualView may be out of alignment.');
 end
-
-
-
-%---- 4. Use the transform to get acceptor-side coordinates
-for i=1:nPicked,
-    
-    % Apply transform to get acceptor-side coordinates
-    points=[don_x(i) don_y(i) 1]*f;
-    points=round(points);
-
-    acc_x(i) = points(1);
-    acc_y(i) = points(2);
-end    
-
-
-%---- 5. Repick based on total peak intensity
-% Picking based on donor intensity alone may preferentially miss
-% traces with high average FRET (low donor intensity)
-
-% reg_acceptor = imtransform( acceptor_t, tform, 'Fill',255 );
-% reg_acceptor = reg_acceptor(1:170,1:85);
-
-
-
-
-
-%---- 6. Output results
-
-picksX = zeros(nPicked*2,1);
-picksY = zeros(nPicked*2,1);
-
-for i=1:nPicked,
-    picksX(2*i-1) = don_x(i);
-    picksY(2*i-1) = don_y(i);
-    picksX(2*i)   = acc_x(i);
-    picksY(2*i)   = acc_y(i);
-end    
 
 
 
@@ -502,8 +431,6 @@ for i=1+3:nrow-3,
             % position
             off_x = WeightedAvg( 1:3, sum(block,1)  ) -1.5;
             off_y = WeightedAvg( 1:3, sum(block,2)' ) -1.5;
-%                   
-%             line(j+off_x-0.5,i+off_y-0.5,'marker','o','color','y','EraseMode','background')
             
             % Save the position of this molecule
             nMols=nMols+1;
@@ -655,7 +582,7 @@ saveTraces( save_fname, 'traces', donor,acceptor, [], time );
 
 % Save the locations of the picked peaks for later lookup.
 % FORMAT:  mol_name, don x, don y, acc x, acc y
-if isfield(params,'saveLocations') && params.saveLocations,
+if params.saveLocations,
     filename=strrep(stk_fname,'.stk','.loc.txt');
     fid = fopen(filename,'w');
 
