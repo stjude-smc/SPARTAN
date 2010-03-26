@@ -371,11 +371,12 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         % Save results.
         % NOTE: there is no one result when each trace is optimized seperately.
         % An "average" model is extracted instead.
-        skmModels(i) = optModel(1);
-        if ~skmOptions.seperately,
+        if skmOptions.seperately,
             skmModels(i).mu    = mean( [optModel.mu], 2 );
             skmModels(i).sigma = mean( [optModel.sigma], 2 );
-            skmModels(i).LL    = mean( [optModel.LL], 2 );
+            skmModels(i).LL    = mean( LL, 2 );
+        else
+            skmModels(i) = optModel(1);
         end
 
         % Save the idealization

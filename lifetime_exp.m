@@ -1,4 +1,4 @@
-function [rates,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename, colors )
+function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename, colors )
 %LIFETIME_EXP  Estimates median lifetime in each state
 % 
 %   R = LIFETIME_EXP(FILE)
@@ -32,7 +32,7 @@ end
 
 fitSingle = true;  %otherwise, double exponential fitting...
 
-plotFits = false;
+plotFits = 1;
        
 %---------------------------------
 
@@ -61,7 +61,7 @@ nStates = numel(model)/2;
 clear dwells; clear offsets;
 
 %
-rates     = zeros(nFiles,nStates);   % average lifetimes (fit)
+lifetimes = zeros(nFiles,nStates);   % average lifetimes (fit)
 totalTimes= zeros(nFiles,nStates);
 dwellhist = cell(nFiles,nStates);   % histogram of dwell times
 fits      = cell(nFiles,nStates);    % fit structures for plotting
@@ -105,22 +105,20 @@ for i=1:nFiles,
         
         if fitSingle,
             result1 = fit( x', y, 'exp1' );
-            fits{i,j} = result1;
-
-            % Record mean lifetime
-            rates(i,j) = -1000/result1.b;
         else
             result1 = fit( x', y, 'exp2' );
-            fits{i,j} = result1;
-
-            coefs = coeffvalues(result1);
-            weights = coefs(1:2:end);
-            weights = weights./sum(weights);
-
-            % Record mean lifetime
-            weightedAvg = mean( coefs(2:2:end).*weights );
-            rates(i,j) = -1000/weightedAvg;
         end
+        
+        % Find weighted average of time constants.
+        % If a single exponential, just retrieves the time constant.
+        fits{i,j} = result1;
+        coefs = coeffvalues(result1);
+        weights = coefs(1:2:end);
+        weights = weights./sum(weights);
+
+        % Record mean lifetime
+        weightedAvg = mean( coefs(2:2:end).*weights );
+        lifetimes(i,j) = -1/weightedAvg;
     end
 
 end  % for each sample
@@ -132,8 +130,8 @@ if plotFits,
     set(h1,'DefaultAxesColorOrder',colors);
 
     nrows = nStates-1;
-    ncols = nFiles+1;
-
+    ncols = nFiles+1;    
+    
     for i=1:nFiles,
 
         % Plot distribution and fit of each state
@@ -144,7 +142,7 @@ if plotFits,
             plot( dwellaxis, dwellhist{i,j}, 'k.' ); hold on;
             hp = plot( fits{i,j}, 'r-');
             set(hp,'LineWidth',2);
-            xlim( [0 5] );
+            xlim( [0 4*mean(lifetimes(:))] );
             ylim( [0 1] );
             legend off;
 

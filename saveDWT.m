@@ -35,10 +35,11 @@ nSegments = numel(idealization);
 
 % Switch to row order so that (:) creates a sequence of mean+stdev pairs
 if ~iscell(model),
-    model = model';
+    assert( size(model,2)==2, 'Invalid model array shape' );
+    model = model'; % FRET in first row, stdev in second row.
     nStates = numel(model)/2;
     
-    fretValues = model(:,1);
+    fretValues = model(1,:);
     if any( diff(fretValues)<=0 ),
         warning('saveDWT: FRET values are non-increasing!');
     end

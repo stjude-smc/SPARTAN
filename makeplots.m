@@ -33,7 +33,7 @@ function [h1,samples] = makeplots(varargin)
 constants = cascadeConstants();
 
 % Range of FRET values to display in countor and TD plots
-options.fretRange = [-0.1 0.99];
+options.fretRange = [-0.1 1.0];
 
 % Length (in frames) of population histograms
 options.pophist_sumlen = constants.contour_length;
