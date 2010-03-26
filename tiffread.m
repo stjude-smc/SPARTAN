@@ -292,7 +292,7 @@ while (ifd_pos ~= 0)  %follow directory pointers until end
         TIF.b = eval( [TIF.typecode '(0)'] );
 
         
-        stack = zeros(Rwidth,Rheight, img_last-img_first,'uint16');
+        stack = zeros(Rheight,Rwidth, img_last-img_first,'uint16');
         %this loop is to read metamorph stacks:
         for ii = img_first:img_last
 
@@ -302,7 +302,9 @@ while (ifd_pos ~= 0)  %follow directory pointers until end
             fileOffset = PlaneBytesCnt * ( ii - 1 );
 
             img_read = img_read + 1;
-            stack(:,:,img_read) = read_plane(fileOffset, IMG.width, IMG.height, 1);
+            plane = read_plane(fileOffset, IMG.width, IMG.height, 1);
+            stack(:,:,img_read) = plane;
+            %stack(:,:,img_read) = read_plane(fileOffset, IMG.width, IMG.height, 1);
 
             % UNCOMMENT THIS LINE TO GET MM STACK METADATA
             %[ IMG.info, IMG.MM_stack, IMG.MM_wavelength, IMG.MM_private2 ] = extractMetamorphData(ii);

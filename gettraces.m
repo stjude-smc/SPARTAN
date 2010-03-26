@@ -161,7 +161,7 @@ elseif strfind(filename,'.movie'),
 else
     % Load stk movie -- stk(X,Y,frame number)
     [stk,time] = tiffread(filename);
-    [stkX,stkY,Nframes] = size(stk);
+    [stkY,stkX,Nframes] = size(stk);
 end
 
 
@@ -200,7 +200,7 @@ for i=1:stkY/den
 end
 
 % Rescale the image back to the actual size
-background=imresize(temp,[stkX stkY],'bilinear');
+background=imresize(temp,[stkY stkX],'bilinear');
 % handles.background = mean( stk(:,:,end-4:end), 3 );
 
 % Also create a background image from the last few frames;
@@ -214,7 +214,7 @@ stkData.background = background;
 stkData.endBackground = endBackground;
 stkData.time = time;
 
-[stkData.stkX,stkData.stkY,stkData.nFrames] = size(stk);
+[stkData.stkY,stkData.stkX,stkData.nFrames] = size(stk);
 
 % END FUNCTION OpenStk
 
