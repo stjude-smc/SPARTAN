@@ -1,7 +1,16 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '1.7';  %pipeline release version number
+constants.version = '1.8';  %pipeline release version number
+
+
+%--- Application settings for memory/CPU usage:
+
+% Use memory mapping (autotrace only, for now) to keep large data objects
+% in virtual memory. This adds some upfront overhead, but will allow very
+% large datasets to be loaded without exhausting system memory.
+% See loadTracesBatch.m and autotrace.m for details.
+constants.useMemmap = 0; %disabled by default.
 
 
 % Correction factor for fluor detection efficiency.

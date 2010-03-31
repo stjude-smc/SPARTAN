@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 26-Jun-2009 17:17:51
+% Last Modified by GUIDE v2.5 26-Mar-2010 16:16:17
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -100,12 +100,12 @@ handles.constants = constants;
 criteria.overlap = 1; % Remove overlapping molecules
 
 % These can be changed while running the program.
-criteria.minCorrelation=-1.1;
-criteria.maxCorrelation=0.5;
-criteria.minSNR=8;
-criteria.maxBackground=1500;
-criteria.maxDonorBlinks = 4;
-criteria.minFretLifetime = 15;
+criteria.min_corr=-1.1;    % 
+criteria.max_corr=0.5;     % D/A correlation < 0.5
+criteria.min_snr=8;       % SNR over background
+criteria.max_bg=1500;      % Background noise
+criteria.max_ncross = 4;   % donor blinking events
+criteria.min_acclife = 15; % FRET lifetime
 
 handles.criteria = criteria;
 
@@ -117,68 +117,70 @@ handles.sync='n';
 
 
 
-% Initialize input fields with values defined above.
-set(handles.lowThresh,'String',num2str(criteria.minCorrelation));
-set(handles.highThresh,'String',num2str(criteria.maxCorrelation));
-set(handles.SignalNoiseThresh,'String',num2str(criteria.minSNR));
-set(handles.BackgroundNoiseThresh,'String',num2str(criteria.maxBackground));
-set(handles.editNCross,'String',num2str(criteria.maxDonorBlinks));
-set(handles.editAccLife,'String',num2str(criteria.minFretLifetime));
+%---- Initialize input fields with values defined above.
+set(handles.lowThresh,'String',num2str(criteria.min_corr));
+set(handles.highThresh,'String',num2str(criteria.max_corr));
+set(handles.SignalNoiseThresh,'String',num2str(criteria.min_snr));
+set(handles.BackgroundNoiseThresh,'String',num2str(criteria.max_bg));
+set(handles.editNCross,'String',num2str(criteria.max_ncross));
+set(handles.editAccLife,'String',num2str(criteria.min_acclife));
 
 set(handles.FRETBinSize,'String',num2str(handles.contour_bin_size));
 
 
+%---- Setup drop-down boxes listing trace statistics.
 
-% Names of trace statistics -- these should be defined somewhere else!
+% Get names of trace statistics
 ln = traceStat;  %get long statistic names
 handles.statLongNames = ln;
 longNames  = struct2cell(ln);
 shortNames = fieldnames(ln);
 
-
-% Add context menus to the plots to launch curve fitting
-% Ideally, you should be able to drop-in any variant of the interface,
-% with variable numbers of histogram boxes, etc and have it still work.
+% Add trace statistic names to dropdown boxes above histogram axes.
 handles.cboNames = strcat('cboStat',{'1','2','3','4','5'});
 handles.nPlots = length(handles.cboNames);
 
 for id=1:handles.nPlots,
-    menu = uicontextmenu;
-    
-    % Context menu for launching Matlab's curve fitting tool
-    uimenu( menu, 'Label','Curve Fitting...', 'Callback',...
-           ['autotrace(''launchFitTool_Callback'',gcbo,' num2str(id) ',guidata(gcbo))'] );
-    
-    % Context menu for copying the raw statistic data
-    % for fitting in other programs (like Origin)
-    uimenu( menu, 'Label','Copy data', 'Callback',...
-           ['autotrace(''copyPlotData_Callback'',gcbo,' num2str(id) ',guidata(gcbo))'] );
-   
-    % Add the context menu to the axes
-    set( handles.(['axStat' num2str(id)]), 'UIContextMenu', menu );
-    
     % Also set options in combobox
     set( handles.(['cboStat' num2str(id)]), 'String', longNames );
 end
 
-% Set default selections
+% Set default selections for the drop-down boxes.
 set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
 set( handles.cboStat2, 'Value', find(strcmp('lifetime',shortNames))  );
 set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
 set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
 set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
-
-%
+% Setup special criteria selection drop-down boxes.
 handles.nCriteriaBoxes = 7;
 criteriaNames = [{''}; longNames];
 
 for id=1:handles.nCriteriaBoxes
-    
-    % Set options in selection crtieria comboboxes
     set( handles.(['cboCriteria' num2str(id)]), 'String', criteriaNames );
-
 end
+
+
+%---- Add context menus to the plots to launch curve fitting or copy data.
+% Ideally, you should be able to drop-in any variant of the interface,
+% with variable numbers of histogram boxes, etc and have it still work.
+menu = uicontextmenu;
+
+% Context menu for launching Matlab's curve fitting tool
+uimenu( menu, 'Label','Curve Fitting...', 'Callback',...
+       'autotrace(''launchFitTool_Callback'',gca)' );
+
+% Context menu for copying the raw statistic data
+% for fitting in other programs (like Origin)
+uimenu( menu, 'Label','Copy data', 'Callback',...
+       'autotrace(''copyPlotData_Callback'',gca)' );
+
+% Add context menu to all axes (histograms of trace statistics).
+zoom off;
+hZoom = zoom(handles.figure1);
+set(hZoom, 'UIContextMenu', menu );
+zoom on;
+
 
 
 handles.isBatchMode = 0;
@@ -247,7 +249,7 @@ handles.inputdir = datapath;
 handles.inputfiles = filename;
 
 % Update GUI listing of number of files and file types
-disp(handles.inputfiles);
+handles.inputfiles{:}
 if numel(filename) == 1,
     set(handles.editFilename,'String',handles.inputfiles{1});
 else
@@ -394,72 +396,40 @@ guidata(hObject,handles);
 
 function OpenTracesBatch( hObject, handles )
 
-nFiles = numel( handles.inputfiles );
+% Clear out old data to save memory.
+if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
+    rmappdata(handles.figure1,'infoStruct');
+    rmappdata(handles.figure1,'tracedata');
+end
 
 % Determine default filename to use when saving.
 handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
 handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
-handles.ids = cell(0);  % trace names (name_file#_trace#)
-handles.nTracesPerFile = zeros(nFiles,1);
+% Load all data into one large dataset.
+[tracedata,ids,time] = loadTracesBatch( handles.inputfiles );
+handles.timeAxis = time;
+tracedata.ids = ids;
+[handles.Ntraces,handles.len] = size( tracedata.d );
 
+% Calculate trace stats
+infoStruct = traceStat( tracedata.d, tracedata.a, tracedata.f, ...
+                        handles.constants );
 
-% Open each file of traces and build the raw data array. Works the same as
-% above, but loops through each file in the directory.
-if ~handles.isBatchMode, wb=waitbar(0,'Loading traces...'); end
-
-for k=1:nFiles  % for each file...    
-    
-    % Load the traces file.
-    % If raw data, corrections for background and crosstalk are made
-    [donor,acceptor,fret,ids,timeAxis] = loadTraces( ...
-                handles.inputfiles{k}, handles.constants);
-    
-    % Make sure all movies have the same number of frames
-    if exist('len','var') && len~=size(donor,2),
-        error('Trace lengths do not match! Use resizeTraces');
-    end
-    
-    % Calculate lifetimes, and average amplitudes, etc for current file
-    ss = traceStat(donor,acceptor,fret, handles.constants);
-    
-    % Add to values for all files
-    if ~exist('infoStruct','var')
-        infoStruct = ss;
-    else
-        infoStruct = cat(2, infoStruct, ss  );
-    end
-    
-    % Add new data to handles
-    [Ntraces,len] = size(donor);
-    handles.nTracesPerFile(k) = Ntraces;
-    handles.ids = [handles.ids ids];
-    
-    if ~handles.isBatchMode, waitbar(k/nFiles,wb); end
-
-end 
-if ~handles.isBatchMode, close(wb); end
-
-handles.len = len;
-handles.Ntraces = sum(handles.nTracesPerFile);
-handles.timeAxis = timeAxis;
-
-
+                    
 % Save the trace properties values to application data
 setappdata(handles.figure1,'infoStruct', infoStruct);
-clear infoStruct;
+setappdata(handles.figure1,'tracedata', tracedata);
+clear infoStruct; clear tracedata;
 
 
 % Initialize a variable for storing the number of molecules picked.
 handles.picked_mols=0;
 
-% Turn on/off buttons, and initialize the stat outputs.
-set(handles.PickTraces,'Enable','on');
-
 guidata(hObject,handles);
 
 % Automatically run Pick Traces
-PickTraces_Callback(handles.PickTraces,[],guidata(handles.PickTraces));
+PickTraces_Callback(hObject,handles);
 
 
 % END FUNCTION OpenTracesBatch
@@ -486,86 +456,35 @@ assert( strcmp(ext,'.txt'), 'must be .txt' );
 % Save picked data to handles.outfile
 SaveTraces( handles.outfile, handles );
 
+% Update GUI controls:
+% Disabling the button as a means of confirming operation success.
+set(handles.SaveTraces,'Enable','off');
 guidata(hObject,handles);
 
 
 
+
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
-function SaveTraces( filename, handles )
+function SaveTraces( filename, handles, txtOnly )
 
-fid=fopen(filename,'w');
-disp( ['Saving to ' filename] );
+% Get trace data
+data = getappdata(handles.figure1,'tracedata');
 
-% Save forQUB
-qub_fname = strrep( filename, '.txt', '.qub.txt' );
-qubfid=fopen(qub_fname,'w');
-disp( ['Saving to ' qub_fname] );
+%---- Save only selected traces to disk.
+inds = handles.inds_picked;
+fret = data.f(inds,:);
 
-% Write time markers (first row)
-fprintf(fid,'%d ', handles.timeAxis);
-fprintf(fid,'\n');
+saveTraces( filename, 'txt', data.d(inds,:), data.a(inds,:), fret, ...
+                             data.ids(inds), handles.timeAxis );
 
-if ~handles.isBatchMode, wb=waitbar(0,'Saving traces...'); end
-
-nFiles = numel(handles.nTracesPerFile);
-pick_offset = [0; cumsum(handles.nTracesPerFile)];
-
-for index = 1:nFiles  %for each file in batch...
-    
-    %---- Load trace data from file, make corrections
-    % inds_picked is indexes as if all the traces data were in one huge array.
-    % This is translating into an offset at the start of this particular file
-    Ntraces = handles.nTracesPerFile(index);
-    picks = handles.inds_picked - pick_offset(index);
-    picks = picks( picks>0 & picks<=Ntraces );
-    
-    if numel(picks)==0, continue; end
-    
-    [donor,acceptor,fret] = LoadTraces( handles.inputfiles{index}, ...
-                                        handles.constants, picks );
-    
-    
-    %--- Write fluorescence data: {name} {datapoints...}
-    % 3 lines per molecule: donor, acceptor, fret
-    indexes = picks + pick_offset(index);  %indexes into whole dataset
-    
-    for j=1:size(donor,1)  %for each molecule in file...
-        
-        % output name
-        name = '';
-        if ~isempty(handles.ids)
-            name = sprintf('%s ',handles.ids{indexes(j)});
-        end
-
-        % output fluorescence data
-        fprintf(fid,'%s', name);
-        fprintf(fid,'%g ', donor(j,:));
-        assert( ~isnan(donor(j,1)) );
-        fprintf(fid,'\n');
-        
-        fprintf(fid,'%s', name);
-        fprintf(fid,'%g ', acceptor(j,:));
-        fprintf(fid,'\n');
-
-        fprintf(fid,'%s', name);
-        fprintf(fid,'%g ', fret(j,:));
-        fprintf(fid,'\n');
-        
-        % Write FRET data
-        fprintf(qubfid, '%f\n', fret(j,:));
-        
-    end % for each molecule
-    
-    
-    if ~handles.isBatchMode, waitbar(index/nFiles,wb); end
-    
-end % for each file
-fclose(fid);
-fclose(qubfid);
-if ~handles.isBatchMode, close(wb); end
+if nargin<3 || ~txtOnly,
+    qub_fname = strrep( filename, '.txt', '.qub.txt' );
+    saveTraces( qub_fname, 'qub', fret );
+end
+clear data;
 
 
-% Generate log file containing informtion about how the traces were picked.
+%---- Generate log file containing informtion about how the traces were picked.
 logfile=strrep(filename,'.txt','.log');
 fid=fopen(logfile,'w');
 
@@ -589,7 +508,6 @@ fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
         
 % Descriptive statistics about dataset
 stats = getappdata(handles.figure1,'infoStruct');
-% [picks,values] = pickTraces( stats, handles.criteria, handles.constants );
 
 total = handles.Ntraces;
 isMolecule      = sum( [stats.snr]>0 );
@@ -641,8 +559,8 @@ fclose(fid);
 
 %----------------  SAVE MOLECULE PROPERTIES TO FILE ----------------%
 
-% --- Executes on button press in SaveProperties.
-function SaveProperties_Callback(hObject, eventdata, handles)
+% --- Executes on button press in btnSaveProperties.
+function btnSaveProperties_Callback(hObject, eventdata, handles)
 
 % Retrieve trace statistics, extract to matrix
 stats = getappdata(handles.figure1,'infoStruct');
@@ -656,11 +574,15 @@ names = fieldnames(stats);
 filename = strrep( handles.outfile, '.txt', '_prop.txt' );
 fid = fopen( filename, 'w' );
 fprintf( fid, '%s\t', names{:} );
+fprintf( fid, '\n' );
 fclose(fid);
 
 % Write trace statistics
 dlmwrite( filename, data', '-append', 'delimiter','\t' );
 
+% Disable button as a means of confirming operation success.
+set(handles.btnSaveProperties,'Enable','off');
+guidata(hObject,handles);
 
 % END FUNCTION SaveProperties_Callback
       
@@ -682,7 +604,13 @@ guidata(hObject,handles);
 
 
 % Save picked data to handles.outfile
-SaveTraces( handles.outfile, handles );
+SaveTraces( handles.outfile, handles, 1 );
+
+% Update GUI controls:
+% Disabling the button as a means of confirming operation success.
+set(handles.SaveTraces,'Enable','off');
+set(handles.ViewPickedTraces,'Enable','off');
+guidata(hObject,handles);
 
 % Run sorttraces interface so traces can be viewed
 % Could pass description/title as third param (currently empty!)
@@ -710,22 +638,25 @@ for id=1:handles.nCriteriaBoxes
     if equality==1, continue; end %no inequality selected
     
     criteriaName = [equalityText{equality-1} shortNames{selection-1}];
-    value    = str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
+    edText = get(handles.(['edCriteria' num2str(id)]),'String');
+    if isempty(edText), continue; end %no criteria value.
     
-    criteria.(criteriaName) = value;
+    criteria.(criteriaName) = ...
+        str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
 end
 
 
 
 %----------APPLIES PICKING CRITERIA TO TRACES----------
 % --- Executes on button press in PickTraces.
-function PickTraces_Callback(hObject, eventdata, handles)
+function PickTraces_Callback(hObject, handles)
 
 criteria = getSpecialCriteria( handles );
 
-
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
+if isempty(stats), return; end %no data loaded, nothing to do.
+
 picks = pickTraces( stats, criteria );
 clear stats;
 
@@ -738,6 +669,7 @@ if handles.picked_mols > 0
     set(handles.SaveTraces,'Enable','on');
     set(handles.MakeContourPlot,'Enable','on');
     set(handles.ViewPickedTraces,'Enable','on');
+    set(handles.btnSaveProperties,'Enable','on');
 end
 
 % Turn some other buttons on/off.
@@ -769,112 +701,51 @@ end
 % --- Executes on button press in MakeContourPlot.
 function MakeContourPlot_Callback(hObject, eventdata, handles)
 % Builds and displays contour plot.
-% TODO: Figure out why plots made with makeplots from file and passing data
-% directly give different results.
 
-if 1,  % simpler way to do it...but slower.
-    % Save current selections as a temporary file
-    filename = [tempname '_auto.txt'];
-    SaveTraces( filename, handles );
+% Get FRET data for selected traces.
+inds = handles.inds_picked;
+data = getappdata(handles.figure1,'tracedata');
 
-    % Make contour plots using makeplots.m
-    [p,title] = fileparts(handles.outfile);
-    title = strrep( title,'_',' ' );
-    makeplots( {filename}, {title} );
+% Make contour plots using makeplots.m
+options.contour_bin_size = handles.contour_bin_size;
+options.pophist_offset = 0;
+frethist = makecplot( data.f(inds,:), options );
+clear data;
 
-    return;
-end
-
-constants = handles.constants;
-
-
-wbh=waitbar(0,'Making contour plot...');
-
-pick_offset = [0; cumsum(handles.nTracesPerFile)];
-nFiles = numel( handles.nTracesPerFile );
-    
-% Axes for histogram:
-time_axis=1:handles.len;
-fret_axis=-0.1:handles.contour_bin_size:1.0;
-
-% Initialize histogram array, setting the time step in the first row,
-% and the FRET bins in the first column. This is done for import into
-% Origin.
-frethist = zeros( length(fret_axis)+1, length(time_axis)+1 );
-frethist(1,2:end) = time_axis;
-frethist(2:end,1) = fret_axis';
-
-for index = 1:nFiles  %for each file in batch...
-
-    % inds_picked is indexes as if all the traces data were in one huge array.
-    % This is translating into an offset at the start of this particular file
-    Ntraces = handles.nTracesPerFile(index);
-    picks = handles.inds_picked - pick_offset(index);
-    picks = picks( picks>0 & picks<=Ntraces );  %indexes just into this file
-    
-    if numel(picks)==0, continue; end
-
-    filename = handles.inputfiles{index};
-
-    % Load data, no seperation of events or synchornization.
-    if handles.sync == 'n',
-        [donor,acceptor,fret] = loadTraces(filename,constants,picks);
-
-    % Seperate events and synchornize to 
-    elseif handles.sync == 's',
-        fret = autosort( filename, picks );
-        nTraces = size(fret,1);
-        
-        for i=1:nTraces
-            s = find(fret(i,:)>=0.125,1);
-            s = max(s-8,1);
-            fret(i,:) = [fret(i,s:end) zeros(1,s-1)];
-        end
-        
-        if size(fret,1) == 0, continue; end
-    end
-
-    assert( size(fret,2) == handles.len, ...
-            'Trace lengths do not match! Use resizeTraces.' );
-
-    % hist has different behavior for a 1xN vector than MxN, so we
-    % pad zeros to make it do the same thing in both cases.
-    if size(fret,1) == 1
-        fret = [fret ; repmat(NaN,1,handles.len)];
-    end
-
-    frethist(2:end,2:end) = frethist(2:end,2:end) + ...
-                                    hist( fret, fret_axis  );
-
-    waitbar(index/nFiles,wbh);
-end %for each file of traces
-
-% Plot the histograms
 [p,title] = fileparts(handles.outfile);
 title = strrep( title,'_',' ' );
 makeplots( frethist, title );
 
-set(handles.SaveContourPlot,'Enable','on');
-
 
 % Clean up and save FRET histogram data for saving.
-close(wbh);  %close waitbar
-handles.frethist = frethist;
+set(handles.SaveContourPlot,'Enable','on');
 guidata(hObject,handles);
 
 
+% END FUNCTION MakeContourPlot_Callback
 
  
 %----------SAVE CONTOUR PLOT----------
 % --- Executes on button press in SaveContourPlot.
 function SaveContourPlot_Callback(hObject, eventdata, handles)
 
+% Get FRET data for selected traces.
+inds = handles.inds_picked;
+data = getappdata(handles.figure1,'tracedata');
+
+% Make contour plots using makeplots.m
+options.contour_bin_size = handles.contour_bin_size;
+options.pophist_offset = 0;
+frethist = makecplot( data.f(inds,:), options );
+clear data;
+
 % Write original file
 histfile=strrep(handles.outfile,'.txt','_hist.txt');
-dlmwrite(histfile,handles.frethist,' ');
+dlmwrite(histfile,frethist,' ');
 
 % GUI stuff
 set(hObject,'Enable','off');
+guidata(hObject,handles);
 
 
 
@@ -888,16 +759,8 @@ set(hObject,'Enable','off');
 % --- Executes on selection change in popupmenu1.
 function popupmenu1_Callback(hObject, eventdata, handles)
 opt=get(hObject,'Value');
-switch opt
-    case 1 % No post-synchronization. This is the default.
-        handles.sync='n';
-    case 2 % Seperate events and synchronize
-        handles.sync='s';
-    case 3 % Post-synchronize each trace to the first point above a threshold.
-        handles.sync='y';
-    case 4 % Post-synchronize each FRET event which crosses a threshold.
-        handles.sync='i';
-end
+choices = 'nsyi';
+handles.sync = choices(opt);
 guidata(hObject,handles);
 
 
@@ -906,140 +769,57 @@ handles.contour_bin_size=str2double(get(hObject,'String'));
 guidata(hObject,handles);
 
 
-
-%----------CHECKBOX FOR MEAN TOTAL INTENSITY CRITERIA----------
-% --- Executes on button press in MeanTotalIntensityBox.
-function MeanTotalIntensityBox_Callback(hObject, eventdata, handles)
-% If box is checked, get the values input by the user.
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minTotalIntensity=str2double(get(handles.MeanTotalIntensityLow,'String'));
-    handles.criteria.maxTotalIntensity=str2double(get(handles.MeanTotalIntensityHigh,'String'));
-    set(handles.MeanTotalIntensityLow,'Enable','on');
-    set(handles.MeanTotalIntensityHigh,'Enable','on');
-else
-    % If the box is unchecked, use values which will nullify the criterium.
-    handles.criteria.minTotalIntensity=[];
-    handles.criteria.maxTotalIntensity=[];
-    set(handles.MeanTotalIntensityLow,'Enable','off');
-    set(handles.MeanTotalIntensityHigh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR FRET THRESHOLD----------
-% --- Executes on button press in fretThreshold.
-function fretThreshold_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minFret=str2double(get(handles.fretSlopeThresh,'String'));
-    set(handles.fretSlopeThresh,'Enable','on');
-else
-    handles.criteria.minFret=[];
-    set(handles.fretSlopeThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR FLUORESCENCE LIFETIME CRITERIA----------
-% --- Executes on button press in FluorescenceLifetimeBox.
-function FluorescenceLifetimeBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minTotalLifetime=str2double(get(handles.FluorescenceLifetime,'String'));
-    handles.criteria.maxTotalLifetime=str2double(get(handles.FluorescenceLifetimeHigh,'String'));
-    set(handles.FluorescenceLifetime,'Enable','on');
-    set(handles.FluorescenceLifetimeHigh,'Enable','on');
-else
-    handles.criteria.minTotalLifetime=[];
-    handles.criteria.maxTotalLifetime=[];
-    set(handles.FluorescenceLifetime,'Enable','off');
-    set(handles.FluorescenceLifetimeHigh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR CORRELATION COEFFICIENT CRITERIA----------
 % --- Executes on button press in CorrelationCoefficientBox.
 function CorrelationCoefficientBox_Callback(hObject, eventdata, handles)
 % Same as above...
 if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minCorrelation=str2double(get(handles.lowThresh,'String'));
-    handles.criteria.maxCorrelation=str2double(get(handles.highThresh,'String'));
+    handles.criteria.min_corr=str2double(get(handles.lowThresh,'String'));
+    handles.criteria.max_corr=str2double(get(handles.highThresh,'String'));
     set(handles.lowThresh,'Enable','on');
     set(handles.highThresh,'Enable','on');
 else
-    handles.criteria.minCorrelation=[];
-    handles.criteria.maxCorrelation=[];
+    handles.criteria.min_corr=[];
+    handles.criteria.max_corr=[];
     set(handles.lowThresh,'Enable','off');
     set(handles.highThresh,'Enable','off');
 end
 guidata(hObject,handles);
+PickTraces_Callback(hObject,handles);
 
 
-%----------CHECKBOX FOR SIGNAL-TO-NOISE CRITERIA----------
-% --- Executes on button press in SignalNoiseBox.
-function SignalNoiseBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minSNR=str2double(get(handles.SignalNoiseThresh,'String'));
-    set(handles.SignalNoiseThresh,'Enable','on');
-else
-    handles.criteria.minSNR=[];
-    set(handles.SignalNoiseThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-%----------CHECKBOX FOR BACKGROUND NOISE CRITERIA----------
-% --- Executes on button press in BackgroundNoiseBox.
-function BackgroundNoiseBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.maxBackground=str2double(get(handles.BackgroundNoiseThresh,'String'));
-    set(handles.BackgroundNoiseThresh,'Enable','on');
-else
-    handles.criteria.maxBackground=[];
-    set(handles.BackgroundNoiseThresh,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-% --- Executes on button press in checkboxNCross.
-function checkboxNCross_Callback(hObject, eventdata, handles)
-% Hint: get(hObject,'Value') returns toggle state of checkboxNCross
-
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.maxDonorBlinks=str2double(get(handles.editNCross,'String'));
-    set(handles.editNCross,'Enable','on');
-else
-    handles.criteria.maxDonorBlinks=[];
-    set(handles.editNCross,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-
-% --- Executes on button press in checkboxAccLife.
-function checkboxAccLife_Callback(hObject, eventdata, handles)
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minFretLifetime = str2double(get(handles.editAccLife,'String'));
-    set(handles.editAccLife,'Enable','on');
-else
-    handles.criteria.minFretLifetime=[];
-    set(handles.editAccLife,'Enable','off');
-end
-guidata(hObject,handles);
-
-
+% --- CALLED when "Remove overlapping traces" checkbox setting is changed.
+% Updates the selection criteria automatically, w/o running PickTraces().
 function chkOverlap_Callback(hObject, eventdata, handles)
 handles.criteria.overlap = get(hObject,'Value');
 guidata(hObject,handles);
+PickTraces_Callback(hObject,handles);
 
 
+% --- CALLED when any of the primary criteria textboxes is changed.
+% Updates the selection criteria automatically, w/o running PickTraces().
 function updateCriteria_Callback( hObject, handles, criteriaName )
 handles.criteria.(criteriaName) = str2double(get(hObject,'String'));
 guidata(hObject,handles);
+PickTraces_Callback(hObject,handles);
+
+
+
+% --- CALLED when any of the primary selection criteria checkbox setting is
+% changed. Updates the selection criteria automatically,
+% w/o running PickTraces().
+function criteriaCheckbox_Callback(hObject, handles, criteriaName, textboxName)
+textbox = handles.(textboxName);
+
+if (get(hObject,'Value')==get(hObject,'Max'))
+    handles.criteria.(criteriaName) = str2double(get(textbox,'String'));
+    set(textbox,'Enable','on');
+else
+    handles.criteria.(criteriaName)=[];
+    set(textbox,'Enable','off');
+end
+
+guidata(hObject,handles);
+PickTraces_Callback(hObject,handles);
 
 
 
@@ -1070,8 +850,6 @@ if ~ismember( statToPlot, fieldnames(stats) ),
     error('Selected trace statistic is unknown');
 end
 
-if length(stats)<1, return; end
-
 % Plot the distribution of the statistic
 statData = [stats.(statToPlot)];
 if any(isnan(statData))
@@ -1093,7 +871,9 @@ if id==1,
 end
 
 % Save histogram data in plot for launching cftool
-set( handles.(['axStat' num2str(id)]), 'UserData', [binCenters;data] );
+if length(stats)>=1,
+    set( handles.(['axStat' num2str(id)]), 'UserData', [binCenters;data] );
+end
 
 
 guidata(hObject,handles);
@@ -1103,14 +883,13 @@ guidata(hObject,handles);
 
 
 
-function launchFitTool_Callback(hObject, id, handles)
+function launchFitTool_Callback(ax)
 % Callback for context menu for trace statistics plots.
 % Launches Curve Fitting Tool using the data in the selected plot.
 
-ax = handles.axStat5(id);
-
 % Get ID of this combo control
 histData = get(ax,'UserData');
+if isempty(histData) || numel(histData)<2, return; end
 
 binCenters = histData(1,:);
 data = histData(2,:);
@@ -1118,54 +897,17 @@ data = histData(2,:);
 cftool(binCenters,data);
 
 
-function copyPlotData_Callback(hObject, id, handles)
+function copyPlotData_Callback(ax)
 % Callback for context menu for trace statistics plots.
 % Launches Curve Fitting Tool using the data in the selected plot.
 
-ax = handles.axStat5(id);
-
 % Get ID of this combo control
 histData = get(ax,'UserData');
+if isempty(histData) || numel(histData)<2, return; end
 
 % Copy to clipboard
 y = num2str(histData);
 clipboard('copy', sprintf([y(1,:) '\n' y(2,:)]) );
-
-
-
-
-
-
-
-
-
-
-
-
-
-% --- Executes on button press in chkIntSigma.
-function chkIntSigma_Callback(hObject, eventdata, handles)
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.maxTotalSigma = str2double(get(handles.edIntSigma,'String'));
-    set(handles.edIntSigma,'Enable','on');
-else
-    handles.criteria.maxTotalSigma=[];
-    set(handles.edIntSigma,'Enable','off');
-end
-guidata(hObject,handles);
-
-
-
-% --- Executes on button press in chkFretEvents.
-function chkFretEvents_Callback(hObject, eventdata, handles)
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.minFretEvents = str2double(get(handles.edFretEvents,'String'));
-    set(handles.edFretEvents,'Enable','on');
-else
-    handles.criteria.minFretEvents=[];
-    set(handles.edFretEvents,'Enable','off');
-end
-guidata(hObject,handles);
 
 
 

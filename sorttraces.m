@@ -56,59 +56,52 @@ function sorttraces_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to sorttraces (see VARARGIN)
 
-% Leave everything alone if the program is already running.
-% This initialization proceedure will confuse the program state.
-if isfield(handles,'constants'),
-    disp('Sorttraces is already running!');
-    return;
+firstRun = 0;
+
+% Initialize GUI if sorrtraces is being launched for the first time.
+if ~isfield(handles,'constants')
+    firstRun = 1;
+    
+    % Choose default command line output for sorttraces
+    handles.output = hObject;
+    handles.vals = [];
+
+    % Initialize some variables, utilizing the handles structure
+    handles.constants = cascadeConstants();
+    handles.defaultFretThreshold=3000;
+    handles.default_crosstalk=0;
+    set(handles.sldCrosstalk, 'Value',  handles.default_crosstalk);
+    set(handles.sldThreshold, 'Value',  handles.defaultFretThreshold);
+    set(handles.edCrosstalk,  'String', '0');
+
+    % Link x-axes - zooming on one plot will automatically zoom on the other
+    linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');
+
+    warning off MATLAB:divideByZero;
 end
-
-
-% Choose default command line output for sorttraces
-handles.output = hObject;
-handles.vals = [];
-
-% Initialize some variables, utilizing the handles structure
-handles.constants = cascadeConstants();
-handles.defaultFretThreshold=3000;
-handles.default_crosstalk=0;
-set(handles.sldCrosstalk, 'Value',  handles.default_crosstalk);
-set(handles.sldThreshold, 'Value',  handles.defaultFretThreshold);
-set(handles.edCrosstalk,  'String', '0');
-
-% Disable most functionalit until a file is loaded
-set(handles.btnSave,'Enable','off');
-set(handles.btnNextTop,'Enable','off');
-set(handles.btnSubDonor,'Enable','off');
-set(handles.btnSubBoth,'Enable','off');
-set(handles.btnSubAcceptor,'Enable','off');
-set(handles.btnSubUndo,'Enable','off');
-set(handles.btnPrevTop,'Enable','off');
-set(handles.btnNextBottom,'Enable','off');
-set(handles.btnPrevBottom,'Enable','off');
-set(handles.editGoTo,'Enable','off');
-
-set(handles.edCrosstalk, 'Enable','off');
-set(handles.sldCrosstalk,'Enable','off');
-set(handles.edThreshold, 'Enable','off');
-set(handles.sldThreshold,'Enable','off');
-
-
-% Link x-axes - zooming on one plot will automatically zoom on the other
-linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');
-
-warning off MATLAB:divideByZero;
-
-
-% If called by autotrace, 2nd argument is filename of traces output file
-if numel(varargin) > 1
-    handles.filename = varargin{2};
-    handles = OpenTracesFile( handles.filename, handles );
-end
-
 
 % Update handles structure
 guidata(hObject, handles);
+
+
+% If called by autotrace, 2nd argument is filename of traces output file.
+if numel(varargin) > 1
+    handles.filename = varargin{2};
+    handles = OpenTracesFile( handles.filename, handles );
+    guidata(hObject, handles);
+        
+    % If a trace number is also specified, jump to that trace.
+    % TODO: Ideally, the file would be reloaded only if necessary.
+    if numel(varargin) > 2,
+        set( handles.editGoTo, 'String',num2str(varargin{3}) );
+        editGoTo_Callback(handles.editGoTo, [], handles);
+    end
+    
+elseif ~firstRun
+    disp('Sorttraces is already running!');
+end
+
+
 
 %--- END FUNCTIN sorttraces_OpeningFcn
 
@@ -209,10 +202,9 @@ end
 set(handles.editBin1,'String', num2str(numel(handles.NoFRETs_indexes)) );
 set(handles.editBin2,'String', num2str(numel(handles.FRETs_indexes))   );
 set(handles.editBin3,'String', num2str(numel(handles.Best_indexes))    );
-set(handles.chkBin1,'Value', 0);
-set(handles.chkBin2,'Value', 0);
-set(handles.chkBin3,'Value', 0);
-
+set(handles.chkBin1,'Enable','on', 'Value', 0);
+set(handles.chkBin2,'Enable','on', 'Value', 0);
+set(handles.chkBin3,'Enable','on', 'Value', 0);
 
 
 % Set data correction starting values
@@ -234,7 +226,7 @@ set(handles.editGoTo,'Enable','on','String',num2str(handles.molecule_no));
 set(handles.edThreshold, 'Enable','on', 'String',num2str(handles.fretThreshold));
 set(handles.sldThreshold,'Enable','on', 'Value', handles.fretThreshold);
 
-set(handles.edCrosstalk, 'String',num2str(handles.crosstalk));
+set(handles.edCrosstalk, 'Enable','on', 'String',num2str(handles.crosstalk));
 set(handles.sldCrosstalk,'Enable','on', 'Value', handles.crosstalk);
 
 
@@ -245,6 +237,7 @@ set(handles.btnSubAcceptor,'Enable','on');
 set(handles.btnPrevTop,'Enable','off');
 set(handles.btnNextBottom,'Enable','on');
 set(handles.btnPrevBottom,'Enable','off');
+set(handles.btnPrint, 'Enable','on');
 
 
 plotter(handles);
@@ -264,8 +257,17 @@ function handles = editGoTo_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-handles.molecule_no=str2double(get(hObject,'String'));
-mol = handles.molecule_no;
+% Get trace ID from GUI
+mol=str2double(get(hObject,'String'));
+
+% If trace ID is invalid, reset it to what it was before.
+if isnan(mol) || mol>handles.Ntraces || mol<1,
+    disp('WARNING in sorttraces: Invalid trace number. Resetting.');
+    set( hObject,'String',num2str(handles.molecule_no) );
+    return;
+else
+    handles.molecule_no = mol;
+end
 
 % Make sure that the molecule selected actually exists.
 if handles.molecule_no+1>handles.Ntraces

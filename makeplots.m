@@ -293,13 +293,7 @@ for i=1:numel(samples),  %for each sample
     end
     
     % Draw the contour plot
-    cplotdata_disp = cplot( ax, cplotdata, options.contour_bounds, constants );
-    
-    % Save the data, as it is drawn (including binning) to disk
-    % for plotting in Origin.
-    cplotdata_disp(2:end,2:end) = cplotdata_disp(2:end,2:end)/N(i);
-    histfile=strrep(hist_filename,'_hist.txt','_normhist.txt');
-    dlmwrite(histfile,cplotdata_disp,' ');
+    cplot( ax, cplotdata, options.contour_bounds, constants );
 
     % Formatting
     title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
@@ -503,42 +497,6 @@ end %function makeplots
 
 %% =============== FCN TO MAKE CONTOUR PLOTS =============== 
 
-function frethist = makecplot( data_filename, options)
-% MAKECPLOT   creates _hist.txt FRET histogram file
-
-% Load data
-[d,a,fret] = loadTraces( data_filename );
-
-% Cut off first few frames to get rid of gain drift.
-fret = fret( :, (1+options.pophist_offset:end) );
-[Nmol len] = size(fret);
-
-% Axes for histogram includes all possible data
-time_axis = 1:len;
-fret_axis = -0.1:options.contour_bin_size:1.2;
-
-% Initialize histogram array, setting the time step in the first row,
-% and the FRET bins in the first column. This is done for import into
-% Origin.
-frethist = zeros( length(fret_axis)+1, length(time_axis)+1 );
-frethist(1,2:end) = time_axis;
-frethist(2:end,1) = fret_axis';
-
-frethist(2:end,2:end) = hist( fret, fret_axis  );
-
-
-% Save plots to file
-histfile=strrep(data_filename,'.txt','_hist.txt');
-dlmwrite(histfile,frethist,' ');
-
-% Save plots to file
-% frethistn = frethist;
-% frethistn(2:end,2:end) = frethistn(2:end,2:end)/Nmol;
-% histfile=strrep(data_filename,'.txt','_normhist.txt');
-% dlmwrite(histfile,frethistn,' ');
-
-
-end %function makecplot
 
 
 

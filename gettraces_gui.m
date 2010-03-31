@@ -123,7 +123,9 @@ function handles = OpenStk(filename, handles, hObject)
 set(handles.txtFilename,'String',filename);
 
 % Clear the original stack to save memory
-setappdata(handles.figure1,'stk',[]);
+if isappdata(handles.figure1,'stkData')
+    rmappdata(handles.figure1,'stkData');
+end
 
 % Load colormap for image viewer
 fid=fopen('colortable.txt','r');
