@@ -116,6 +116,10 @@ peaks = [peaksX peaksY];
 
 %------ Extract traces using peak locations
 if nargin>=3 && ischar(varargin{3}),
+    if ~isfield(params,'nPixelsToSum'),
+        params.nPixelsToSum = 4;
+    end
+    
     outputFilename = varargin{3};
     integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
         outputFilename, stkData.time, params );
@@ -496,22 +500,10 @@ function integrateAndSave( stk, stk_top, peaks, stk_fname, time, params )
 
 % Specify the number of most intense proximal pixels to sum when generating
 % fluorescence traces (depends on experimental point-spread function).
-if nargin>=6 && isfield(params,'nPixelsToSum')
-    nPixelsToSum = params.nPixelsToSum;
-else
-    % Use empirically determined values for Photometrics Cascade cameras.
-    if stkX == 128
-        nPixelsToSum=4;
-    elseif stkX == 170
-        nPixelsToSum=4;
-    elseif stkX == 256
-        nPixelsToSum=4;
-    elseif stkX == 512
-        nPixelsToSum=16;
-    end
-end
+assert( nargin>=6 && isfield(params,'nPixelsToSum'), 'Missing nPixelsToSum' );
+
 swChoices = (1:2:19);
-idx = find( nPixelsToSum<=(swChoices.^2), 1,'first' );
+idx = find( params.nPixelsToSum<=(swChoices.^2), 1,'first' );
 squarewidth = swChoices(idx);
 
 % Get x,y coordinates of picked peaks
@@ -519,7 +511,7 @@ Npeaks = size(peaks,2)/2;
 x = peaks(1,:);
 y = peaks(2,:);
 
-regions=zeros(nPixelsToSum,2,2*Npeaks);  %pixel#, dimension(x,y), peak#
+regions=zeros(params.nPixelsToSum,2,2*Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
@@ -536,8 +528,8 @@ for m=1:2*Npeaks
     % Get pixels whose intensity is greater than the median (max=NumPixels).
     % We just want the centroid to avoid adding noise ...
     % A is x-coord, B is Y-coord of the top <NumPixels> pixels
-    [A,B]=find( peak>=center(squarewidth*squarewidth-nPixelsToSum+1), ...
-                nPixelsToSum );
+    [A,B]=find( peak>=center(squarewidth*squarewidth-params.nPixelsToSum+1), ...
+                params.nPixelsToSum );
     
     % Define a region over which to integrate each peak
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
@@ -553,7 +545,7 @@ idx = sub2ind( s(1:2), regions(:,1,:), regions(:,2,:) );
 
 for k=1:Nframes,
     frame = double(stk(:,:,k));
-    if nPixelsToSum>1
+    if params.nPixelsToSum>1
         traces(:,k) = sum( frame(idx) );
     else
         traces(:,k) = diag( frame(y,x) );
