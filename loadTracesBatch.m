@@ -1,12 +1,13 @@
-function [data,ids,time] = loadTracesBatch( files )
+function [data,indexes] = loadTracesBatch( files )
 % LOADBATCH   Loads a list of files or all traces in a directory.
 %
-%   [DATA,IDS,TIME] = loadBatch( FILES )
+%   [DATA,INDEXES] = loadBatch( FILES )
 %   Loads fluorescence/FRET data from files in the cell array FILES. These
-%   are combined together into a single binary array (DATA) that is stored
-%   on disk and memory mapped. Memory mapping enables very fast access to
-%   the data without having to store all the data in memory (the file
-%   itself is in a temporary location).
+%   are combined together into a structure (DATA) containing binary arrays
+%   for donor, acceptor, and fret (d,a,f) data; the time axis (.time) and
+%   a cell array of ids (.ids). INDEXES is an Nx2 array of the start and end
+%   trace IDs (in the large arrays) for each file. This allows one to easily
+%   seperate out the traces contributed by each file in the list.
 %
 
 %   [DATA,IDS,TIME] = loadBatch( DIR )
@@ -21,6 +22,7 @@ options.useMemmap = constants.useMemmap;
 nFiles = numel(files);
 nTraces = 0;
 ids = {};
+indexes = zeros( nFiles,2 ); %start/end trace indexes for each file.
 
 for i=1:numel(files),
     % Load traces data.
@@ -41,6 +43,8 @@ for i=1:numel(files),
         f_all = zeros( size(d,1)*nFiles, size(d,2) );
     end
     
+    indexes(i,:) = [nTraces+1 nTraces+1+size(d,1)];
+    
     % Save data
     d_all( nTraces+(1:size(d,1)), : ) = d;
     a_all( nTraces+(1:size(d,1)), : ) = a;
@@ -54,12 +58,12 @@ end
 % Depending on performance settings, use a memory-mapped file instead of
 % returning the data as one big variable in RAM.
 if ~options.useMemmap
-    % This will use up more RAM, but is faster because the data do
-    % not have to be saved to file.
     data.d = d_all(1:nTraces,1:traceLen);
     data.a = a_all(1:nTraces,1:traceLen);
     data.f = f_all(1:nTraces,1:traceLen);
-
+    data.ids = ids;
+    data.time = time;
+    
 else
     tempfile = [tempdir 'autotrace_memmap.dat'];
     

@@ -407,9 +407,8 @@ handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
 handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
 % Load all data into one large dataset.
-[tracedata,ids,time] = loadTracesBatch( handles.inputfiles );
-handles.timeAxis = time;
-tracedata.ids = ids;
+tracedata = loadTracesBatch( handles.inputfiles );
+handles.timeAxis = tracedata.time;
 [handles.Ntraces,handles.len] = size( tracedata.d );
 
 % Calculate trace stats
