@@ -18,6 +18,7 @@ function [data,indexes] = loadTracesBatch( files )
 constants = cascadeConstants;
 options.useMemmap = constants.useMemmap;
 
+wbh = waitbar(0,'Loading traces files...');
 
 nFiles = numel(files);
 nTraces = 0;
@@ -52,6 +53,8 @@ for i=1:numel(files),
     nTraces = nTraces + size(d,1);
     
     ids = [ids ids_t];
+    
+    wbh = waitbar(0.9*i/nFiles,wbh);
 end
 
 
@@ -89,5 +92,7 @@ else
 end
 
 
+% Clean up.
+close(wbh);
 
 
