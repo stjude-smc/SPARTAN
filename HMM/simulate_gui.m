@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 24-Nov-2009 17:03:14
+% Last Modified by GUIDE v2.5 09-Apr-2010 12:42:07
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -61,6 +61,10 @@ function simulate_gui_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for simulate_gui
 handles.output = hObject;
 
+
+% Setup initial values for parameters
+handles.hasModel = 0; %no model selected.
+
 % Update handles structure
 guidata(hObject, handles);
 
@@ -85,11 +89,15 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in btnSimulate.
 function btnSimulate_Callback(hObject, eventdata, handles)
-% hObject    handle to btnSimulate (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+
+
+% Verify input parameters
+if ~handles.hasModel,
+    warning('Must load a model first!');
+end
 
 options = handles.options;
+model = handles.model;
 disp( options );
 
 
@@ -120,32 +128,33 @@ end
 %----- Gather parameter values from GUI, prepare for calling simulate()
 nTraces  = options.nTraces;
 traceLen = options.traceLen;
-nStates  = options.nStates;
+nStates  = model.nStates;
 sampling = options.sampling/1000;
 
 options.stdBackground = options.totalIntensity/(sqrt(2)*options.snr);
 options.kBleach = 1/options.totalTimeOn;
 
-if numel(options.sigma)==1,
-    options.sigma = repmat(options.sigma,nStates);
-elseif isempty(options.sigma),
-    % Use a default value (not used for simulation)
-    options.sigma = repmat(0.1,1,nStates);
-end
+% if numel(options.sigma)==1,
+%     options.sigma = repmat(options.sigma,nStates);
+% elseif isempty(options.sigma),
+%     % Use a default value (not used for simulation)
+%     options.sigma = repmat(0.1,1,nStates);
+% end
 
 % Generate Q matrix from rates specified in GUI
-Q = zeros(nStates,nStates);
-idx = find( ~logical(eye(nStates)) );
-r = options.rates';
-Q(idx) = r(:);
-Q = Q';
+% Q = zeros(nStates,nStates);
+% idx = find( ~logical(eye(nStates)) );
+% r = model.rates'; %is this still correct?
+% Q(idx) = r(:);
+% Q = Q';
+Q = model.rates;
 
 
 
 %----- Check parameter values for sanity?
-if numel(options.mu)~=nStates,
-    error('simulate_gui:btnSimulate_Callback','Inconsistent number of states...');
-end
+% if numel(options.mu)~=nStates,
+%     error('simulate_gui:btnSimulate_Callback','Inconsistent number of states...');
+% end
 
 
 %----- Run simulate and save results
@@ -158,7 +167,8 @@ end
 
 % Simulate FRET and fluorescence traces
 dataSize = [nTraces traceLen];
-fretModel = [options.mu' options.sigma'];
+fretModel = [model.mu(model.class)' model.sigma(model.class)'];
+options.startProb = model.p0;
 
 [dwt,fret,donor,acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
 time = 1000*sampling*( 0:(traceLen-1) );
@@ -303,3 +313,59 @@ function btnLoadParameters_Callback(hObject, eventdata, handles)
 % hObject    handle to btnLoadParameters (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+
+
+function edModelFilename_Callback(hObject, eventdata, handles)
+
+% Make sure the model filename is valid.
+filename = get(handles.edModelFilename,'String');
+if exist(filename,'file')~=2,
+    disp('Model file does not exist!');
+    set(hObject,'ForegroundColor',[0.4 0.4 0.4]);
+    return;
+end
+
+% Load model
+handles.modelFilename = filename;
+handles.model = qub_loadModel( filename );
+handles.hasModel = 1;
+
+% Update GUI
+set(hObject,'ForegroundColor',[0 0 0]);
+guidata(hObject, handles);
+
+
+% --- Executes on button press in btnBrowseModel.
+function btnBrowseModel_Callback(hObject, eventdata, handles)
+
+% Set startup location for selecting a model
+filename = get(handles.edModelFilename,'String');
+if isempty(filename) || filename(1)=='(',
+    constants = cascadeConstants;
+    filename = [constants.modelLocation filesep '*.qmf'];
+end
+
+% Get filename of a QuB model from user.
+[f,p] = uigetfile( {'*.qmf','QuB Model File (*.qmf)';'*.*','All Files'}, ...
+                   'Select a QuB model file...',filename);
+if f==0, return; end
+filename = [p f]
+
+set(handles.edModelFilename,'String',filename);
+set(handles.edModelFilename,'ForegroundColor',[0 0 0]);
+
+% Load model data.
+handles.modelFilename = filename;
+handles.model = qub_loadModel( filename );
+handles.hasModel = 1;
+
+guidata(hObject, handles);
+
+
+% --- Executes on button press in btnEditModel.
+function btnEditModel_Callback(hObject, eventdata, handles)
+% 
+if handles.hasModel
+    [hFigure,hText,hRate] = drawModel( handles.modelFilename );
+end

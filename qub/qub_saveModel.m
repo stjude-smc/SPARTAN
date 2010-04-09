@@ -29,9 +29,11 @@ end
 if isfield(model,'qubTree')
     outputTree = model.qubTree;
 else
-    outputTree = qub_loadTree('default.qmf');
+    outputTree = qub_loadTree('/home/dsterry/code/default_models/default.qmf');
 end
-outputTree = rmfield(outputTree,'VRevs');
+if isfield( outputTree,'VRevs' ),
+    outputTree = rmfield(outputTree,'VRevs');
+end
 
 % Update FRET parametes
 nStates = size(model.rates,1);
