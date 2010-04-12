@@ -26,8 +26,6 @@
 
 %  TODO:
 %   - Simulate anisotropy noise
-%   - Simulate effect of background photobleaching (either channel)
-%   - Simulate effect of gamma~=1
 %   - Simulate distribution of gamma across traces (stdGamma)
 %   - Simulate effect of varying quantum yield in each state... 
 %   - Simulate donor->accpetor (acceptor->donor) crosstalk. 
@@ -173,6 +171,8 @@ end
 
 
 %--- Generate noiseless state trajectory at 1 ms
+endTime = 1000*(traceLen*sampling); %maximum trace length (ms)
+
 idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
 dwt  = cell(nTraces, 1);
 
@@ -184,11 +184,12 @@ for i=1:nTraces,
     % Draw dwell times from exponential distribution.
     % This is important so that results change as little as possible
     % when a single parameter is modified.
-    endTime = 1000*(traceLen*sampling); %in ms
     states = [];
     times  = [];
     
-    randData = rand(floor(endTime),nStates);
+    % Random numbers are generated for stochastic selection of states in the
+    % Markov chain. An array of numbers is generated all at once for speed.
+    randData = rand(floor(pbTimes(i)),nStates);
     itr=1;
     
     while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
@@ -224,12 +225,14 @@ for i=1:nTraces,
     dwt{i} = [states' times'];
     
     % Sample the series at 1ms to produce "real" trace
-    trace = [];
+    trace = ones( size(idl,2), 1 );
     nDwells = numel(states);
+    ptr = 0; %offset into trace vector where new data should be added.
 
     for j=1:nDwells,
         dtime = round( times(j) );
-        trace = [trace repmat( states(j), 1,dtime ) ];
+        trace( ptr+(1:dtime) ) = states(j);
+        ptr = ptr+dtime;
     end
     
     % Truncate idealization from photobleaching times
@@ -238,7 +241,9 @@ for i=1:nTraces,
     % Save results to output data.
     idl(i,:) = trace;
     
-    waitbar(i/(nTraces*2),h);
+    if mod(i,5)==0
+        waitbar( 0.7* i/nTraces, h);
+    end
 end
 
 
@@ -246,7 +251,7 @@ end
 %--- Generate and and time-average the noiseless FRET trajectories (slow)
 noiseless_fret = zeros( nTraces, traceLen );
 
-waitbar(0.5,h, 'Time-averaging...');
+waitbar(0.7,h, 'Time-averaging...');
 
 for i=1:nTraces,
     
@@ -254,7 +259,9 @@ for i=1:nTraces,
     trace = binFretData( trace, binFactor );
     noiseless_fret(i,:) = trace;
     
-    waitbar( (i+nTraces)/(2*nTraces), h);
+    if mod(i,10)==0 %show only every 5 for speed.
+        waitbar( 0.7+ 0.3*i/nTraces, h);
+    end
 end
 
 
