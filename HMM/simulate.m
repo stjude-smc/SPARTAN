@@ -163,15 +163,10 @@ h = waitbar(0,'Simulating...');
 %--- Draw lifetimes for each trace before photobleaching
 rand('twister',savedSeed);
 
-if kBleach > 0,
-    pbTimes = -log(rand(1,nTraces))./kBleachAcceptor;
-    pbTimes = ceil(pbTimes*simFramerate);
-end
-
-
 
 %--- Generate noiseless state trajectory at 1 ms
 endTime = 1000*(traceLen*sampling); %maximum trace length (ms)
+pbTime = min( sampling*3000/kBleachAcceptor,endTime );
 
 idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
 dwt  = cell(nTraces, 1);
@@ -182,23 +177,20 @@ for i=1:nTraces,
     curState = find( rand <= cumsum(p0), 1, 'first' );
     
     % Draw dwell times from exponential distribution.
-    % This is important so that results change as little as possible
-    % when a single parameter is modified.
     states = [];
     times  = [];
-    
-    % Random numbers are generated for stochastic selection of states in the
-    % Markov chain. An array of numbers is generated all at once for speed.
-    randData = rand(floor(pbTimes(i)),nStates);
     itr=1;
     
-    while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
+    while sum(times)<endTime, %end when no more dwells are needed.
         
-        assert( itr<size(randData,1), 'simulate: N. dwells exceeded RNG buffer size' );
+        % Adjust acceptor bleaching rate. 
+        % No acceptor bleaching is expected if there is no FRET.
+        kBleachAcceptorAdjusted = kBleachAcceptor;
+        if mu(curState)<0.02, kBleachAcceptorAdjusted=1e-10; end;
         
         % Draw dwell time from exponential distribution
-        tau = 1000./ Q( curState, : ); %in ms.
-        choices = -tau .* log( randData(itr,:) );
+        tau = 1000./ [kBleachAcceptorAdjusted Q( curState,:)]; %in ms.
+        choices = -tau .* log( rand(1,nStates+1) );
         
         % Choose event that happens first
         [dwellTime,nextState] = min( choices );
@@ -214,13 +206,18 @@ for i=1:nTraces,
         states(end+1) = curState;
         times(end+1) = dwellTime;
         
-        curState = nextState;
+        % Check for photobleaching
+        if nextState==1,
+            break;
+        end
+        
+        curState = nextState-1;
         itr = itr+1;
     end
     
-    % Truncate last dwell to fit into time window
+    % Truncate last dwell to fit into time window, if necessary.
     totalTime = sum(times);
-    times(end) = times(end) - (totalTime-endTime);
+    times(end) = times(end) - max(0, totalTime-endTime);
     
     dwt{i} = [states' times'];
     
@@ -234,9 +231,6 @@ for i=1:nTraces,
         trace( ptr+(1:dtime) ) = states(j);
         ptr = ptr+dtime;
     end
-    
-    % Truncate idealization from photobleaching times
-    trace(pbTimes(i):end) = 1;  % set the state to blinking
 
     % Save results to output data.
     idl(i,:) = trace;
@@ -292,10 +286,9 @@ if stdBackground~=0 || stdPhoton ~=0
         pbTimes = ceil(pbTimes*simFramerate);
         
         for i=1:nTraces,
-            pbtime = (pbTimes(i)/binFactor);
-            pbtime = round( min(pbtime,traceLen) );
+            pbtime = round(pbTimes(i)/binFactor);
             pbtime = max(1,pbtime);
-
+            
             donor(i,pbtime:end) = 0;
             acceptor(i,pbtime:end) = 0;
         end
@@ -304,10 +297,10 @@ if stdBackground~=0 || stdPhoton ~=0
     % Rescale fluorescence intensities so that the total intensity
     % (and SNR) are roughly the same as if there was not gamma correction.
     nNonZero = sum( donor(:)>0 );
-    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero
+    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero;
     donor    = donor*    (totalIntensity/obsIntensity);
     acceptor = acceptor* (totalIntensity/obsIntensity);
-    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero
+    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero;
         
     % Simulate the effect of photophysical noise. Here the variance
     % is propotional to the intensity of the signal.
