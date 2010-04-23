@@ -9,12 +9,14 @@ function [dwells,sampling,offsets,modelOut] = loadDWT(dwtfilename)
 %   If no filename is given, the user is prompted for one.
 %
 
-dwells  = cell(1);
-offsets = zeros(1);
+% Set default values for outputs in case user cancels.
+[sampling,offsets,modelOut] = deal( [] );
+dwells  = {};
 
 % Ask user for file if none specified.
 if nargin<1 || isempty(dwtfilename),
-    [f,p] = uigetfile('*.dwt','Select a DWT file');
+    [f,p] = uigetfile( {'*.dwt;*.traces','Dwell-Time Files (*.dwt)'; ...
+                        '*.*','All Files (*.*)'}, 'Select a DWT file');
     if f==0, return; end
     dwtfilename = [p f];
 end

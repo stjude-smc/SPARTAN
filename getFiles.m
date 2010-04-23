@@ -15,11 +15,15 @@ if nargin<2,
     prompt = 'Select a file, hit cancel when finished:';
 end
 if nargin<1,
-    filter = '*.txt';
+    filter = {'*.txt','Text Files (*.txt)'; ...
+              '*.txt;*.traces','All Traces Files (*.txt,*.traces)'; ...
+              '*.traces','Binary Traces Files (*.traces)'; ...
+              '*.dwt;*.traces','Dwell-Time Files (*.dwt)'; ...
+              '*.*','All Files (*.*)'};
 end
 
 while 1,
-    [f,p] = uigetfile(filter, prompt, 'MultiSelect','on');
+    [f,p,filterIndex] = uigetfile(filter, prompt, 'MultiSelect','on');
     
     if iscell(f),
         files = [files strcat(p,f)];

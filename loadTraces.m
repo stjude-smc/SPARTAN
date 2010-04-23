@@ -21,9 +21,17 @@ function [donor,acceptor,fret,ids,time] = loadTraces( ...
 
 % TODO: make constants the last parameter, since it is rarely used.
 
+% Set empty arguments in case no data is loaded.
+[donor,acceptor,fret,time] = deal([]);
+ids = {};
+
+% If no file is specified, ask for one from the user.
 if nargin<1,
-    [f,p] = uigetfile('*.txt','Select a traces file');
-    if f==0, return; end
+    [f,p] = uigetfile( {'*.txt;*.traces','All Traces Files (*.txt,*.traces)'; ...
+                        '*.txt','Text Files (*.txt)'; ...
+                        '*.traces','Binary Traces Files (*.traces)'; ...
+                        '*.*','All Files (*.*)'}, 'Select a traces file');
+    if p==0, return; end
     filename = [p f];
 end
 
