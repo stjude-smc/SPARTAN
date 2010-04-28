@@ -1,4 +1,4 @@
-function [data,indexes] = loadTracesBatch( files )
+function [data,indexes] = loadTracesBatch( files, constants )
 % LOADBATCH   Loads a list of files or all traces in a directory.
 %
 %   [DATA,INDEXES] = loadBatch( FILES )
@@ -14,8 +14,20 @@ function [data,indexes] = loadTracesBatch( files )
 %   Load all .traces files in the directory DIR.
 %
 
+if nargin<1,
+    filter = {'*.txt;*.traces','All Traces Files (*.txt,*.traces)'; ...
+              '*.txt','Text Files (*.txt)'; ...
+              '*.traces','Binary Traces Files (*.traces)'; ...
+              '*.*','All Files (*.*)'};
+    files = getFiles( filter );
+    if isempty(files), return; end
+end
+
 % Load parameters
-constants = cascadeConstants;
+if nargin<2
+    constants = cascadeConstants;
+end
+
 options.useMemmap = constants.useMemmap;
 
 wbh = waitbar(0,'Loading traces files...');
@@ -44,8 +56,8 @@ for i=1:numel(files),
         f_all = zeros( size(d,1)*nFiles, size(d,2) );
     end
     
-    indexes(i,:) = [nTraces+1 nTraces+1+size(d,1)];
-    
+    indexes(i,:) = [1 size(d,1)]+nTraces;
+        
     % Save data
     d_all( nTraces+(1:size(d,1)), : ) = d;
     a_all( nTraces+(1:size(d,1)), : ) = a;
@@ -76,7 +88,6 @@ else
     fwrite( fid, a_all(1:nTraces,1:traceLen), 'double' );
     fwrite( fid, f_all(1:nTraces,1:traceLen), 'double' );
     fclose(fid);
-
 
     % Load the data as a memmory-mapped variable.
     % The structure containing references to the memory mapped data is then

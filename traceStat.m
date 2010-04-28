@@ -1,4 +1,4 @@
-function retval = traceStat( donor,acceptor,fret, constants )
+function retval = traceStat( donorAll,acceptorAll,fretAll, constants )
 % LOADTRACES  Loads fluorescence trace files
 %
 %   [NAMES] = TRACESTAT;
@@ -58,25 +58,11 @@ if nargin < 3,
 end
 
 
-[Ntraces,len] = size(fret);
+[Ntraces,len] = size(fretAll);
 
 
 if ~exist('constants','var')
     constants = cascadeConstants;
-end
-
-
-lifetime = zeros(Ntraces,1);
-
-% Calculate Donor fluor. lifetime;
-% FRET is undefined when donor is dark, so it is always set
-% to exactly 0.  The last non-0 point is the photobleaching point.
-% Bit of a hack, I know, but it works great.
-for i=1:Ntraces,
-    lt = find( fret(i,:)~=0, 1,'last' )+1;
-    if ~isempty(lt) && lt<len,
-        lifetime(i) = lt;
-    end
 end
 
 
@@ -97,7 +83,7 @@ retval = struct( ...
     'a',     z, ...
     'maxFRET',  z, ...
     'ncross',   z, ...
-    'lifetime', num2cell(lifetime'), ...
+    'lifetime', z, ...
     'acclife',  z, ...
     'overlap',  z, ...
     'safeRegion', z, ...
@@ -111,18 +97,34 @@ clear lifetime;
 
 
 
-%----- OVERLAP DETECTION: Find multiple photobleaching events
-% Ignore first frame of median filtered signal: my be very low b/c of 0
-% padding.
-total2 = constants.gamma*donor + acceptor;
-filt_total  = medianfilter(total2,constants.TAU);
-dfilt_total = gradient(filt_total);
-thresh = mean(dfilt_total,2) - constants.overlap_nstd*std(dfilt_total,0,2);
+%----- CALCULATE STATISTICS FOR EACH TRACE
+
+for i=1:Ntraces
     
-for i=1:Ntraces,
-    lt  = retval(i).lifetime;
+    donor    = donorAll(i,:);
+    acceptor = acceptorAll(i,:);
+    fret     = fretAll(i,:);
+    total    = donor+acceptor;
     
-    dips = dfilt_total(i,1:lt)<=thresh(i);  %all points beyond threshold
+    %---- Calculate donor lifetime
+    % FRET is undefined when donor is dark, so it is always set
+    % to exactly 0.  The last non-0 point is the photobleaching point.
+    % Bit of a hack, I know, but it works great.
+    lt = find( fret~=0, 1,'last' )+1;
+    if ~isempty(lt) && lt<len,
+        retval(i).lifetime = lt;
+    end
+
+    
+    %---- OVERLAP DETECTION: Find multiple photobleaching events
+    % Ignore first frame of median filtered signal: my be very low b/c of 0
+    % padding.
+    total2 = constants.gamma*donor + acceptor;
+    filt_total  = medianfilter(total2,constants.TAU);
+    dfilt_total = gradient(filt_total);
+    thresh = mean(dfilt_total) - constants.overlap_nstd*std(dfilt_total);
+    
+    dips = dfilt_total(1:lt)<=thresh;  %all points beyond threshold
     events = find( ~dips & [dips(2:end) 0] )+1;  %start points of drops in fluor
 
     lastPB = 0;
@@ -131,8 +133,8 @@ for i=1:Ntraces,
         point = events(j);
         if point<3, continue; end %ignore first few frames
         
-        minb = min( filt_total(i,2:point-1 ) );
-        maxa = max( filt_total(i,point+1:lt) );
+        minb = min( filt_total(2:point-1 ) );
+        maxa = max( filt_total(point+1:lt) );
 
         if maxa < minb,
             lastPB = point+2;
@@ -141,23 +143,12 @@ for i=1:Ntraces,
 
     retval(i).overlap = lastPB~=0;
     retval(i).safeRegion = max(1,lastPB+1);
-end
-
-
-
-%----- CALCULATE STATISTICS FOR EACH TRACE
-total = donor+acceptor;
-del_donor    = gradient(donor);
-del_acceptor = gradient(acceptor);
-
-for i=1:Ntraces
-    lt = retval(i).lifetime;
-    retval(i).lifetime = lt;
+    
     
     %---- Ignore regions where Cy3 is blinking
     s = lt+5;
     bg_range = s:min(s+constants.NBK,len);
-    stdbg = std( total(i,bg_range) );
+    stdbg = std( total(bg_range) );
 
     % Calculate number of Cy3 PB threshold crossings per frame    
     if lt<8
@@ -165,7 +156,7 @@ for i=1:Ntraces
     else
         % Calculate blinking total fluor cutoff value        
         % Find start points where Cy3 blinks
-        x = total(i,1:lt-3) <= constants.blink_nstd*stdbg;
+        x = total(1:lt-3) <= constants.blink_nstd*stdbg;
         retval(i).ncross = sum(  x & ~[0 x(1:end-1)]  );
         
         % Remove from consideration regions where Cy3 is photobleached
@@ -181,8 +172,8 @@ for i=1:Ntraces
     if sum(donorRange) > 2
     
         % Calculate average amplitudes
-        retval(i).d = mean( donor(i,donorRange) );
-        retval(i).a = mean( acceptor(i,donorRange) );
+        retval(i).d = mean( donor(donorRange) );
+        retval(i).a = mean( acceptor(donorRange) );
         retval(i).t = constants.gamma*retval(i).d + retval(i).a;
         
     end
@@ -194,22 +185,25 @@ for i=1:Ntraces
     if lt+10 < len
         retval(i).snr = retval(i).t/stdbg;  % assuming background corrected
         
-        retval(i).bg = std(donor(i,s:end))+std(acceptor(i,s:end));
+        retval(i).bg = std(donor(s:end))+std(acceptor(s:end));
     end
     
     
     if sum(donorRange) > 2
+        % Calculate gradients (derivatives) for correlation.
+        del_donor    = gradient(donor);
+        del_acceptor = gradient(acceptor);
     
         % Calculate correlation of derivitive of donor/acceptor signals.
         % This is the method used by {Fei & Gonzalez, 2008}
-        ccd = corrcoef( del_donor(i,donorRange), del_acceptor(i,donorRange) );
+        ccd = corrcoef( del_donor(donorRange), del_acceptor(donorRange) );
         retval(i).corrd = ccd(1,2);
         
         % Calcualte correlation coefficient
-        cc = corrcoef( donor(i,donorRange), acceptor(i,donorRange) );
+        cc = corrcoef( donor(donorRange), acceptor(donorRange) );
         retval(i).corr = cc(1,2);
         
-        total_noise = std( constants.gamma*donor(i,donorRange)+acceptor(i,donorRange) );
+        total_noise = std( constants.gamma*donor(donorRange)+acceptor(donorRange) );
         
         retval(i).snr_s = retval(i).t ./ total_noise;
                       
@@ -220,7 +214,7 @@ for i=1:Ntraces
     % Find regions (before Cy3 photobleach) where FRET is above a threshold.
     % Properties will be calculated only on these areas.
     if lt>1
-        fretRange = fret(i,1:lt) >= constants.min_fret;
+        fretRange = fret(1:lt) >= constants.min_fret;
 
         % Filter the regions so that they must consist of more than 5
         % consecutive points above the threshold
@@ -229,23 +223,23 @@ for i=1:Ntraces
         retval(i).acclife = sum(fretRange);
         
         if sum(fretRange)>1
-            retval(i).avgfret = mean( fret(i,fretRange) );
+            retval(i).avgfret = mean( fret(fretRange) );
         end
     end
     
     % Statistics based on FRET distribution
-    retval(i).firstFRET = fret(i,1);
-    retval(i).maxFRET = max(fret(i,:));
+    retval(i).firstFRET = fret(1);
+    retval(i).maxFRET = max(fret);
     
     
     % Number of events crossing an arbitrary threshold
     % TODO?: additional filtering to detect only anticorrelated events?
-    [result] = RLEncode( fret(i,:) > constants.fretEventTreshold );
+    [result] = RLEncode( fret > constants.fretEventTreshold );
     retval(i).fretEvents = sum( result(:,1)==1 );
     
     % Number of frames with saturated intensity (max of 16-bit int)
     retval(i).timeSaturated = ...
-           sum( donor(i,donorRange)>30000 | acceptor(i,donorRange)>30000 );
+           sum( donor(donorRange)>30000 | acceptor(donorRange)>30000 );
 end
 
 
