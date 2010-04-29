@@ -74,22 +74,6 @@ makeplotsOptions.pophist_offset = 0;
 handles.makeplotsOptions = makeplotsOptions;
 
 
-%---- INITIALIZE DATA STORAGE VARIABLES
-% Filenames of loaded traces files.
-handles.filesLoaded = {};
-handles.nFiles = 0;
-handles.nTraces = 0;
-handles.inds_picked = [];
-
-% Trace data for all loaded files (concatinated together).
-tracesLoaded = struct( 'd',[], 'a',[], 'f',[], 'ids',{} );
-setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
-
-% Start and end indexes for each traces file into the trace data array.
-handles.idxTraces = zeros(0,2);
-
-
-
 %---- SETUP GUI TRACE STATISTIC CONTROLS
 
 % Names of trace statistics -- these should be defined somewhere else!
@@ -113,6 +97,13 @@ set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
 set( handles.cboStat2, 'Value', find(strcmp('acclife',shortNames))  );
 
 
+%---- INITIALIZE DATA STORAGE VARIABLES
+handles = resetGUI(handles);
+
+
+%---- Other setup:
+handles.inputdir = pwd;
+set(handles.txtDirectory,'String',pwd);
 
 % Choose default command line output for realtimeAnalysis
 handles.output=hObject;
@@ -177,7 +168,7 @@ if nargin<3, force = 0; end
 
 % Only run one analysis instance at once.
 if isfield(handles,'isExecuting') && handles.isExecuting,
-    disp('Analysis is already executing!');
+    %disp('Analysis is already executing!');
     return;
 end
 
@@ -241,7 +232,7 @@ if ~isempty(filesToLoad)
     % Load trace data from new files
     set( handles.txtStatus, 'String', 'Loading traces files...' ); drawnow;
     [traceData,indexes] = loadTracesBatch( filesToLoad );
-    if ~isfield(handles,'timeAxis'),
+    if isempty(handles.timeAxis),
         handles.timeAxis = traceData.time;
     end
     handles.filesLoaded = [handles.filesLoaded filesToLoad];
@@ -276,8 +267,6 @@ if ~needUpdate && ~force,
     return;
 end
 
-dt = diff(handles.timeAxis(1:2));
-
 
 %---- Select traces based on user-defined criteria.
 set( handles.txtStatus, 'String', 'Selecting traces with user-defined criteria...' );
@@ -303,92 +292,21 @@ makeplots( frethist, 'Last movie', options );
 
 
 
+
 %---- Show population statistics in GUI
+% All traces
+handles = updateStats( stats, handles );
 
-clear basicCriteria;
-basicCriteria.min_snr = 2;
-basicCriteria.min_lifetime = 10;
-basicCriteria.overlap = 1;
-idx = pickTraces( stats, basicCriteria );
+% Just traces from the last (most recent) movie.
+lastMovie = 1:handles.nTraces;
+lastMovie = lastMovie>=handles.idxTraces(end,1) & lastMovie<=handles.idxTraces(end,2);
+handles = updateStats( stats(lastMovie), handles, 'Last' );
+set( handles.edAcceptanceLast,'String','' ); %not working yet.
 
-t = [stats.t];
-snr   = [stats.snr];
-snr_s = [stats.snr_s];
-acceptorLifetime = [stats.acclife];
-donorLifetime = [stats.lifetime];
 
 % Select traces with quantifiable stats.
-selectedIdx = idx( idx>=handles.idxTraces(end,1) & idx<=handles.idxTraces(end,2) );
-nSelected = diff( handles.idxTraces(end,:) );
-
-set( handles.txtAcceptance,'String', ...
-     sprintf('%.0f%% (%d)',100*numel(picks)/handles.nTraces,numel(picks)) );
-set( handles.txtAcceptanceSel,'String', ...
-     sprintf('%.0f%% (%d)',100*numel(selectedPicks)/nSelected,numel(selectedPicks)) );
-
-avgI = median( t(idx) );
-set( handles.txtIntensity,'String', sprintf('%.0f',avgI) );
-avgI = median( t(selectedIdx) );
-set( handles.txtIntensitySel,'String', sprintf('%.0f',avgI) );
-
-avgSNR  = median( snr(idx)   );
-avgSNRs = median( snr_s(idx) );
-set( handles.txtSNR,'String', sprintf('%.1f (%.1f)',avgSNRs,avgSNR) );
-avgSNR  = median( snr(selectedIdx)   );
-avgSNRs = median( snr_s(selectedIdx) );
-set( handles.txtSNRSel,'String', sprintf('%.1f (%.1f)',avgSNRs,avgSNR) );
-
-% Calculate donor bleaching rate...
-[donorDist,donorAxes] = hist( donorLifetime(idx), 40 );
-donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
-donorAxes = [0 donorAxes];
-
-% fitopts = {'Lower',[0.85 1], 'Upper',[1.1 100], ...
-%            'StartPoint',[1 mean(donorLifetime)]};
-% fitopts = {'StartPoint',[1 mean(donorLifetime)]};
-f = fit( donorAxes',donorDist','exp1' );
-% figure;
-% plot( f ); hold on;
-% bar( donorAxes',donorDist' );
-
-if handles.timeAxis(1)==0
-    set( handles.txtLTDonor,'String', ...
-         sprintf('%.1f sec',-1/f.b/dt) );
-else
-    set( handles.txtLTDonor,'String', ...
-         sprintf('%.1f frames',-1/f.b) );
-end
-
-% Calculate acceptor bleaching rate
-acclifeCriteria = basicCriteria;
-acclifeCriteria.min_acclife = 1;
-idxAcc = pickTraces( stats, acclifeCriteria );
-
-[accDist,accAxes] = hist( acceptorLifetime(idxAcc), 40 );
-accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
-accAxes = [0 accAxes];
-disp( mean(acceptorLifetime) );
-
-% fitopts = {'Lower',[0.85*max(accDist) 0], 'Upper',[1.1*max(accDist) 1e6], ...
-%            'StartPoint',[1 mean(acceptorLifetime)]};
-f = fit( accAxes',accDist','exp1' );
-% figure;
-% plot( f ); hold on;
-% bar( accAxes, accDist );
-
-if handles.timeAxis(1)==0
-    set( handles.txtLTAcceptor,'String', ...
-         sprintf('%.1f sec',-1/f.b/dt) );
-else
-    set( handles.txtLTAcceptor,'String', ...
-         sprintf('%.1f frames',-1/f.b) );
-end
-
-% Calculate state occupancies
-% if isfield(handles,'model')
-%     info = sprintf('%.1f%%, ', percentTime(dwtFilename));
-%     set( handles.edOccupancy, 'String',info(1:end-2) );
-% end
+% selectedIdx = idx( idx>=handles.idxTraces(end,1) & idx<=handles.idxTraces(end,2) );
+% nSelected = diff( handles.idxTraces(end,:) );
 
 
 
@@ -408,8 +326,104 @@ for i=1:nAxes,
 end
 
 
-
 % END FUNCTION OpenTracesBatch
+
+
+
+
+function handles = updateStats( stats, handles, postfix )
+
+if nargin<3, postfix=''; end
+
+dt = diff(handles.timeAxis(1:2));
+
+%---- Show population statistics in GUI
+
+clear basicCriteria;
+basicCriteria.min_snr = 2;
+basicCriteria.min_lifetime = 10;
+basicCriteria.overlap = 1;
+idx = pickTraces( stats, basicCriteria );
+
+t = [stats.t];
+snr   = [stats.snr];
+snr_s = [stats.snr_s];
+acceptorLifetime = [stats.acclife];
+donorLifetime = [stats.lifetime];
+
+% Calculate breakdown of traces removed during selection.
+nTraces = numel(stats); %all data.
+nSingle = sum( snr>0 & ~[stats.overlap] );
+nFRET   = sum( acceptorLifetime>1 );
+nPicked = handles.picked_mols;
+
+% Calculate important trace statistics.
+avgI    = median( t(idx) );
+avgSNR  = median( snr(idx)   );
+avgSNRs = median( snr_s(idx) );
+
+% Calculate donor bleaching rate...
+[donorDist,donorAxes] = hist( donorLifetime(idx), 40 );
+donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
+donorAxes = [0 donorAxes];
+f = fit( donorAxes',donorDist','exp1' );
+% figure; plot( f ); hold on; bar( donorAxes',donorDist' );
+
+if handles.timeAxis(1)==0
+    donorT = sprintf('%.1f sec',-1/f.b/dt);
+else
+    donorT = sprintf('%.1f frames',-1/f.b);
+end
+
+% Calculate acceptor bleaching rate
+acclifeCriteria = basicCriteria;
+acclifeCriteria.min_acclife = 1;
+idxAcc = pickTraces( stats, acclifeCriteria );
+
+[accDist,accAxes] = hist( acceptorLifetime(idxAcc), 40 );
+accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
+accAxes = [0 accAxes];
+f = fit( accAxes',accDist','exp1' );
+
+if handles.timeAxis(1)==0
+    acceptorT = sprintf('%.1f sec',-1/f.b/dt);
+else
+    acceptorT = sprintf('%.1f frames',-1/f.b);
+end
+
+
+% Create data table for displaying states in GUI
+tableData = { sprintf('%.0f%% (%d)',100*nSingle/nTraces,nSingle); ...
+              sprintf('%.0f%% (%d)',100*nFRET/nTraces,  nFRET  ); ...
+              sprintf('%.0f%% (%d)',100*nPicked/nTraces,nPicked); ...
+              %' '; ... %spacer row
+              sprintf('%.1f',        avgI           ); ...
+              sprintf('%.1f (%.1f)', avgSNR,avgSNRs ); ...
+              donorT ; acceptorT  };
+          
+% set( handles.tblStats, 'Data',tableData );
+
+textboxNames = {'edSingleDonor','edHasFret','edAcceptance',...
+                'edIntensity', 'edSNR', 'edLTDonor','edLTAcceptor'};
+setString( handles, strcat(textboxNames,postfix), tableData );
+
+    
+% END FUNCTION updateStats
+
+
+
+
+function setString( handles, fields, values )
+
+for i=1:numel(fields),
+    set( handles.(fields{i}),'String',values{i} );
+end
+
+% END FUNCTION setString
+
+
+
+
 
 
 
@@ -425,14 +439,17 @@ function btnBrowse_Callback(hObject, eventdata, handles)
 % CALLED: when the user clicked "Browse..."
 % ACTION: Get location of data to process
  
-datadir = uigetdir(pwd, 'Select a directory with all data to process');
+datadir = uigetdir(handles.inputdir, 'Select a directory with all data to process');
 
 if datadir~=0,
+    % If this is a new location, reset the GUI.
+    if ~strcmp(datadir,handles.inputdir),
+        handles = resetGUI( handles );
+    end
+    
+    % Update GUI with new data location
     handles.inputdir = datadir;
     set(handles.txtDirectory,'String',datadir);
-
-    handles.filesLoaded = {};
-    handles.nFiles = 0;
 end
 
 % Update handles structure
@@ -440,27 +457,57 @@ guidata(hObject,handles);
 
 
 function txtDirectory_Callback(hObject, eventdata, handles)
-% hObject    handle to txtDirectory (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% CALLED: when the user modifies the data location textbox
+% ACTION: reset GUI and prepare to load data from the new location.
 
-% Hints: get(hObject,'String') returns contents of txtDirectory as text
-%        str2double(get(hObject,'String')) returns contents of txtDirectory as a double
-handles.figure1
-loc = get(hObject,'String');
-if ~exist(loc,'dir'),
+datadir = get(hObject,'String');
+
+if ~exist(datadir,'dir'),
     warning('realtimeAnalysis: directory doesn''t exist!');
-    loc = handles.inputdir;
-    set(hObject,'String',loc);
+    set(hObject,'String',handles.inputdir);
 else
-    handles.inputdir = loc;
+    % If this is a new location, reset the GUI.
+    if ~strcmp(datadir,handles.inputdir),
+        handles.inputdir = datadir;
+        handles = resetGUI( handles );
+    end
 end
 
-handles.filesLoaded = {};
-handles.nFiles = 0;
-
+% Update handles structure
 guidata(hObject,handles);
 
+
+function handles = resetGUI( handles )
+% Resets all GUI elements and clears background variables.
+
+% Clear trace stat histograms
+for id=1:handles.nPlots,
+    cla( handles.(['axStat' num2str(id)]) );
+end
+
+% Clear contour plots
+cla( handles.axFretContourSelected  );
+cla( handles.axFretContourAll  );
+
+% Clear trace stat table
+% Data = cell(8,2);
+% [Data{:}] = deal(' ');
+% set( handles.tblStats, 'Data',Data );
+
+% Delete saved trace data and reset
+handles.filesLoaded = {};
+handles.idxTraces = zeros(0,2);
+handles.nFiles  = 0;
+handles.nTraces = 0;
+handles.inds_picked = [];
+handles.picked_mols = 0;
+
+tracesLoaded = struct( 'd',[], 'a',[], 'f',[], 'ids',{} );
+handles.timeAxis = [];
+setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
+setappdata(handles.figure1,'infoStruct',[]);
+
+% END FUNCTION resetGUI
 
 
 
@@ -514,6 +561,7 @@ else
     
     % Reset the isExecuting flag. Need to have some way of reseting this
     % variable in case of a crash...
+    set( handles.txtStatus, 'String','IDLE' );
     handles.isExecuting = 0;
 
 end
