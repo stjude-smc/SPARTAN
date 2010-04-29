@@ -305,8 +305,19 @@ makeplots( frethist, 'Last movie', options );
 
 %---- Show population statistics in GUI
 
+clear basicCriteria;
+basicCriteria.min_snr = 2;
+basicCriteria.min_lifetime = 10;
+basicCriteria.overlap = 1;
+idx = pickTraces( stats, basicCriteria );
+
+t = [stats.t];
+snr   = [stats.snr];
+snr_s = [stats.snr_s];
+acceptorLifetime = [stats.acclife];
+donorLifetime = [stats.lifetime];
+
 % Select traces with quantifiable stats.
-idx = find([stats.snr]>0); %all data (with a bleaching event)
 selectedIdx = idx( idx>=handles.idxTraces(end,1) & idx<=handles.idxTraces(end,2) );
 nSelected = diff( handles.idxTraces(end,:) );
 
@@ -315,20 +326,19 @@ set( handles.txtAcceptance,'String', ...
 set( handles.txtAcceptanceSel,'String', ...
      sprintf('%.0f%% (%d)',100*numel(selectedPicks)/nSelected,numel(selectedPicks)) );
 
-t = [stats.t];
 avgI = median( t(idx) );
 set( handles.txtIntensity,'String', sprintf('%.0f',avgI) );
 avgI = median( t(selectedIdx) );
 set( handles.txtIntensitySel,'String', sprintf('%.0f',avgI) );
- 
-snr = [stats.snr];
-avgSNR = median( snr(idx) );
-set( handles.txtSNR,'String', sprintf('%.1f',avgSNR) );
-avgSNR = median( snr(selectedIdx) );
-set( handles.txtSNRSel,'String', sprintf('%.1f',avgSNR) );
+
+avgSNR  = median( snr(idx)   );
+avgSNRs = median( snr_s(idx) );
+set( handles.txtSNR,'String', sprintf('%.1f (%.1f)',avgSNRs,avgSNR) );
+avgSNR  = median( snr(selectedIdx)   );
+avgSNRs = median( snr_s(selectedIdx) );
+set( handles.txtSNRSel,'String', sprintf('%.1f (%.1f)',avgSNRs,avgSNR) );
 
 % Calculate donor bleaching rate...
-donorLifetime = [stats.lifetime];
 [donorDist,donorAxes] = hist( donorLifetime(idx), 40 );
 donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
 donorAxes = [0 donorAxes];
@@ -337,6 +347,9 @@ donorAxes = [0 donorAxes];
 %            'StartPoint',[1 mean(donorLifetime)]};
 % fitopts = {'StartPoint',[1 mean(donorLifetime)]};
 f = fit( donorAxes',donorDist','exp1' );
+% figure;
+% plot( f ); hold on;
+% bar( donorAxes',donorDist' );
 
 if handles.timeAxis(1)==0
     set( handles.txtLTDonor,'String', ...
@@ -347,14 +360,21 @@ else
 end
 
 % Calculate acceptor bleaching rate
-acceptorLifetime = [stats.acclife];
-[accDist,accAxes] = hist( acceptorLifetime(idx), 40 );
+acclifeCriteria = basicCriteria;
+acclifeCriteria.min_acclife = 1;
+idxAcc = pickTraces( stats, acclifeCriteria );
+
+[accDist,accAxes] = hist( acceptorLifetime(idxAcc), 40 );
 accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
 accAxes = [0 accAxes];
+disp( mean(acceptorLifetime) );
 
 % fitopts = {'Lower',[0.85*max(accDist) 0], 'Upper',[1.1*max(accDist) 1e6], ...
 %            'StartPoint',[1 mean(acceptorLifetime)]};
 f = fit( accAxes',accDist','exp1' );
+% figure;
+% plot( f ); hold on;
+% bar( accAxes, accDist );
 
 if handles.timeAxis(1)==0
     set( handles.txtLTAcceptor,'String', ...
@@ -551,7 +571,7 @@ otherPicks = setdiff( picks, selectedPicks );
 % Plot the distribution of the statistic
 statData = [stats.(statToPlot)];
 
-[~,binCenters] = hist( statData, handles.nHistBins);
+[~,binCenters] = hist( statData(picks), handles.nHistBins);
 
 [dataOther,binCenters] = hist( statData(otherPicks), binCenters);
 dataOther = 100*dataOther/numel(statData);  %normalize the histograms
