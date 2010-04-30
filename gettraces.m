@@ -282,7 +282,13 @@ for i=1:nFiles,
     end
     
     % Load STK file
-    stkData = OpenStk( movieFilenames(i).name );
+    try
+        stkData = OpenStk( movieFilenames(i).name );
+    catch e
+        disp('Skipping file: corrupted, missing, or not completely saved.');
+        existing(i) = 1;
+        continue;
+    end
     
     % Pick molecules using default parameter values
     image_t = stkData.stk_top - stkData.background;
@@ -313,7 +319,7 @@ for i=1:nFiles,
     integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
         traceFname, stkData.time, params );
     
-    waitbar(i/nFiles); drawnow;
+    waitbar(i/nFiles, h); drawnow;
 end
 
 if exist('h','var'),  close(h);  end

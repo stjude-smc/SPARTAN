@@ -188,8 +188,8 @@ set( handles.txtStatus, 'String', 'Extracting traces from movies...' ); drawnow;
 gettracesOptions = handles.gettracesOptions;
 gettracesOptions.skipExisting = 1;
 gettracesOptions.quiet = 1;
-gettraces( datapath, gettracesOptions );
 
+gettraces( datapath, gettracesOptions );
 
 %---- Load traces files that have not already been loaded.
 tracesLoaded = getappdata(handles.figure1,'tracesLoaded');
@@ -197,6 +197,14 @@ stats = getappdata(handles.figure1,'infoStruct');
 
 % Create list of .traces files in the selected directory.
 tracesToLoad = dir( [datapath filesep '*.traces'] );
+if isempty(tracesToLoad),
+    % No files found.
+    set( handles.txtStatus, 'String', 'IDLE.' ); drawnow;
+    handles.isExecuting = 0;
+    guidata(hObject,handles);
+    return;
+end
+
 inputfiles = strcat( [datapath filesep], {tracesToLoad.name} );
 
 
