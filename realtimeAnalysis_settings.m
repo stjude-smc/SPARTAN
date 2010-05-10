@@ -177,17 +177,43 @@ set(hObject,'Visible','off');
 %#########################################################################
 
 
+% --- CALLED when any of the gettraces options textboxes are changed.
+% Updates the settings structure.
+function updateOptions_Callback( hObject, handles, optionName )
 
-% --- CALLED when "Remove overlapping traces" checkbox setting is changed.
-% Updates the selection criteria automatically, w/o running PickTraces().
-function chkOverlap_Callback(hObject, eventdata, handles)
-handles.criteria.overlap = get(hObject,'Value');
+val = [];
+if strcmpi( get(hObject,'Style'), 'checkbox' )
+    val = get(hObject,'Value');
+else
+    if ~isempty( get(hObject,'String') ),
+        val = str2double( get(hObject,'String') );
+    end
+end
+
+handles.options.(optionName) = val;
 guidata(hObject,handles);
 
 
+% --- CALLED when any of the primary criteria textboxes is changed.
+% Updates the selection criteria automatically, w/o running PickTraces().
+function updateCriteria_Callback( hObject, handles, criteriaName )
+
+val = [];
+if strcmpi( get(hObject,'Style'), 'checkbox' )
+    val = get(hObject,'Value');
+else
+    if ~isempty( get(hObject,'String') ),
+        val = str2double( get(hObject,'String') );
+    end
+end
+
+handles.criteria.(criteriaName) = val;
+guidata(hObject,handles);
+
+
+
 % --- CALLED when any of the primary selection criteria checkbox setting is
-% changed. Updates the selection criteria automatically,
-% w/o running PickTraces().
+% changed. Updates the selection criteria automatically. 
 function criteriaCheckbox_Callback(hObject, handles, criteriaName, textboxName)
 textbox = handles.(textboxName);
 
@@ -203,19 +229,11 @@ guidata(hObject,handles);
 
 
 
-
 %----------APPLIES PICKING CRITERIA TO TRACES----------
 % --- Executes on button press in PickTraces.
 function PickTraces_Callback(hObject, handles)
 % Generate a selection criteria structure (see pickTraces.m) using the
 % "Specialized Selection Criteria" drop-down boxes.
-
-% Get values from standard criteria controls
-criteria.overlap = get(handles.chkOverlap,'Value');
-if get(handles.chkTotalSigma,'Value') %if checked,
-    criteria.maxTotalSigma = str2double( get(handles.chkTotalSigma,'String') );
-end
-
 
 % Update criteria for combo-box selections
 shortNames = fieldnames(handles.statLongNames);
