@@ -21,7 +21,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 28-Apr-2008 13:20:06
+% Last Modified by GUIDE v2.5 19-May-2010 12:17:21
 
 
 % Begin initialization code - DO NOT EDIT
@@ -238,6 +238,7 @@ set(handles.btnPrevTop,'Enable','off');
 set(handles.btnNextBottom,'Enable','on');
 set(handles.btnPrevBottom,'Enable','off');
 set(handles.btnPrint, 'Enable','on');
+set(handles.btnLoadDWT, 'Enable','on');
 
 
 plotter(handles);
@@ -703,18 +704,71 @@ zoom on;
 % Plot FRET efficiency
 axes(handles.axFret);
 cla;
-plot(time,fret,'b');
+plot(time,fret,'b');  hold on;
+if isfield(handles,'idl') && ~isempty(handles.idl),
+    stairs( time, handles.idl(m,:), 'r-', 'LineWidth',1 );
+end
+
 xlabel('Frame Number');
 ylabel('FRET Efficiency');
 ylim([-0.1 1]);
 grid on;
 zoom on;
+hold off;
 
 if inFrames,
     xlabel('Frame Number');
 else
     xlabel('Time (sec)');
 end
+
+
+
+
+
+
+
+% --- Executes on button press in btnLoadDWT.
+function btnLoadDWT_Callback(hObject, eventdata, handles)
+% Loads an idealization (.dwt file) for later plotting in plotter().
+
+time = handles.time;
+sampling = time(2)-time(1);
+[nTraces,traceLen] = size(handles.fret);
+
+% Get filename for .dwt file from user and load it.
+[dwt,dwtSampling,offsets,model] = loadDWT;
+if isempty(dwt), return; end
+
+fretValues = model(:,1);
+dwtSampling = double(dwtSampling);
+
+% Verify that the DWT matches the trace data.
+handles.idl = [];
+
+if sampling~=dwtSampling, 
+    msgbox('Data and idealization sampling intervals do not match!','Error loading idealization','Error')
+
+elseif offsets(end)>(nTraces*traceLen)
+    msgbox('Idealization size does not match trace data.','Error loading idealization','Error');
+
+else
+    % Convert DWT to idealization
+    idl = dwtToIdl( dwt, traceLen, offsets );
+
+    fretValues = [NaN; fretValues];
+    handles.idl = fretValues( idl+1 );
+    
+    handles.idl = reshape( handles.idl, size(handles.fret) );
+    
+end %if errors
+
+
+% Save data to GUI
+guidata(hObject,handles);
+
+% Update GUI
+plotter(handles);
 
 
 
