@@ -38,6 +38,9 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 % can be displayed in scripts that call this function.
 
 
+
+
+
 %% Parse input arguments
 
 % If calling directly from command line,
@@ -55,6 +58,13 @@ if nargin<2, %provide defaults if no parameters given.
 else
     params = varargin{2};
 end
+
+% PARAMTERES FOR SOFTWARE ALIGNMENT!
+% The numbers are the displacements of the right (acceptor) field relative to
+% the left (donor) field that are required to get the two fields aligned.
+params.align_dx =  0;
+params.align_dy =  0;
+
 
 % If any parameters are not specified, give a default value of 0.
 % This way, we don't have to constantly check if a parameter exists.
@@ -109,7 +119,7 @@ else
 end
 
 % Find peak locations from total intensity
-[peaksX,peaksY] = getPeaks( image_t, params.don_thresh, params.overlap_thresh );
+[peaksX,peaksY] = getPeaks( image_t, params );
 peaks = [peaksX peaksY];
 
 
@@ -287,7 +297,10 @@ for i=1:nFiles,
     end
 
     % Find peak locations from total intensity
-    [peaksX,peaksY] = getPeaks( image_t, don_thresh, params.overlap_thresh );
+    params2 = params;
+    params2.don_thresh = don_thresh;
+    
+    [peaksX,peaksY] = getPeaks( image_t, params2 );
     peaks = [peaksX peaksY];
     nTraces(i) = numel(peaksX)/2;
     
@@ -338,7 +351,7 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick Cy3 spots ----------------- 
-function [picksX,picksY] = getPeaks( image_t, threshold, overlap_thresh )
+function [picksX,picksY,total_t] = getPeaks( image_t, params )
 % Localizes the peaks of molecules in the Cy3 channel and infers the
 % positions of the Cy5 peaks by applying a transofmration to the Cy3 peak
 % positions.
@@ -347,21 +360,32 @@ function [picksX,picksY] = getPeaks( image_t, threshold, overlap_thresh )
 % picksY - Y-coords ...
 
 [nrow ncol] = size(image_t);
+ncol = ncol/2;
 
-%---- 1. Get coordinates of donor-side peaks
-donor_t = image_t(:,1:ncol/2);
-acceptor_t = image_t(:,(ncol/2)+1:end);
-total_t = donor_t+acceptor_t;
+%---- 1. Transform acceptor side so that the two channels align properly.
+donor_t    = image_t( :, 1:ncol );
+acceptor_t = image_t( :, (ncol+1):end );
 
-[don_x,don_y] = pickPeaks( total_t, threshold, overlap_thresh );
+dx = round(params.align_dx);
+dy = round(params.align_dy);
+
+total_t = zeros( size(donor_t) );
+total_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
+    acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
+
+total_t = total_t + donor_t; %sum the two fluorescence channels.
+%NOTE: regions w/o acceptor intensity should be erased!
+
+
+%---- 2. Get coordinates of intensity peaks using the summed image.
+[don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 nPicked = numel(don_x);
 
-acc_x = don_x + (ncol/2);
-acc_y = don_y;
+acc_x = don_x + ncol +dx;
+acc_y = don_y        +dy;
 
 
-%---- 6. Save results for output
-
+%---- 3. Save results for output
 picksX = zeros(nPicked*2,1);
 picksY = zeros(nPicked*2,1);
 
@@ -373,9 +397,7 @@ for i=1:nPicked,
 end    
 
 
-
-%---- 7. Estimate coordinates of acceptor-side peaks to verify alignment.
-
+%---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
 align_acc_x = acc_x;
 align_acc_y = acc_y;
 
@@ -392,7 +414,7 @@ end
 x_align = mean( align_acc_y-acc_y );
 y_align = mean( align_acc_y-acc_y );
 if abs(x_align)+abs(y_align)>0.5,
-    warning('gettraces:align','DualView may be out of alignment.');
+    warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
 end
 
 
