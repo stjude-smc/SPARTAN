@@ -32,6 +32,9 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %          intensity, but also capture more noise...
 %     - saveLocations: write a text file with the locations of each peak to
 %          file.
+%     - geometry: imaging geometry can be single-channel/full-chip (1), 
+%                 dual-channel/left-right (2), or quad-channel (3).
+%                 Default: dual-channel (2).
 %
 
 % TODO: also return unfiltered peak list (overlap=0) so overlap statistics
@@ -75,14 +78,18 @@ for i=1:numel(paramNames),
     end
 end
 
-    
+if ~isfield(params,'geometry'),
+    params.geometry=2; %dual-channel (L/R).
+end
+
+
 %------ If a structure is specified, load as STK data
 if nargin>=1 && isstruct(varargin{1}),
     stkData = varargin{1};
 
 %------ Otherwise, load an individual file
 elseif nargin>=1 && ischar(varargin{1}) && ~isdir(varargin{1}),
-    stkData = OpenStk( varargin{1} );
+    stkData = OpenStk( varargin{1}, params );
 
 %------ If a directory name is given, run in batch mode and then terminate.
 elseif nargin>=1 && ischar(varargin{1}) && isdir(varargin{1})
@@ -142,7 +149,7 @@ return;
 
 
 
-function [stkData] = OpenStk(filename)
+function [stkData] = OpenStk(filename, params)
 
 % If the movie is compressed, deflate it to a temporary location first
 if strfind(filename,'.stk.bz2'),
@@ -219,13 +226,19 @@ background=imresize(temp,[stkY stkX],'bilinear');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
-endBackground = double(  stk(:,1:stkX/2,       end-11:end-1)   ...
-                      +  stk(:,(1+stkX/2):end, end-11:end-1)   );
+if params.geometry==1,
+    endBackground = stk(:,:, end-11:end-1);
+elseif params.geometry==2,
+    endBackground = stk(:,1:stkX/2,       end-11:end-1) ...
+                  + stk(:,(1+stkX/2):end, end-11:end-1);
+elseif params.geometry>2,
+    %TODO
+end
 
 stkData.stk = stk;
 stkData.stk_top = stk_top;
 stkData.background = background;
-stkData.endBackground = endBackground;
+stkData.endBackground = double(endBackground);
 stkData.time = time;
 
 [stkData.stkY,stkData.stkX,stkData.nFrames] = size(stk);
@@ -274,7 +287,7 @@ for i=1:nFiles,
     end
     
     % Load STK file
-    stkData = OpenStk( movieFilenames(i).name );
+    stkData = OpenStk( movieFilenames(i).name, params );
     
     % Pick molecules using default parameter values
     image_t = stkData.stk_top - stkData.background;
@@ -359,6 +372,18 @@ function [picksX,picksY,total_t] = getPeaks( image_t, params )
 % picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
 % picksY - Y-coords ...
 
+
+% If using a single-channel setup, use a simplified proceedure.
+if params.geometry==1,
+    total_t = image_t;
+    [picksX,picksY] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+    picksX = reshape( picksX, numel(picksX),1 );
+    picksY = reshape( picksY, numel(picksY),1 );
+    return;
+end
+% Otherwise, assume dual-channel. FIXME
+
+
 [nrow ncol] = size(image_t);
 ncol = ncol/2;
 
@@ -374,7 +399,7 @@ total_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
     acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
 
 total_t = total_t + donor_t; %sum the two fluorescence channels.
-%NOTE: regions w/o acceptor intensity should be erased!
+%FIXME: regions w/o acceptor intensity should be erased!
 
 
 %---- 2. Get coordinates of intensity peaks using the summed image.
@@ -416,7 +441,6 @@ y_align = mean( align_acc_y-acc_y );
 if abs(x_align)+abs(y_align)>0.5,
     warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
 end
-
 
 
 % end function getTraces
@@ -529,15 +553,15 @@ idx = find( params.nPixelsToSum<=(swChoices.^2), 1,'first' );
 squarewidth = swChoices(idx);
 
 % Get x,y coordinates of picked peaks
-Npeaks = size(peaks,2)/2;
+Npeaks = size(peaks,2);
 x = peaks(1,:);
 y = peaks(2,:);
 
-regions=zeros(params.nPixelsToSum,2,2*Npeaks);  %pixel#, dimension(x,y), peak#
+regions=zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
-for m=1:2*Npeaks
+for m=1:Npeaks
     
     hw = floor(squarewidth/2);
     
@@ -559,11 +583,10 @@ end
 
 
 % Create a trace for each molecule across the entire movie
-traces = zeros(2*Npeaks,Nframes);
+traces = zeros(Npeaks,Nframes);
 
 s = size(stk);
 idx = sub2ind( s(1:2), regions(:,1,:), regions(:,2,:) );
-% bg = handles.background;
 
 for k=1:Nframes,
     frame = double(stk(:,:,k));
@@ -577,11 +600,19 @@ end
 clear stk;
 
 
+if params.geometry==1, %single-channel
+    donor    = traces;
+    acceptor = zeros( size(traces) );
+elseif params.geometry==2, %dual-channel
+    donor    = traces(1:2:end,:);
+    acceptor = traces(2:2:end,:);
+else  %quad-channel
+    %TODO
+end
+
+
 % Subtract background from last point of all traces so data
 % can fit into an int16 matrix
-donor    = traces(1:2:end,:);
-acceptor = traces(2:2:end,:);
-
 donor    = donor    - mean( donor(:,end)    );
 acceptor = acceptor - mean( acceptor(:,end) );
 
@@ -600,7 +631,7 @@ if params.saveLocations,
     filename=strrep(stk_fname,'.stk','.loc.txt');
     fid = fopen(filename,'w');
 
-    for j=1:Npeaks,
+    for j=1:Npeaks/2,
         don_x = x(2*j-1);
         don_y = y(2*j-1);
         acc_x = x(2*j);

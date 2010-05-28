@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 19-Nov-2009 18:50:24
+% Last Modified by GUIDE v2.5 28-May-2010 12:35:07
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -66,9 +66,10 @@ handles.output = hObject;
 
 % Setup initial values for parameter values
 % params.don_thresh = 0; %not specified = auto pick
-params.overlap_thresh = 2.5;
+params.overlap_thresh = 2.1;
 params.nPixelsToSum   = 4;
 params.saveLocations  = 0;
+params.geometry = 2; %dual-channel by default.
 
 set( handles.txtIntensityThreshold,'String','' );
 set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
@@ -120,7 +121,11 @@ guidata(hObject,handles);
 function handles = OpenStk(filename, handles, hObject)
 
 
-set(handles.txtFilename,'String',filename);
+[p,f,e] = fileparts(filename);
+if numel(p)>55, p=[p(1:55) '...']; end %trancate path, if too long
+fnameText = [p filesep f e];
+
+set(handles.txtFilename,'String',fnameText);
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -158,26 +163,49 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 image_t    = handles.stk_top-stkData.background;
 [nrow,ncol] = size(image_t);
 
-donor_t    = image_t(:,1:ncol/2);
-acceptor_t = image_t(:,(ncol/2)+1:end);
-total_t    = donor_t+acceptor_t;
 
-% Show donor image
-axes(handles.axDonor);
-imshow( donor_t, [low (high+low)/2] );
-colormap(colortable);  zoom on;
+%---- Show fields for Single-Channel (full-chip) recordings.
+if handles.params.geometry==1,
+    % Show full field of view.
+    handles.axTotal = subplot( 1,1,1, 'Parent',handles.panView, 'Position',[0.2 0 0.6 0.95] );
+    axes( handles.axTotal );
+    imshow( image_t, [low (high+low)] );
+    colormap(colortable);  zoom on;
+    title('Single-Channel');
+    
+%---- Show fields for Dual-Channel (half-chip, L/R) recordings.
+elseif handles.params.geometry==2,
+    donor_t    = image_t(:,1:ncol/2);
+    acceptor_t = image_t(:,(ncol/2)+1:end);
+    total_t    = donor_t+acceptor_t;
 
-% Show acceptor image
-axes(handles.axAcceptor);
-imshow( acceptor_t, [low (high+low)/2] );
-colormap(colortable);  zoom on;
+    % Show donor image
+    handles.axDonor = subplot( 1,3,1, 'Parent',handles.panView, 'Position',[0.025 0 0.3 0.95] );
+    axes( handles.axDonor );
+    imshow( donor_t, [low (high+low)/2] );
+    colormap(colortable);  zoom on;
+    title('Donor');
 
-% Show total intensity image
-axes(handles.axTotal);
-imshow( total_t, [low*2 (high+low)] );
-colormap(colortable);  zoom on;
+    % Show acceptor image
+    handles.axAcceptor = subplot( 1,3,2, 'Parent',handles.panView, 'Position',[0.350 0 0.3 0.95] );
+    axes( handles.axAcceptor );
+    imshow( acceptor_t, [low (high+low)/2] );
+    colormap(colortable);  zoom on;
+    title('Acceptor');
 
-linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
+    % Show total intensity image
+    handles.axTotal = subplot( 1,3,3, 'Parent',handles.panView, 'Position',[0.675 0 0.3 0.95] );
+    axes( handles.axTotal );
+    imshow( total_t, [low*2 (high+low)] );
+    colormap(colortable);  zoom on;
+    title('Total(D+A)');
+
+    linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
+    
+%---- Show fields for Quad-Channel (quarter-chip, L/R/U/D) recordings.
+elseif geometry>2,
+    %TODO
+end
 
 
 % Finish up
@@ -319,7 +347,6 @@ stkData = getappdata(handles.figure1,'stkData');
 % Update guidata with peak selection coordinates
 handles.x = peaks(:,1);
 handles.y = peaks(:,2);
-handles.num = numel(handles.x)/2;
 
 
 %----- Graphically show peak centers
@@ -330,21 +357,31 @@ clear stkData;
 % Clear selection markers
 delete(findobj(gcf,'type','line'));
 
-% Draw markers on selection points (donor side)
-l = 1:2:numel(handles.x);
+if handles.params.geometry==1, %single-channel
+    % Draw markers on selection points (total intensity composite image)
+    axes(handles.axTotal);
+    line(handles.x,handles.y,'LineStyle','none','marker','o','color','y','EraseMode','background');
 
-axes(handles.axDonor);
-line(handles.x(l),handles.y(l),'LineStyle','none','marker','o','color','y','EraseMode','background');
+    handles.num = numel(handles.x);
+    
+elseif handles.params.geometry==2, %dual-channel
+    indD = 1:2:numel(handles.x);
+    indA = 2:2:numel(handles.x);
+    
+    % Draw markers on selection points (donor side)
+    axes(handles.axDonor);
+    line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','w','EraseMode','background');
 
-% Draw markers on selection points (acceptor side)
-ll = 2:2:numel(handles.x);
+    % Draw markers on selection points (acceptor side)
+    axes(handles.axAcceptor);
+    line(handles.x(indA)-(ncol/2),handles.y(indA),'LineStyle','none','marker','o','color','w','EraseMode','background');
 
-axes(handles.axAcceptor);
-line(handles.x(ll)-(ncol/2),handles.y(ll),'LineStyle','none','marker','o','color','w','EraseMode','background');
+    % Draw markers on selection points (total intensity composite image)
+    axes(handles.axTotal);
+    line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','y','EraseMode','background');
 
-% Draw markers on selection points (total intensity composite image)
-axes(handles.axTotal);
-line(handles.x(l),handles.y(l),'LineStyle','none','marker','o','color','w','EraseMode','background');
+    handles.num = numel(handles.x)/2;
+end
 
 % Update GUI controls
 set(handles.nummoles,'String',num2str(handles.num));
@@ -381,9 +418,16 @@ minimum = get(hObject,'min');
 
 val = max(val,minimum+1); %prevent errors in GUI
 
-set( handles.axDonor,    'CLim',[minimum val] );
-set( handles.axAcceptor, 'CLim',[minimum val] );
-set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+if handles.params.geometry==1, %Single-channel recordings
+    set( handles.axTotal,    'CLim',[minimum val] );
+    
+elseif handles.params.geometry==2, %Dual-channel recordings
+    set( handles.axDonor,    'CLim',[minimum val] );
+    set( handles.axAcceptor, 'CLim',[minimum val] );
+    set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+elseif handles.params.geometry>2,
+    %TODO
+end
 
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
@@ -448,12 +492,32 @@ maximum = max(val,maximum);
 
 set( handles.scaleSlider, 'Value',val );
 set( handles.scaleSlider, 'max',maximum );
-set( handles.axDonor,    'CLim',[minimum val] );
-set( handles.axAcceptor, 'CLim',[minimum val] );
-set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+
+if handles.params.geometry==1, %Single-channel recordings
+    set( handles.axTotal,    'CLim',[minimum val] );
+    
+elseif handles.params.geometry==2, %Dual-channel recordings
+    set( handles.axDonor,    'CLim',[minimum val] );
+    set( handles.axAcceptor, 'CLim',[minimum val] );
+    set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+elseif handles.params.geometry>2,
+    %TODO
+end
 
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 guidata(hObject,handles);
 
+
+
+
+% --- Executes on selection change in cboGeometry.
+function cboGeometry_Callback(hObject, eventdata, handles)
+%
+handles.params.geometry = get(hObject,'Value');
+
+% Reload movie with new setup
+handles = OpenStk( handles.stkfile, handles, hObject );
+
+guidata(hObject,handles);
 
