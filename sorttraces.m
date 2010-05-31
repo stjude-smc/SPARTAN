@@ -160,7 +160,7 @@ handles.filename = filename;
 
 % Load the file
 [handles.donor,handles.acceptor,handles.fret,handles.ids,handles.time] = ...
-    LoadTraces( filename );
+    loadTraces( filename );
 
 [handles.Ntraces,handles.len] = size(handles.donor);
 

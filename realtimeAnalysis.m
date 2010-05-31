@@ -1,46 +1,9 @@
 function varargout = realtimeAnalysis(varargin)
 % REALTIMEANALYSIS  Trace processing and filtering
 %
-%   Loads fluorescence traces files (produced using gettraces), makes
-%   corrections for crosstalk, background intensity, and sets FRET=0
-%   where the donor dye is dark.  Descriptive properties of each traces
-%   is then calculated (SNR, D/A correlation, etc).  Using defined
-%   criteria, the user can then select a portion of the dataset.
-%
-%   Use "Batch Mode" to load all traces within a directory.
-%   Be careful not to mix multiple experiments in the same directory!
-%
-%   Use "Save Traces" to save the resulting corrected+filtered traces.
-%   This will also produce a log file with useful information.
-%
-%   The typical criteria used are:
-%     FRET-lifetime    > 15 frames       (trace must show FRET)
-%     D/A correlation  < 0.5             (remove aggregates)
-%     Signal-to-Noise  > 8               (sufficient resolution)
-%     Background noise < 1500            (background drift)
-%     N. Donor Blinks  < 3               (remove aggregates)
-%     Remove traces with multiple dyes = YES
-%
-%   NOTE that many of these criteria can bias the data, especially
-%   correlation.  When comparing datasets, use the same criteria.
-
-%   A gamma (sensitivity/quantum yield ratio) correction is used in
-%   calculating total intensity and SNR.  The value comes from
-%   cascadeConstants and was calculated for our equipment with ribosome
-%   samples.  The value will vary based on equipment and sample studied.
-%   
-%   Fluorescence data are no longer stored in handles because loading
-%   too many traces at once cause out-of-memory errors.  They are now
-%   oaded on-demand through GetPickedTraces.  Post-synchronization of traces
-%   is no longer implemented!
-%   8/2007  -DT
-%
-%   FRET lifetime, N. Donor Blinks, signal overlap detection criteria all
-%   added from original version by JBM.
-%   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 08-Apr-2009 17:23:53
+% Last Modified by GUIDE v2.5 08-Apr-2010 17:25:19
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -90,16 +53,57 @@ end
 
 %---- Generate settings dialog box, hide from view
 handles.hSettings = realtimeAnalysis_settings( ...
-                            {@realtimeAnalysis_Notify, hObject} );
-set(handles.hSettings,'Visible','off');
+                            @realtimeAnalysis_Notify, hObject );
+% set(handles.hSettings,'Visible','off');
                         
 % Load settings from the dialog...
-settingsHandles = guidata( handles.hSettings );
-handles.criteria = settingsHandles.criteria;
+settingsHandle = guidata( handles.hSettings );
+handles.criteria = settingsHandle.criteria;
+handles.gettracesOptions = settingsHandle.options;
 
 
 %---- PROGRAM CONSTANTS
 handles.constants = cascadeConstants();
+
+handles.nHistBins=40; % histogram bins size
+
+makeplotsOptions.contour_bin_size = 0.035;
+makeplotsOptions.no_tdp = 1;
+makeplotsOptions.pophist_offset = 0;
+% makeplotsOptions.hideText = true;
+handles.makeplotsOptions = makeplotsOptions;
+
+
+%---- SETUP GUI TRACE STATISTIC CONTROLS
+
+% Names of trace statistics -- these should be defined somewhere else!
+ln = traceStat;  %get long statistic names
+handles.statLongNames = ln;
+longNames  = struct2cell(ln);
+shortNames = fieldnames(ln);
+
+% Add context menus to the plots to launch curve fitting
+% Ideally, you should be able to drop-in any variant of the interface,
+% with variable numbers of histogram boxes, etc and have it still work.
+handles.cboNames = strcat('cboStat',{'1','2'});
+handles.nPlots = length(handles.cboNames);
+
+for id=1:handles.nPlots,
+    set( handles.(['cboStat' num2str(id)]), 'String', longNames );
+end
+
+% Set default selections
+set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
+set( handles.cboStat2, 'Value', find(strcmp('acclife',shortNames))  );
+
+
+%---- INITIALIZE DATA STORAGE VARIABLES
+handles = resetGUI(handles);
+
+
+%---- Other setup:
+handles.inputdir = pwd;
+set(handles.txtDirectory,'String',pwd);
 
 % Choose default command line output for realtimeAnalysis
 handles.output=hObject;
@@ -112,22 +116,23 @@ guidata(hObject,handles);
 
 
 % Callback for when settings dialog is updated...
-function realtimeAnalysis_Notify(hObject)
+function realtimeAnalysis_Notify(result, hObject)
 
 % Load data in both figures
 handles = guidata(hObject);
-settingsHandles = guidata(handles.hSettings);
 
 % Update selection criteria
-handles.criteria = settingsHandles.criteria;
+handles.criteria = result.criteria;
+handles.gettracesOptions = result.gettracesOptions;
 
 disp(handles.criteria);
+disp(handles.gettracesOptions);
 
 % Update handles structure
 guidata(hObject,handles);
 
-btnGo_Callback(hObject, [], handles);
-
+% Update analysis.
+updateGUI( hObject, handles, 1 );
 
 
 
@@ -152,385 +157,281 @@ varargout{1}=handles.output;
 
 
 %----------BATCH ANALYSIS----------%
-% --- Executes on button press in btnGo.
-function btnGo_Callback(hObject, eventdata, handles)
-% hObject    handle to btnGo (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
+function updateGUI( hObject, handles, force )
 % This allows for realtimeAnalysis to run in batch mode. A directory is selected,
 % and all the traces files are combined, and a single output file is
 % generated. NOTE: be careful not to combine data from different
 % experiments. Store different data sets in separate folders.
 
+% Process input parameters
+if nargin<3, force = 0; end
 
-tic;
-handles.isExecuting = 1;
-guidata(hObject,handles);
-
-set( handles.txtStatus, 'String', 'Loading traces...' );
-
-disp( get(0,'CurrentFigure') )
-settingsHandles = guidata(handles.hSettings);
-
-% Update selection criteria
-handles.criteria = settingsHandles.criteria;
-
-
-datapath = get(handles.txtDirectory,'String');
-
-
-% Run gettraces ...
-
-
-% Create list of .traces files in the directory.
-traces_files = dir( [datapath filesep '*.traces'] );
-handles.nFiles = numel(traces_files);
-
-if handles.nFiles == 0
-    disp('No files in this directory!');
+% Only run one analysis instance at once.
+if isfield(handles,'isExecuting') && handles.isExecuting,
+    %disp('Analysis is already executing!');
     return;
 end
 
+% Get user-selected directory name from GUI.
+datapath = get(handles.txtDirectory,'String');
 handles.inputdir = datapath;
-handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
-handles.inputstks = {};
+if isempty(handles.inputdir), return; end
 
-disp(handles.inputdir);
-
-handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
-handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
-
-
-OpenTracesBatch( hObject, handles )
+% Prevent GUI interactions from triggering this callback while running.
+handles.isExecuting = 1;
+guidata(hObject,handles);
+needUpdate = 0; %true if GUI needs to be updated.
 
 
-set( handles.txtStatus, 'String','IDLE.' ); drawnow;
+%---- Extract traces from all movies in current directory.
+set( handles.txtStatus, 'String', 'Extracting traces from movies...' ); drawnow;
+gettracesOptions = handles.gettracesOptions;
+gettracesOptions.skipExisting = 1;
+gettracesOptions.quiet = 1;
+
+gettraces( datapath, gettracesOptions );
+
+%---- Load traces files that have not already been loaded.
+tracesLoaded = getappdata(handles.figure1,'tracesLoaded');
+stats = getappdata(handles.figure1,'infoStruct');
+
+% Create list of .traces files in the selected directory.
+tracesToLoad = dir( [datapath filesep '*.traces'] );
+if isempty(tracesToLoad),
+    % No files found.
+    set( handles.txtStatus, 'String', 'IDLE.' ); drawnow;
+    handles.isExecuting = 0;
+    guidata(hObject,handles);
+    return;
+end
+
+inputfiles = strcat( [datapath filesep], {tracesToLoad.name} );
+
+
+% If a file (and the corresponding .stk) were removed, trace data is removed
+% from the cache.
+[filesToKeep,idxToKeep] = intersect( handles.filesLoaded, inputfiles );
+
+if numel(idxToKeep)<numel(handles.filesLoaded),
+    idxTraces = handles.idxTraces(idxToKeep,:);
+    tracesToKeep = mergeIndexes(idxTraces);
+    
+    tracesLoaded.d   = tracesLoaded.d(tracesToKeep,:);
+    tracesLoaded.a   = tracesLoaded.a(tracesToKeep,:);
+    tracesLoaded.f   = tracesLoaded.f(tracesToKeep,:);
+    tracesLoaded.ids = tracesLoaded.ids(tracesToKeep);
+    setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
+    
+    stats = stats(tracesToKeep);
+    setappdata(handles.figure1,'infoStruct',stats);
+    
+    handles.nTraces = size( tracesLoaded.d,1 );
+    handles.idxTraces = squashIndexes( idxTraces );
+    handles.filesLoaded = filesToKeep;
+    
+    needUpdate = 1;
+end
+
+
+% Load new files into the cache.
+filesToLoad = setdiff( inputfiles, handles.filesLoaded );
+
+if ~isempty(filesToLoad)
+    % Load trace data from new files
+    set( handles.txtStatus, 'String', 'Loading traces files...' ); drawnow;
+    [traceData,indexes] = loadTracesBatch( filesToLoad );
+    if isempty(handles.timeAxis),
+        handles.timeAxis = traceData.time;
+    end
+    handles.filesLoaded = [handles.filesLoaded filesToLoad];
+
+    % Merge new data into existing cache
+    handles.idxTraces = [handles.idxTraces ; indexes+handles.nTraces];
+    
+    tracesLoaded(1).d   = [tracesLoaded.d ;  traceData.d  ];
+    tracesLoaded.a   = [tracesLoaded.a ;  traceData.a  ];
+    tracesLoaded.f   = [tracesLoaded.f ;  traceData.f  ];
+    tracesLoaded.ids = [tracesLoaded.ids traceData.ids];
+    setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
+    clear traceData;
+
+    handles.nTraces = size( tracesLoaded.d,1 );
+    handles.nFiles  = numel( inputfiles );
+    
+    % Calculate trace statistics for selection.
+    % TODO: only run this for the subset of data being loaded, then
+    %       merge with existing (cached) results!!!
+    stats = traceStat(tracesLoaded.d,tracesLoaded.a,tracesLoaded.f);
+    setappdata(handles.figure1,'infoStruct',stats);
+    
+    needUpdate = 1;
+end
+
+% If there are no new/lost files, no need to update (unless settings changed).
+if ~needUpdate && ~force,
+    set( handles.txtStatus, 'String','Finished.' );
+    handles.isExecuting = 0;
+    guidata(hObject,handles);
+    return;
+end
+
+
+%---- Select traces based on user-defined criteria.
+set( handles.txtStatus, 'String', 'Selecting traces with user-defined criteria...' );
+
+picks = pickTraces( stats, handles.criteria );
+handles.inds_picked = picks; %just picked traces.
+handles.picked_mols = numel(picks);
+
+
+%---- Update contour plots
+set( handles.txtStatus, 'String','Updating plots...' ); drawnow;
+
+options = handles.makeplotsOptions;
+options.targetAxes = { handles.axFretContourAll };
+frethist = makecplot( tracesLoaded.f(picks,:), options );
+makeplots( frethist, 'All movies', options );
+
+% Also show only traces from the last movie.
+selectedPicks = picks( picks>=handles.idxTraces(end,1) & picks<=handles.idxTraces(end,2) );
+options.targetAxes = { handles.axFretContourSelected };
+frethist = makecplot( tracesLoaded.f(selectedPicks,:), options );
+makeplots( frethist, 'Last movie', options );
+
+
+
+
+%---- Show population statistics in GUI
+% All traces
+handles = updateStats( stats, handles );
+
+% Just traces from the last (most recent) movie.
+lastMovie = 1:handles.nTraces;
+lastMovie = lastMovie>=handles.idxTraces(end,1) & lastMovie<=handles.idxTraces(end,2);
+handles = updateStats( stats(lastMovie), handles, 'Last' );
+set( handles.edAcceptanceLast,'String','' ); %not working yet.
+
+
+% Select traces with quantifiable stats.
+% selectedIdx = idx( idx>=handles.idxTraces(end,1) & idx<=handles.idxTraces(end,2) );
+% nSelected = diff( handles.idxTraces(end,:) );
+
+
+
+%---- Update GUI
+set( handles.txtStatus, 'String','Finished.' ); drawnow;
+
 handles.isExecuting = 0;
-
-guidata(hObject,handles);
-toc
-
-% END FUNCTION btnGo_Callback
-
-
-
-
-function OpenTracesBatch( hObject, handles )
-
-handles.ids = cell(0);  % trace names (name_file#_trace#)
-handles.nTracesPerFile = zeros(handles.nFiles,1);
-
-
-% Open each file of traces and build the raw data array. Works the same as
-% above, but loops through each file in the directory.
-for k=1:handles.nFiles  % for each file...    
-    
-    set( handles.txtStatus, 'String', ...
-            sprintf('Loading traces (%d of %d)',k,handles.nFiles) );
-    drawnow;
-    
-    % Load the traces file.
-    % If raw data, corrections for background and crosstalk are made
-    [donor,acceptor,fret,ids,time] = loadTraces( ...
-                handles.inputfiles{k}, handles.constants);
-            
-    if size(donor,1)==0, continue; end  %skip empty files
-    
-    % Make sure all movies have the same number of frames
-    if exist('len','var') && len~=size(donor,2),
-        error('Trace lengths do not match! Use resizeTraces');
-    end
-    
-    % Calculate lifetimes, and average amplitudes, etc for current file
-    ss = traceStat(donor,acceptor,fret, handles.constants);
-    
-    % Add to values for all files
-    if ~exist('infoStruct','var')
-        infoStruct = ss;
-    else
-        infoStruct = cat(2, infoStruct, ss  );
-    end
-    
-    % Add new data to handles
-    [Ntraces,len] = size(donor);
-    handles.nTracesPerFile(k) = Ntraces;
-    handles.ids = [handles.ids ids];
-    
-end 
-drawnow;
-
-handles.len = len;
-handles.Ntraces = sum(handles.nTracesPerFile);
-if time(1)~=1,
-    dt = time(2)-time(1);
-end
-
-
-% Save the trace properties values to application data
-setappdata(handles.figure1,'infoStruct', infoStruct);
-% clear infoStruct;
-
-
-% Initialize a variable for storing the number of molecules picked.
-handles.picked_mols=0;
-
 guidata(hObject,handles);
 
-% Automatically run Pick Traces
-% stats = getappdata(handles.figure1,'infoStruct');
-[picks,values] = pickTraces( infoStruct, handles.criteria );
-% clear stats;
-
-% The number of traces picked.
-handles.inds_picked = picks;
-handles.picked_mols = numel(handles.inds_picked);
-
-guidata(hObject,handles);
-
-% Save picked data to handles.outfile
-SaveTraces( handles.outfile, handles );
 
 
-% Run Hidden Markov Modeling analysis, if a model has been given
+% Update trace statistic histograms for traces passing selection criteria.
+nAxes = length( handles.cboNames );
 
-if isfield(handles,'model')
-    skmOptions.maxItr = 100;
-    skmOptions.convLL = 1e-4;
-    handles.model.fixMu = ones( size(handles.model.mu) );
-    handles.model.fixSigma = ones( size(handles.model.sigma) );
-
-
-    set( handles.txtStatus, 'String','Idealizing data...' ); drawnow;
-
-    filename = handles.outfile;
-    [d,a,data,ids,time] = loadTraces( filename );
-    if time(1)==1,
-        f = inputdlg('What is the sampling interval (in ms) for this data?');
-        sampling = str2double(f);
-    else
-        sampling = time(2)-time(1);
-    end
-    
-    [dwt,newModel,LL,offsets] = skm( data, sampling, handles.model, skmOptions );
-
-    mu = newModel.mu;
-    sigma = newModel.sigma;
-    fretModel = [mu sigma];
-    
-    % Save the idealization
-    dwtFilename = strrep(filename,'.txt','.qub.dwt');
-    saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
+for i=1:nAxes,
+    cboStat_Callback(handles.(handles.cboNames{i}), handles);
 end
-
-
-% Generate ensemble plots
-targetAxes = { handles.axFretContour, handles.axFretHistogram };
-set( handles.txtStatus, 'String','Making data plots...' ); drawnow;
-makeplots( {handles.outfile}, {'auto'}, 'targetAxes',targetAxes );
-
-% Show population statistics in GUI
-set( handles.txtAcceptance,'String', ...
-     sprintf('%.0f%% (%d of %d)',100*handles.picked_mols/handles.Ntraces, ...
-                handles.picked_mols,handles.Ntraces) );
-
-avgI = mean( [values.t] );
-set( handles.txtIntensity,'String', ...
-     sprintf('%.0f',avgI) );
- 
-avgSNR = mean( [values.snr] );
-set( handles.txtSNR,'String', ...
-     sprintf('%.1f',avgSNR) );
-
-% Calculate donor bleaching rate...
-[donorDist,donorAxes] = hist( [values.lifetime], 40 );
-donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
-donorAxes = [0 donorAxes];
-
-f = fit( donorAxes',donorDist','exp1' );
-
-if exist('dt','var')
-    set( handles.txtLTDonor,'String', ...
-         sprintf('%.1f sec',-1/f.b/dt) );
-else
-    set( handles.txtLTDonor,'String', ...
-         sprintf('%.1f frames',-1/f.b) );
-end
-
-% Calculate acceptor bleaching rate
-[accDist,accAxes] = hist( [values.acclife], 40 );
-accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
-accAxes = [0 accAxes];
-
-f = fit( accAxes',accDist','exp1' );
-
-if exist('dt','var')
-    set( handles.txtLTAcceptor,'String', ...
-         sprintf('%.1f sec',-1/f.b/dt) );
-else
-    set( handles.txtLTAcceptor,'String', ...
-         sprintf('%.1f frames',-1/f.b) );
-end
-
-% Calculate state occupancies
-if isfield(handles,'model')
-    info = sprintf('%.1f%% ', percentTime(dwtFilename));
-    set(handles.edOccupancy,'String',info);
-end
-
-guidata(hObject,handles);
-
 
 
 % END FUNCTION OpenTracesBatch
 
 
-%--------------------  SAVE PICKED TRACES TO FILE --------------------%
-function SaveTraces( filename, handles )
-
-fid=fopen(filename,'w');
-disp( ['Saving to ' filename] );
-
-% Save forQUB
-qub_fname = strrep( filename, '.txt', '.qub.txt' );
-qubfid=fopen(qub_fname,'w');
-disp( ['Saving to ' qub_fname] );
 
 
-pick_offset = [0; cumsum(handles.nTracesPerFile)];
+function handles = updateStats( stats, handles, postfix )
 
-for index = 1:handles.nFiles  %for each file in batch...
-    
-    set( handles.txtStatus, 'String', ...
-        sprintf('Saving traces (%.0f%%)',100*index/handles.nFiles) );
-    drawnow;
-    
-    %---- Load trace data from file, make corrections
-    % inds_picked is indexes as if all the traces data were in one huge array.
-    % This is translating into an offset at the start of this particular file
-    Ntraces = handles.nTracesPerFile(index);
-    picks = handles.inds_picked - pick_offset(index);
-    picks = picks( picks>0 & picks<=Ntraces );
-    
-    if numel(picks)==0, continue; end
-    
-    [donor,acceptor,fret,ids,time] = loadTraces( handles.inputfiles{index}, ...
-                                        handles.constants, picks );
-      
-    % Write time markers (first row)
-    if index==1,
-        fprintf(fid,'%d ', time);
-        fprintf(fid,'\n');
-    end
-    
-    %--- Write fluorescence data: {name} {datapoints...}
-    % 3 lines per molecule: donor, acceptor, fret
-    indexes = picks + pick_offset(index);  %indexes into whole dataset
-    
-    for j=1:size(donor,1)  %for each molecule in file...
-        
-        % output name
-        name = '';
-        if ~isempty(handles.ids)
-            name = sprintf('%s ',handles.ids{indexes(j)});
-        end
+if nargin<3, postfix=''; end
 
-        % output fluorescence data
-        fprintf(fid,'%s', name);
-        fprintf(fid,'%g ', donor(j,:));
-        assert( ~isnan(donor(j,1)) );
-        fprintf(fid,'\n');
-        
-        fprintf(fid,'%s', name);
-        fprintf(fid,'%g ', acceptor(j,:));
-        fprintf(fid,'\n');
+dt = diff(handles.timeAxis(1:2));
 
-        fprintf(fid,'%s', name);
-        fprintf(fid,'%g ', fret(j,:));
-        fprintf(fid,'\n');
-        
-        % Write FRET data
-        fprintf(qubfid, '%f\n', fret(j,:));
-        
-    end % for each molecule
-    
-    
-    
-end % for each file
-fclose(fid);
-fclose(qubfid);
-drawnow;
+%---- Show population statistics in GUI
 
+clear basicCriteria;
+basicCriteria.min_snr = 2;
+basicCriteria.min_lifetime = 10;
+basicCriteria.overlap = 1;
+idx = pickTraces( stats, basicCriteria );
 
-% Generate log file containing informtion about how the traces were picked.
-logfile=strrep(filename,'.txt','.log');
-fid=fopen(logfile,'w');
+t = [stats.t];
+snr   = [stats.snr];
+snr_s = [stats.snr_s];
+acceptorLifetime = [stats.acclife];
+donorLifetime = [stats.lifetime];
 
-fprintf(fid,'%s\n\n%s\n',date,'DIRECTORY');
-fprintf(fid,'  %s\n\n%s\n',handles.inputdir,'FILES');
+% Calculate breakdown of traces removed during selection.
+nTraces = numel(stats); %all data.
+nSingle = sum( snr>0 & ~[stats.overlap] );
+nFRET   = sum( acceptorLifetime>1 );
+nPicked = handles.picked_mols;
 
-if ~iscell(handles.inputfiles)
-    fprintf(fid,'%s\n',handles.inputfiles);
+% Calculate important trace statistics.
+avgI    = median( t(idx) );
+avgSNR  = median( snr(idx)   );
+avgSNRs = median( snr_s(idx) );
+
+% Calculate donor bleaching rate...
+[donorDist,donorAxes] = hist( donorLifetime(idx), 40 );
+donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
+donorAxes = [0 donorAxes];
+f = fit( donorAxes',donorDist','exp1' );
+% figure; plot( f ); hold on; bar( donorAxes',donorDist' );
+
+if handles.timeAxis(1)==0
+    donorT = sprintf('%.1f sec',-1/f.b/dt);
 else
-    for k=1:numel(handles.inputfiles)
-        [p,fname,ext] = fileparts( handles.inputfiles{k} );
-        fprintf(fid,'  %s%s\n',  fname,ext);
-    end
+    donorT = sprintf('%.1f frames',-1/f.b);
+end
+
+% Calculate acceptor bleaching rate
+acclifeCriteria = basicCriteria;
+acclifeCriteria.min_acclife = 1;
+idxAcc = pickTraces( stats, acclifeCriteria );
+
+[accDist,accAxes] = hist( acceptorLifetime(idxAcc), 40 );
+accDist = 1 - [0 cumsum(accDist)]/sum(accDist);
+accAxes = [0 accAxes];
+f = fit( accAxes',accDist','exp1' );
+
+if handles.timeAxis(1)==0
+    acceptorT = sprintf('%.1f sec',-1/f.b/dt);
+else
+    acceptorT = sprintf('%.1f frames',-1/f.b);
 end
 
 
-fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
-            handles.picked_mols, handles.Ntraces, ...
-            100*handles.picked_mols/handles.Ntraces );  
+% Create data table for displaying states in GUI
+tableData = { sprintf('%.0f%% (%d)',100*nSingle/nTraces,nSingle); ...
+              sprintf('%.0f%% (%d)',100*nFRET/nTraces,  nFRET  ); ...
+              sprintf('%.0f%% (%d)',100*nPicked/nTraces,nPicked); ...
+              %' '; ... %spacer row
+              sprintf('%.1f',        avgI           ); ...
+              sprintf('%.1f (%.1f)', avgSNR,avgSNRs ); ...
+              donorT ; acceptorT  };
+          
+% set( handles.tblStats, 'Data',tableData );
 
-        
-% Descriptive statistics about dataset
-stats = getappdata(handles.figure1,'infoStruct');
-% [picks,values] = pickTraces( stats, handles.criteria, handles.constants );
+textboxNames = {'edSingleDonor','edHasFret','edAcceptance',...
+                'edIntensity', 'edSNR', 'edLTDonor','edLTAcceptor'};
+setString( handles, strcat(textboxNames,postfix), tableData );
 
-total = handles.Ntraces;
-isMolecule      = sum( [stats.snr]>0 );
-singleMolecule  = sum( [stats.snr]>0 & [stats.overlap]==0 );
-hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 );
-other           = handles.picked_mols;
-
-fprintf(fid,'PICKING RESULTS\n');
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/total);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Have FRET',           hasFRET, 100*hasFRET/singleMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Pass other criteria', other,   100*other/hasFRET);
-fprintf(fid, '\n\n');
-
-
-% Save picking criteria used
-fprintf(fid,'PICKING CRITERIA\n');
-
-names = fieldnames(  handles.criteria );
-vals  = struct2cell( handles.criteria );
-
-for i=1:numel(names),
-    if isempty( vals{i} ), continue; end  %skip unchecked criteria
-    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
-end
-
-% Save values of all other constants used
-fprintf(fid, '\n\nCONSTANTS\n');
-
-names = fieldnames(  handles.constants );
-vals  = struct2cell( handles.constants );
-
-for i=1:numel(names),
-    if isstruct( vals{i} ) || numel( vals{i} )>1, continue; end
     
-    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
+% END FUNCTION updateStats
+
+
+
+
+function setString( handles, fields, values )
+
+for i=1:numel(fields),
+    set( handles.(fields{i}),'String',values{i} );
 end
 
-
-fprintf(fid,'\n\n');
-fclose(fid);
+% END FUNCTION setString
 
 
-% END FUNCTION SaveTraces_Callback
+
+
 
 
 
@@ -546,14 +447,17 @@ function btnBrowse_Callback(hObject, eventdata, handles)
 % CALLED: when the user clicked "Browse..."
 % ACTION: Get location of data to process
  
-datadir = uigetdir(pwd, 'Select a directory with all data to process');
+datadir = uigetdir(handles.inputdir, 'Select a directory with all data to process');
 
 if datadir~=0,
+    % If this is a new location, reset the GUI.
+    if ~strcmp(datadir,handles.inputdir),
+        handles = resetGUI( handles );
+    end
+    
+    % Update GUI with new data location
     handles.inputdir = datadir;
     set(handles.txtDirectory,'String',datadir);
-
-    handles.inputfiles = {};
-    handles.nFiles = 0;
 end
 
 % Update handles structure
@@ -561,27 +465,57 @@ guidata(hObject,handles);
 
 
 function txtDirectory_Callback(hObject, eventdata, handles)
-% hObject    handle to txtDirectory (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% CALLED: when the user modifies the data location textbox
+% ACTION: reset GUI and prepare to load data from the new location.
 
-% Hints: get(hObject,'String') returns contents of txtDirectory as text
-%        str2double(get(hObject,'String')) returns contents of txtDirectory as a double
+datadir = get(hObject,'String');
 
-loc = get(hObject,'String');
-if ~exist(loc,'dir'),
+if ~exist(datadir,'dir'),
     warning('realtimeAnalysis: directory doesn''t exist!');
-    loc = handles.inputdir;
-    set(hObject,'String',loc);
+    set(hObject,'String',handles.inputdir);
 else
-    handles.inputdir = loc;
+    % If this is a new location, reset the GUI.
+    if ~strcmp(datadir,handles.inputdir),
+        handles.inputdir = datadir;
+        handles = resetGUI( handles );
+    end
 end
 
-handles.inputfiles = {};
-handles.nFiles = 0;
-
+% Update handles structure
 guidata(hObject,handles);
 
+
+function handles = resetGUI( handles )
+% Resets all GUI elements and clears background variables.
+
+% Clear trace stat histograms
+for id=1:handles.nPlots,
+    cla( handles.(['axStat' num2str(id)]) );
+end
+
+% Clear contour plots
+cla( handles.axFretContourSelected  );
+cla( handles.axFretContourAll  );
+
+% Clear trace stat table
+% Data = cell(8,2);
+% [Data{:}] = deal(' ');
+% set( handles.tblStats, 'Data',Data );
+
+% Delete saved trace data and reset
+handles.filesLoaded = {};
+handles.idxTraces = zeros(0,2);
+handles.nFiles  = 0;
+handles.nTraces = 0;
+handles.inds_picked = [];
+handles.picked_mols = 0;
+
+tracesLoaded = struct( 'd',[], 'a',[], 'f',[], 'ids',{} );
+handles.timeAxis = [];
+setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
+setappdata(handles.figure1,'infoStruct',[]);
+
+% END FUNCTION resetGUI
 
 
 
@@ -589,42 +523,54 @@ guidata(hObject,handles);
 function btnSettings_Callback(hObject, eventdata, handles)
 % If the realtime analysis window has not been launched, do so now.
 % If it has been launched, simply make it visible.
-if isfield(handles,'hSettings'),
-    set( handles.hSettings, 'Visible','on' );
-else
-    handles.hSettings = realtimeAnalysis_settings( ...
-                            {@realtimeAnalysis_Notify, hObject} );
-    disp('loading settings gui');
+set( handles.hSettings, 'Visible','on' );
+
+
+
+
+function close_Callback(hObject)
+% Set figure as hidden (not Visible) so its properties can be
+% accessed without the window being in the way.
+handles = guidata(hObject);
+
+% Also kill the settings dialog and timer. We don't want to hanging around
+% after the main app has closed!
+if isfield(handles,'fileTimer')
+    disp('Timer deleted.');
+    delete(handles.fileTimer);
 end
-guidata(hObject,handles);
+delete(handles.hSettings);
+delete( hObject );
+
+
 
 
 % --- Executes on button press in chkAutoUpdate.
-function chkAutoUpdate_Callback(hObject, eventdata, handles)
-% hObject    handle to chkAutoUpdate (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hint: get(hObject,'Value') returns toggle state of chkAutoUpdate
+function btnGo_Callback(hObject, eventdata, handles)
 
 handles.autoUpdate = get(hObject,'Value');
 
 % If turned on, create a timer object to check the current directory
 if handles.autoUpdate    
-    disp('starting');
-    handles.fileTimer = timer('ExecutionMode','fixedDelay','StartDelay',1,...
-                              'TimerFcn',{@checkForFiles,handles.figure1},...
-                              'Period',5.0,'BusyMode','drop');
+    disp('Timer started.');
+    handles.fileTimer = timer('ExecutionMode','fixedSpacing','StartDelay',1,...
+                              'TimerFcn',{@timer_Callback,handles.figure1},...
+                              'Period',3.0,'BusyMode','drop');
     start(handles.fileTimer);
 
 % If turned off, disable the current timer
 else
     
     if isfield(handles,'fileTimer')
-        disp('deleting');
+        disp('Timer deleted.');
         stop(handles.fileTimer);
         delete(handles.fileTimer);
     end
+    
+    % Reset the isExecuting flag. Need to have some way of reseting this
+    % variable in case of a crash...
+    set( handles.txtStatus, 'String','IDLE' );
+    handles.isExecuting = 0;
 
 end
 
@@ -632,124 +578,116 @@ guidata(hObject,handles);
 
 
 
-function checkForFiles(timerObject,event,figObj)
+function timer_Callback(timerObject,eventdata,hObject)
 
-handles = guidata(figObj);
+% disp('Timer tick');
+updateGUI( hObject, guidata(hObject) )
 
-% If there is no current file list, exit
-if ~isfield(handles,'inputfiles')
-    return;
-end
-
-if isfield(handles,'isExecuting') && handles.isExecuting,
-    disp('Already running, skipping test');
-    return;
-end
-
-datapath = handles.inputdir;
-
-
-% If there are new STKs, run gettraces
-set( handles.txtStatus, 'String','Processing new movies...' );
-
-params.overlap_thresh = 2.1;
-params.don_thresh = 3000;
-params.skipExisting = 1;
-params.recursive = 0;
-gettraces( datapath, params );
-
-set( handles.txtStatus, 'String','IDLE.' ); drawnow;
-
-
-
-
-% Check current list against one from previous polling
-traces_files = dir( [datapath filesep '*.traces'] );
-if numel(traces_files) == 0, return; end
-inputfiles = strcat( [datapath filesep], {traces_files.name} );
-
-% If new files exist, re-run analysis routine.
-if numel(inputfiles)~=handles.nFiles || ...
-   ~all( strcmp(handles.inputfiles,inputfiles) ),
-%     handles.nFiles = numel(traces_files);
-%     handles.inputfiles = inputfiles;
-    disp('new file');
-    figure(figObj);
-    disp( get(0,'CurrentFigure') );
-    realtimeAnalysis('btnGo_Callback',figObj,[],guidata(figObj))
-%     btnGo_Callback( handles.btnGo,[],handles );
-end
+% END FUNCTION timer_Callback
 
 
 
 
 
 
+%%
+%#########################################################################
+%------------------------ TRACE STATISTIC DISPLAY -----------------------%
+%#########################################################################
 
 
+% --- Executes on selection change in any of the drop down boxes above each
+%     of the trace statistic histogram plots.
+function cboStat_Callback(hObject, handles)
+
+% Get ID of this combo control and the handle of the corresponding axes.
+id = get(hObject,'UserData');
+hAx = handles.(['axStat' num2str(id)]);
+
+% Get trace statistics
+stats = getappdata(handles.figure1,'infoStruct');
+% picks = find([stats.snr]>0);
+picks = handles.inds_picked;
+
+if isempty(picks),  cla(hAx); return;  end
 
 
+% Get user selection
+selected   = get(hObject,'Value');
+statNames = fieldnames(handles.statLongNames);
+statToPlot = statNames{selected};
+
+assert( ismember( statToPlot, fieldnames(stats) ), ...
+        'Selected trace statistic is unknown' );
+
+% Also show only traces from the last movie.
+selectedPicks = picks( picks>=handles.idxTraces(end,1) & picks<=handles.idxTraces(end,2) );
+otherPicks = setdiff( picks, selectedPicks );
+
+% Plot the distribution of the statistic
+statData = [stats.(statToPlot)];
+
+[~,binCenters] = hist( statData(picks), handles.nHistBins);
+
+[dataOther,binCenters] = hist( statData(otherPicks), binCenters);
+dataOther = 100*dataOther/numel(statData);  %normalize the histograms
+
+[dataSelected,binCenters] = hist( statData(selectedPicks), binCenters);
+dataSelected = 100*dataSelected/numel(statData); %normalize the histograms
+
+dataOther = reshape( dataOther, size(dataSelected) );
 
 
+% Plot histograms
+hBar = bar( hAx, binCenters, [dataSelected' dataOther'], 1, 'stacked' );
+% zoom on;
+% grid on;
+set(hBar(1),'facecolor',[1 0 0]);
+set(hBar(2),'facecolor',[251 251 196]/256);
 
-% --- Executes on button press in btnBrowseModel.
-function btnBrowseModel_Callback(hObject, eventdata, handles)
-% hObject    handle to btnBrowseModel (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get list of data files from user
-fname = get(handles.edModelFilename,'String');
-if isempty(fname)
-    fname = '*.qmf';
-end
-
-[f,p] = uigetfile(fname,'Select a QuB model file...');
-if f==0, return; end
-fname = [p f];
-
-set(handles.edModelFilename,'String',fname);
-
-handles = loadModel(handles,fname);
-guidata(hObject, handles);
-
-% Update results -- rerun analysis pipeline
-realtimeAnalysis('btnGo_Callback',hObject,[],handles);
-
-
-
-function edModelFilename_Callback(hObject, eventdata, handles)
-% hObject    handle to edModelFilename (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-filename = get(hObject,'String');
-if ~exist(filename,'file'),
-    warning('Model file does not exist!');
-else
-    handles = loadModel(handles,filename);
-end
-
-guidata(hObject, handles);
-
-% Update results -- rerun analysis pipeline
-realtimeAnalysis('btnGo_Callback',hObject,[],handles);
-
-
-
-function handles = loadModel(handles,filename)
-
-model = qub_loadModel( filename );
-handles.model = model;
-handles.hasModel = 1;
-
-% Update model status text -- FIXME
-info = sprintf('%s',mat2str(model.mu(model.class)));
-set(handles.edFretValues,'String',info);
-
-% If data are already loaded, enable the Execute button
-% if handles.hasData,
-%     set(handles.btnExecute,'Enable','on');
+% if id==1,
+%     ylabel( handles.axStat1, 'Number of Traces (%)' );
+%     legend( {'Last movie','All movies'} );
 % end
 
 
+
+
+
+% --- Executes on button press in btnSaveTraces.
+function btnSaveTraces_Callback(hObject, eventdata, handles)
+
+% Prevent callbacks from running.
+handles.isExecuting = 1;
+guidata(hObject,handles);
+
+% Create a name for the output file
+handles.outfile = strrep(handles.filesLoaded{1}, '.traces', '_auto.txt');
+handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
+
+[inputfile inputpath]=...
+    uiputfile('.txt','Save picked traces as:',handles.outfile);
+
+if inputfile~=0,
+    handles.outfile=[inputpath inputfile];
+    [p,n,ext] = fileparts( handles.outfile );
+    assert( strcmp(ext,'.txt'), 'must be .txt' );
+
+
+    %---- Save selected traces files.
+    tracesLoaded = getappdata(handles.figure1,'tracesLoaded');
+    picks = handles.inds_picked; %just picked traces.
+
+    saveTraces( handles.outfile, 'txt', tracesLoaded.d(picks,:), ...
+                tracesLoaded.a(picks,:), tracesLoaded.f(picks,:), ...
+                tracesLoaded.ids(picks), handles.timeAxis );
+
+    qubFile = strrep(handles.outfile,'.txt','.qub.txt');
+    saveTraces( qubFile, 'qub', tracesLoaded.f(picks,:) );
+end
+        
+% Clean up
+handles.isExecuting = 0;
+guidata(hObject,handles);
+        
+        

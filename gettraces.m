@@ -71,7 +71,7 @@ params.align_dy =  0;
 
 % If any parameters are not specified, give a default value of 0.
 % This way, we don't have to constantly check if a parameter exists.
-paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations'};
+paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations','quiet'};
 for i=1:numel(paramNames),
     if ~isfield(params,paramNames{i})
         params.(paramNames{i}) = 0;
@@ -252,8 +252,6 @@ stkData.time = time;
 
 function batchmode(direct,params)
 
-h = waitbar(0,'Extracting traces from movies...');
-
 
 % Get list of files in current directory (option: and all subdirectories)
 if params.recursive
@@ -268,6 +266,10 @@ end
 
 nFiles = length(movieFilenames);
 
+% Wait for 100ms to give sufficient time for polling file sizes in the
+% main loop below.
+pause(0.1);
+
 
 % Process each file in the user selected directory.
 nTraces  = zeros(nFiles,1); % number of peaks found in file X
@@ -281,13 +283,35 @@ for i=1:nFiles,
     traceFname = [p filesep name '.traces'];
     
     if params.skipExisting && exist(traceFname,'file'),
-        disp( ['Skipping (already processed): ' stk_fname] );
+        if ~params.quiet,
+            disp( ['Skipping (already processed): ' stk_fname] );
+        end
         existing(i) = 1;
         continue;
     end
     
+    % Poll the file size to make sure it isn't changing.^M
+    % This could happen when a file is being saved during acquisition.^M
+    d = dir(movieFilenames(i).name);
+    if movieFilenames(i).bytes ~= d(1).bytes,
+        disp( ['Skipping (save in process?): ' movieFilenames(i).name] );
+        existing(i) = 1;
+        continue;
+    end
+    
+    % Show waitbar only when new data must be loaded.
+    if ~exist('h','var'),
+        h = waitbar( (i-1)/nFiles,'Extracting traces from movies...');
+    end
+    
     % Load STK file
-    stkData = OpenStk( movieFilenames(i).name, params );
+    try
+        stkData = OpenStk( movieFilenames(i).name );
+    catch e
+        disp('Skipping file: corrupted, missing, or not completely saved.');
+        existing(i) = 1;
+        continue;
+    end
     
     % Pick molecules using default parameter values
     image_t = stkData.stk_top - stkData.background;
@@ -321,8 +345,13 @@ for i=1:nFiles,
     integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
         traceFname, stkData.time, params );
     
-    waitbar(i/nFiles); drawnow;
+    waitbar(i/nFiles, h); drawnow;
 end
+
+if exist('h','var'),  close(h);  end
+
+% If no new data was loaded, nothing more to do.
+if all(existing),  return;  end
 
 
 % ----- Create log file with results
@@ -351,8 +380,6 @@ end
 
 
 % Clean up
-close(h);
-
 fclose(log_fid);
 
 
