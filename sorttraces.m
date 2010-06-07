@@ -157,7 +157,6 @@ function handles = OpenTracesFile( filename, handles )
 
 handles.filename = filename;
 
-
 % Load the file
 [handles.donor,handles.acceptor,handles.fret,handles.ids,handles.time] = ...
     loadTraces( filename );
@@ -240,6 +239,7 @@ set(handles.btnPrevBottom,'Enable','off');
 set(handles.btnPrint, 'Enable','on');
 set(handles.btnLoadDWT, 'Enable','on');
 
+handles.idl = [];
 
 plotter(handles);
 
