@@ -400,6 +400,7 @@ function OpenTracesBatch( hObject, handles )
 if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
     rmappdata(handles.figure1,'infoStruct');
     rmappdata(handles.figure1,'tracedata');
+    rmappdata(handles.figure1,'ids');
 end
 
 % Determine default filename to use when saving.
@@ -407,9 +408,9 @@ handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
 handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
 % Load all data into one large dataset.
-tracedata = loadTracesBatch( handles.inputfiles );
+[tracedata,ids] = loadTracesBatch( handles.inputfiles );
 handles.timeAxis = tracedata.time;
-[handles.Ntraces,handles.len] = size( tracedata.d );
+[handles.nTraces,handles.len] = size( tracedata.d );
 
 % Calculate trace stats
 infoStruct = traceStat( tracedata.d, tracedata.a, tracedata.f, ...
@@ -419,6 +420,7 @@ infoStruct = traceStat( tracedata.d, tracedata.a, tracedata.f, ...
 % Save the trace properties values to application data
 setappdata(handles.figure1,'infoStruct', infoStruct);
 setappdata(handles.figure1,'tracedata', tracedata);
+setappdata(handles.figure1,'ids', ids);
 clear infoStruct; clear tracedata;
 
 
@@ -468,13 +470,14 @@ function SaveTraces( filename, handles, txtOnly )
 
 % Get trace data
 data = getappdata(handles.figure1,'tracedata');
+ids = getappdata(handles.figure1,'ids');
 
 %---- Save only selected traces to disk.
 inds = handles.inds_picked;
 fret = data.f(inds,:);
 
 saveTraces( filename, 'txt', data.d(inds,:), data.a(inds,:), fret, ...
-                             data.ids(inds), handles.timeAxis );
+                             ids(inds), handles.timeAxis );
 
 if nargin<3 || ~txtOnly,
     qub_fname = strrep( filename, '.txt', '.qub.txt' );
@@ -501,14 +504,14 @@ end
 
 
 fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
-            handles.picked_mols, handles.Ntraces, ...
-            100*handles.picked_mols/handles.Ntraces );  
+            handles.picked_mols, handles.nTraces, ...
+            100*handles.picked_mols/handles.nTraces );  
 
         
 % Descriptive statistics about dataset
 stats = getappdata(handles.figure1,'infoStruct');
 
-total = handles.Ntraces;
+total = handles.nTraces;
 isMolecule      = sum( [stats.snr]>0 );
 singleMolecule  = sum( [stats.snr]>0 & [stats.overlap]==0 );
 hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 );
@@ -673,7 +676,7 @@ end
 
 % Turn some other buttons on/off.
 set(handles.MoleculesPicked,'String', ...
-            sprintf('%d of %d',[handles.picked_mols,handles.Ntraces]));
+            sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
 set(handles.SaveContourPlot,'Enable','off');
 
 % Save data in handles object.

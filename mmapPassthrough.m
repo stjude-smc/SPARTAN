@@ -31,7 +31,6 @@ methods
         Sc(2:numel(S)+1) = S(:);
         Sc(1).type = '.';
         Sc(1).subs = 'Data';
-        disp(Sc);
         
         % Pass the assignment on to memmapfile.
         subsasgn( obj.mmap, Sc, val );
