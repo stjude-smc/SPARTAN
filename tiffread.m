@@ -290,8 +290,29 @@ while (ifd_pos ~= 0)  %follow directory pointers until end
         end
         
         TIF.b = eval( [TIF.typecode '(0)'] );
-
         
+        
+        % If possible, load all the data as a memory map.
+        % Only possible if all data is in one contiguous block.
+        % NOTE: the data are row major, but MATLAB is column major. The width
+        % and height are reversed and the subscripts are interchanged whenever
+        % the data are referenced - all transparently within mmapPassthrough.
+        if TIF.StripNumber==1,
+            nPlanes = img_last-img_first+1;
+            offset  = TIF.StripOffsets(1) + PlaneBytesCnt*(img_first-1);
+            
+            mmap = memmapfile( filename, 'Format', ...
+                               {TIF.typecode [IMG.width IMG.height nPlanes] 'x'}, ...
+                               'Writable',false, 'Offset',offset );
+                                         
+            mpOptions.rowMajor = true;
+            mpOptions.forwardToVar = 'x';
+            stack = mmapPassthrough( mmap, mpOptions );
+            
+            break;
+        end
+
+        %
         stack = zeros(Rheight,Rwidth, img_last-img_first,'uint16');
         %this loop is to read metamorph stacks:
         for ii = img_first:img_last
@@ -311,7 +332,7 @@ while (ifd_pos ~= 0)  %follow directory pointers until end
 
         end
 
-        break;  % stop reading directories
+        break;  % stop reading directories - we don't care about the rest.
 
     else  %this part to read a normal TIFF stack:
 
@@ -402,7 +423,7 @@ while ( TIF.StripCnt <= TIF.StripNumber )
 
     fseek(TIF.file, TIF.StripOffsets(TIF.StripCnt) + offset, 'bof');
     plane = fread( TIF.file, StripLength, TIF.typecode );  % );
-
+    
     if ( length(plane) ~= StripLength )
         error('End of file reached unexpectedly.');
     end
