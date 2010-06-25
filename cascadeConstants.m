@@ -1,7 +1,7 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '1.8_rt';  %pipeline release version number
+constants.version = '1.9a1';  %pipeline release version number
 
 
 %--- Application settings for memory/CPU usage:

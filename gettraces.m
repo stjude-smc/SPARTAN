@@ -164,7 +164,7 @@ if strfind(filename,'.stk.bz2'),
     % Load stk movie -- stk(X,Y,frame number)
     filename = strrep(z_fname,'.stk.bz2','.stk');
     [stk,time] = tiffread(filename);
-    [stkX,stkY,Nframes] = size(stk);
+    [stkY,stkX,Nframes] = size(stk);
     
     % Delete the compressed movie -- we no longer need it!
     delete( z_fname );
@@ -172,9 +172,9 @@ if strfind(filename,'.stk.bz2'),
 elseif strfind(filename,'.movie'),
     fid = fopen( filename, 'r' );
     stkSize = fread( fid, 3, 'int16' );
-    stkX = stkSize(1); stkY = stkSize(2); Nframes = stkSize(3);
+    stkY = stkSize(1); stkX = stkSize(2); Nframes = stkSize(3);
 %     time = fread( fid, Nframes, 'float' );
-    stk = fread( fid, stkX*stkY*Nframes, 'int16' );
+    stk = fread( fid, stkY*stkX*Nframes, 'int16' );
     stk = reshape(stk,stkSize');
     fclose(fid);
     time = 1:Nframes;
@@ -568,7 +568,7 @@ don_y = tempy(indexes);
 function integrateAndSave( stk, stk_top, peaks, stk_fname, time, params )
 % NOTE: can find which pixels to use by correlation
 
-[stkX,stkY,Nframes] = size(stk);
+[stkY,stkX,Nframes] = size(stk);
 
 
 % Specify the number of most intense proximal pixels to sum when generating
