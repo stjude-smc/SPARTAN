@@ -129,7 +129,7 @@ function [nTraces,traceLen] = traceFileSize( filename )
 
 fid = fopen( filename, 'r' );
 traceLen=fread(fid,1,'int32');
-nTraces=fread(fid,1,'int16');
+nTraces=fread(fid,1,'int16')/2;
 fclose(fid);
 
 end
