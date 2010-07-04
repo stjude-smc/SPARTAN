@@ -2,7 +2,7 @@ function saveTraces( filename, format, varargin )
 % SAVETRACES    Saves trace data to file
 %
 %    SAVETRACES( FNAME, 'txt',    D,A,F,IDs, time )
-%    SAVETRACES( FNAME, 'traces', D,A,  IDs, time )
+%    SAVETRACES( FNAME, 'traces', D,A,F,IDs, time, metadata )
 %    SAVETRACES( FNAME, 'qub',    F )
 %
 % D:    MxN Donor fluorescence intensity matrix
@@ -139,9 +139,10 @@ fclose(fid);
 
 
 
-function saveTracesBinary( filename, donor,acceptor, ids, time )
+function saveTracesBinary( filename, donor,acceptor,fret, ids, time, metadata )
 % FORMAT:
 %   struct {
+%       int32:
 %       int32:   trace length (N)
 %       int16:   number of traces (M)
 %       string:  IDs (delimited by '-')
@@ -150,26 +151,17 @@ function saveTracesBinary( filename, donor,acceptor, ids, time )
 %   }
 % 
 
-[Ntraces,tlen] = size(donor);
+constants = cascadeConstants;
+
+
+[nTraces,traceLen] = size(donor);
 
 if ~exist('time','var'),
-    time = 1:tlen; %in frames
+    time = 1:traceLen; %in frames
 end
-
-% Verify input arguments
-if any( size(donor)~=size(acceptor) )
-    error('Data matrix dimensions must agree');
-% elseif ~exist('ids','var') && numel(ids)~=Ntraces
-%     error('Not enough IDs');
-end
-
-if any( isnan(donor(:)) | isnan(acceptor(:)) )
-    error('Cannot save NaN values!');
-end
-
 
 % Create IDs if not specified
-if ~exist('ids','var') || isempty(ids),
+if ~exist('ids','var'),
     [p,name] = fileparts(filename);
     
     ids = cell(Ntraces,1);
@@ -178,56 +170,75 @@ if ~exist('ids','var') || isempty(ids),
     end
 end
 
-% Remove special characters from IDs
-ids = strrep( ids, '-', '_' );      %- is used as ID seperator, must be avoided
-ids = strrep( ids, ' ', '_' );      %auto.txt format doesn't allow spaces
-
-
-% Open file to save data to
-fid=fopen(filename,'w');
-
-% Save header data
-fwrite(fid,tlen,   'int32');
-fwrite(fid,Ntraces*2,'int16');
-
-for j=1:Ntraces
-    fprintf(fid, '%s-', ids{j});
+% Verify input arguments
+if any( size(donor)~=size(acceptor) )
+    error('Data matrix dimensions must agree');
+% elseif exist('ids','var') && numel(ids)~=nTraces
+%     error('Not enough IDs');
 end
 
-% Save trace data
-traces = zeros(Ntraces*2,tlen);
-traces(1:2:end,:) = donor;
-traces(2:2:end,:) = acceptor;
+if any( isnan(donor(:)) | isnan(acceptor(:)) | isnan(fret(:)) )
+    error('Cannot save NaN values!');
+end
 
-fwrite(fid,traces,'int16');
-fwrite(fid,time,'int32');
+
+% 1) Create IDs if not specified and add to the metadata list
+if ~exist('ids','var') || isempty(ids),
+    [p,name] = fileparts(filename);
+    
+    ids = cell(nTraces,1);
+    for j=1:nTraces;
+        ids{j} = sprintf('%s_%d', name, j);
+    end
+end
+
+% Remove special characters from IDs
+% ids = strrep( ids, '-', '_' );      %- was used as ID seperator, best to avoid.
+% ids(' ')='_';      %auto.txt format doesn't allow spaces
+
+metadata(1).ids = sprintf( '%s\t', ids{:} );
+
+
+% 2) Open file to save data to
+fid=fopen(filename,'w');
+
+% 3) Write header data
+version = 3; %3 has no data descriptions, 4 does (FUTURE!)
+nChannels = 3; %D,A,F
+
+fwrite( fid, 0,         'uint32' );  %identifies the new traces format.
+fwrite( fid, 'TRCS',    'char'   );  %format identifier ("magic")
+fwrite( fid, version,   'uint16' );  %format version number
+fwrite( fid, 9,         'uint8'  );  %trace data type (see loadTraces.m)
+fwrite( fid, nChannels, 'uint8'  );
+
+fwrite( fid, [nTraces traceLen], 'uint32' );
+
+% 4) Write fluorescence and FRET data.
+fwrite( fid, time,     'single' ); %time axis (in seconds)
+fwrite( fid, donor,    'single' );
+fwrite( fid, acceptor, 'single' );
+fwrite( fid, fret,     'single' );  
+
+% 5) Write metadata pages
+fnames = fieldnames( metadata );
+
+for i=1:numel(fnames),
+    field = fnames{i};
+    metadataText = metadata.(field);
+    
+    % Write metadata header
+    fwrite( fid, numel(field), 'uint8' );
+    fwrite( fid, field, 'char' );
+    
+    fwrite( fid, 0, 'char' ); % 0=char type
+    fwrite( fid, numel(metadataText), 'uint32' );
+    fwrite( fid, metadataText, 'char' );
+end
+
 
 % Finish up
 fclose(fid);
-
-
-% fid=fopen(save_fname,'w');
-% 
-% fwrite(fid,tlen,'int32');
-% fwrite(fid,Ntraces,'int16');  % max of 32,000 traces!
-% 
-% name=strrep(name,'-','_');  %- is used as ID seperator, must be avoided
-% name=strrep(name,' ','_');  %auto.txt format doesn't allow spaces
-% 
-% for j=1:Ntraces/2;
-%     fprintf(fid, '%s_%d-', name, j);
-% end
-% fwrite(fid,traces,'int16');
-% fclose(fid);
-% clear traces;
-
-
-
-
-
-
-
-
 
 
 

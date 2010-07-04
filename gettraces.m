@@ -662,10 +662,12 @@ else  %quad-channel
 end
 
 
-% Subtract background from last point of all traces so data
-% can fit into an int16 matrix
-donor    = donor    - mean( donor(:,end)    );
-acceptor = acceptor - mean( acceptor(:,end) );
+% Make an adjustment for crosstalk on the camera.
+constants = cascadeConstants;
+acceptor = acceptor - constants.crosstalk*donor;
+
+% Subtract background and calculate FRET
+[donor,acceptor,fret] = correctTraces(donor,acceptor,constants);
 
 
 % Save data to file.
@@ -673,7 +675,7 @@ stk_fname = strrep(stk_fname,'.bz2','');
 [p,name]=fileparts(stk_fname);
 save_fname = [p filesep name '.traces'];
 
-saveTraces( save_fname, 'traces', donor,acceptor, [], time );
+saveTraces( save_fname, 'traces', donor,acceptor, fret, [], time );
 
 
 % Save the locations of the picked peaks for later lookup.
