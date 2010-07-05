@@ -55,6 +55,8 @@ end
 
 
 %------ Load parameter values (always second parameter!)
+global params;
+
 if nargin<2, %provide defaults if no parameters given.
     params.don_thresh = 0;
     params.overlap_thresh = 2.1;
@@ -89,11 +91,11 @@ if nargin>=1 && isstruct(varargin{1}),
 
 %------ Otherwise, load an individual file
 elseif nargin>=1 && ischar(varargin{1}) && ~isdir(varargin{1}),
-    stkData = OpenStk( varargin{1}, params );
+    stkData = OpenStk( varargin{1} );
 
 %------ If a directory name is given, run in batch mode and then terminate.
 elseif nargin>=1 && ischar(varargin{1}) && isdir(varargin{1})
-    batchmode( varargin{1}, params );
+    batchmode( varargin{1} );
     return;
 
 else
@@ -138,8 +140,7 @@ if nargin>=3 && ischar(varargin{3}),
     end
     
     outputFilename = varargin{3};
-    integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
-        outputFilename, stkData.time, params );
+    integrateAndSave( stkData.movie, stkData.stk_top, peaks', outputFilename );
 end
     
 return;
@@ -149,10 +150,16 @@ return;
 
 
 
-function [stkData] = OpenStk(filename, params)
+function [stkData] = OpenStk(filename)
+
+global params;
+
+if nargin<2,
+    params.geometry=2;
+end
 
 % If the movie is compressed, deflate it to a temporary location first
-if strfind(filename,'.stk.bz2'),
+if strfind(filename,'.bz2'),
     
     % decompress
     z_fname = filename;
@@ -161,35 +168,37 @@ if strfind(filename,'.stk.bz2'),
         error('Error uncompressing STK: %s',z_fname);
     end
     
-    % Load stk movie -- stk(X,Y,frame number)
-    filename = strrep(z_fname,'.stk.bz2','.stk');
-    [stk,time] = tiffread(filename);
-    [stkY,stkX,Nframes] = size(stk);
+    filename = strrep(z_fname,'.bz2','');
     
     % Delete the compressed movie -- we no longer need it!
     delete( z_fname );
 
 elseif strfind(filename,'.movie'),
-    fid = fopen( filename, 'r' );
-    stkSize = fread( fid, 3, 'int16' );
-    stkY = stkSize(1); stkX = stkSize(2); Nframes = stkSize(3);
-%     time = fread( fid, Nframes, 'float' );
-    stk = fread( fid, stkY*stkX*Nframes, 'int16' );
-    stk = reshape(stk,stkSize');
-    fclose(fid);
-    time = 1:Nframes;
-    
-else
+    error('No simulated movie support (for now)');
+%     fid = fopen( filename, 'r' );
+%     stkSize = fread( fid, 3, 'int16' );
+%     stkY = stkSize(1); stkX = stkSize(2); nFrames = stkSize(3);
+% %     time = fread( fid, nFrames, 'float' );
+%     stk = fread( fid, stkY*stkX*nFrames, 'int16' );
+%     stk = reshape(stk,stkSize');
+%     fclose(fid);
+%     time = 1:nFrames;
+end
+
+if strfind(filename,'.stk') || strfind(filename,'.tif') || strfind(filename,'.lsm'),
     % Load stk movie -- stk(X,Y,frame number)
-    [stk,time] = tiffread(filename);
-    [stkY,stkX,Nframes] = size(stk);
+    movie = Movie_TIFF( filename );
+    time = movie.timeAxis;
+    stkX = movie.nX;
+    stkY = movie.nY;
+    nFrames = movie.nFrames;
 end
 
 
 % Create an average image of the first 10 frames (stk_top)
-averagesize = min([10 Nframes]);
-movie = stk(:,:,1:averagesize);
-stk_top = mean(movie,3);
+averagesize = min([10 nFrames]);
+stk_top = movie.readFrames(1:averagesize);
+stk_top = mean(stk_top,3);
 
 
 
@@ -226,22 +235,31 @@ background=imresize(temp,[stkY stkX],'bilinear');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
+endBackground = movie.readFrames(nFrames-11:nFrames-1);
+
 if params.geometry==1,
-    endBackground = stk(:,:, end-11:end-1);
+    % No combining needed for single-color imaging.
 elseif params.geometry==2,
-    endBackground = stk(:,1:stkX/2,       end-11:end-1) ...
-                  + stk(:,(1+stkX/2):end, end-11:end-1);
+    % Combine left and right side of field for two-color imaging.
+    endBackground = endBackground(:,1:stkX/2,:) + endBackground(:,(1+stkX/2):end,:);
 elseif params.geometry>2,
-    %TODO
+    % Combine fluorescence from the four quadrants. For 3-color imaging, one
+    % should be left out. FIXME
+    endBackground = endBackground(1:stkY/2,1:stkX/2,:) + endBackground(1:stkY/2,(1+stkX/2):end,:) + ...
+                    endBackground((1+stkY/2):end,1:stkX/2,:) + endBackground((1+stkY/2):end,(1+stkX/2):end,:);
 end
 
-stkData.stk = stk;
+% Combine the image stack data with the extras just calculated for later
+% processing and return them.
+% All of this could be combined into the Movie class! TODO
+stkData.movie = movie;
 stkData.stk_top = stk_top;
 stkData.background = background;
 stkData.endBackground = double(endBackground);
 stkData.time = time;
-
-[stkData.stkY,stkData.stkX,stkData.nFrames] = size(stk);
+stkData.stkY=stkY;
+stkData.stkX=stkX;
+stkData.nFrames=nFrames;
 
 % END FUNCTION OpenStk
 
@@ -250,8 +268,9 @@ stkData.time = time;
 
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
 
-function batchmode(direct,params)
+function batchmode(direct)
 
+global params;
 
 % Get list of files in current directory (option: and all subdirectories)
 if params.recursive
@@ -308,6 +327,7 @@ for i=1:nFiles,
     try
         stkData = OpenStk( movieFilenames(i).name );
     catch e
+        disp(e);
         disp('Skipping file: corrupted, missing, or not completely saved.');
         existing(i) = 1;
         continue;
@@ -342,8 +362,7 @@ for i=1:nFiles,
     nTraces(i) = numel(peaksX)/2;
     
     % Save the traces to file
-    integrateAndSave( stkData.stk, stkData.stk_top, peaks', ...
-        traceFname, stkData.time, params );
+    integrateAndSave( stkData.movie, stkData.stk_top, peaks', traceFname );
     
     waitbar(i/nFiles, h); drawnow;
 end
@@ -565,15 +584,19 @@ don_y = tempy(indexes);
 
 
 % function saveTraces( handles, hObject )
-function integrateAndSave( stk, stk_top, peaks, stk_fname, time, params )
+function integrateAndSave( movie, stk_top, peaks, stk_fname )
 % NOTE: can find which pixels to use by correlation
 
-[stkY,stkX,Nframes] = size(stk);
+global params;
 
+
+nFrames = movie.nFrames;
+time = movie.timeAxis;
+wbh = waitbar(0,'Extracting traces from movie data');
 
 % Specify the number of most intense proximal pixels to sum when generating
 % fluorescence traces (depends on experimental point-spread function).
-assert( nargin>=6 && isfield(params,'nPixelsToSum'), 'Missing nPixelsToSum' );
+assert( isfield(params,'nPixelsToSum'), 'Missing nPixelsToSum' );
 
 swChoices = (1:2:19);
 idx = find( params.nPixelsToSum<=(swChoices.^2), 1,'first' );
@@ -610,21 +633,22 @@ end
 
 
 % Create a trace for each molecule across the entire movie
-traces = zeros(Npeaks,Nframes);
+traces = zeros(Npeaks,nFrames,'int16');
 
-s = size(stk);
-idx = sub2ind( s(1:2), regions(:,1,:), regions(:,2,:) );
+idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 
-for k=1:Nframes,
-    frame = double(stk(:,:,k));
+for k=1:nFrames,
+    frame = int16( movie.readFrame(k) );
     if params.nPixelsToSum>1
         traces(:,k) = sum( frame(idx) );
     else
         traces(:,k) = diag( frame(y,x) );
     end
+    
+    if mod(k,100)==0,
+        waitbar( k/nFrames, wbh );
+    end
 end
-
-clear stk;
 
 
 if params.geometry==1, %single-channel
@@ -669,4 +693,9 @@ if params.saveLocations,
 
     fclose(fid);
 end
+
+close( wbh );
+
+
+
 
