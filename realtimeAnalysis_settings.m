@@ -73,7 +73,6 @@ handles.constants = constants;
 
 
 %---- INITIAL VALUES FOR PICKING CRITERIA
-% criteria.overlap = 1; % Remove overlapping molecules
 criteria.max_corr=0.5;     % D/A correlation < 0.5
 criteria.min_snr=8;       % SNR over background
 criteria.max_bg=1500;      % Background noise
@@ -194,36 +193,33 @@ handles.options.(optionName) = val;
 guidata(hObject,handles);
 
 
-% --- CALLED when any of the primary criteria textboxes is changed.
-% Updates the selection criteria automatically, w/o running PickTraces().
-function updateCriteria_Callback( hObject, handles, criteriaName )
-
-val = [];
-if strcmpi( get(hObject,'Style'), 'checkbox' )
-    val = get(hObject,'Value');
-else
-    if ~isempty( get(hObject,'String') ),
-        val = str2double( get(hObject,'String') );
-    end
-end
-
-handles.criteria.(criteriaName) = val;
-guidata(hObject,handles);
-
-
 
 % --- CALLED when any of the primary selection criteria checkbox setting is
 % changed. Updates the selection criteria automatically. 
 function criteriaCheckbox_Callback(hObject, handles, criteriaName, textboxName)
-textbox = handles.(textboxName);
 
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.(criteriaName) = str2double(get(textbox,'String'));
-    set(textbox,'Enable','on');
-else
-    handles.criteria.(criteriaName)=[];
-    set(textbox,'Enable','off');
+isChecked = (get(hObject,'Value')==get(hObject,'Max'));
+
+% Set textbook state, if there is one associated with this checkbox.
+if nargin>=4, %checkbox with associated textbox
+    textbox = handles.(textboxName);
+
+    states = {'off','on'};
+    set(textbox,'Enable',states{isChecked+1});
+    
+    val = str2double(get(textbox,'String'));
+    
+else %just a checkbox
+    val = isChecked;
 end
+
+% Add/remove criteria.
+if isChecked
+    handles.criteria(1).(criteriaName) = val;
+elseif isfield(handles.criteria,criteriaName),
+    handles.criteria = rmfield(handles.criteria,criteriaName);
+end
+
 
 guidata(hObject,handles);
 
@@ -234,6 +230,8 @@ guidata(hObject,handles);
 function PickTraces_Callback(hObject, handles)
 % Generate a selection criteria structure (see pickTraces.m) using the
 % "Specialized Selection Criteria" drop-down boxes.
+
+criteria = struct([]);
 
 % Update criteria for combo-box selections
 shortNames = fieldnames(handles.statLongNames);
@@ -250,7 +248,7 @@ for id=1:handles.nCriteriaBoxes
     edText = get(handles.(['edCriteria' num2str(id)]),'String');
     if isempty(edText), continue; end %no criteria value.
     
-    criteria.(criteriaName) = ...
+    criteria(1).(criteriaName) = ...
         str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
     
 end
@@ -258,6 +256,12 @@ end
 % Save criteria.
 handles.criteria = criteria;
 guidata(hObject,handles);
+
+% Handle other criteria with checkboxes.
+criteriaCheckbox_Callback( handles.chkOverlap, handles, 'overlap' );
+handles = guidata(hObject);
+criteriaCheckbox_Callback( handles.chkTotalSigma, handles, 'maxTotalSigma', 'edIntSigma' );
+
 
 % END FUNCTION PickTraces_Callback
 

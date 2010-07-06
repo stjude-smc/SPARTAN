@@ -192,6 +192,9 @@ gettracesOptions.quiet = 1;
 gettraces( datapath, gettracesOptions );
 
 %---- Load traces files that have not already been loaded.
+
+% Get app data and remove them from the figure. We don't want to trigger a copy
+% when new traces are added to these variables.
 tracesLoaded = getappdata(handles.figure1,'tracesLoaded');
 stats = getappdata(handles.figure1,'infoStruct');
 
@@ -220,10 +223,8 @@ if numel(idxToKeep)<numel(handles.filesLoaded),
     tracesLoaded.a   = tracesLoaded.a(tracesToKeep,:);
     tracesLoaded.f   = tracesLoaded.f(tracesToKeep,:);
     tracesLoaded.ids = tracesLoaded.ids(tracesToKeep);
-    setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
     
     stats = stats(tracesToKeep);
-    setappdata(handles.figure1,'infoStruct',stats);
     
     handles.nTraces = size( tracesLoaded.d,1 );
     handles.idxTraces = squashIndexes( idxTraces );
@@ -239,7 +240,7 @@ filesToLoad = setdiff( inputfiles, handles.filesLoaded );
 if ~isempty(filesToLoad)
     % Load trace data from new files
     set( handles.txtStatus, 'String', 'Loading traces files...' ); drawnow;
-    [traceData,indexes] = loadTracesBatch( filesToLoad );
+    [traceData,ids,indexes] = loadTracesBatch( filesToLoad );
     if isempty(handles.timeAxis),
         handles.timeAxis = traceData.time;
     end
@@ -251,8 +252,7 @@ if ~isempty(filesToLoad)
     tracesLoaded(1).d   = [tracesLoaded.d ;  traceData.d  ];
     tracesLoaded.a   = [tracesLoaded.a ;  traceData.a  ];
     tracesLoaded.f   = [tracesLoaded.f ;  traceData.f  ];
-    tracesLoaded.ids = [tracesLoaded.ids traceData.ids];
-    setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
+    tracesLoaded.ids = [tracesLoaded.ids ids];
     clear traceData;
 
     handles.nTraces = size( tracesLoaded.d,1 );
@@ -262,10 +262,14 @@ if ~isempty(filesToLoad)
     % TODO: only run this for the subset of data being loaded, then
     %       merge with existing (cached) results!!!
     stats = traceStat(tracesLoaded.d,tracesLoaded.a,tracesLoaded.f);
-    setappdata(handles.figure1,'infoStruct',stats);
     
     needUpdate = 1;
 end
+
+% Save the trace data and trace stats for later access (save, plot, etc).
+setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
+setappdata(handles.figure1,'infoStruct',stats);
+    
 
 % If there are no new/lost files, no need to update (unless settings changed).
 if ~needUpdate && ~force,
