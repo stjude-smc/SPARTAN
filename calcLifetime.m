@@ -16,21 +16,18 @@ if ~exist('TAU','var')
     TAU  = constants.TAU;
     NSTD = constants.NSTD;
 end
-    
-% Median filter traces to remove high frequency noise.
-% SLOWEST STEP IS HERE!
-filt_total  = medianfilter(total,TAU);
-
-dfilt_total = gradient(filt_total);
-thresh = mean(dfilt_total,2) - NSTD*std(dfilt_total,0,2);
 
 
 % For each trace, calc Cy3 lifetime
 for i=1:Ntraces
     
+    % Median filter traces to remove high frequency noise.
+    dfilt_total = gradient( medianfilter(total(i,:),TAU) );
+    thresh = mean(dfilt_total) - NSTD*std(dfilt_total);
+    
     % Find Cy3 photobleaching event by finding *last* large drop in total
     % fluorescence in the median filtered trace
-    lt = find( dfilt_total(i,:)<=thresh(i), 1,'last' );
+    lt = find( dfilt_total<=thresh, 1,'last' );
     
     if ~isempty(lt)
         life(i) = max(2,lt);

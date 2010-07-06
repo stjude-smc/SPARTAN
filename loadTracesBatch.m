@@ -51,7 +51,7 @@ nTracesTotal = sum(nTraces);
 
 % Use memory mapping only if loading a very large amount of data
 % useMemmap = (nTracesTotal > 5000);
-useMemmap = 1;
+useMemmap = 0;
 
 
 % 2. Determine total data size and allocate space for all the trace data.
