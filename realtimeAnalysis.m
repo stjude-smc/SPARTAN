@@ -347,7 +347,7 @@ function handles = updateStats( stats, handles, postfix )
 
 if nargin<3, postfix=''; end
 
-dt = diff(handles.timeAxis(1:2));
+dt = diff(handles.timeAxis(1:2))/1000; %integration time in seconds.
 
 %---- Show population statistics in GUI
 
@@ -379,10 +379,11 @@ avgSNRs = median( snr_s(idx) );
 donorDist = 1 - [0 cumsum(donorDist)]/sum(donorDist);
 donorAxes = [0 donorAxes];
 f = fit( donorAxes',donorDist','exp1' );
+% disp(f);
 % figure; plot( f ); hold on; bar( donorAxes',donorDist' );
 
 if handles.timeAxis(1)==0
-    donorT = sprintf('%.1f sec',-1/f.b/dt);
+    donorT = sprintf('%.1f sec',-(1/f.b)*dt);
 else
     donorT = sprintf('%.1f frames',-1/f.b);
 end
@@ -398,7 +399,7 @@ accAxes = [0 accAxes];
 f = fit( accAxes',accDist','exp1' );
 
 if handles.timeAxis(1)==0
-    acceptorT = sprintf('%.1f sec',-1/f.b/dt);
+    acceptorT = sprintf('%.1f sec',-(1/f.b)*dt);
 else
     acceptorT = sprintf('%.1f frames',-1/f.b);
 end
