@@ -633,12 +633,12 @@ end
 
 
 % Create a trace for each molecule across the entire movie
-traces = zeros(Npeaks,nFrames,'int16');
+traces = zeros(Npeaks,nFrames);
 
 idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 
 for k=1:nFrames,
-    frame = int16( movie.readFrame(k) );
+    frame = double( movie.readFrame(k) );
     if params.nPixelsToSum>1
         traces(:,k) = sum( frame(idx) );
     else
