@@ -399,29 +399,20 @@ function OpenTracesBatch( hObject, handles )
 % Clear out old data to save memory.
 if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
     rmappdata(handles.figure1,'infoStruct');
-    rmappdata(handles.figure1,'tracedata');
-    rmappdata(handles.figure1,'ids');
 end
 
 % Determine default filename to use when saving.
 handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
 handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
-% Load all data into one large dataset.
-[tracedata,ids] = loadTracesBatch( handles.inputfiles );
-handles.timeAxis = tracedata.time;
-[handles.nTraces,handles.len] = size( tracedata.d );
-
 % Calculate trace stats
-infoStruct = traceStat( tracedata.d, tracedata.a, tracedata.f, ...
-                        handles.constants );
-
+[infoStruct,nTracesPerFile] = traceStat( handles.inputfiles, handles.constants );
+handles.nTraces = numel( infoStruct );
+handles.nTracesPerFile = nTracesPerFile;
                     
 % Save the trace properties values to application data
 setappdata(handles.figure1,'infoStruct', infoStruct);
-setappdata(handles.figure1,'tracedata', tracedata);
-setappdata(handles.figure1,'ids', ids);
-clear infoStruct; clear tracedata;
+clear infoStruct;
 
 
 % Initialize a variable for storing the number of molecules picked.
@@ -468,91 +459,25 @@ guidata(hObject,handles);
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
 function SaveTraces( filename, handles, txtOnly )
 
-% Get trace data
-data = getappdata(handles.figure1,'tracedata');
-ids = getappdata(handles.figure1,'ids');
+% Build list of trace indexes in each file
+picks = handles.inds_picked;
+nTracesPerFile = handles.nTracesPerFile;
 
-%---- Save only selected traces to disk.
-inds = handles.inds_picked;
-fret = data.f(inds,:);
+idxStart = cumsum([0; nTracesPerFile(1:end-1)]);
+nFiles = numel(nTracesPerFile);
+picksByFile = cell( nFiles,1 );
 
-saveTraces( filename, 'txt', data.d(inds,:), data.a(inds,:), fret, ...
-                             ids(inds), handles.timeAxis );
-
-if nargin<3 || ~txtOnly,
-    qub_fname = strrep( filename, '.txt', '.qub.txt' );
-    saveTraces( qub_fname, 'qub', fret );
-end
-clear data;
-
-
-%---- Generate log file containing informtion about how the traces were picked.
-logfile=strrep(filename,'.txt','.log');
-fid=fopen(logfile,'w');
-
-fprintf(fid,'%s\n\n%s\n',date,'DIRECTORY');
-fprintf(fid,'  %s\n\n%s\n',handles.inputdir,'FILES');
-
-if ~iscell(handles.inputfiles)
-    fprintf(fid,'%s\n',handles.inputfiles);
-else
-    for k=1:numel(handles.inputfiles)
-        [p,fname,ext] = fileparts( handles.inputfiles{k} );
-        fprintf(fid,'  %s%s\n',  fname,ext);
-    end
+for i=1:nFiles,
+    picksByFile{i} = picks(  picks>idxStart(i) & picks<=idxStart(i)+nTracesPerFile(i)  ) ...
+                   - idxStart(i);
 end
 
+% Save selected traces to a new file
+options.indexes = picksByFile;
+options.stats = getappdata(handles.figure1,'infoStruct');
+options.outFilename = filename;
 
-fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
-            handles.picked_mols, handles.nTraces, ...
-            100*handles.picked_mols/handles.nTraces );  
-
-        
-% Descriptive statistics about dataset
-stats = getappdata(handles.figure1,'infoStruct');
-
-total = handles.nTraces;
-isMolecule      = sum( [stats.snr]>0 );
-singleMolecule  = sum( [stats.snr]>0 & [stats.overlap]==0 );
-hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 );
-other           = handles.picked_mols;
-
-fprintf(fid,'PICKING RESULTS\n');
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/total);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Have FRET',           hasFRET, 100*hasFRET/singleMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Pass other criteria', other,   100*other/hasFRET);
-fprintf(fid, '\n\n');
-
-
-% Save picking criteria used
-% NOTE: this does not include the specialized criteria!!!!
-fprintf(fid,'PICKING CRITERIA\n');
-
-criteria = getSpecialCriteria( handles );
-names = fieldnames(  criteria );
-vals  = struct2cell( criteria );
-
-for i=1:numel(names),
-    if isempty( vals{i} ), continue; end  %skip unchecked criteria
-    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
-end
-
-% Save values of all other constants used
-fprintf(fid, '\n\nCONSTANTS\n');
-
-names = fieldnames(  handles.constants );
-vals  = struct2cell( handles.constants );
-
-for i=1:numel(names),
-    if isstruct( vals{i} ) || numel( vals{i} )>1, continue; end
-    
-    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
-end
-
-
-fprintf(fid,'\n\n');
-fclose(fid);
+loadPickSaveTraces( handles.inputfiles, handles.criteria, options );
 
 
 % END FUNCTION SaveTraces_Callback
@@ -704,20 +629,13 @@ end
 function MakeContourPlot_Callback(hObject, eventdata, handles)
 % Builds and displays contour plot.
 
-% Get FRET data for selected traces.
-inds = handles.inds_picked;
-data = getappdata(handles.figure1,'tracedata');
-
-% Make contour plots using makeplots.m
-options.contour_bin_size = handles.contour_bin_size;
-options.pophist_offset = 0;
-frethist = makecplot( data.f(inds,:), options );
-clear data;
+% Save the selected traces to file.
+SaveTraces_Callback(hObject, eventdata, handles);
+handles = guidata(hObject);
 
 [p,title] = fileparts(handles.outfile);
 title = strrep( title,'_',' ' );
-makeplots( frethist, title );
-
+makeplots( handles.outfile, title );
 
 % Clean up and save FRET histogram data for saving.
 set(handles.SaveContourPlot,'Enable','on');
@@ -731,23 +649,25 @@ guidata(hObject,handles);
 % --- Executes on button press in SaveContourPlot.
 function SaveContourPlot_Callback(hObject, eventdata, handles)
 
-% Get FRET data for selected traces.
-inds = handles.inds_picked;
-data = getappdata(handles.figure1,'tracedata');
+warning('This function currently disabled...');
 
-% Make contour plots using makeplots.m
-options.contour_bin_size = handles.contour_bin_size;
-options.pophist_offset = 0;
-frethist = makecplot( data.f(inds,:), options );
-clear data;
-
-% Write original file
-histfile=strrep(handles.outfile,'.txt','_hist.txt');
-dlmwrite(histfile,frethist,' ');
-
-% GUI stuff
-set(hObject,'Enable','off');
-guidata(hObject,handles);
+% % Get FRET data for selected traces.
+% inds = handles.inds_picked;
+% data = getappdata(handles.figure1,'tracedata');
+% 
+% % Make contour plots using makeplots.m
+% options.contour_bin_size = handles.contour_bin_size;
+% options.pophist_offset = 0;
+% frethist = makecplot( data.f(inds,:), options );
+% clear data;
+% 
+% % Write original file
+% histfile=strrep(handles.outfile,'.txt','_hist.txt');
+% dlmwrite(histfile,frethist,' ');
+% 
+% % GUI stuff
+% set(hObject,'Enable','off');
+% guidata(hObject,handles);
 
 
 

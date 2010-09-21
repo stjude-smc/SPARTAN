@@ -1,13 +1,18 @@
-function retval = traceStat( donorAll,acceptorAll,fretAll, constants )
+function [retval,nTraces] = traceStat( varargin )
 % LOADTRACES  Loads fluorescence trace files
 %
 %   [NAMES] = TRACESTAT;
 %   Returns the names of each trace statistic as a structure.
 %
-%   STATS = TRACESTAT( CONST, DONOR,ACCEPTOR,FRET )
+%   STATS = TRACESTAT( DONOR,ACCEPTOR,FRET, const )
 %   Calculates metadata from fluorescence/FRET traces that can be
 %   used as picking criteria to filter a set of traces.
 %   Primarily used in autotrace.m
+%
+%   STATS = TRACESTAT( FILES, const )
+%   Same as above, but loads trace data from FILES, which may be a single
+%   filename of a cell array of file names. In the latter case, properties from 
+%   all files are combined as a single output result.
 %   
 %   Names of stats calculated by this function
 %     corr          correlation b/t donor and acceptor signals
@@ -30,7 +35,7 @@ function retval = traceStat( donorAll,acceptorAll,fretAll, constants )
 
 % If no data given, return names of filtering criteria.
 % TODO: also return comments describing each criteria
-if nargin < 3,
+if nargin<1,
     % Order matters -- will be displayed this way in autotrace!
     ln.t        = 'Mean Total Intensity';
     ln.maxFRET  = 'Highest FRET value';
@@ -57,6 +62,41 @@ if nargin < 3,
     return;
 end
 
+
+% If a filename, convert it into a list.
+if ischar( varargin{1} ),
+    varargin{1} = { varargin{1} };
+end
+
+% If the user gave filenames, load stats from each and combine them.
+if iscell( varargin{1} ),
+    files = varargin{1};
+    retval = struct([]);
+    nTraces = zeros( numel(files),1 );
+    
+    h = waitbar(0, 'Loading traces and calculating properties...');
+    
+    for i=1:numel(files),
+        [d,a,f] = loadTraces( files{i} );
+        retval = [retval  traceStat_data( d,a,f )  ];
+        nTraces(i) = size(d,1);
+
+        waitbar(i/numel(files),h);
+    end
+    close(h);
+   
+% Assume the user passed trace data directly.
+else
+    retval = traceStat_data( varargin{:} );
+end
+    
+
+
+end
+
+
+
+function retval = traceStat_data( donorAll,acceptorAll,fretAll, constants )
 
 [Ntraces,len] = size(fretAll);
 
@@ -244,3 +284,4 @@ end
 
 
 % END FUNCTION infoCalc
+end

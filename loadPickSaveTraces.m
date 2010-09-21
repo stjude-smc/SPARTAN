@@ -10,11 +10,18 @@ function [outFilename,picks,allStats]=loadPickSaveTraces( varargin )
 %   pass the selection CRITERIA are then saved to disk with the file
 %   extension "_auto.txt". A log file is also created.
 %
+%   TODO: optional argument to pass a list of indexes of traces to load OR the
+%   output of traceStat so not all trace data has to be reloaded! This will
+%   allow processing of very large datasets in autotrace.
+%
 %   loadPickSaveTraces( ...,'ParameterName',ProptertyValue,... )
 %   The following option parameters (specified with the above format):
 %    * showWaitbar  - set to 1 to show (0 to not show) progress indicators.
 %    * outputFilename
-%    * 
+%    * indexes   - instead of loading the traces and calculating stats, use
+%                  these picks and only load what is needed. This is a cell
+%                  array with one per file.
+%    * stats
 
 % TODO:
 %  * Allow user to give stats of the data files, so that they aren't
@@ -63,9 +70,10 @@ nFiles = numel(files);
 
 % Process optional argument list
 if nargin>2,
-    vopt = varargin(3:end);
-    assert( mod(numel(vopt),2)==0 & ischar(vopt(1:2:end)), ...
-            'Invalid format for optional argument list' );
+    vopt = varargin{3};
+%     vopt = varargin(3:end);
+%     assert( mod(numel(vopt),2)==0 & all( cellfun(@ischar,vopt(1:2:end)) ), ...
+%             'Invalid format for optional argument list' );
     
     % Merge default options and those specified by the user.
     % The user's options will override any existing defaults.
@@ -88,7 +96,9 @@ picks = [];
 nTracesPerFile = zeros(nFiles,1);
 
 % Open file handles for output
-if ~exist('outFilename','var'),
+if isfield(options,'outFilename'),
+    outFilename = options.outFilename;
+else
     outFilename = strrep(files{1}, '.traces', '_auto.txt');
     outFilename = strrep(outFilename, '_01_auto.txt', '_auto.txt');
 end
@@ -100,13 +110,38 @@ qubfid = fopen(qubFilename,'w');
 
 % Process each file individually, adding the selected traces to output.
 if options.showWaitbar,
-    wbh = waitbar(0,'Selecting traces according to criteria');
+    wbh = waitbar(0,'Selecting and saving traces according to criteria...');
 end
         
 for i=1:nFiles,
     
-    % Load traces file data
-    [d,a,f,ids,t] = loadTraces( files{i} );
+    % Unless provided, calc trace properties and select those that meet criteria.
+    if ~isfield( options, 'indexes' ),
+        % Load traces file data
+        [d,a,f,ids,t] = loadTraces( files{i} );
+        
+        % Calculate trace statistics
+        stats = traceStat( d,a,f );
+    
+        % Pick traces passing criteria
+        [indexes] = pickTraces( stats, criteria );
+        indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
+        picks = [picks indexes+sum(nTracesPerFile)];
+    end
+    
+    % Remove traces that were not selected
+    if isfield( options, 'indexes' ),
+        indexes = options.indexes{i};
+        [d,a,f,ids,t] = loadTraces( files{i}, cascadeConstants(), indexes );
+        
+        stats = struct([]);
+    else
+        d = d(indexes,:);
+        a = a(indexes,:);
+        f = f(indexes,:);
+    end
+    
+    % Save data from selected traces.
     if i==1,
         timeAxis = t;
         fprintf(fid,'%g ', timeAxis);
@@ -114,16 +149,7 @@ for i=1:nFiles,
     end
     assert( numel(timeAxis)==size(d,2), 'All traces must be of the same size' );
     
-    % Calculate trace statistics
-    stats = traceStat( d,a,f );
-    
-    % Pick traces passing criteria
-    [indexes] = pickTraces( stats, criteria );
-    indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
-    picks = [picks indexes+sum(nTracesPerFile)];
-    
-    % Save data from selected traces.
-    for j=indexes,
+    for j=1:numel(indexes),
         % Output trace identifier
         name = ids{j};
 
@@ -157,6 +183,10 @@ for i=1:nFiles,
     if options.showWaitbar,
         waitbar(i/nFiles,wbh);
     end
+end
+
+if isfield(options,'stats'),
+    allStats = options.stats;
 end
 
 % Clean up
