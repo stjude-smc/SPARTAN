@@ -23,7 +23,7 @@ if ~exist('dwtFilename','var'),
         [dwells,sampling,offsets,model] = loadDWT(dwtFilename);
         
         fretValues = model(:,1);
-        fretValues(fretValues==0.1) = 0.01; %for LeuT?
+        %fretValues(fretValues==0.1) = 0.01; %for LeuT?
 
         idl = dwtToIdl( dwells, traceLen,offsets );
         
@@ -35,6 +35,11 @@ if ~exist('dwtFilename','var'),
         idl = idl';
         
         idl = fretValues(idl);
+        
+        % Make sure dimensions are correct for a single trace
+        if any( size(idl)==1 ),
+            idl = reshape(idl, 1, numel(idl) );
+        end
         
         if size(idl,1)<nTraces,
             idl((size(idl,1)+1):nTraces,:) = 0;
