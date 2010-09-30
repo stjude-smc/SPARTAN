@@ -516,8 +516,10 @@ function cboGeometry_Callback(hObject, eventdata, handles)
 %
 handles.params.geometry = get(hObject,'Value');
 
-% Reload movie with new setup
-handles = OpenStk( handles.stkfile, handles, hObject );
+% If a movie has already been loaded, reload movie with new setup
+if isfield(handles,'stkfile'),
+    handles = OpenStk( handles.stkfile, handles, hObject );
+end
 
 guidata(hObject,handles);
 

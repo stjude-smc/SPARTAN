@@ -772,6 +772,13 @@ if ~ismember( statToPlot, fieldnames(stats) ),
     error('Selected trace statistic is unknown');
 end
 
+% Define bin positions for certain parameters.
+if strcmp(statToPlot,'corr'),
+    bins = -1:0.1:1;
+else
+     bins = handles.nHistBins; %let hist choose N bin centers.
+end
+
 % Plot the distribution of the statistic
 statData = [stats.(statToPlot)];
 if any(isnan(statData))
@@ -779,7 +786,7 @@ if any(isnan(statData))
 %     statData( isnan(statData) ) = 0;
 end
 
-[data,binCenters] = hist( statData, handles.nHistBins);
+[data,binCenters] = hist( statData,bins );
 data = 100*data/sum(data);  %normalize the histograms
 
 axes( handles.(['axStat' num2str(id)]) );
