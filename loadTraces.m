@@ -80,6 +80,11 @@ end %function LoadTraces
 %--------------------  LOAD TEXT FILES ------------------------
 function [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes )
 
+% Get file size for calculating how much has been loaded.
+d = dir(filename);
+fileSize = d.bytes;
+clear d;
+
 % Open the traces file
 fid=fopen(filename,'r');
 
@@ -100,6 +105,8 @@ fseek(fid,-ftell(fid),0);
 time=strread(fgetl(fid),'%f')';
 
 % Extract intensity information (and IDs) from file.
+h = waitbar(0,'Loading trace data...');
+
 ids = cell(0,1);
 i = 1;
 Data = cell(0);
@@ -116,6 +123,11 @@ while 1
     
     Data{i} = line{1};
     i = i+1;
+    
+    % update wait bar occasionally based on amount of data read.
+    if mod(i,20)==0,
+        waitbar( 0.99*ftell(fid)/fileSize, h );
+    end
 end
 Data = cell2mat(Data)';
 
@@ -141,6 +153,7 @@ if hasIDs,
 end
 
 % Clean up
+close(h);
 fclose(fid);
 clear Data;
 

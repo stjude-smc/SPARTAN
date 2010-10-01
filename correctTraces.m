@@ -35,18 +35,39 @@ lt = calcLifetime(total,constants.TAU,constants.NSTD);
 
 % make mean background fluorescence zero.
 % no correction for traces with < 10 points of background
+idxNotCorrected = []; %traces w/o a photobleaching step
+md_list = [];
+ma_list = [];
+
 for m=1:Ntraces,
 
     s = lt(m)+5;
     range = s:min(s+constants.NBK,len);
-    if numel(range)<10, continue; end
+    if numel(range)<10,
+        idxNotCorrected(end+1) = m;
+        continue;
+    end
 
     % Make background correction
     md = mean( donor(m,range) );
     ma = mean( acceptor(m,range) );
     
+    md_list(end+1) = md;
+    ma_list(end+1) = ma;
+    
     donor(m,:) = donor(m,:) - md;
     acceptor(m,:) = acceptor(m,:) - ma;
+end
+
+% For traces w/o a photobleaching step, give approximately correct intensity
+% values by subtracting the average background level. This way we have an idea
+% about what these traces look like...
+avgMD = median(md_list);
+avgMA = median(ma_list);
+
+for m=idxNotCorrected,
+    donor(m,:) = donor(m,:) - avgMD;
+    acceptor(m,:) = acceptor(m,:) - avgMA;
 end
 
 total = donor+acceptor;
