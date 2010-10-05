@@ -1,67 +1,89 @@
 function rtd_pipeline()
 
-%% ANALYSIS PIPELINE FOR POST-SYNCHRONIZED tRNA SELECTION EXPERIMENTS
-% To use this code, first go to the directory 
+%% 0. ANALYSIS PIPELINE FOR POST-SYNCHRONIZED tRNA SELECTION EXPERIMENTS
 
-clear all;
-
-constants = cascadeConstants;
-sampling = 10; %ms
-
+%% 1. SET PIPELINE PARAMETERS
 
 % Get the location of the data to process from the user.
 % All data to be processed together should be in the same directory.
+clear all;
+constants = cascadeConstants;
 dataDir = uigetdir(pwd,'Select data directory');
 cd(dataDir);
-
-% Get the locations of kinetic models used for idealization.
-modelDir = uigetdir(constants.modelLocation,'Select directory where tRNA selection models are located:');
-
-
+disp('01. Set Pipeline Parameters...');
 % Load model and set re-estimation constraints: based 2-state model.
-model1 = qub_loadModel( [modelDir filesep '090520_FretHist_2State_model.qmf'] );
+%model1 = qub_loadModel( [modelDir filesep 'FretHist_2State_model.qmf'] );
+model1 = qub_loadModel('D:\backup-part3\tRNA-selection_DCMutans_DH5a\QuB-Models\FretHist_2State_model.qmf');
 model1.fixMu    = ones( model1.nStates,1 );
 model1.fixSigma = ones( model1.nStates,1 );
 fretModel1 = [model1.mu' model1.sigma'];
 
 % Load model and set re-estimation constraints: full 6-state kinetic model
-model2 = qub_loadModel( [modelDir filesep '090520_OH_initial_model_k20linear.qmf'] );
+%model2 = qub_loadModel( [modelDir filesep 'BL21_initial_model_k20linear.qmf'] );
+model2 = qub_loadModel('D:\backup-part3\tRNA-selection_BL21\QuB-Models\BL21_initial_model_k20linear.qmf');
 model2.fixMu    = ones( model2.nStates,1 );
 model2.fixSigma = ones( model2.nStates,1 );
 fretModel2 = [model2.mu' model2.sigma'];
 
-% Parameters for SKM
-skmParams.maxItr = 10;
-skmParams.convLL = 0.01;
-skmParams.zeroEnd = 1;
-skmParams.quiet = 1;
-skmParams.fixRates = 1;
-
-
-%% 3. Run gettraces to extract traces from movies
-disp('Running gettraces...');
-
-gettracesParams.nPixelsToSum = 5; %old way
+% Step 2 Parameters for gettraces
+gettracesParams.nPixelsToSum = 4; %old way
 gettracesParams.don_thresh = 1800;
 gettracesParams.overlap_thresh = 1.8;
 gettracesParams.skipExisting = 1;
+gettracesParams.recursive = 1;
 gettraces(dataDir,gettracesParams);
 
-
-%% 4. Run autotrace to filter acquired data
-disp('Running autotrace...');
-
-% Find the location of all traces files to analyze
-d = dir( [dataDir filesep '*.traces'] );
-tracesFiles = {d.name};
-nFiles = numel(tracesFiles);
-
-% Define selection criteria.
+% Step3 Define selection criteria.
 selectionCriteria.min_maxFRET = 0.14;   %at least one frame with FRET>0.14
 selectionCriteria.min_lifetime = 20;    %donor lifetime > 20 frames
 selectionCriteria.min_snr = 6;          %SNR1 at least 6:1
 selectionCriteria.max_ncross = 3;       %less than 4 donor blinking events
-selectionCriteria.max_firstFRET = 0.14; %ignore accommodated traces.
+selectionCriteria.max_firstFRET = 0.14; %no post-accommodation traces.
+%selectionCriteria.min_maxFRET = 0.55;  %must accommodate.
+%selectionCriteria.min_acclife = 100;
+
+% Step 5: Parameters for SKM
+skmParams.maxItr = 10;
+skmParams.convLL = 0.01;
+skmParams.zeroEnd = 1;
+skmParams.seperately = 1;
+skmParams.quiet = 1;
+skmParams.fixKinetics = 1;
+
+%Step 6: Parameters for Statehist
+IntervalStatehist=32; %Integrate FRET-histogram over n images
+
+%Step 8: Parameters for cuttraces
+FRETcr=0.206; %FRET value of the CR-state
+FRETga=0.335; %FRET value of the GA-state
+FRETac=0.559; %FRET value of the AC-state
+time2peptide=120; %unit: ms
+
+%Step 9: Parameters for Fret-histogram
+backset=4; %unit: Images
+timeWindow=42; %unit: Images
+
+%% 2. Run gettraces.m to extract traces from movies
+% All data contained in the selected folder *and subfolders* is analyzed.
+
+disp('02. Running gettraces...');
+
+% Get the sampling rate
+d = rdir( [dataDir filesep '**' filesep '*.traces'] );
+tracesFiles = {d.name};
+[~,~,~,~,time] = loadTraces( tracesFiles{1} );
+sampling = time(2); %ms
+disp(['sampling [ms]:', num2str(sampling)]);
+
+%% 3. Run pickTraces.m to filter acquired data
+
+disp('03. Running pickTraces...');
+% Find the location of all traces files to analyze
+% d = dir( [dataDir filesep '*.traces'] );
+d = rdir( [dataDir filesep '**' filesep '*.traces'] );
+
+tracesFiles = {d.name};
+nFiles = numel(tracesFiles);
 
 % Select traces according to selection criteria
 d_out = []; a_out = []; f_out = []; ids_out = {};
@@ -84,22 +106,17 @@ end
 
 % Save selected traces
 saveTraces( 'selected_traces.txt', 'txt', d_out,a_out,f_out,ids_out,time );
+clear d_out; clear a_out; clear f_out; clear ids_out; clear time;
 
+%% 4. Run autosort.m and seperate events
 
-
-%% 5. Seperate events
-
-disp('Seperating events...');
-
+disp('04. Running autosort...');
 autosort( 'selected_traces.txt' );
 drawnow;
 
+%% 5. Remove traces with no transitions and make a preliminary 2D post-synchronized FRET histogram
 
-
-
-
-%% ---- 6. Make a preliminary 1D post-synchronized histogram...
-
+disp('05. Running filter_1...');
 % Load FRET data (seperated events)
 [donor,acceptor,fret,ids,time] = loadTraces('ips.txt');
 [nTraces,traceLen] = size(fret);
@@ -124,18 +141,14 @@ ids      = ids( selected );
 saveTraces( 'ips.flt.txt', 'txt', donor,acceptor,fret,ids,time );
 forQuB2( {'ips.flt.txt'} );
 saveDWT( 'ips1DHst.flt.qub.dwt', dwt, offsets, fretModel1, sampling );
-%save selection list??
 
 % Plot the results
-frethist_norm_10ms( 'ips.flt.txt' );
-title('Basic Post-synchronized Histogram');
+frethist_norm_v4('ips.flt.txt',1,0,sampling);
 
 
-% TODO: Create FRET histograms for Origin
+%% 6. Run statehist_2StateModel_v3.m and generate a 1D FRET histogram
 
-
-
-%% Generate a list file
+disp('06. Running statehist...');
 [nTraces,traceLen] = size(fret);
 x = repmat( [1 traceLen-1],[nTraces,1] );
 % y = repmat( offsets', [1,2] );
@@ -144,14 +157,18 @@ list = x+y-1;
 dlmwrite( 'ips1DHst.flt.lst.txt',list, ...
           'delimiter','-', 'precision','%-10.f' );
 
+%Parameters for statehist in ms
+lwLimit=sampling;
+upLimit=IntervalStatehist*sampling;
+disp(['lwLimit [ms]:', num2str(lwLimit),'   upLimit [ms]:', num2str(upLimit)]);
 % Make 1D histograms from dark and non-zero FRET states
 statehist_2stateModel_v3( 'ips1DHst.flt.qub.dwt', ...
-           'ips.flt.qub.txt', 'ips1DHst.flt.lst.txt', ...
-           10, 420);
+'ips.flt.qub.txt', 'ips1DHst.flt.lst.txt',lwLimit, upLimit,sampling,traceLen);
 
 
-%% ---- 7. Identify outliers in QUB
+%% 7. Identify outliers in QUB
 
+disp('07. Running filter_2...');
 % Idealize the filtered data using SKM
 clear dwt; clear offsets;
 [dwt] = skm( fret, sampling, model2, skmParams );
@@ -176,73 +193,223 @@ forQuB2( {'ips.flt.flt.txt'} );
 saveDWT( 'ips.flt.flt.qub.dwt', dwt, offsets, fretModel2, sampling );
 
 
+%% 8. Cut traces after peptide bond formation time
 
-
-%% ---- 9. Cut traces after peptide bond formation time
-
+disp('08. Running cuttraces...');
 % Seperate data into three groups, according to whether a peptide bond was
 % formed or not: allMol12, Pep120, and noPep120.
-cuttraces_2_10ms( 'ips.flt.flt.txt', 'ips.flt.flt.qub.dwt' );
-
+cuttraces_v3('ips.flt.flt.txt', 'ips.flt.flt.qub.dwt',FRETac,time2peptide,sampling);
 
 % Re-idealize each of the datasets. This is neccessary because the data
 % were modified by cuttraces. This also enables the model used for
 % idealization to better fit the unique features of each dataset.
 [d,a,fret] = loadTraces('allMol_ac120.txt');
-[dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
-saveDWT( 'allMol_ac120.qub.dwt', dwt, offsets, fretModel2, sampling );
-copyfile( 'allMol_ac120.qub.dwt', 'allMol_ac120-noise.qub.dwt' );
+
+if (size(fret,1))>0
+    [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
+    saveDWT( 'allMol_ac120.qub.dwt', dwt, offsets, fretModel2, sampling );
+    file_allMol_ac120=1;
+else
+    disp('file is emty');
+    file_allMol_ac120=0;
+end
 
 [d,a,fret] = loadTraces('PEP120.txt');
-[dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
-saveDWT( 'PEP120.qub.dwt', dwt, offsets, fretModel2, sampling );
+if (size(fret,1))>0
+    [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
+    saveDWT( 'PEP120.qub.dwt', dwt, offsets, fretModel2, sampling );
+    file_PEP120=1;
+else
+    disp('file is emty');
+    file_PEP120=0;
+end
 
 [d,a,fret] = loadTraces('noPep120.txt');
-[dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
-saveDWT( 'noPep120.qub.dwt', dwt, offsets, fretModel2, sampling );
+if (size(fret,1))>0
+    [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
+    saveDWT( 'noPep120.qub.dwt', dwt, offsets, fretModel2, sampling );
+    file_noPEP120=1;
+else
+    disp('file is emty');
+    file_noPEP120=0;
+end
+disp(['time2Peptide [ms]:', num2str(time2peptide)]);
+%% 9. Make plots for viewing the results of idealization
 
-
-%% ---- 10. Make plots for viewing the results of idealization
+disp('09. Making FRET-Histograms...');
+CONTOUR_LENGTH=50;
+figure;
+set(gcf,'Position',[186 411 1037 404]);
 
 % Make FRET contour plots for each dataset.
-frethist_norm_10ms( 'allMol_ac120-noise.txt' );
-title('Post-synchronized AC120 Histogram');
+if file_allMol_ac120>0
+    subplot(1,3,1);
+    [nAllMol,normfactor,frethst]=frethist_norm_v4('ips.flt.flt.txt',1,0,sampling);
+    time_axis=frethst(1,2:end);
+    fret_axis=frethst(2:end,1);
+    con = 0:0.01:0.13;
+    cmap=dlmread('frethist_colormap_peter.txt')/255;
+    [C,hand]=contourf(time_axis(1:CONTOUR_LENGTH),fret_axis,frethst(2:end,2:CONTOUR_LENGTH+1),con);
+    set(gca,'PlotBoxAspectRatio',[1.5 2 1]);
+    set(hand,'LineColor','none');
+    colormap(cmap);
+    axis([-backset*(sampling/1000) timeWindow*(sampling/1000) -0.15 0.9]);
+    xlabel('Time [s]');
+    ylabel('FRET');
+    zoom on;
+    title('FRET Histogram (All Molecules)');
+    str1='N =  ';
+    str2=num2str(nAllMol);
+    str=strcat(str1,str2);
+    annotation('textbox',[0.265 0.815 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',str,'FontSize',8);
+end
 
-frethist_norm_10ms( 'PEP120.txt' );
-title('Post-synchronized PEP120 Histogram');
 
-frethist_norm_10ms( 'noPep120.txt' );
-title('Post-synchronized NoPep120 Histogram');
+if file_PEP120>0
+    subplot(1,3,2);
+    [nPEP,~,frethst]=frethist_norm_v4('PEP120org.txt',2,0,sampling,normfactor);
+    time_axis=frethst(1,2:end);
+    fret_axis=frethst(2:end,1);
+    con = 0:0.01:0.13;
+    cmap=dlmread('frethist_colormap_peter.txt')/255;
+    [C,hand]=contourf(time_axis(1:CONTOUR_LENGTH),fret_axis,...
+    frethst(2:end,2:CONTOUR_LENGTH+1),con);
+    set(gca,'PlotBoxAspectRatio',[1.5 2 1]);
+    set(hand,'LineColor','none');
+    colormap(cmap);
+    axis([-backset*(sampling/1000) timeWindow*(sampling/1000) -0.15 0.9]);
+    xlabel('Time [s]');
+    ylabel('FRET');
+    zoom on;
+    title('FRET Histogram (PEP Events)');
+    str1='N =  ';
+    str2=num2str(nPEP);
+    str=strcat(str1,str2);
+    annotation('textbox',[0.545 0.815 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',str,'FontSize',8);
+end
 
-%% Make transition-density plots for each dataset.
+if file_PEP120>0
+    subplot(1,3,3);
+    [nNoPep,~,frethst]=frethist_norm_v4('noPep120.txt',2,0,sampling,normfactor);
+    time_axis=frethst(1,2:end);
+    fret_axis=frethst(2:end,1);
+    con = 0:0.01:0.13;
+    cmap=dlmread('frethist_colormap_peter.txt')/255;
+    [C,hand]=contourf(time_axis(1:CONTOUR_LENGTH),fret_axis,...
+    frethst(2:end,2:CONTOUR_LENGTH+1),con);
+    set(gca,'PlotBoxAspectRatio',[1.5 2 1]);
+    set(hand,'LineColor','none');
+    colormap(cmap);
+    axis([-backset*(sampling/1000) timeWindow*(sampling/1000) -0.15 0.9]);
+    xlabel('Time [s]');
+    ylabel('FRET');
+    zoom on;
+    title('FRET Histogram (NoPEP Events)');
+    str1='N =  ';
+    str2=num2str(nNoPep);
+    str=strcat(str1,str2);
+    annotation('textbox',[0.825 0.815 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',str,'FontSize',8);
+end
+
+%% 10. Make transition-density plots for each dataset.
+disp('10. Making TD-Plots...');
 tdpOptions = {'normalize','total transitions','tdp_max',1.0 };
 figure;
 set(gcf,'Position',[166 391 1037 404]);
 
-subplot(1,3,1);
-tdpData = tdplot_rtdata_10ms( 'allMol_ac120.qub.dwt','allMol_ac120.txt' );
-tplot( tdpData, tdpOptions{:} );
-xlim([-0.15 0.8]); xlabel('Initial FRET');
-ylim([-0.15 0.8]); ylabel('Final FRET');
-title('All Molecules');
-
-subplot(1,3,2);
-tdpData = tdplot_rtdata_10ms('PEP120.qub.dwt','PEP120.txt');
-tplot( tdpData, tdpOptions{:} );
-xlim([-0.15 0.8]); xlabel('Initial FRET');
-ylim([-0.15 0.8]); ylabel('Final FRET');
-title('PEP120');
-
-subplot(1,3,3);
-tdpData = tdplot_rtdata_10ms('noPep120.qub.dwt','noPep120.txt');
-tplot( tdpData, tdpOptions{:} );
-xlim([-0.15 0.8]); xlabel('Initial FRET');
-ylim([-0.15 0.8]); ylabel('Final FRET');
-title('noPep120');
-
-
-
-%%
+if file_allMol_ac120>0 
+    subplot(1,3,1);
+    [nTraces1, nTrans1,tdpData] = tdplot_rtdata_v3( 'allMol_ac120.qub.dwt','allMol_ac120.txt',1);
+    tplot( tdpData, tdpOptions{:} );
+    xlim([-0.15 1.0]); xlabel('Initial FRET');
+    ylim([-0.15 1.0]); ylabel('Final FRET');
+    title('All Molecules');
+    str1='T =  ';
+    str2=num2str(nTrans1);
+    str3='T/N =  ';
+    str4=num2str(nTrans1/nTraces1);
+    strA=strcat(str1,str2);
+    strB=strcat(str3,str4);
+    annotation('textbox',[0.265 0.730 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',strA,'FontSize',8);
+    annotation('textbox',[0.265 0.675 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',strB,'FontSize',8);
 end
+
+if file_PEP120>0
+    subplot(1,3,2);
+    [nTraces2, nTrans2,tdpData] = tdplot_rtdata_v3('PEP120.qub.dwt','PEP120.txt',2,nTrans1);
+    tplot( tdpData, tdpOptions{:} );
+    xlim([-0.15 1.0]); xlabel('Initial FRET');
+    ylim([-0.15 1.0]); ylabel('Final FRET');
+    title('PEP Events');
+    str1='T =  ';
+    str2=num2str(nTrans2);
+    str3='T/N =  ';
+    str4=num2str(nTrans2/nTraces2);
+    strA=strcat(str1,str2);
+    strB=strcat(str3,str4);
+    annotation('textbox',[0.545 0.730 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',strA,'FontSize',8);
+    annotation('textbox',[0.545 0.675 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',strB,'FontSize',8);
+end
+
+if file_noPEP120>0
+    subplot(1,3,3);
+    [nTraces3, nTrans3,tdpData] = tdplot_rtdata_v3('noPep120.qub.dwt','noPep120.txt',2,nTrans1);
+    tplot( tdpData, tdpOptions{:} );
+    xlim([-0.15 1.0]); xlabel('Initial FRET');
+    ylim([-0.15 1.0]); ylabel('Final FRET');
+    title('NoPEP Events');
+    str1='T =  ';
+    str2=num2str(nTrans3);
+    str3='T/N =  ';
+    str4=num2str(nTrans3/nTraces3);
+    strA=strcat(str1,str2);
+    strB=strcat(str3,str4);
+    annotation('textbox',[0.825 0.730 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',strA,'FontSize',8);
+    annotation('textbox',[0.825 0.675 0.074 0.05],'BackgroundColor',[1,1,1],...
+    'string',strB,'FontSize',8);
+end
+
+%% 11. Make dwell time histogram.
+
+disp('11. Making Dwell Time Histograms...');
+figure;
+set(gcf,'Position',[146 371 1037 404]);
+
+if file_allMol_ac120>0
+    subplot(1,3,1);
+    dwtHst=popstate_itr('allMol_ac120.qub.dwt');
+    plot(dwtHst(:,1),dwtHst(:,2),'ko',dwtHst(:,1),dwtHst(:,3),'go',dwtHst(:,1),dwtHst(:,4),'bo',dwtHst(:,1),dwtHst(:,5),'ro');
+    xlim([-0.15 5.0]); xlabel('Time [s]');
+    ylim([-0.05 1.05]); ylabel('Fraction');
+    title('All Molecules');
+end
+
+if file_PEP120>0
+    subplot(1,3,2);
+    dwtHst=popstate_itr('PEP120.qub.dwt');
+    plot(dwtHst(:,1),dwtHst(:,2),'ko',dwtHst(:,1),dwtHst(:,3),'go',dwtHst(:,1),dwtHst(:,4),'bo',dwtHst(:,1),dwtHst(:,5),'ro');
+    xlim([-0.15 5.0]); xlabel('Time [s]');
+    ylim([-0.05 1.05]); ylabel('Fraction');
+    title('PEP Events');
+end
+
+if file_noPEP120>0
+    subplot(1,3,3);
+    dwtHst=popstate_itr('noPEP120.qub.dwt');
+    plot(dwtHst(:,1),dwtHst(:,2),'ko',dwtHst(:,1),dwtHst(:,3),'go',dwtHst(:,1),dwtHst(:,4),'bo',dwtHst(:,1),dwtHst(:,5),'ro');
+    xlim([-0.15 5.0]); xlabel('Time [s]');
+    ylim([-0.05 1.05]); ylabel('Fraction');
+    title('NoPep Events');
+end
+end
+
 
 

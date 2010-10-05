@@ -1,45 +1,26 @@
-function cuttraces_2_10ms(traceFilename,dwtFilename)
-
-
-% if nargin<1
-%     answer=input('Truncate rt-traces (y/n)?','s');
-%     
-%     if answer~='y',
-%         disp('No traces have been modified.');
-%         return;
-%     end
-% end
-
+function [time2Peptide, NoCutEvent]=cuttraces_v3(traceFilename,dwtFilename,FRETac,time2pep,sampling)
 
 
 %---- USER TUNABLE PARAMETERS.
 %---State which will be truncated
 cutoffState=3;
-% cutoffState_GC=2;
 %--- time2Peptide: the trace is truncated in high fret after being more
 %--- than 120ms in high fret. time2Peptide must be a multiple of 40ms  
-time2Peptide=120;
+time2Peptide=time2pep;
 %--- For calc. of the mean Fret value after a trace is truncated.  
-% midFRET=0.30;
-% std_midFRET=0.061;
-highFRET=0.55;
+highFRET=FRETac;
 std_highFRET=0.061;
 
 % Level (standard deviation) of noise to add to AC120-noise data
 % after accommodation.
 sig=0.061;
 
+%Allocation of Memory
 fret_i=[];
 fret_f=[];
 
 %---Molecule counter
 sel_mol_no=0;
-
-
-% RESET the random number generator to a consistent value.
-% This enables comparison of contour plots.
-randn('state',0);
-
 
 %---Open the corresonding file of traces
 if nargin<1,
@@ -54,17 +35,12 @@ end
 
 [cy3,cy5,fret,ids,time_axis] = loadTraces(traceFilename);
 [nTraces,traceLen] = size(cy3);
+fret_org = fret; %fret unmodified
 fret_noise = fret; %fret with noise
 fret_noNoise = fret; %fret without noise
 
-%---We'll only need the FRET traces
-cy3zero=zeros(1,traceLen);
-cy5zero=zeros(1,traceLen);
-
-
 %---Open the QuB dwt file from idealization
 if nargin<1
-    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     if dwtfile==0
         disp('No dwt file selected.')
@@ -76,7 +52,7 @@ end
 
 [dwt,DT] = loadDWT(dwtFilename);
 assert( numel(dwt)==nTraces, 'Mismatch between FRET data and idealization' );
-assert( DT==10, 'Unexptected time resolution' );
+assert( DT==sampling, 'Unexptected time resolution' );
 
 %---Read the dwt file one line at a time
 %---(Looking at the dwt file in a text editor will make clear what's going
@@ -103,9 +79,9 @@ for mol_no=1:nTraces,
             ti=tf+1;
             tf=ti+(dwells(j,2)/DT)-1;
         end
-        if mean(fret(mol_no,ti:tf))<0
-            dwells(j,1)=0;
-        end
+            if mean(fret(mol_no,ti:tf))<0
+               dwells(j,1)=0;
+            end
     end
     %---- combine initial 0 Fret states
     for j=2:size(dwells,1)
@@ -125,12 +101,10 @@ for mol_no=1:nTraces,
     
     %--- count empty traces
     if ndwells<=1,
-        emptyTrace=emptyTrace+1;
+       emptyTrace=emptyTrace+1;
     end
     %--- count overall no of dwells
     allDwells=allDwells+ndwells;
-    
-    
     
     %---Convert the lists of initial and final dwell times into lists of
     %---initial and final FRET values
@@ -190,7 +164,7 @@ for mol_no=1:nTraces,
     for z=2:ndwells,
         if size(state_dwells_ampl,1)==1, break; end
         time2acc=time2acc+state_dwells_ampl(z,2);
-        if and(z==ndwells,state_dwells_ampl(z,1)==0) 
+        if z==ndwells && state_dwells_ampl(z,1)<cutoffState 
             break;
         elseif state_dwells_ampl(z,1)==cutoffState && ...
                state_dwells_ampl(z,2)>time2Peptide,
@@ -229,7 +203,7 @@ for mol_no=1:nTraces,
     %--- Store rt_traces truncated after 120ms in high FRET  
     if cutMol>0, %
         pepSelected(end+1) = sel_mol_no;
-        fret(sel_mol_no,:) = rt_fret_noise;
+        fret(sel_mol_no,:) = rt_fret;
         
     elseif cutMol==0 && ndwells>1,
         noPepSelected(end+1) = sel_mol_no;
@@ -239,21 +213,19 @@ for mol_no=1:nTraces,
     fret_noise(mol_no,:) = rt_fret_noise;
     
 
-    waitbar(0.9*mol_no/nTraces,wbh);
+    waitbar(mol_no/nTraces,wbh);
     cutMol=0;
     
 end %for each trace.
 
 
-waitbar(0.9,wbh,'Saving Traces...');
+waitbar(0.1,wbh,'Saving Traces...');
 
-
-disp('size time_axis');disp(size(time_axis));
-disp('size of FRET matrix');disp(size(fret));
-disp('no. of empty Traces');disp(emptyTrace);
-disp('no. of allDwells');disp(allDwells);
-disp('no. Cutoff-Events');disp(cutEvent);
-
+if emptyTrace>=1
+    disp('no. of empty Traces');disp(emptyTrace);
+end
+NoCutEvent=100*(cutEvent/mol_no);
+disp(['no. Cutoff-Events in %: ', num2str(NoCutEvent)]);
 %--- Save Data
 
 %---
@@ -266,28 +238,35 @@ z = zeros( size(cy3) );
  saveTraces( 'allMol_ac120.txt','txt', z,z, fret_noNoise, ids,time_axis );
  saveTraces( 'allMol_ac120.qub.txt','qub', fret_noNoise );
  
-waitbar(0.925,wbh,'Saving Traces...');
+waitbar(0.2,wbh,'Saving Traces...');
 
- saveTraces( 'allMol_ac120-noise.txt','txt', z,z, fret_noise, ids,time_axis );
- saveTraces( 'allMol_ac120-noise.qub.txt','qub', fret_noise );
+ %saveTraces( 'allMol_ac120-noise.txt','txt', z,z, fret_noise, ids,time_axis );
+ %saveTraces( 'allMol_ac120-noise.qub.txt','qub', fret_noise );
  
-waitbar(0.95,wbh,'Saving Traces...');
+
 %---
 %--- only Molecules forming a peptide bond
 %---
+waitbar(0.3,wbh,'Saving Traces...');
+ saveTraces('PEP120org.txt','txt',cy3(pepSelected,:),cy5(pepSelected,:), ...
+            fret_org(pepSelected,:), ids(pepSelected), time_axis );
+waitbar(0.4,wbh,'Saving Traces...');
  saveTraces('PEP120.txt','txt',cy3(pepSelected,:),cy5(pepSelected,:), ...
             fret(pepSelected,:), ids(pepSelected), time_axis );
+waitbar(0.5,wbh,'Saving Traces...');
  saveTraces( 'PEP120.qub.txt','qub', fret(pepSelected,:) );
  
-waitbar(0.975,wbh,'Saving Traces...');
+
 %---
 %--- only Molecules forming no peptide bond
 %---
+waitbar(0.6,wbh,'Saving Traces...');
  saveTraces('noPep120.txt','txt',cy3(noPepSelected,:),cy5(noPepSelected,:), ...
             fret(noPepSelected,:),ids(noPepSelected), time_axis );
+waitbar(0.7,wbh,'Saving Traces...');
  saveTraces( 'noPep120.qub.txt','qub', fret(noPepSelected,:) );
-
-waitbar(1,wbh);
+ 
+waitbar(0.95,wbh);
 close(wbh);
 
 

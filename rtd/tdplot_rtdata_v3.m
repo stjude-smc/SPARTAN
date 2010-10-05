@@ -1,4 +1,4 @@
-function tdp=tdplot_rtdata_10ms(dwtfilename,tracefilename)
+function [nTraces,nTrans,tdp]=tdplot_rtdata_v3(dwtfilename,tracefilename,normMethod,norm)
 
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
@@ -50,7 +50,6 @@ end
 [nTraces,traceLen] = size(data);
 data = data';
 data = data(:);
-
 % Load dwell-time information
 [dwt,sampling,offsets] = loadDWT(dwtfilename);
 nsegs = numel(dwt);
@@ -64,21 +63,21 @@ for i=1:nsegs
     
     if isempty(dwells), continue; end
 
-    times=dwells(:,2); %unit dwells: multiple of 40ms, unit of times is images!
+    times=dwells(:,2); %unit dwells: multiple of 10ms, unit of times is images!
     states=dwells(:,1); %starts at 1, unlike DWT file.
     ndwells=numel(times);
 
     
     % Load FRET data for this trace.
     seg = data( offsets(i)+(1:traceLen-1) );
-
-    
+ 
     %---
     %---Convert the lists of initial and final dwell times into lists of
     %---initial and final FRET values
     %---
     fret=[];
-    
+    %disp(i);
+    %disp('states');disp(states);
     for j=1:ndwells
         if states(j)==MAX_DWELL_STATE && times(j)>=MAX_DWELL
             break
@@ -90,14 +89,13 @@ for i=1:nsegs
             ti=tf+1;
             tf=ti+times(j,1)-1;
         end
-
-        if states(j)==MAX_DWELL_STATE && times(j)>=3
-            fret=[fret mean(seg(ti:ti+3,1))];
-        else
+        
+        if tf <traceLen
             fret=[fret mean(seg(ti:tf,1))];
+        else 
+            fret=[fret mean(seg(ti:traceLen-1,1))];
         end
-    end
-
+    end    
     ndwells=numel(fret);
 
     %---Add fret values to histogram.
@@ -111,42 +109,51 @@ for i=1:nsegs
 end
 
 ss=sum(sum(tdp(2:end,2:end)));
-disp( sprintf('Found %d transitions in %d traces',ss,nTraces) );
-
+nTrans=ss(1);
 
 %--- Normalize Histogram
 if nargin>=2,
-    answer = 'n';
+    answer = num2str(normMethod);
 else
-    answer=input('Constant Normalization Factor (y/n)?','s');
+    answer=input('Transitions (1), Constant (2), Not_Normalized (3)?','s');
 end
 switch (answer)
 
     %-----Normalization of TDplot:
-    case 'n'
+    case '1'
         tdp=100*(tdp/ss(1));
         tdp(1,2:end)=0;
         tdp(2:end,1)=0;
         summe=sum(sum(tdp));
-        disp('sum of histogram = ');disp(summe);
-        disp('Norm.Factor = ');disp(ss(1));
+        %disp('sum of histogram = ');disp(summe);
+        %disp('Norm.Factor = ');disp(ss(1));
         tdp(1,2:end)=fret_i_axis;
         tdp(2:end,1)=fret_f_axis;
-    case 'y'
-        norm_factor=input('Normalization Factor:');
+    case '2'
+        %norm_factor=input('Normalization Factor:');
+        norm_factor=norm;
         tdp=100*(tdp/norm_factor);
         tdp(1,2:end)=0;
         tdp(2:end,1)=0;
         summe=sum(sum(tdp));
-        disp('sum of histogram = ');disp(summe);
+        %disp('sum of histogram = ');disp(summe);
+        tdp(1,2:end)=fret_i_axis;
+        tdp(2:end,1)=fret_f_axis;
+    case '3'
+        %disp('Norm.Factor = ');disp(ss(1));
         tdp(1,2:end)=fret_i_axis;
         tdp(2:end,1)=fret_f_axis;
 end
 
-
-
 %--- Save Files
-outfile=strrep(tracefilename,'.txt','_tdp.txt');
+if normMethod==1
+    outfile=strrep(tracefilename,'.txt','_tdp1.txt');
+elseif normMethod==2
+    outfile=strrep(tracefilename,'.txt','_tdp2.txt');
+elseif normMethod==3
+    outfile=strrep(tracefilename,'.txt','_tdp3.txt'); 
+end
 dlmwrite(outfile,tdp,' ');
+
 
 

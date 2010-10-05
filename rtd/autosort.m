@@ -64,7 +64,7 @@ else
 end
 
 
-[nTraces,traceLen] = size(f)
+[nTraces,traceLen] = size(f);
 
 % Calculate properties of each trace, which are used for filtering...
 if ~fretOnly,
@@ -231,8 +231,8 @@ end
 if showWB,  close(wb);  end
 
 nEvents = size(sFRET,1);
-disp( sprintf('Found %.0f events from %.0f traces (%.0f total)', ...
-              nEvents, nTracesWithEvents, nTraces) );
+%disp( sprintf('Found %.0f events from %.0f traces (%.0f total)', ...
+%              nEvents, nTracesWithEvents, nTraces) );
 
 
 %% Save the resulting trace data

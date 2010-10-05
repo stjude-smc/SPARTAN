@@ -1,5 +1,5 @@
 function frethists=statehist(dwtfilename,tracefilename,listfilename, ...
-                             lw_limit,up_limit)
+                             lw_limit,up_limit,sampling,traceLen)
 
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
@@ -10,9 +10,9 @@ function frethists=statehist(dwtfilename,tracefilename,listfilename, ...
 %---Histogram bin size
 BIN=0.015; 
 %---Time step (ms)
-DT=10;
+DT=sampling;
 %---Length of a trace (frames)
-TIME=2500;
+TIME=traceLen;
 %--- Integration starts above this lower time limit (ms)
 if nargin<4,
     lw_limit=input('lower_limit 10....25000 ms:');
@@ -20,13 +20,9 @@ end
 if nargin<5,
     up_limit=input('upper_limit 10....25000 ms:');
 end
-%---Length of dwell (in ms) in state MAX_DWELL_STATE, after which the trace is
-%---eliminated. Deactivate this by making MAX_DWELL very large.
-MAX_DWELL=20000;
-MAX_DWELL_STATE=1;
 
 %---Histogram axes
-fret_axis=-0.2:BIN:1.2;
+fret_axis=-0.2:BIN:2;
 
 %---Allocate some memory for later
 fret=[];
@@ -84,9 +80,6 @@ files=0;
         nsegs=size(list,1);
     end
     
-    
-        
-
 
     %---Read the dwt file one line at a time
     %---(Looking at the dwt file in a text editor will make clear what's going
@@ -120,7 +113,7 @@ files=0;
         times=dwells(:,2)/DT;      %unit of times is frames
         states=dwells(:,1);
         ndwells=numel(times);
-        %disp('mol');disp(i);disp(dwells);
+        %disp(i);disp(dwells);
 
         %---Convert the lists of initial and final dwell times into lists of
         %---initial and final FRET values
@@ -138,19 +131,9 @@ files=0;
                 tf=ti+times(j,1)-1;
                 
             end
-            %disp('(ti,tf');disp(ti);disp(tf);
+            ti=int32(ti);
+            tf=int32(tf);
             
-            %if and(states(j)==MAX_DWELL_STATE, times(j)>=MAX_DWELL/DT)  %for truncated traces
-            %    for t=1:(tf-ti)
-            %        if seg(ti+t-1,1)==seg(ti+t,1)
-            %            break
-            %        end
-            %    end
-            %    disp('mol');disp(i);disp(t-1);
-            %    hst=hist(seg(ti:ti+t-1,1),fret_axis)';
-            %    frethists(:,5)=frethists(:,5)+hst;
-            %    break                                         
-            %else
             if dwells(j,1)==1
                 if and(dwells(j,2)>llimit,dwells(j,2)<ulimit)
                     hst=hist(seg(ti+(llimit/DT):tf,1),fret_axis)';
@@ -174,33 +157,7 @@ files=0;
             elseif dwells(j,1)==0
                 hst=hist(seg(ti:tf,1),fret_axis)';
                 frethists(:,2)=frethists(:,2)+hst;
-            end
-            
-                        
-            %switch dwells(j,1)
-            %    case 0
-            %        frethists(:,2)=frethists(:,2)+hst;
-            %    case 1
-                    %frethists(:,3)=frethists(:,3)+hst;
-            %        frethists(:,5)=frethists(:,5)+hst;
-                %case 2
-                %    frethists(:,4)=frethists(:,4)+hst;
-                %case 3
-                %   frethists(:,5)=frethists(:,5)+hst;
-            %end
-            
-            %mean_fret=mean(seg(ti:tf,1))
-            %switch mean_fret
-             %   case and (mean_fret>-0.125, mean_fret<=0.125)
-             %       frethists(:,2)=frethists(:,2)+hst;
-             %   case and (mean_fret>0.125, mean_fret<=0.25)
-             %       frethists(:,3)=frethists(:,3)+hst;
-             %   case and (mean_fret>0.25, mean_fret<=0.45)
-             %       frethists(:,4)=frethists(:,4)+hst;
-             %   case and (mean_fret>0.45, mean_fret<=0.8)
-             %       frethists(:,5)=frethists(:,5)+hst;
-            %end
-            
+            end      
         end
         
     end
