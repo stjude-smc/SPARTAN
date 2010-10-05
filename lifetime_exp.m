@@ -1,4 +1,4 @@
-function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename, colors )
+function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename, inputParams )
 %LIFETIME_EXP  Estimates median lifetime in each state
 % 
 %   R = LIFETIME_EXP(FILE)
@@ -11,28 +11,29 @@ function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfile
 
 %---- USER TUNABLE PARAMETERS ----
 
-bMakeGUI = 1;
-useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
+params.bMakeGUI = 1;
+params.useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
 
 % Option to remove dwells whose durations are unknown because they are
 % cropped by the start of measurement, blinking, and photobleaching, resp.
-dropFirstDwell = 0;
-dropLastDwell  = 0;  %take care of in tIdealize now...
-dropDarkDwells = 0;  %before and after dwell in dark state
+params.dropFirstDwell = 0;
+params.dropLastDwell  = 0;  %take care of in tIdealize now...
+params.dropDarkDwells = 0;  %before and after dwell in dark state
 
 % colors for statehist, in order
-if nargin<2,
-    colors = [ 0 0 0   ; ... % black
+params.colors = [ 0 0 0   ; ... % black
                0        0.7500   0.7500 ; ... % cyan
                0.7500   0        0.7500 ; ... % purple
                1 0 0   ; ... % red
                0.7500   0.7500   0 ; ...    % yellow
                0 0.5 0 ]; % green
-end
 
-fitSingle = true;  %otherwise, double exponential fitting...
+params.fitSingle = true;  %otherwise, double exponential fitting...
 
-plotFits = 1;
+params.plotFits = 1;
+
+% Merge options, giving the user's options precedence.
+params = catstruct( params, inputParams );
        
 %---------------------------------
 
@@ -72,7 +73,7 @@ for i=1:nFiles,
             sprintf('ERROR: No such file: %s',dwtfilename{i}) );
     
     % Load DWT file (states in columns)
-    if useCorrectedDwelltimes
+    if params.useCorrectedDwelltimes
         [dwells,sampling,model] = correctedDwelltimes( dwtfilename{i} );
     else
         [dwells,sampling,model] = loadDwelltimes( dwtfilename{i} );
@@ -80,7 +81,7 @@ for i=1:nFiles,
     assert( numel(dwells) == nStates );
         
     % Create a survival plot for each state
-    dwellaxis = (0:1:1000)*sampling /1000;
+    dwellaxis = (0:1:5000)*sampling /1000;
     %dwellhist = zeros( nStates,numel(dwellaxis) );
     
     for j=1:nStates,
@@ -103,7 +104,7 @@ for i=1:nFiles,
         x = dwellaxis(1:plen);
         y = survival(1:plen);
         
-        if fitSingle,
+        if params.fitSingle,
             result1 = fit( x', y, 'exp1' );
         else
             result1 = fit( x', y, 'exp2' );
@@ -125,9 +126,9 @@ end  % for each sample
 
 
 % Make a seperate figure that combines the plots for each inspection.
-if plotFits,
+if params.plotFits,
     h1 = figure();
-    set(h1,'DefaultAxesColorOrder',colors);
+    set(h1,'DefaultAxesColorOrder',params.colors);
 
     nrows = nStates-1;
     ncols = nFiles+1;    
@@ -156,7 +157,7 @@ if plotFits,
             % Plot this also in the overlay plot at end
     %         subplot( nrows,ncols, ncols*(j-1) );
     %         
-    %         plot( dwellaxis, dwellhist{i,j}, '.', 'MarkerEdgeColor',colors(i,:) );
+    %         plot( dwellaxis, dwellhist{i,j}, '.', 'MarkerEdgeColor',params.colors(i,:) );
     %         xlim( [0 1.5] );
     %         ylim( [0 1] );
     %         hold on;
@@ -179,10 +180,10 @@ ax = [];
 
 output = dwellaxis';
 
-if nargin<2,
-    colors = colormap;
-    nlevels = size(colors,1);
-    colors = colors(1:round(nlevels/nFiles):end, :);
+if ~isfield(params,'colors'),
+    params.colors = colormap;
+    nlevels = size(params.colors,1);
+    params.colors = colors(1:round(nlevels/nFiles):end, :);
 end
 
 for i=1:nFiles,
@@ -192,7 +193,7 @@ for i=1:nFiles,
         % Plot this also in the overlay plot at end
         ax(j-1) = subplot( nStates-1,1, j-1 );
         
-        plot( dwellaxis, dwellhist{i,j}, '-', 'Color',colors(i,:), 'LineWidth',2 );
+        plot( dwellaxis, dwellhist{i,j}, '-', 'Color',params.colors(i,:), 'LineWidth',2 );
 %         plot( dwellaxis, dwellhist{i,j}, 'r-', 'LineWidth',2 );
         xlim( [0 60] );
         ylim( [0 1] );

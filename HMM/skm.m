@@ -77,8 +77,8 @@ if ~isfield(params,'fixRates')
 end
 
 % Modify data to fall within specified ranges...
-data(data>1) = 1;
-data(data<-0.3) = -0.3;
+data(data>10) = 10;
+data(data<-1) = -1;
 
 
 

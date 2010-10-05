@@ -8,8 +8,8 @@ end
 
 % Load dwell times
 [idl,sampling,offsets,model] = LoadDWT( dwtfilename );
-nStates = length(model)/2;
-nTraces = length(idl);
+nStates = numel(model)/2;
+nTraces = numel(idl);
 
 % Add dwells to collection
 dwells = cell(nStates,1);
