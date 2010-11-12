@@ -21,7 +21,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 19-May-2010 12:17:21
+% Last Modified by GUIDE v2.5 28-Oct-2010 17:14:14
 
 
 % Begin initialization code - DO NOT EDIT
@@ -204,6 +204,9 @@ set(handles.editBin3,'String', num2str(numel(handles.Best_indexes))    );
 set(handles.chkBin1,'Enable','on', 'Value', 0);
 set(handles.chkBin2,'Enable','on', 'Value', 0);
 set(handles.chkBin3,'Enable','on', 'Value', 0);
+set(handles.btnSelAll1,'Enable','on');
+set(handles.btnSelAll2,'Enable','on');
+set(handles.btnSelAll3,'Enable','on');
 
 
 % Set data correction starting values
@@ -772,5 +775,43 @@ plotter(handles);
 
 
 
+
+
+
+
+% --- Executes on button press in btnSelAll3.
+function btnSelAll_Callback(hObject, eventdata, handles, index)
+
+if index==1,
+    handles.NoFRETs_indexes = 1:handles.Ntraces;
+    set(handles.chkBin1,'Value',1);
+elseif index==2,
+    handles.FRETs_indexes = 1:handles.Ntraces;
+    set(handles.chkBin2,'Value',1);
+elseif index==3,
+    handles.Best_indexes = 1:handles.Ntraces;
+    set(handles.chkBin3,'Value',1);
+end
+    
+%unchecking
+% if index==1,
+%     handles.NoFRETs_indexes = [];
+% elseif index==2,
+%     handles.FRETs_indexes = [];       
+% elseif index==3,
+%     handles.Best_indexes = [];
+% end
+
+
+NoFRET_no = numel( handles.NoFRETs_indexes );
+FRET_no = numel( handles.FRETs_indexes );
+Best_no = numel( handles.Best_indexes );
+
+set(handles.editBin1,'String',num2str(NoFRET_no));
+set(handles.editBin2,'String',num2str(FRET_no));  
+set(handles.editBin3,'String',num2str(Best_no));
+
+set(handles.btnSave,'Enable','on');
+guidata(hObject,handles);
 
 

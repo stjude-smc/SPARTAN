@@ -25,6 +25,15 @@ function saveDWT(filename, idealization, offsets, model, sampling )
 % 1	40
 
 
+% If model is a qub model structure, convert it into the expected form.
+if isstruct(model),
+    mu = model.mu(model.class);
+    sigma = model.sigma(model.class);
+    
+    model = [ reshape(mu,numel(mu),1) reshape(sigma,numel(sigma),1) ];
+end
+
+
 % verify input arguments
 assert( iscell(idealization), 'Idealization must be a cell array' );
 assert( numel(idealization)==numel(offsets), 'Offsets do not match idealization' );

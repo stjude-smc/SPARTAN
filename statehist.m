@@ -91,7 +91,9 @@ total_time = 0;  %total time in frames
         
         dwt_end = dwt_start + sum(times)-1;
         t = t+ndwells-1;  %ntrans=ndwells-1
-        total_time = total_time + sum( times(states>0) );
+        
+        %total_time = total_time + sum( times(states>0) );
+        total_time = total_time + sum( times );
         
         
         %---Sort FRET values into bins for assigned state
@@ -119,18 +121,12 @@ total_time = 0;  %total time in frames
 %     [outfilename outfilepath]=uiputfile('_shist.txt','Save shist file as:');
 %     outfile=strcat(outfilepath,outfilename);
 % else
-%     outfile=strrep(dwtfilename,'.dwt','_shist.txt');
+    outfile=strrep(dwtfilename,'.dwt','_shist.txt');
 % end
 
-% Normalize the plot and write to disk
-% max_val = max(max( shist(2:end,2:end) ));
-% max_val = total_time*DT/1000;  %in sec -- independant of framerate
-% 
-% shist(1,1) = max_val;  %save the normalization factor (not plotted)
-% shist(2:end,2:end) = shist(2:end,2:end)/double(max_val);
-% dlmwrite(outfile,shist,' ');
 
 shist(:,2:end) = shist(:,2:end)/total_time;
+dlmwrite(outfile,shist,' ');
 
 
 % NOTE: the t here is all transitions, including to 0-FRET
