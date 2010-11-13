@@ -438,12 +438,12 @@ function SaveTraces_Callback(hObject, eventdata, handles)
 
 % Create a name for the output file
 [inputfile inputpath]=...
-    uiputfile('.txt','Save picked traces as:',handles.outfile);
+    uiputfile('.traces','Save picked traces as:',handles.outfile);
 if inputfile==0, return; end
 
 handles.outfile=[inputpath inputfile];
-[p,n,ext] = fileparts( handles.outfile );
-assert( strcmp(ext,'.txt'), 'must be .txt' );
+% [p,n,ext] = fileparts( handles.outfile );
+% assert( strcmp(ext,'.txt'), 'must be .txt' );
 
 % Save picked data to handles.outfile
 SaveTraces( handles.outfile, handles );

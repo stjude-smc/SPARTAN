@@ -27,6 +27,9 @@ switch format
     case 'qub'
         if Nargs~=1, error('SAVETRACES: required parameters missing'); end
         saveTracesQUB( filename, varargin{:} );
+        
+    otherwise
+        error('Unknown file format');
 end
 
 % END FUNCTION SAVETRACES

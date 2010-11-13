@@ -8,7 +8,7 @@ function [outFilename,picks,allStats]=loadPickSaveTraces( varargin )
 %   loaded as one large dataset. If a dictory is specified, all FRET data
 %   files (.traces) in this directory will be loaded together. Traces that
 %   pass the selection CRITERIA are then saved to disk with the file
-%   extension "_auto.txt". A log file is also created.
+%   extension "_auto.traces". A log file is also created.
 %
 %   TODO: optional argument to pass a list of indexes of traces to load OR the
 %   output of traceStat so not all trace data has to be reloaded! This will
@@ -90,7 +90,6 @@ end
 
 %% ---- Load each file, select traces, and add it to output.
 
-timeAxis = [];
 allStats = struct( [] );
 picks = [];
 nTracesPerFile = zeros(nFiles,1);
@@ -99,19 +98,24 @@ nTracesPerFile = zeros(nFiles,1);
 if isfield(options,'outFilename'),
     outFilename = options.outFilename;
 else
-    outFilename = strrep(files{1}, '.traces', '_auto.txt');
-    outFilename = strrep(outFilename, '_01_auto.txt', '_auto.txt');
+    outFilename = strrep(files{1}, '.traces', '_auto.traces');
+    outFilename = strrep(outFilename, '_01_auto.traces', '_auto.traces');
 end
-qubFilename = strrep(outFilename,'.txt','.qub.txt');
-
-fid    = fopen(outFilename,'w');
-qubfid = fopen(qubFilename,'w');
 
 
 % Process each file individually, adding the selected traces to output.
 if options.showWaitbar,
     wbh = waitbar(0,'Selecting and saving traces according to criteria...');
 end
+
+
+% Ideally, space should be pre-allocated. TODO.
+donorAll = [];
+acceptorAll = [];
+fretAll = [];
+timeAxis = [];
+idsAll = {};
+
         
 for i=1:nFiles,
     
@@ -141,36 +145,13 @@ for i=1:nFiles,
         f = f(indexes,:);
     end
     
-    % Save data from selected traces.
-    if i==1,
-        timeAxis = t;
-        fprintf(fid,'%g ', timeAxis);
-        fprintf(fid,'\n');
-    end
-    assert( numel(timeAxis)==size(d,2), 'All traces must be of the same size' );
+    % Save trace data into one large pile for saving at the end
+    donorAll = [donorAll; d];
+    acceptorAll = [acceptorAll; a];
+    fretAll = [fretAll; f];
+    timeAxis = t;
+    idsAll = [idsAll ids];
     
-    for j=1:numel(indexes),
-        % Output trace identifier
-        name = ids{j};
-
-        % Output fluorescence and FRET data
-        fprintf(fid,'%s', name);
-        fprintf(fid,' %g', d(j,:));
-        assert( ~isnan(d(j,1)) );
-        fprintf(fid,'\n');
-        
-        fprintf(fid,'%s', name);
-        fprintf(fid,' %g', a(j,:));
-        assert( ~isnan(a(j,1)) );
-        fprintf(fid,'\n');
-
-        fprintf(fid,'%s', name);
-        fprintf(fid,' %g', f(j,:));
-        fprintf(fid,'\n');
-        
-        % Write FRET data for QuB
-        fprintf(qubfid, '%f\n', f(j,:));
-    end
     
     % Save stats info for logging.
     if isempty( allStats )
@@ -189,11 +170,16 @@ if isfield(options,'stats'),
     allStats = options.stats;
 end
 
+
+% Save trace data to file
+[p,n,ext] = fileparts(outFilename);
+format = ext(2:end);
+saveTraces(outFilename,format,donorAll,acceptorAll,fretAll,idsAll,timeAxis);
+
+
 % Clean up
 nPicked = numel(picks);
 nTracesTotal = sum(nTracesPerFile);
-fclose(fid);
-fclose(qubfid);
 
 if options.showWaitbar,
     waitbar(1,wbh,'Finished!');
@@ -203,7 +189,8 @@ end
 
 %% ---- Save log file
 
-logFilename = strrep(outFilename,'.txt','.log');
+% logFilename = strrep(outFilename,'.traces','.log');
+logFilename = [p filesep n '.log'];
 fid = fopen(logFilename,'w');
 
 % Save header, with filenames and the number of traces picked.
