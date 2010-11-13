@@ -111,24 +111,22 @@ for i=1:nFiles
         % Create FRET histogram from the bootstrapped dataset
         histdata  = hist( data, fretaxis );
         pophist(:,s) = histdata/sum(histdata);   %normalization
-
-        % Plot FRET histograms
-        lw = 4;
-        if s~=1,
-            lw = 1;
-        end
-        
-        plot( fretaxis, pophist(:,s), 'Color',colors(i,:), 'LineWidth',lw );
-        hold on;
-        drawnow;
     end
     
-    pophistErrors = std(pophist,[],2);
-        
-    % Add histogram from current dataset to output
-    frethist(:,2*i-1) = pophist(:,1);
+    % Spline interpolate the data so it's easier to see (but not saved that way)
+    sx = fretaxis(1):0.001:fretaxis(end);
+    sy = spline( fretaxis, pophist(:,1), sx );
+    plot( sx, sy, 'Color',colors(i,:), 'LineWidth',3 );
+    hold on;
     
+    % Calculate and plot error bars
+    pophistErrors = std(pophist,[],2);
+    errorbar( fretaxis, pophist(:,1), pophistErrors, 'x', 'Color',colors(i,:), 'LineWidth',1 );
+    drawnow;
+    
+    % Add histogram from current dataset to output
     % Add bootstrapped errors from current dataset
+    frethist(:,2*i-1) = pophist(:,1); %use the first set: all traces.
     frethist(:,2*i) = pophistErrors;
 
     %
@@ -145,6 +143,8 @@ ylabel( 'Percent of total time' );
 
 xlabel( 'FRET Efficiency' );
 xlim( [0.1 1.0] );
+yl = ylim;
+ylim( [0 yl(2)] );
 
 
 if nargin>=2,
