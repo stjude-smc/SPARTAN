@@ -1,26 +1,14 @@
-function forQuB
+function forQuB( files )
 % FORQUB.m converts traces files from autotrace or sorttraces into a
-% format that can be imported into QuB.
+% format that can be imported into QuB. If multiple files are selected, data
+% are combined from each file and saved to a single, merged .qub.txt file.
+% To convert each trace seperately, use forQuB2.
 
 
 % Get file names from user (all at once to save time)
-files=cell(0,1);
-filepath = '';
-
-while 1
-    [name,filepath]=uigetfile('*.txt','Choose a fret file:',filepath);
-    if name==0,  break;  end
-    
-    files{end+1} = strcat(filepath,name);
-    
-    disp('Another file? If not, press cancel.');
+if nargin<1,
+    files = getFiles([],'Select traces files to convert');
 end
-
-if isempty(files)
-    disp('No files selected.');
-    return;
-end
-
 
 % Load the traces files
 fret = [];
@@ -31,15 +19,16 @@ end
 
 
 % Create or get an output filename
+[p,n] = fileparts(files{i});
+outfile = [p filesep n '.qub.txt']
+
 if length(files)>1
     outname=0;
     while outname==0,
-        [outname outpath]=uiputfile('*.txt','Save new file as:');
+        [outname outpath]=uiputfile(outfile,'Save new file as:');
         disp(outname);
     end
     outfile=strcat(outpath,outname);
-else
-    outfile=strrep(files{1},'.txt','.qub.txt');
 end
 
 

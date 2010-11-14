@@ -10,12 +10,10 @@ allowMinutes = true;
 
 % If not files specified, prompt user for them.
 if ~exist('filename','var'),
-    [datafile,datapath] = uigetfile({'*.txt'},'Choose a traces file:');
+    [datafile,datapath] = uigetfile({'*.traces;*.txt'},'Choose a traces file:');
     if datafile==0, return; end  %user hit "cancel"
     filename = [datapath filesep datafile];
 end
-
-isTracesFile = ~isempty( strfind(filename,'.traces') );
 
 
 % Generate plot titles 
@@ -42,8 +40,9 @@ else
 end
 
 % Load idealization data
-dwt_fname = strrep( filename, '.txt', '.qub.dwt' );
-if ~isTracesFile && exist(dwt_fname,'file')
+[p,n] = fileparts(filename);
+dwt_fname = [p filesep n '.qub.dwt'];
+if exist(dwt_fname,'file')
     [dwt,dwtSampling,offsets,model] = loadDWT( dwt_fname );
     model = model(:,1);
     dwtSampling = double(dwtSampling)

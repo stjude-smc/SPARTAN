@@ -11,12 +11,12 @@ function combineDatasets( filenames, outFilename )
 
 %%
 if nargin<1,
-    filenames = getFiles('*.txt');
+    filenames = getFiles;
     if isempty(filenames), return; end;
 end
 
 if nargin<2,
-    [f,p] = uiputfile('*.txt','Select output filename');
+    [f,p] = uiputfile('*.traces','Select output filename');
     if f==0, return; end
     outFilename = [p f];
 end
@@ -84,7 +84,7 @@ end
 
 assert( size(f_out,1)==nTraces );
 
-saveTraces( outFilename, 'txt', d_out,a_out,f_out,ids_out,time{1} );
+saveTraces( outFilename, 'traces', d_out,a_out,f_out,ids_out,time{1} );
 
 waitbar(1,h);
 close(h);

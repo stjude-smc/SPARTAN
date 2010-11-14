@@ -95,31 +95,15 @@ varargout{1} = handles.output;
 function btnLoadData_Callback(hObject, eventdata, handles)
 
 %------ Prompt use for location to save file in...
-% FIXME: use a custom dialog that allows selecting many files
-%  from disparate locations...
-fname_txt = {};
-while 1
-    [f,p] = uigetfile('*.txt','Select datafile(s) to analyze','MultiSelect','on');
-    if p==0, break; end  %user pressed "cancel"
-    fname_txt = [fname_txt strcat(p,f)];
-end
-if isempty(fname_txt),
-    return;
-end
-
-if ~iscell(fname_txt),
-    fname_txt = {fname_txt};
-end
-fname_txt = sort(fname_txt)
-handles.dataFilenames = fname_txt;
-handles.dataPath = p;
+handles.dataFilenames = getFiles([],'Select traces files to analyze');
+handles.dataPath = pwd;
 handles.hasData = 1;
 
 % If a model is loaded, enable the Execute button & update GUI
 if handles.hasModel,
     set(handles.btnExecute,'Enable','on');
     
-    text = sprintf('%d dataset files loaded.',numel(fname_txt));
+    text = sprintf('%d dataset files loaded.',numel(handles.dataFilenames));
     set(handles.txtFileInfo,'String',text);
 end
 
@@ -380,7 +364,8 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         end
 
         % Save the idealization
-        dwtFilename = strrep(filename,'.txt','.qub.dwt');
+        [p,n] = fileparts(filename);
+        dwtFilename = [p filesep n '.qub.dwt'];
         fretModel = [skmModels(i).mu skmModels(i).sigma];
         saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
 
@@ -418,7 +403,8 @@ avgRates = cell(nFiles,1);
 avgStdRates = cell(nFiles,1);
 
 for i=1:nFiles
-    dwtFilename = strrep(dataFilenames{i},'.txt','.qub.dwt');
+    [p,n] = fileparts(dataFilenames{i});
+    dwtFilename = [p filesep n '.qub.dwt'];
     disp( sprintf('%d: %s', i,dwtFilename) );
     
     % Verify the idealization has been performed

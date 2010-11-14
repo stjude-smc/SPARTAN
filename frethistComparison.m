@@ -34,7 +34,7 @@ colors = [ 0  0      0   ; ...                  % black
 % Prompt user for filenames if not supplied
 if nargin < 1,
     disp('Select traces files, hit cancel when finished');
-    files = getFiles('*.txt','Choose a traces file:');
+    files = getFiles([],'Choose a traces file:');
 end
 
 nFiles = numel(files);

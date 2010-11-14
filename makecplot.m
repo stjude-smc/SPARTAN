@@ -61,13 +61,14 @@ frethist(2:end,1) = fret_axis';
 
 % Save plots to file
 if exist('data_filename','var'),
-    histfile=strrep(data_filename,'.txt','_hist.txt');
+    [p,n,e]  = fileparts(data_filename);
+    histfile = [p filesep n '_hist.txt'];
     dlmwrite(histfile,frethist,' ');
 
     % Also save a normalized histogram.
     frethistn = frethist;
     frethistn(2:end,2:end) = frethistn(2:end,2:end)/Nmol;
-    histfile=strrep(data_filename,'.txt','_normhist.txt');
+    histfile = [p filesep n '_normhist.txt'];
     dlmwrite(histfile,frethistn,' ');
 end
 

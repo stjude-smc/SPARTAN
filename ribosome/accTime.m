@@ -58,7 +58,8 @@ for i=1:nFiles,
     sampling = time(2)-time(1);
 
     % Idealize FRET data
-    dwtFilename = strrep(tracesFiles{i},'.txt','.qub.dwt');
+    [p,n] = fileparts(traceFiles{i});
+    dwtFilename = [p filesep n '.qub.dwt'];
     [dwt,newModel,LL,offsets] = skm( fret, sampling, model, skmParams );
     saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
     

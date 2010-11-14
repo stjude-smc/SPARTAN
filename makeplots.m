@@ -1,5 +1,5 @@
-function [h1,samples] = makeplots(varargin)
-% function h1 = makeplots(samples, titles)
+function [h1,baseFilenames] = makeplots(varargin)
+% function h1 = makeplots(baseFilenames, titles)
 %MAKEPLOTS  Creates an array of contour, pop hist, and TD plots
 % 
 %   H = MAKEPLOTS(FILES, TITLES, OPTIONS)
@@ -86,9 +86,9 @@ end
 %% INITIALIZE & PROCESS FUNCTION PARAMETERS
 
 % Option 1: If no files specified, prompt user for them.
-if nargin==0,  %~exist('samples','var'),
+if nargin==0,  %~exist('baseFilenames','var'),
     disp('Select traces files, hit cancel when finished');
-    samples = getFiles('*.txt','Choose a traces file:');
+    baseFilenames = getFiles([],'Choose a traces file:');
 
 % Option 2: plot data was passed directly (see autotrace.m)
 elseif isnumeric(varargin{1})
@@ -97,15 +97,15 @@ elseif isnumeric(varargin{1})
         cplotDataArray = {cplotDataArray};
     end
     nSamples = length(cplotDataArray);
-    samples  = cell(nSamples,1);
-    [samples{:}] = deal('----');
+    baseFilenames  = cell(nSamples,1);
+    [baseFilenames{:}] = deal('----');
 
 % Option 3: filenames of data were passed.
 else
-    samples = varargin{1};
+    baseFilenames = varargin{1};
 end
 
-if ~iscell(samples), samples={samples}; end
+if ~iscell(baseFilenames), baseFilenames={baseFilenames}; end
 
 
 %% Get optional parameter values
@@ -132,7 +132,7 @@ options.contour_bounds = [1 options.pophist_sumlen options.fretRange];
 
 %% Process data to produce plots
 
-nSamples = numel(samples);
+nSamples = numel(baseFilenames);
 
 if nSamples == 0,
     disp('No files specified, exiting.');
@@ -142,17 +142,20 @@ end
 
 % Strip extensions from files to get the "base name" from which all other
 % filenames can be generated (_tdp.txt _hist.txt, etc)
-samples = strrep( samples, '.txt', '' );
-samples = strrep( samples, '_tdp', '' );
-samples = strrep( samples, '.qub', '' );
-samples = strrep( samples, '_hist', '' );
+dataFilenames = baseFilenames;
+
+baseFilenames = strrep( baseFilenames, '.txt', '' );
+baseFilenames = strrep( baseFilenames, '.traces', '' );
+baseFilenames = strrep( baseFilenames, '_tdp', '' );
+baseFilenames = strrep( baseFilenames, '.qub', '' );
+baseFilenames = strrep( baseFilenames, '_hist', '' );
 
 
 % Generate plot titles 
 if ~exist('titles','var'),
     
     % Remove underscores (subscript)
-    titles = strrep(samples,'_',' ');
+    titles = strrep(baseFilenames,'_',' ');
     
     % Strip off path, leaving just filename
     for i=1:nSamples,
@@ -182,10 +185,11 @@ any_tdps = false;  % will we be drawing any TD plots?
 
 for i=1:nSamples,
     
-    data_fname  = [samples{i} data_ext];
-    dwt_fname   = [samples{i} dwt_ext];
-    tdp_fname   = [samples{i} tdp_ext];
-    shist_fname = [samples{i} shist_ext];
+    %data_fname  = [baseFilenames{i} data_ext];
+    data_fname = dataFilenames{i};
+    dwt_fname   = [baseFilenames{i} dwt_ext];
+    tdp_fname   = [baseFilenames{i} tdp_ext];
+    shist_fname = [baseFilenames{i} shist_ext];
     
     % Make sure files exist
     any_tdps = 0;
@@ -253,11 +257,11 @@ end
 
 N = zeros(1,nSamples); %number of molecules, each sample
 
-for i=1:numel(samples),  %for each sample
+for i=1:numel(baseFilenames),  %for each sample
     
-    hist_filename = [samples{i} hist_ext];
-    shist_fname   = [samples{i} shist_ext];
-    data_fname    = [samples{i} data_ext];
+    hist_filename = [baseFilenames{i} hist_ext];
+    shist_fname   = [baseFilenames{i} shist_ext];
+    data_fname = dataFilenames{i};
     
     %---- LOAD OR GENERATE FRET CONTOUR PLOT DATA
     
@@ -267,14 +271,13 @@ for i=1:numel(samples),  %for each sample
     % Generate the contour plot if not available
     elseif ~exist(hist_filename,'file') || fileIsNewer(data_fname,hist_filename)
         % Make sure FRET data exists
-        filename = [samples{i} data_ext];
-        if ~exist(filename,'file')
+        if ~exist(data_fname,'file')
             disp('Traces file missing, skipping');
             continue;
         end
         
         disp('Generating colorplot...');
-        cplotdata = makecplot( filename, options );
+        cplotdata = makecplot( data_fname, options );
     else
         cplotdata = load(hist_filename);
     end
@@ -426,8 +429,8 @@ tdx = [];
 
 for i=1:nSamples,  %for each sample
     
-    tdp_fname = [samples{i} tdp_ext];
-    dwt_fname = [samples{i} dwt_ext];
+    tdp_fname = [baseFilenames{i} tdp_ext];
+    dwt_fname = [baseFilenames{i} dwt_ext];
     
     
     % Make sure TD plot data exists
