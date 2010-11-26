@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <string>
+#include <cstring>
 
 #if defined(_WIN32)
 #include <windows.h>

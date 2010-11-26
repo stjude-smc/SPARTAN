@@ -1,4 +1,5 @@
 #include "istream_readline.h"
+#include <cstring>
 
 // no lame length restrictions here:
 //   keeps doubling buflen until it fits; returns realloc'd buffer

@@ -60,7 +60,7 @@ void structToTree( mxArray* structure, string rootName, QUB_Tree& parent )
                     //mexPrintf("string\n");
                 }
                 //else
-                  //mexPrintf("unknown type\n");
+                //  mexPrintf("unknown type\n");
              
             }
 
@@ -92,8 +92,12 @@ QUB_Tree structToTree( mxArray* structure, string rootName )
 
     
 //
-mxArray* treeToStruct( QUB_Tree node )
-{    
+mxArray* treeToStruct( QUB_Tree node, int depth )
+{
+    //char pattern[100]; //for sprintf
+    //memset( pattern, ' ', depth*2 );
+    //pattern[depth*2] = 0;
+
     //Create structure for adding fields
     mxArray* structure = mxCreateStructMatrix(1,1, 0,NULL);
     
@@ -137,6 +141,7 @@ mxArray* treeToStruct( QUB_Tree node )
         
     case QTR_TYPE_STRING:
         //string
+        //mexPrintf("%s - %s\n", pattern, node.dataAsString(true).c_str());
         data = mxCreateString( node.dataAsString(true).c_str() );
         break;
     
@@ -150,17 +155,15 @@ mxArray* treeToStruct( QUB_Tree node )
     case QTR_TYPE_LONG:
     case QTR_TYPE_FLOAT:
     case QTR_TYPE_DOUBLE:
+        //mexPrintf("%s - %d x %d matrix\n", pattern, M,N);
+
         if( M<1 || N<1 )
         {
-            mexPrintf(" * %s %d %d\n", node.name().c_str(),M,N);
             mexWarnMsgTxt("invalid data size");
             break;
         }
         if( !(M==1 || N==1) )
-        {
-            mexPrintf(" * %s %d %d\n", node.name().c_str(),M,N);
             mexErrMsgTxt("Matrix data not supported!");
-        }
         
         mxtype = mxTypeLookup[node.dataType()];
         data = mxCreateNumericMatrix( M,N,mxtype,mxREAL );
@@ -169,7 +172,7 @@ mxArray* treeToStruct( QUB_Tree node )
         break;
         
     default:
-        mexPrintf("%d",node.dataType());
+        //mexPrintf("%s - %d (Unknown type)",pattern, node.dataType());
         mexWarnMsgTxt("Unsupported field type");
     }
     
@@ -198,11 +201,10 @@ mxArray* treeToStruct( QUB_Tree node )
     {
         string childName = childNames[i];
         int nTwins = countChildren( node, childName );
-        
-        //mexPrintf("%d* %s (%d x)\n", depth, childName.c_str(), nTwins);
+
+        //mexPrintf("%s%d* %s (%d)\n", pattern, depth, childName.c_str(), nTwins);
         
         mxArray* twins = mxCreateStructMatrix(nTwins,1, 0, NULL);
-        
         if( twins<=0 )
             mexErrMsgTxt("can't alloc twins"); 
         
@@ -213,7 +215,7 @@ mxArray* treeToStruct( QUB_Tree node )
             if( tci_i>=nTwins )
                 mexErrMsgTxt("too far"); 
             
-            mxArray* twin = treeToStruct(*tci);
+            mxArray* twin = treeToStruct(*tci, depth+1);
             
             //for each field in the current twin node
             for( int fid=0; fid<mxGetNumberOfFields(twin); ++fid ) //for each field

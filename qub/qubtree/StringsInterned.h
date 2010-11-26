@@ -2,6 +2,7 @@
 #define STRINGS_INTERNED_H
 
 #include <string>
+#include <cstring>
 #include <AutoMutex.h>
 
 #if defined(_WIN32)

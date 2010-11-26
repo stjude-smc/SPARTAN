@@ -21,7 +21,7 @@
 
 
 //Generate a structure array representing a QUB_Tree object
-mxArray* treeToStruct( QUB_Tree tree );
+mxArray* treeToStruct( QUB_Tree tree, int depth=0 );
 
 //Convert a structure array created by treeToStruct
 //into a QUB_Tree object with root node named <rootName>

@@ -117,6 +117,7 @@ end
 
 % Run the job queue
 result = jobQueue( commands, outputFiles );
+drawnow;
 
 if ~all(result),
     % At least one result failed. Remember that with the way things are
@@ -132,7 +133,7 @@ for i=1:nDwtFiles,
     errorCode = resultTree(i).ErrorCode.data;
     LL = resultTree(i).LL.data;
     iter = resultTree(i).Iterations.data;
-    disp( sprintf(' * E=%d LL=%f I=%d',errorCode,LL,iter ));
+    fprintf(' * E=%d LL=%f I=%d\n',errorCode,LL,iter );
 
     switch errorCode
         case 0

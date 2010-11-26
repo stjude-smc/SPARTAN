@@ -46,4 +46,6 @@ if ispc,
 else
     constants.modelLocation = '/home/dsterry/data/Daniel/models/';
 end
-constants.nProcessors = 2;
+
+warning off MATLAB:maxNumCompThreads:Deprecated
+constants.nProcessors = maxNumCompThreads;
