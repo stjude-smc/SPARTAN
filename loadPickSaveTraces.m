@@ -137,12 +137,14 @@ for i=1:nFiles,
     if isfield( options, 'indexes' ),
         indexes = options.indexes{i};
         [d,a,f,ids,t] = loadTraces( files{i}, cascadeConstants(), indexes );
+        assert( numel(ids)==size(d,1) );
         
         stats = struct([]);
     else
         d = d(indexes,:);
         a = a(indexes,:);
         f = f(indexes,:);
+        ids = ids{indexes};
     end
     
     % Save trace data into one large pile for saving at the end
