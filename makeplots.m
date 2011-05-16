@@ -374,7 +374,11 @@ for i=1:numel(samples),  %for each sample
         end
         
         % Draw occupancy histograms as solid lines
-        plot( ax, bins, histdata, 'LineWidth', 1.5 );
+        plot( ax, bins, histdata, 'LineWidth',1.5 );
+        
+        % Add a line with total occupancy.
+        totalHist = sum( histdata, 2 );
+        plot( ax, bins, totalHist, 'k-', 'LineWidth',1.5 );
         
         % Calculate percent time spent in each non-zero FRET state
 %         occupancy = sum( histdata(:,2:end) ); %ignore zero-FRET state

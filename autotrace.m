@@ -786,6 +786,12 @@ if any(isnan(statData))
 %     statData( isnan(statData) ) = 0;
 end
 
+% SNRs data sometimes goes to infinity and the histograms cannot be
+% plotted. Avoid this by setting an absolute maximum
+if strcmp(statToPlot,'snr_s') || strcmp(statToPlot,'snr'),
+    statData(statData>1000) = 1000;
+end
+
 [data,binCenters] = hist( statData,bins );
 data = 100*data/sum(data);  %normalize the histograms
 

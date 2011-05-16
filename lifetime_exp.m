@@ -33,8 +33,10 @@ params.fitSingle = true;  %otherwise, double exponential fitting...
 params.plotFits = 1;
 
 % Merge options, giving the user's options precedence.
-params = catstruct( params, inputParams );
-       
+if nargin>1,
+    params = catstruct( params, inputParams );
+end
+
 %---------------------------------
 
 % if no files give, prompt the use

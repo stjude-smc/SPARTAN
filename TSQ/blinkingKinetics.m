@@ -38,6 +38,11 @@ if ~exist('titles','var'),
     end
 end
 
+% 
+if any( isempty(strfind(filenames,'.dwt')) )
+    warning('Not all files appear to be .DWTs');
+end
+
 
 %% Load the data and process the results
 pt = zeros(nFiles,1);

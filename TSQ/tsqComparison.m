@@ -58,7 +58,7 @@ for i=1:nFiles,
     meanIntensity(i) = mean( [stats.t] );
     
     % donor lifetime
-    LTdonor = [stats.lifetime] * (sampling/1000);
+    LTdonor = [stats.donorlife] * (sampling/1000);
     
     if isempty(binCenters),
         [dlife,binCenters] = hist( LTdonor, nBins );
@@ -122,8 +122,8 @@ for i=1:nFiles
     expFit1 = fit( bins,donorLifetime(:,i), 'exp1' );
     expFit2 = fit( bins,fretLifetime(:,i), 'exp1' );
     
-    tBleachDonor(i)    = expFit1.b;
-    tBleachAcceptor(i) = expFit2.b;
+    tBleachDonor(i)    = -1/expFit1.b;
+    tBleachAcceptor(i) = -1/expFit2.b;
 end
 
 

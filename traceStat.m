@@ -193,6 +193,7 @@ for i=1:Ntraces
     % Calculate number of Cy3 PB threshold crossings per frame    
     if lt<8
         donorRange = false(1,lt);
+        retval(i).donorlife = lt;
     else
         % Calculate blinking total fluor cutoff value        
         % Find start points where Cy3 blinks
@@ -202,9 +203,12 @@ for i=1:Ntraces
         % Remove from consideration regions where Cy3 is photobleached
         donorRange = ~x;  %logical index w/o Cy3 blinking region
         
+        % Save the length of the "donor-alive" region as the lifetime
+        % of the donor fluorophore.
+        retval(i).donorlife = sum(donorRange);
+        
         % Remove falling edges of the Cy3 blinks
         donorRange = donorRange & [donorRange(2:end) 1] & [1 donorRange(1:end-1)];
-        
     end
 
 
