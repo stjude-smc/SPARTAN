@@ -635,15 +635,19 @@ acceptor = handles.acceptor(m,:);
 fret     = handles.fret(m,:);
 total    = donor+acceptor;
 
-stats = traceStat( donor,acceptor,fret, constants );
+try
+    stats = traceStat( donor,acceptor,fret, constants );
 
-
-% Save calculated values
-%handles.minlt = minlt;
-lt = stats.lifetime;
-FRETlifetime = stats.acclife;
-snr = stats.snr;
-CC = stats.corr;
+    % Save calculated values
+    %handles.minlt = minlt;
+    lt = stats.lifetime;
+    FRETlifetime = stats.acclife;
+    snr = stats.snr;
+    CC = stats.corr;
+catch err
+    lt = 0; FRETlifetime=0; snr=0; CC=0;
+    disp('Could not calculate values: error in traceStat');
+end
 
 
 % Reset GUI values with these results
