@@ -1,4 +1,4 @@
-function model = qub_loadModel(modelFilename)
+function model = qub_loadModel(modelFilenameInput)
 % qub_loadModel  Loads a model file created by QuB
 %     
 %   [DMODEL] = qub_loadModel( filename )
@@ -8,11 +8,17 @@ function model = qub_loadModel(modelFilename)
 %
 %  http://www.qub.buffalo.edu
 
+persistent modelFilename;
 
 if nargin<1,
-    [f,p] = uigetfile('*.qmf','Select a model file...');
-    if f==0, return; end
+    [f,p] = uigetfile('*.qmf','Select a model file...',modelFilename);
+    if f==0,
+        model = [];
+        return;
+    end
     modelFilename = [p f];
+else
+    modelFilename = modelFilenameInput;
 end
 
 if isstruct(modelFilename),

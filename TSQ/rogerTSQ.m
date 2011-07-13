@@ -35,7 +35,7 @@ for i=1:nFiles,
     % Donor intensity is scaled, so undo the scaling.
     constants = cascadeConstants;
     
-    [d,a,f,~,time] = loadTraces( fnames{i} );
+    [d,a,f,ids,time] = loadTraces( fnames{i} );
     data = d/constants.gamma+a;
     [nTraces,traceLen] = size(d);
     [~,names{i}] = fileparts( fnames{i} );
@@ -80,14 +80,38 @@ for i=1:nFiles,
     skmParams.quiet = 1;
         
     [dwt,newModel,LL,offsets] = skm( data, sampling, initialModel, skmParams );
-    dwtFilename{i} = strrep( fnames{i}, '.txt','.qub.dwt' );
+        
+    % 4) Remove traces that are poorly idealized or are significant outliers.
+    % A) Remove any trace with >2 stdev transitions/total lifetime.
+    % WARNING: assumes single-channel data!
+    donorlife = [stats.donorlife];
+    nTransitions = cellfun('size',dwt,1)-2;
+    donorlife = reshape( donorlife, numel(donorlife),1 );
+    nTransitions = reshape( nTransitions, numel(nTransitions),1 );
     
+    transRate = nTransitions;%./donorlife;
+    meanTrans = mean(transRate);
+    stdTrans  = std(transRate);
+    
+    selected = transRate < (meanTrans + 2*stdTrans);
+    nRejected = nTraces-sum(selected);
+    
+    disp( sprintf('%d) Removed %d traces (%.1f%%)', i, nRejected, 100*nRejected/nTraces) );
+  
+    
+    % 5) Save idealization.
 %     mu    = newModel.mu(newModel.class);
 %     sigma = newModel.sigma(newModel.class);
     mu    = initialModel.mu';
     sigma = initialModel.sigma';
     FRETmodel = [mu sigma]
-    saveDWT( dwtFilename{i}, dwt, offsets, FRETmodel, sampling/1000 );
+    dwtFilename{i} = strrep( fnames{i}, '.txt','.qub.dwt' );
+    saveDWT( dwtFilename{i}, dwt(selected), offsets(selected), FRETmodel, sampling/1000 );
+    
+    saveTraces( strrep(fnames{i},'.txt','_rejected.txt'), 'txt', ...
+                d(~selected,:),a(~selected,:),f(~selected,:),ids(~selected),time );
+    saveDWT( strrep(dwtFilename{i},'.dwt','_rejected.dwt'), dwt(~selected), ...
+             offsets(~selected), FRETmodel, sampling/1000 );
 end
 
 %%

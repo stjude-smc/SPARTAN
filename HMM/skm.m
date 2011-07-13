@@ -68,10 +68,6 @@ if ~isfield(params,'quiet'),
     params.quiet = 0;
 end
 
-if ~isfield(params,'convLL')
-    params.convLL = 1e-4;
-end
-
 if ~isfield(params,'fixRates')
     params.fixRates = 0;
 end
@@ -97,12 +93,17 @@ if isfield(params,'seperately') && params.seperately==1,
     LL  = zeros(nTraces,1);
     
     % Optimize each trace seperately, using the 
+    wbh = waitbar(0,'Idealizing traces seperately,..');
+    
     for n=1:nTraces,
         [newDWT,model(n),newLL] = runSKM( data(n,:), ...
                                      sampling, initialModel, params );
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
+        
+        waitbar(n/nTraces,wbh);
     end
+    close(wbh);
     
     offsets = nFrames*((1:nTraces)-1);
 else
