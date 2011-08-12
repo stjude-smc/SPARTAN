@@ -217,10 +217,10 @@ elseif stkX <= 512
 end
 
 background = stk_top;  %**
-temp = zeros( stkY/den, stkX/den );
+temp = zeros( floor(stkY/den), floor(stkX/den) );
 
-for i=1:stkY/den
-    for j=1:stkX/den
+for i=1:size(temp,1),
+    for j=1:size(temp,2),
         sort_temp = background(den*(i-1)+1:den*i,den*(j-1)+1:den*j);
         sort_temp = reshape(sort_temp,1,den*den);  % make into a vector
         sort_temp = sort(sort_temp);

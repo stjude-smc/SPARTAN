@@ -9,12 +9,14 @@ function files = getFiles( filter, prompt )
 %   "Cancel". The filenames (FILES) selected are returned in the cell array.
 %
 
+persistent filterIndex;
+
 files = {};
 
 if nargin<2,
     prompt = 'Select a file, hit cancel when finished:';
 end
-if nargin<1,
+if nargin<1 || isempty(filter),
     filter = {'*.txt','Text Files (*.txt)'; ...
               '*.txt;*.traces','All Traces Files (*.txt,*.traces)'; ...
               '*.traces','Binary Traces Files (*.traces)'; ...
@@ -23,6 +25,15 @@ if nargin<1,
 end
 
 while 1,
+    % re-order filter list to make the selection go to the top.
+    % (for convenience when selection many files).
+    % If the user enters a custom filter, we cannot get it so do nothing
+    % (this happens when filterIndex>number of defined filters).
+    if ~isempty(filterIndex) && filterIndex<=size(filter,1) && filterIndex>0,
+        ind = 1:size(filter,1);
+        filter = [ filter(filterIndex,:); filter(ind~=filterIndex,:) ];
+    end
+    
     [f,p,filterIndex] = uigetfile(filter, prompt, 'MultiSelect','on');
     
     if iscell(f),

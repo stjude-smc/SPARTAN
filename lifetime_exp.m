@@ -86,7 +86,7 @@ for i=1:nFiles,
     dwellaxis = (0:1:5000)*sampling /1000;
     %dwellhist = zeros( nStates,numel(dwellaxis) );
     
-    for j=1:nStates,
+    for j=2:nStates,
         if isempty( dwells{j} ),
             continue;
         end
@@ -112,6 +112,11 @@ for i=1:nFiles,
             else
                 result1 = fit( x', y, 'exp1' );
             end
+            
+            coefs = coeffvalues(result1);
+            if j>1 && coefs(1)<0.7,
+               warning(['Not a great exponential fit: ' dwtfilename{i} ]);
+            end
         else
             result1 = fit( x', y, 'exp2' );
         end
@@ -131,13 +136,18 @@ for i=1:nFiles,
 end  % for each sample
 
 
+if nFiles>size(params.colors,1),
+    params.colors = zeros(nFiles,3);
+end
+
 % Make a seperate figure that combines the plots for each inspection.
 if params.plotFits,
     h1 = figure();
+
     set(h1,'DefaultAxesColorOrder',params.colors);
 
     nrows = nStates-1;
-    ncols = nFiles+1;    
+    ncols = nFiles+1;
     
     for i=1:nFiles,
 
@@ -149,7 +159,7 @@ if params.plotFits,
             plot( dwellaxis, dwellhist{i,j}, 'k.' ); hold on;
             hp = plot( fits{i,j}, 'r-');
             set(hp,'LineWidth',2);
-            xlim( [0 4*mean(lifetimes(:))] );
+            xlim( [0 4*mean(lifetimes(:,2))] );
             ylim( [0 1] );
             legend off;
 

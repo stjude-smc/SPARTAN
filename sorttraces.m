@@ -422,17 +422,44 @@ fclose(fid);
 
 
 %--- Save files
-saveTraces( fileBest, 'txt', handles.donor(best,:), ...
-            handles.acceptor(best,:), handles.fret(best,:), ...
-            handles.ids(best), handles.time ); 
-        
-saveTraces( fileFRETs, 'txt', handles.donor(FRETs,:), ...
-            handles.acceptor(FRETs,:), handles.fret(FRETs,:), ...
-            handles.ids(FRETs), handles.time ); 
-        
-saveTraces( fileNoFRETs, 'txt', handles.donor(NoFRETs,:), ...
-            handles.acceptor(NoFRETs,:), handles.fret(NoFRETs,:), ...
-            handles.ids(NoFRETs), handles.time ); 
+if isfield(handles,'idl') && ~isempty(handles.idl),
+    model = handles.dwtModel;
+    sampling = handles.dwtSampling;
+    traceLen = numel(handles.time);
+end
+
+if ~isempty(best),
+    saveTraces( fileBest, 'txt', handles.donor(best,:), ...
+                handles.acceptor(best,:), handles.fret(best,:), ...
+                handles.ids(best), handles.time );
+            
+    if isfield(handles,'idl') && ~isempty(handles.idl),
+        saveDWT( strrep(fileBest,'.txt','.qub.dwt'), handles.dwt(best), ...
+                 (0:numel(best)-1)*traceLen, model, sampling );
+    end
+end
+
+if ~isempty(FRETs),
+    saveTraces( fileFRETs, 'txt', handles.donor(FRETs,:), ...
+                handles.acceptor(FRETs,:), handles.fret(FRETs,:), ...
+                handles.ids(FRETs), handles.time ); 
+            
+    if isfield(handles,'idl') && ~isempty(handles.idl),
+        saveDWT( strrep(fileFRETs,'.txt','.qub.dwt'), handles.dwt(FRETs), ...
+                 (0:numel(FRETs)-1)*traceLen, model, sampling );
+    end
+end
+
+if ~isempty(NoFRETs),
+    saveTraces( fileNoFRETs, 'txt', handles.donor(NoFRETs,:), ...
+                handles.acceptor(NoFRETs,:), handles.fret(NoFRETs,:), ...
+                handles.ids(NoFRETs), handles.time ); 
+    
+    if isfield(handles,'idl') && ~isempty(handles.idl),
+        saveDWT( strrep(fileNoFRETs,'.txt','.qub.dwt'), handles.dwt(NoFRETs), ...
+                 (0:numel(NoFRETs)-1)*traceLen, model, sampling );
+    end
+end
 
 % Finish up
 set(hObject,'Enable','off');
@@ -746,6 +773,10 @@ sampling = time(2)-time(1);
 % Get filename for .dwt file from user and load it.
 [dwt,dwtSampling,offsets,model] = loadDWT;
 if isempty(dwt), return; end
+
+handles.dwt = dwt;
+handles.dwtSampling = dwtSampling;
+handles.dwtModel = model;
 
 fretValues = model(:,1);
 dwtSampling = double(dwtSampling);

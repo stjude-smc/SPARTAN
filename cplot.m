@@ -86,7 +86,7 @@ con = 0:(max_mol/nl):max_mol;               %contour levels
 % If the top contour levels are not filled, the levels get distorted.
 % Adds a permanent, very high peak in the corner to prevent this.
 hist2d_n = hist2d;
-hist2d_n(end,bounds(2)) = max_mol*2;
+hist2d_n(end,lims(end)) = max_mol*2;
 
 
 % Draw the filled contour plot in current axis

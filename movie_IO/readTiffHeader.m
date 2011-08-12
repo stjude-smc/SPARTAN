@@ -1,4 +1,4 @@
-function [stack,dataOffsets] = readTiffHeader(filename)
+function [stack,dataOffsets] = readTiffHeader(filename,indices)
 % readTiffHeader    Parses a TIFF file (directory structure)
 % This function is designed for use with the Movie_TIFF class. It should load
 % all TIFF-based formats, including MetaMorph STK, MetaMorph TIFF, Zeiss LSM,
@@ -36,7 +36,7 @@ if nargin < 1
     filename = [ pathname, filename ];
 end
 
-if (nargin<=1);  indices = 1:10000; end
+if (nargin<=1);  indices = []; end
 
 
 % not all valid tiff tags have been included, as they are really a lot...
@@ -280,7 +280,11 @@ while  TIF.img_pos ~= 0
 
     if isfield( TIF, 'MM_stack' )
 
-        indices = indices( indices<=TIF.MM_stackCnt );
+        if isempty(indices),
+            indices = 1:TIF.MM_stackCnt;
+        else
+            indices = indices( indices<=TIF.MM_stackCnt );
+        end
         
         % Save MetaMorph metadata
         if isfield(IMG,'info'),
