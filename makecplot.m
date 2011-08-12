@@ -5,6 +5,10 @@ function frethist = makecplot( data, options)
 if ischar(data)
     data_filename = data;
     [d,a,fret] = loadTraces( data_filename );
+    
+    if size(d,1)<1,
+        error('File is empty: %s',data_filename);
+    end
 else
     fret = data;
 end

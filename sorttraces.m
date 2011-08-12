@@ -163,6 +163,9 @@ handles.filename = filename;
 
 [handles.Ntraces,handles.len] = size(handles.donor);
 
+if size(handles.donor,1)<1,
+    error('File is empty');
+end
 
 % Make sure time axis is in seconds (not frames)
 if handles.time(1)==1,
