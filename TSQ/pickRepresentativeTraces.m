@@ -14,14 +14,14 @@ end
 for i=1:numel(filenames),
     [d,a,f,ids,time] = loadTraces(filenames{i});
     stats = traceStat(d,a,f);
-    snr = [stats.snr];
+    t = [stats.t];
     donorlife = [stats.donorlife];
     bg = [stats.bg];
     
     % Create selection criteria to only keep traces with donor lifetimes,
     % intensity/SNR, etc near the mean, and remove crappy traces.
-    criteria.min_snr = mean(snr)-0.5*std(snr);
-    criteria.max_snr = mean(snr)+0.5*std(snr);
+    criteria.min_t = mean(t)-0.25*std(t);
+    criteria.max_t = mean(t)+0.25*std(t);
     criteria.min_donorlife = 0.8*mean(donorlife);
     criteria.max_donorlife = 1.2*mean(donorlife);
     criteria.max_bg = 2*median(bg);

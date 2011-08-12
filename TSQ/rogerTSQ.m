@@ -1,4 +1,4 @@
-% function rogerTSQ()
+function rogerTSQ()
 % TODO: add errors bars for stats, use stretched exponential fit for dwell times
 % to account for heterogeneity. The stretch factor could be plotted also as an
 % error to show the spread in the behavior. Beta closer to 0 would give high
@@ -8,7 +8,7 @@
 % PROCEEDURE:
 
 % 1) Request filenames from user.
-fnames = getFiles('*.txt');
+fnames = getFiles;
 if isempty(fnames), return; end
 nFiles = numel(fnames);
 
@@ -74,7 +74,7 @@ for i=1:nFiles,
     data = data/rawIntensity;
     
     % 3) Idealize the intensity data to a two-state model using SKM.
-    sampling = ( time(2)-time(1) )*1000; %exposure time in seconds.
+    sampling = ( time(2)-time(1) ); %exposure time in seconds.
     
     skmParams.seperately = 1;
     skmParams.quiet = 1;
@@ -105,13 +105,13 @@ for i=1:nFiles,
     mu    = initialModel.mu';
     sigma = initialModel.sigma';
     FRETmodel = [mu sigma]
-    dwtFilename{i} = strrep( fnames{i}, '.txt','.qub.dwt' );
-    saveDWT( dwtFilename{i}, dwt(selected), offsets(selected), FRETmodel, sampling/1000 );
+    dwtFilename{i} = [ removeExt(fnames{i}) '.qub.dwt' ];
+    saveDWT( dwtFilename{i}, dwt(selected), offsets(selected), FRETmodel, sampling );
     
-    saveTraces( strrep(fnames{i},'.txt','_rejected.txt'), 'txt', ...
+    saveTraces( [removeExt(fnames{i}) '_rejected.txt'], 'txt', ...
                 d(~selected,:),a(~selected,:),f(~selected,:),ids(~selected),time );
     saveDWT( strrep(dwtFilename{i},'.dwt','_rejected.dwt'), dwt(~selected), ...
-             offsets(~selected), FRETmodel, sampling/1000 );
+             offsets(~selected), FRETmodel, sampling );
 end
 
 %%
@@ -133,9 +133,14 @@ end
 fclose(fid);
 
 
-
+end
 % end %FUNCTION rogerTSQ
 
 
+function filename = removeExt( filename )
 
+[p,n] = fileparts(filename);
+filename = [p filesep n];
+
+end
 

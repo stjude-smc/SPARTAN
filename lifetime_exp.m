@@ -12,7 +12,7 @@ function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfile
 %---- USER TUNABLE PARAMETERS ----
 
 params.bMakeGUI = 1;
-params.useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
+params.useCorrectedDwelltimes = 0;  % merge blinks into previous dwell
 
 % Option to remove dwells whose durations are unknown because they are
 % cropped by the start of measurement, blinking, and photobleaching, resp.
@@ -107,7 +107,11 @@ for i=1:nFiles,
         y = survival(1:plen);
         
         if params.fitSingle,
-            result1 = fit( x', y, 'exp1' );
+            if j>1,
+                result1 = fit( x', y, 'exp1', 'StartPoint',[1 -1/mean(times)/1000] );
+            else
+                result1 = fit( x', y, 'exp1' );
+            end
         else
             result1 = fit( x', y, 'exp2' );
         end

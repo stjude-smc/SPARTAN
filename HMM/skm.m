@@ -7,7 +7,7 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 %   N FRET traces of M datapoints in length each. MODEL is a typical
 %   model specification, as defined in createModel.m.  SKM
 %   returns the optimal model (NEW_MODEL) and the idealization
-%   with maximum likelihood (DWT).
+%   with maximum likelihood (DWT). SAMPLING is in ms.
 %
 %   NOTE that constraints on FRET values and stdev specified in
 %   the model file WILL be enforced in the fitting with SKM.
@@ -165,7 +165,7 @@ classes = [0; model.class];
 Q = model.rates;
 Q( logical(eye(size(Q))) ) = 0;
 Q( logical(eye(size(Q))) ) = -sum( Q,2 );
-dt = (sampling/1000);
+dt = (sampling/1000); %convert from ms to seconds.
 A = expm( Q.*dt );
 
 while( itr < params.maxItr ),
