@@ -26,10 +26,9 @@ function [donor,acceptor,fret,ids,time] = loadTraces( ...
 ids = {};
 
 % If no file is specified, ask for one from the user.
-if nargin<1,
-    [f,p] = uigetfile( {'*.txt;*.traces','All Traces Files (*.txt,*.traces)'; ...
-                        '*.txt','Text Files (*.txt)'; ...
-                        '*.traces','Binary Traces Files (*.traces)'; ...
+if nargin<1 || isempty(filename),
+    [f,p] = uigetfile( {'*.traces','Traces files (*.traces)'; ...
+                        '*.txt','Old format traces files (*.txt)'; ...
                         '*.*','All Files (*.*)'}, 'Select a traces file');
     if p==0, return; end
     filename = [p f];
@@ -49,7 +48,7 @@ if strcmp(ext,'.txt')
     [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes );
     
 elseif strcmp(ext,'.traces')
-    [donor,acceptor,fret,ids,time] = LoadTracesBinary( ...
+    [donor,acceptor,fret,ids,time] = LoadTracesBinary2( ...
                                     filename,constants, indexes );
     
 elseif strcmp(ext,'.traces_old')
@@ -194,12 +193,136 @@ acceptor = acceptor - constants.crosstalk*donor;
 
 % Subtract background and calculate FRET
 [donor,acceptor,fret] = correctTraces(donor,acceptor,constants,indexes);
+ids = ids(indexes);
 
 % Clean up
 clear Data;
 fclose(fid);
 
 end %function LoadTracesBinary
+
+
+
+
+
+function [donor,acceptor,fret,ids,time] = LoadTracesBinary2( ...
+                                        filename,constants,indexes )
+
+dataTypes = {'char','uint8','uint16','uint32','uint16', ...
+                    'int8', 'int16', 'int32', 'int16', ...
+                    'single','double'};  %zero-based
+                                    
+% 1) Open the traces file.
+fid=fopen(filename,'r');
+
+% 2) Read header information
+z         = fread( fid, 1, 'uint32' );  %identifies the new traces format.
+
+if z~=0,
+    disp('Assuming this is an old format traces file');
+    [donor,acceptor,fret,ids,time] = LoadTracesBinary(filename,constants,indexes);
+    return;
+end
+
+magic     = fread( fid, [1,4], '*char' );  %format identifier ("magic")
+version   = fread( fid, 1, '*uint16' );   %format version number
+dataType  = fread( fid, 1, '*uint8'  );   %type of trace data - (usually single)
+nChannels = fread( fid, 1, '*uint8'  );
+nTraces   = fread( fid, 1, 'uint32'  );
+traceLen  = fread( fid, 1, 'uint32'  );
+
+% 3) Check validity of header data.
+assert( (z==0 && strcmp(magic,'TRCS')), 'loadTraces: invalid header' );
+assert( version==3, 'Version not supported!' );
+
+% 4) Read fluorescence and FRET data.
+% TODO: To save memory, the data is memory mapped and copied when needed.
+assert( nChannels==3, 'Only 2-color FRET data are currently recognized.' );
+assert( dataType==9, 'Only single values are supported.');
+
+time = fread( fid, [traceLen,1], 'single' ); %time axis (in seconds)
+donor    = fread( fid, [nTraces,traceLen], 'single' );
+acceptor = fread( fid, [nTraces,traceLen], 'single' );
+fret     = fread( fid, [nTraces,traceLen], 'single' );
+szSingle = 4; %size of a single (32 bits)
+
+    
+if exist('indexes','var') && ~isempty(indexes),
+    donor    = donor(indexes,:);
+    acceptor = acceptor(indexes,:);
+    fret     = fret(indexes,:);
+end
+
+% offset = ftell(fid);
+% 
+% mmap = memmapfile( filename, 'Offset',offset, 'Format', {...
+%                        'single',[nTraces traceLen],'donor'; ...
+%                     }, 'Repeat',1,'Writable',false );
+% options.forwardToVar='donor';
+% donor = mmapPassthrough( mmap, options );
+% 
+% offset = offset+ (nTraces*traceLen)*szSingle;
+% mmap = memmapfile( filename, 'Offset',offset, 'Format', {...
+%                        'single',[nTraces traceLen],'acceptor'; ...
+%                     }, 'Repeat',1,'Writable',false );
+% options.forwardToVar='acceptor';
+% acceptor = mmapPassthrough( mmap, options );
+% 
+% offset = offset+ (nTraces*traceLen)*szSingle;
+% mmap = memmapfile( filename, 'Offset',offset, 'Format', {...
+%                        'single',[nTraces traceLen],'fret'; ...
+%                     }, 'Repeat',1,'Writable',false );
+% options.forwardToVar='fret';
+% fret = mmapPassthrough( mmap, options );
+
+
+% 5) Read metadata.
+% This may crash if illegal characters are used in page titles.
+% offset = offset+ nTraces*traceLen*szSingle;
+% fseek( fid, offset, -1 );
+
+%
+
+
+while 1,
+    % Read the page header.
+    titleLength  = fread( fid, 1, 'uint8' );
+    title = strtrim(  fread( fid, [1,titleLength], '*char' )  );
+    
+    pageDatatype = fread( fid, 1, 'uint8' );
+    pageSize     = fread( fid, 1, 'uint32' );
+    
+    %pageY = fread( fid, 1, 'uint32' );
+    
+    if feof(fid), break; end
+    
+    % Check validity of field data.
+    assert( pageDatatype<numel(dataTypes), 'Invalid field type' );
+    if any( isspace(title) ),
+        warning('Metadata field titles should not have spaces');
+        title(title==' ') = '_';
+    end
+    
+    metadata.(title) = fread( fid, [1,pageSize], ['*' dataTypes{pageDatatype+1}] );
+end
+
+% Parse out IDs
+if isfield(metadata,'ids')
+    c = textscan(metadata.ids, '%s', nTraces, 'Delimiter','\t');
+    ids = c{1}';
+else
+    ids = {};
+end
+
+
+% Clean up
+fclose(fid);
+
+
+
+end %function LoadTracesBinary
+
+
 
 
 
