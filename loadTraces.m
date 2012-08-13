@@ -1,4 +1,4 @@
-function [donor,acceptor,fret,ids,time] = loadTraces( ...
+function [donor,acceptor,fret,ids,time,metadata] = loadTraces( ...
                                         filename, constants, indexes )
 % LOADTRACES  Loads fluorescence trace files
 %
@@ -24,6 +24,7 @@ function [donor,acceptor,fret,ids,time] = loadTraces( ...
 % Set empty arguments in case no data is loaded.
 [donor,acceptor,fret,time] = deal([]);
 ids = {};
+metadata = struct();
 
 % If no file is specified, ask for one from the user.
 if nargin<1 || isempty(filename),
@@ -48,7 +49,7 @@ if strcmp(ext,'.txt')
     [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes );
     
 elseif strcmp(ext,'.traces')
-    [donor,acceptor,fret,ids,time] = LoadTracesBinary2( ...
+    [donor,acceptor,fret,ids,time,metadata] = LoadTracesBinary2( ...
                                     filename,constants, indexes );
     
 elseif strcmp(ext,'.traces_old')
@@ -205,7 +206,7 @@ end %function LoadTracesBinary
 
 
 
-function [donor,acceptor,fret,ids,time] = LoadTracesBinary2( ...
+function [donor,acceptor,fret,ids,time,metadata] = LoadTracesBinary2( ...
                                         filename,constants,indexes )
 
 dataTypes = {'char','uint8','uint16','uint32','uint16', ...
@@ -221,6 +222,7 @@ z         = fread( fid, 1, 'uint32' );  %identifies the new traces format.
 if z~=0,
     disp('Assuming this is an old format traces file');
     [donor,acceptor,fret,ids,time] = LoadTracesBinary(filename,constants,indexes);
+    metadata = struct();
     return;
 end
 
@@ -277,12 +279,7 @@ end
 
 
 % 5) Read metadata.
-% This may crash if illegal characters are used in page titles.
-% offset = offset+ nTraces*traceLen*szSingle;
-% fseek( fid, offset, -1 );
-
-%
-
+metadata = struct();
 
 while 1,
     % Read the page header.

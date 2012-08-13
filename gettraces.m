@@ -216,6 +216,9 @@ elseif stkX <= 512
     den=16;
 end
 
+params.bgBlurSize = den;
+
+
 background = stk_top;  %**
 temp = zeros( floor(stkY/den), floor(stkX/den) );
 
@@ -670,31 +673,27 @@ acceptor = acceptor - constants.crosstalk*donor;
 [donor,acceptor,fret] = correctTraces(donor,acceptor,constants);
 
 
-% Save data to file.
+% Metadata: save various metadata parameters from movie here.
 stk_fname = strrep(stk_fname,'.bz2','');
+metadata.movieFilename  = stk_fname;
+metadata.donorThreshold = params.don_thresh;
+metadata.nPixelsToSum   = params.nPixelsToSum;
+
+% Save the locations of the picked peaks for later lookup.
+metadata.don_x = x(1:2:end);
+metadata.don_y = y(1:2:end);
+metadata.acc_x = x(2:2:end);
+metadata.acc_y = y(2:2:end);
+
+
+% Save data to file.
 [p,name]=fileparts(stk_fname);
 save_fname = [p filesep name '.traces'];
 
-saveTraces( save_fname, 'traces', donor,acceptor, fret, [], time );
+saveTraces( save_fname, 'traces', donor,acceptor, fret, [], time, metadata );
 
 
-% Save the locations of the picked peaks for later lookup.
-% FORMAT:  mol_name, don x, don y, acc x, acc y
-if params.saveLocations,
-    filename=strrep(stk_fname,'.stk','.loc.txt');
-    fid = fopen(filename,'w');
 
-    for j=1:Npeaks/2,
-        don_x = x(2*j-1);
-        don_y = y(2*j-1);
-        acc_x = x(2*j);
-        acc_y = y(2*j);
-
-        fprintf(fid, '%s_%d %d %d %d %d\n', name, j, don_x,don_y,acc_x,acc_y);
-    end
-
-    fclose(fid);
-end
 
 close( wbh );
 

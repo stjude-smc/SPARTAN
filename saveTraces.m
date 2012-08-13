@@ -154,7 +154,15 @@ function saveTracesBinary( filename, donor,acceptor,fret, ids, time, metadata )
 %   }
 % 
 
+if nargin<7,
+    metadata = struct();
+end
+
 constants = cascadeConstants;
+
+dataTypes = {'char','uint8','uint16','uint32','uint16', ...
+                    'int8', 'int16', 'int32', 'int16', ...
+                    'single','double'};  %zero-based
 
 
 [nTraces,traceLen] = size(donor);
@@ -195,12 +203,6 @@ if ~exist('ids','var') || isempty(ids),
     end
 end
 
-% Remove special characters from IDs
-% ids = strrep( ids, '-', '_' );      %- was used as ID seperator, best to avoid.
-% ids(' ')='_';      %auto.txt format doesn't allow spaces
-
-metadata(1).ids = sprintf( '%s\t', ids{:} );
-
 
 % 2) Open file to save data to
 fid=fopen(filename,'w');
@@ -231,13 +233,18 @@ for i=1:numel(fnames),
     metadataText = metadata.(field);
     
     % Write metadata header
-    fwrite( fid, numel(field), 'uint8' );
-    fwrite( fid, field, 'char' );
+    fwrite( fid, numel(field), 'uint8' );  % field title length
+    fwrite( fid, field, 'char' );          % field title text
     
-    fwrite( fid, 0, 'char' ); % 0=char type
+    fieldDataType = find( strcmp(class(metadataText),dataTypes) );
+    if isempty( fieldDataType ),
+       error( 'Unsupported metadata field data type' ); 
+    end
+    
+    fwrite( fid, fieldDataType-1, 'char' );
     fwrite( fid, numel(metadataText), 'uint32' );
-    fwrite( fid, metadataText, 'char' );
-end
+    fwrite( fid, metadataText, class(metadataText) );
+ end
 
 
 % Finish up
