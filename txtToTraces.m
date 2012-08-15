@@ -1,5 +1,5 @@
 function txtToTraces( inputFilenames, outputFilenames )
-
+% Converts old format traces to the new binary format.
 
 % Get input and output filenames
 if nargin<1,

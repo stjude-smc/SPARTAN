@@ -21,7 +21,7 @@ filename = strcat( filepath, filesep, name );
 
 
 % Load the traces files
-[donor,acceptor] = loadTraces( filename );
+[donor,acceptor,fret] = loadTraces( filename );
 [Ntraces,Nframes] = size(donor);
 
 % Calculate lifetimes
@@ -32,7 +32,8 @@ output = zeros(Nframes,Ntraces);
 for i=1:Ntraces,
     % Prune data to remove donor-dark regions, which confuse HaMMy
     window = fret(i,:) ~= 0;
-    donor(i,:) == 0 ) = 0;
+    donor(i,~window) = 0;
+    acceptor(i,~window) = 0;
     
     % Gather output data in correct format
     % (truncate to before photobleaching)

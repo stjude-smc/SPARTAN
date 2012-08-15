@@ -673,20 +673,30 @@ acceptor = acceptor - constants.crosstalk*donor;
 [donor,acceptor,fret] = correctTraces(donor,acceptor,constants);
 
 
-% Metadata: save various metadata parameters from movie here.
+% ---- Metadata: save various metadata parameters from movie here.
+% -- General terms that /must/ be the same in all traces.
+metadata.channelNames   = 'donor,acceptor,fret';
+
+% -- Fields specific to this movie.
 stk_fname = strrep(stk_fname,'.bz2','');
-metadata.movieFilename  = stk_fname;
-metadata.donorThreshold = params.don_thresh;
-metadata.nPixelsToSum   = params.nPixelsToSum;
+metadata.movieData.movieFilename  = stk_fname;
+metadata.movieData.donorThreshold = params.don_thresh;
+metadata.movieData.nPixelsToSum   = params.nPixelsToSum;
 
+% -- Fields specific to each trace:
 % Save the locations of the picked peaks for later lookup.
-metadata.don_x = x(1:2:end);
-metadata.don_y = y(1:2:end);
-metadata.acc_x = x(2:2:end);
-metadata.acc_y = y(2:2:end);
+% traceData contains anything that is specific to individual traces and
+% thus will be passed along with it through processing.
+nTraces = size(donor,1);
+
+metadata.traceData = struct( ...
+    'donor_x',    num2cell( x(1:2:end) ), 'donor_y',    num2cell( x(1:2:end) ), ...
+    'acceptor_x', num2cell( x(1:2:end) ), 'acceptor_y', num2cell( x(1:2:end) ), ...
+    'movieIndex', num2cell( ones(1,nTraces) )  ...
+);
 
 
-% Save data to file.
+% ---- Save data to file.
 [p,name]=fileparts(stk_fname);
 save_fname = [p filesep name '.traces'];
 

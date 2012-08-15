@@ -49,16 +49,19 @@ if ~exist('dwtFilename','var'),
     end
 end
 
-if ~exist('sampling','var')
-    f = inputdlg('What is the sampling interval (in ms) for this data?');
-    sampling = str2double(f)
-end
 
 % Set time axis if not available,
 if time(1)==1,
+    if ~exist('sampling','var')
+        f = inputdlg('What is the sampling interval (in ms) for this data?');
+        sampling = str2double(f)
+    end
+    
     tdm = sampling;
     time = 0:tdm:(traceLen*tdm);
     time = time(1:end-1);
+else
+    sampling = time(2)-time(1);
 end
 
 % Store traces data in an output array
@@ -75,16 +78,16 @@ for i=1:nTraces,
 end
 
 %
-if sampling >= 100,
-    output(:,1) = time./60000; %in minutes
-    timeUnit = 'min';
+% if sampling >= 200,
+%     output(:,1) = time./60000; %in minutes
+%     timeUnit = 'min';
 % elseif sampling <= 10,
 %     output(:,1) = time; %in milliseconds
 %     timeUnit = 'ms';
-else
+% else
     output(:,1) = time./1000; %in seconds
     timeUnit = 'sec';
-end
+% end
 
 % Output header lines
 fid = fopen('traces.txt','w');

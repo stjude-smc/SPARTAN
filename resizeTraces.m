@@ -11,7 +11,7 @@ function resizeTraces( traceLen )
 % 
 
 if nargin<1,
-    f = inputdlg('How many frames to set?');
+    f = inputdlg('How many frames to keep?');
     if isempty(f), return; end
     traceLen = str2double(f);
 end

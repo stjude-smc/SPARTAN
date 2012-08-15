@@ -401,8 +401,8 @@ if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
 end
 
 % Determine default filename to use when saving.
-handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.txt');
-handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
+handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.traces');
+handles.outfile = strrep(handles.outfile, '_01_auto.traces', '_auto.traces');
 
 % Calculate trace stats
 [infoStruct,nTracesPerFile] = traceStat( handles.inputfiles, handles.constants );

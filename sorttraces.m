@@ -136,7 +136,7 @@ function btnOpen_Callback(hObject, eventdata, handles)
 
 % Get traces filename by menu driven input
 [handles.datafile,handles.datapath]=...
-    uigetfile({'*.txt;*.traces'},'Choose a traces file');
+    uigetfile({'*.traces;*.txt'},'Choose a traces file');
 if handles.datafile==0, return; end
 handles.filename=[handles.datapath handles.datafile];
 
@@ -406,9 +406,9 @@ function btnSave_Callback(hObject, eventdata, handles)
 filename = handles.filename;
 [pathstr, name, ext]=fileparts(filename);
 
-fileNoFRETs = strrep(filename,ext,'_no_fret.txt');
-fileFRETs = strrep(filename,ext,'_all_fret.txt');
-fileBest = strrep(filename,ext,'_best_fret.txt');
+fileNoFRETs = strrep(filename,ext,'_no_fret.traces');
+fileFRETs = strrep(filename,ext,'_all_fret.traces');
+fileBest = strrep(filename,ext,'_best_fret.traces');
 
 
 %--- Save indexes of picked molecules to file
@@ -432,7 +432,7 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
 end
 
 if ~isempty(best),
-    saveTraces( fileBest, 'txt', handles.donor(best,:), ...
+    saveTraces( fileBest, 'traces', handles.donor(best,:), ...
                 handles.acceptor(best,:), handles.fret(best,:), ...
                 handles.ids(best), handles.time );
             
@@ -443,7 +443,7 @@ if ~isempty(best),
 end
 
 if ~isempty(FRETs),
-    saveTraces( fileFRETs, 'txt', handles.donor(FRETs,:), ...
+    saveTraces( fileFRETs, 'traces', handles.donor(FRETs,:), ...
                 handles.acceptor(FRETs,:), handles.fret(FRETs,:), ...
                 handles.ids(FRETs), handles.time ); 
             
@@ -454,7 +454,7 @@ if ~isempty(FRETs),
 end
 
 if ~isempty(NoFRETs),
-    saveTraces( fileNoFRETs, 'txt', handles.donor(NoFRETs,:), ...
+    saveTraces( fileNoFRETs, 'traces', handles.donor(NoFRETs,:), ...
                 handles.acceptor(NoFRETs,:), handles.fret(NoFRETs,:), ...
                 handles.ids(NoFRETs), handles.time ); 
     
