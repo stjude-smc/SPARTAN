@@ -667,7 +667,10 @@ end
 
 % Make an adjustment for crosstalk on the camera.
 constants = cascadeConstants;
-acceptor = acceptor - constants.crosstalk*donor;
+if ~isfield(params,'crosstalk'),
+    params.crosstalk = constants.crosstalk;
+end
+acceptor = acceptor - params.crosstalk*donor;
 
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);

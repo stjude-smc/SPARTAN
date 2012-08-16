@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 28-May-2010 12:35:07
+% Last Modified by GUIDE v2.5 16-Aug-2012 15:46:59
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -65,15 +65,19 @@ function gettraces_OpeningFcn(hObject, eventdata, handles, varargin)
 handles.output = hObject;
 
 % Setup initial values for parameter values
+constants = cascadeConstants();
+
 % params.don_thresh = 0; %not specified = auto pick
 params.overlap_thresh = 2.1;
 params.nPixelsToSum   = 4;
 params.saveLocations  = 0;
+params.crosstalk = constants.crosstalk;
 params.geometry = 2; %dual-channel by default.
 
 set( handles.txtIntensityThreshold,'String','' );
 set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
 set( handles.txtIntegrationWindow,'String',num2str(params.nPixelsToSum) );
+set( handles.txtDACrosstalk,'String',num2str(params.crosstalk) );
 
 % Update handles structure
 handles.params = params;
@@ -500,6 +504,8 @@ elseif handles.params.geometry==2, %Dual-channel recordings
     set( handles.axDonor,    'CLim',[minimum val] );
     set( handles.axAcceptor, 'CLim',[minimum val] );
     set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+
+    
 elseif handles.params.geometry>2,
     %TODO
 end
@@ -521,5 +527,26 @@ if isfield(handles,'stkfile'),
     handles = OpenStk( handles.stkfile, handles, hObject );
 end
 
+if handles.params.geometry==1, %Single-channel recordings
+    set( handles.txtDACrosstalk, 'String', '' );
+    set( handles.txtDACrosstalk, 'Enable', 'off' );
+elseif handles.params.geometry==2, %Dual-channel recordings
+    set( handles.txtDACrosstalk, 'String', num2str(handles.params.crosstalk) );
+    set( handles.txtDACrosstalk, 'Enable', 'on' );
+elseif handles.params.geometry>2,
+    % TODO
+end
+
 guidata(hObject,handles);
+
+
+
+
+function txtDACrosstalk_Callback(hObject, eventdata, handles)
+% 
+
+handles.params.crosstalk = str2num( get(hObject,'String') );
+
+guidata(hObject,handles);
+
 
