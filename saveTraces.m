@@ -1,32 +1,22 @@
-function saveTraces( filename, format, varargin )
+function saveTraces( filename, format, data )
 % SAVETRACES    Saves trace data to file
 %
-%    SAVETRACES( FNAME, 'txt',    D,A,F,IDs, time )
-%    SAVETRACES( FNAME, 'traces', D,A,F,IDs, time, metadata )
-%    SAVETRACES( FNAME, 'qub',    F )
+%    SAVETRACES( FNAME, FORMAT, DATA )
 %
-% D:    MxN Donor fluorescence intensity matrix
-% A:    MxN Acceptor ...
-% F:    MxN FRET matrix
-% IDs:  Mx1 cell array (strings) of trace identifiers
-%      (M=traces,N=datapoints)
-% Time:
+%    
 % 
 
-Nargs = numel(varargin);
+assert( nargin==3, 'Invalid number of arguments' );
 
 switch format
     case 'txt'
-        if Nargs<3, error('SAVETRACES: required parameters missing'); end
-        saveTracesTxt( filename, varargin{:} );
+        saveTracesTxt( filename, data );
         
     case 'traces'
-        if Nargs<2, error('SAVETRACES: required parameters missing'); end
-        saveTracesBinary( filename, varargin{:} );
+        saveTracesBinary( filename, data );
         
     case 'qub'
-        if Nargs~=1, error('SAVETRACES: required parameters missing'); end
-        saveTracesQUB( filename, varargin{:} );
+        saveTracesQUB( filename, data.fret );
         
     otherwise
         error('Unknown file format');
@@ -36,7 +26,7 @@ end
 
 
 
-function saveTracesTxt( filename, donor,acceptor,fret, ids, time )
+function saveTracesTxt( filename, data )
 % FORMAT:
 %   1 2 3 4 ... N
 %   ID1 donor data
@@ -46,20 +36,25 @@ function saveTracesTxt( filename, donor,acceptor,fret, ids, time )
 %   ...
 % 
 
-[Ntraces,tlen] = size(donor);
+assert( isfield(data,'donor') & isfield(data,'acceptor') & isfield(data,'fret'), ...
+        'Data to save must include, donor, acceptor, and fret traces' );
 
-if ~exist('time','var'),
+[Ntraces,tlen] = size(data.donor);
+
+if ~isfield(data,'time'),
     time = 1:tlen; %in frames
 end
 
 % Create IDs if not specified
-if ~exist('ids','var'),
+if ~isfield(data,'ids'),
     [p,name] = fileparts(filename);
     
     ids = cell(Ntraces,1);
     for j=1:Ntraces;
         ids{j} = sprintf('%s_%d', name, j);
     end
+else
+    ids = data.ids;
 end
 
 % Remove special characters from IDs
@@ -67,17 +62,17 @@ ids = strrep( ids, '-', '_' );      %- is used as ID seperator, must be avoided
 ids = strrep( ids, ' ', '_' );      %auto.txt format doesn't allow spaces
 
 % Verify input arguments
-if any( size(donor)~=size(acceptor) | size(acceptor)~=size(fret) )
+if any( size(data.donor)~=size(data.acceptor) | size(data.acceptor)~=size(data.fret) )
     error('Data matrix dimensions must agree');
 elseif ~isempty(ids) && numel(ids)~=Ntraces
     error('Not enough IDs');
 end
 
-if any( isnan(donor(:)) | isnan(acceptor(:)) | isnan(fret(:)) )
+if any( isnan(data.donor(:)) | isnan(data.acceptor(:)) | isnan(data.fret(:)) )
     warning('Cannot save NaN values! Converting to zeros');
-    donor( isnan(donor(:)) ) = 0;
-    acceptor( isnan(acceptor(:)) ) = 0;
-    fret( isnan(fret(:)) ) = 0;
+    data.donor( isnan(data.donor(:)) ) = 0;
+    data.acceptor( isnan(data.acceptor(:)) ) = 0;
+    data.fret( isnan(data.fret(:)) ) = 0;
 end
 
 
@@ -86,7 +81,7 @@ fid=fopen(filename,'w');
 disp( ['Saving to ' filename] );
 
 % Write time markers (first row) -- universally ignored
-fprintf(fid,'%d ', time);
+fprintf(fid,'%d ', data.time);
 fprintf(fid,'\n');
 
 for j=1:Ntraces
@@ -99,15 +94,15 @@ for j=1:Ntraces
 
     % output fluorescence data
     fprintf(fid,'%s',  name);
-    fprintf(fid,'%g ', donor(j,:));
+    fprintf(fid,'%g ', data.donor(j,:));
     fprintf(fid,'\n');
 
     fprintf(fid,'%s',  name);
-    fprintf(fid,'%g ', acceptor(j,:));
+    fprintf(fid,'%g ', data.acceptor(j,:));
     fprintf(fid,'\n');
 
     fprintf(fid,'%s',  name);
-    fprintf(fid,'%g ', fret(j,:));
+    fprintf(fid,'%g ', data.fret(j,:));
     fprintf(fid,'\n');
 
 end % for each trace
@@ -142,64 +137,62 @@ fclose(fid);
 
 
 
-function saveTracesBinary( filename, donor,acceptor,fret, ids, time, metadata )
+function saveTracesBinary( filename, data )
+% Saves trace data in binary format. Required fields: donor, acceptor, fret
+%
 % FORMAT:
 %   struct {
-%       int32:
-%       int32:   trace length (N)
-%       int16:   number of traces (M)
-%       string:  IDs (delimited by '-')
-%       {int16}: fluorescence data  (M*2 x N matrix)
+%       (header data -- see below)
+%       uint8:   number of channels (C)
+%       uint32:  number of traces (M)
+%       uint32:  number of frames per traces (N)
+%
+%       {single}: fluorescence/fret data  (C x M x N matrix)
 %       {int32}: time axis (Nx1 vector)
+%
+%       For each metadatafield (until end-of-file):
+%         uint32:  field title length
+%         {char}:  filed title
+%         uint8:   data type identifider (see dataTypes)
+%         uint32:  metadata length (in units, not bytes)
+%         {xxx}:   metadata content
 %   }
 % 
 
-if nargin<7,
-    metadata = struct();
-end
-
-constants = cascadeConstants;
+assert( isfield(data,'donor') & isfield(data,'acceptor') & isfield(data,'fret'), ...
+        'Data to save must include, donor, acceptor, and fret traces' );
 
 dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'int8', 'int16', 'int32', 'int16', ...
                     'single','double'};  %zero-based
 
 
-[nTraces,traceLen] = size(donor);
+[nTraces,traceLen] = size(data.donor);
 
-if ~exist('time','var'),
-    time = 1:traceLen; %in frames
+if ~isfield(data,'time'),
+    data.time = 1:traceLen; %in frames
 end
 
-% Create IDs if not specified
-if ~exist('ids','var'),
-    [p,name] = fileparts(filename);
-    
-    ids = cell(Ntraces,1);
-    for j=1:Ntraces;
-        ids{j} = sprintf('%s_%d', name, j);
-    end
-end
 
 % Verify input arguments
-if any( size(donor)~=size(acceptor) )
+if any( size(data.donor)~=size(data.acceptor) )
     error('Data matrix dimensions must agree');
 % elseif exist('ids','var') && numel(ids)~=nTraces
 %     error('Not enough IDs');
 end
 
-if any( isnan(donor(:)) | isnan(acceptor(:)) | isnan(fret(:)) )
+if any( isnan(data.donor(:)) | isnan(data.acceptor(:)) | isnan(data.fret(:)) )
     error('Cannot save NaN values!');
 end
 
 
 % 1) Create IDs if not specified and add to the metadata list
-if ~exist('ids','var') || isempty(ids),
+if ~isfield(data,'ids') || isempty(data.ids),
     [p,name] = fileparts(filename);
     
-    ids = cell(nTraces,1);
+    data.ids = cell(nTraces,1);
     for j=1:nTraces;
-        ids{j} = sprintf('%s_%d', name, j);
+        data.ids{j} = sprintf('%s_%d', name, j);
     end
 end
 
@@ -220,17 +213,21 @@ fwrite( fid, nChannels, 'uint8'  );
 fwrite( fid, [nTraces traceLen], 'uint32' );
 
 % 4) Write fluorescence and FRET data.
-fwrite( fid, time,     'single' ); %time axis (in seconds)
-fwrite( fid, donor,    'single' );
-fwrite( fid, acceptor, 'single' );
-fwrite( fid, fret,     'single' );  
+fwrite( fid, data.time,     'single' ); %time axis (in seconds)
+fwrite( fid, data.donor,    'single' );
+fwrite( fid, data.acceptor, 'single' );
+fwrite( fid, data.fret,     'single' );  
 
-% 5) Write metadata pages
-fnames = fieldnames( metadata );
+% 5) Write metadata pages (if any)
+if ~isfield(data,'metadata'),
+    data.metadata = struct();
+end
+
+fnames = fieldnames( data.metadata );
 
 for i=1:numel(fnames),
     field = fnames{i};
-    metadataText = metadata.(field);
+    metadataText = data.metadata.(field);
     
     % Write metadata header
     fwrite( fid, numel(field), 'uint8' );  % field title length
@@ -241,7 +238,7 @@ for i=1:numel(fnames),
        error( 'Unsupported metadata field data type' ); 
     end
     
-    fwrite( fid, fieldDataType-1, 'char' );
+    fwrite( fid, fieldDataType-1, 'uint8' );
     fwrite( fid, numel(metadataText), 'uint32' );
     fwrite( fid, metadataText, class(metadataText) );
  end

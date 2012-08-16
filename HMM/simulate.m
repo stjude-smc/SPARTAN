@@ -306,10 +306,6 @@ if stdBackground~=0 || stdPhoton ~=0
     % is propotional to the intensity of the signal.
     donor    = donor    .*  (1+ stdPhoton*randn(size(donor))    );
     acceptor = acceptor .*  (1+ stdPhoton*randn(size(acceptor)) );
-
-    % Simulate the effect of donor->acceptor channel crosstalk.
-    % In principle this signal should include all noise except read noise.
-    acceptor = acceptor + 0.075*donor;
     
     % Add background and read noise to fluorescence traces. Here the
     % variance is invariant of the signal.

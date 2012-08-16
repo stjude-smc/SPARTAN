@@ -1,16 +1,17 @@
-function frethist = makecplot( data, options)
+function frethist = makecplot( input, options)
 % MAKECPLOT   creates _hist.txt FRET histogram file
 
 % Load data
-if ischar(data)
-    data_filename = data;
-    [d,a,fret] = loadTraces( data_filename );
+if ischar(input)
+    data_filename = input;
+    data = loadTraces( data_filename );
+    fret = data.fret;
     
-    if size(d,1)<1,
+    if size(data.donor,1)<1,
         error('File is empty: %s',data_filename);
     end
 else
-    fret = data;
+    fret = input;
 end
 
 % Load options

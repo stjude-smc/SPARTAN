@@ -594,7 +594,7 @@ global params;
 
 
 nFrames = movie.nFrames;
-time = movie.timeAxis;
+data.time = movie.timeAxis;
 wbh = waitbar(0,'Extracting traces from movie data');
 
 % Specify the number of most intense proximal pixels to sum when generating
@@ -670,43 +670,42 @@ constants = cascadeConstants;
 acceptor = acceptor - constants.crosstalk*donor;
 
 % Subtract background and calculate FRET
-[donor,acceptor,fret] = correctTraces(donor,acceptor,constants);
+[data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);
 
 
 % ---- Metadata: save various metadata parameters from movie here.
 % -- General terms that /must/ be the same in all traces.
-metadata.channelNames   = 'donor,acceptor,fret';
+% metadata.channelNames   = 'donor,acceptor,fret';
 
 % -- Fields specific to this movie.
-stk_fname = strrep(stk_fname,'.bz2','');
-metadata.movieData.movieFilename  = stk_fname;
-metadata.movieData.donorThreshold = params.don_thresh;
-metadata.movieData.nPixelsToSum   = params.nPixelsToSum;
+% stk_fname = strrep(stk_fname,'.bz2','');
+% metadata.movieData.movieFilename  = stk_fname;
+% metadata.movieData.donorThreshold = params.don_thresh;
+% metadata.movieData.nPixelsToSum   = params.nPixelsToSum;
 
 % -- Fields specific to each trace:
 % Save the locations of the picked peaks for later lookup.
 % traceData contains anything that is specific to individual traces and
 % thus will be passed along with it through processing.
-nTraces = size(donor,1);
+% nTraces = size(data.donor,1);
 
-metadata.traceData = struct( ...
-    'donor_x',    num2cell( x(1:2:end) ), 'donor_y',    num2cell( x(1:2:end) ), ...
-    'acceptor_x', num2cell( x(1:2:end) ), 'acceptor_y', num2cell( x(1:2:end) ), ...
-    'movieIndex', num2cell( ones(1,nTraces) )  ...
-);
+% metadata.traceData = struct( ...
+%     'donor_x',    num2cell( x(1:2:end) ), 'donor_y',    num2cell( x(1:2:end) ), ...
+%     'acceptor_x', num2cell( x(1:2:end) ), 'acceptor_y', num2cell( x(1:2:end) ), ...
+%     'movieIndex', num2cell( ones(1,nTraces) )  ...
+% );
+%data.metadata = metadata;
 
 
 % ---- Save data to file.
 [p,name]=fileparts(stk_fname);
 save_fname = [p filesep name '.traces'];
 
-saveTraces( save_fname, 'traces', donor,acceptor, fret, [], time, metadata );
-
-
+saveTraces( save_fname, 'traces', data );
 
 
 close( wbh );
 
-
+% end function integrateAndSave
 
 

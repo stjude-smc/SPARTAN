@@ -16,8 +16,7 @@ assert( numel(inputFilenames)==numel(inputFilenames), 'Invalid number of output 
 
 % Load data into memory and resave in new format.
 for i=1:numel(inputFilenames),
-    [d,a,f,ids,time] = loadTraces(inputFilenames{i});
-    saveTraces( outputFilenames{i}, 'traces', d,a,f,ids,time );
+    saveTraces( outputFilenames{i}, 'traces', loadTraces(inputFilenames{i}) );
 end
 
 end

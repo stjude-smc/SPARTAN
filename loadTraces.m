@@ -1,30 +1,28 @@
-function [donor,acceptor,fret,ids,time,metadata] = loadTraces( ...
-                                        filename, constants, indexes )
+function data = loadTraces( filename, indexes )
 % LOADTRACES  Loads fluorescence trace files
 %
-%   [D,A,F,IDs,TIME] = LOADTRACES( FILENAME, CONST, INDEXES )
-%   Loads fluorescence donor (D) and acceptor (A) traces;
-%   identifiers (ID); and FRET values (F) from the file FILENAME.
-%   If the file is .traces (from gettraces), a crosstalk correction is made
-%   and FRET is left empty, since there is no such field in these files.
-%
-%   CONST specifies structure of constants (see cascadeConstants), used
-%   only for loading binary files.
+%   DATA = LOADTRACES( FILENAME, INDEXES )
+%   
+%   Loads fluorescence DATA and metadata from file. For non-obselete
+%   versions of this format, no corrections are made here.
+%   
+%   For two-color FRET experiments, fields include:
+%      donor, acceptor, fret, time, ids
+%   Where donor and acceptor are fluorescence data, fret is calculated fret
+%   values, time is the time axis (in seconds), and ids are trace
+%   identifiers.
+% 
+%   Metadata fields include:
+%      traceMetadata:   data specific to each trace (structure array)
+%      movieMetadata:   data specific to each movie
+%      channelNames:    names of the data channels ('donor','acceptor',etc)
+%   
+%   FILENAME is the path to the file to load.
 %
 %   INDEXES specifies the indexes of traces to load. Useful if only a small
 %   number of traces are needed from a large file.
 %   
-%   [D,A,F,IDs,TIME] = LOADTRACES( FILENAME )
-%   BINARY FILES ONLY:  Corrections for signal crosstalk and background
-%   are made and FRET is calculated.
-%
 
-% TODO: make constants the last parameter, since it is rarely used.
-
-% Set empty arguments in case no data is loaded.
-[donor,acceptor,fret,time] = deal([]);
-ids = {};
-metadata = struct();
 
 % If no file is specified, ask for one from the user.
 if nargin<1 || isempty(filename),
@@ -36,41 +34,34 @@ if nargin<1 || isempty(filename),
 end
 
 if ~exist('indexes','var'), indexes=[]; end
-if ~exist('constants','var'), constants = cascadeConstants(); end
 
 % Make sure input file actually exists...
 if ~exist(filename,'file'),
     error('File does not exist: %s', filename);
 end
 
+% Load trace data, using distinct functions for each file format.
 [p,n,ext]=fileparts(filename);
 
 if strcmp(ext,'.txt')
-    [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes );
+    data = LoadTracesTxt( filename, indexes );
     
 elseif strcmp(ext,'.traces')
-    [donor,acceptor,fret,ids,time,metadata] = LoadTracesBinary2( ...
-                                    filename,constants, indexes );
-    
-elseif strcmp(ext,'.traces_old')
-    [donor,acceptor,fret,ids,time] = LoadTracesBinary_old( ...
-                                    filename,constants, indexes );
+    data = LoadTracesBinary2( filename, indexes );
     
 else
     error( ['Filetype not recognized (' ext ')'] );
 end
 
-%If IDs are not present, create them
-if isempty(ids)
+% If IDs are not present, create them.
+if isempty(data.ids)
     [p,name] = fileparts(filename);
     name = [name '_'];
 
-    nTraces = size(donor,1);
-    ids  = cell(nTraces,1);
-    ids(:) = {name};
-    strcat( ids, char((1:nTraces)+47)' );
-
-    ids = ids';
+    nTraces = size(data.donor,1);
+    data.ids  = cell(nTraces,1);
+    data.ids(:) = {name};
+    strcat( data.ids, char((1:nTraces)+47)' );
 end
 
 end %function LoadTraces
@@ -78,7 +69,7 @@ end %function LoadTraces
 
 
 %--------------------  LOAD TEXT FILES ------------------------
-function [donor,acceptor,fret,ids,time] = LoadTracesTxt( filename, indexes )
+function data = LoadTracesTxt( filename, indexes )
 
 % Get file size for calculating how much has been loaded.
 d = dir(filename);
@@ -89,8 +80,8 @@ clear d;
 fid=fopen(filename,'r');
 
 % Read the time axis header
-time=strread(fgetl(fid),'%f')';
-len=length(time);
+data.time=strread(fgetl(fid),'%f')';
+len=length(data.time);
 assert( len>1, 'Cannot parse forQuB file!');
 
 
@@ -102,7 +93,7 @@ hasIDs = isnan(str2double(sig));
 
 % Get the time axis
 fseek(fid,-ftell(fid),0);
-time=strread(fgetl(fid),'%f')';
+data.time=strread(fgetl(fid),'%f')';
 
 % Extract intensity information (and IDs) from file.
 h = waitbar(0,'Loading trace data...');
@@ -142,14 +133,14 @@ if nargin<2 || isempty(indexes),
     indexes = 1:size(donor,1);
 end
 
-donor = donor(indexes,:);
-acceptor = acceptor(indexes,:);
-fret = fret(indexes,:);
+data.donor = donor(indexes,:);
+data.acceptor = acceptor(indexes,:);
+data.fret = fret(indexes,:);
 
 % Get trace IDs, if available...
 if hasIDs,
     ids = ids(1:3:end-2);
-    ids = ids(indexes);
+    data.ids = ids(indexes);
 end
 
 % Clean up
@@ -160,8 +151,11 @@ clear Data;
 end %function LoadTracesTxt
     
     
-function [donor,acceptor,fret,ids,time] = LoadTracesBinary( ...
-                                        filename,constants,indexes )
+function data = LoadTracesBinary( filename, indexes )
+% This loads binary trace data from the old format, which did not include
+% metadata (obsolete as of 8/15/2012).
+
+constants = cascadeConstants();
 
 % Open the traces file.
 fid=fopen(filename,'r');
@@ -193,12 +187,14 @@ acceptor = double( Data(2:2:end,  :) );
 acceptor = acceptor - constants.crosstalk*donor;
 
 % Subtract background and calculate FRET
-[donor,acceptor,fret] = correctTraces(donor,acceptor,constants,indexes);
-ids = ids(indexes);
+[data.donor,data.acceptor,data.fret] = correctTraces( ...
+                                donor,acceptor,constants,indexes);
+data.ids = ids(indexes);
 
 % Clean up
 clear Data;
 fclose(fid);
+
 
 end %function LoadTracesBinary
 
@@ -206,8 +202,8 @@ end %function LoadTracesBinary
 
 
 
-function [donor,acceptor,fret,ids,time,metadata] = LoadTracesBinary2( ...
-                                        filename,constants,indexes )
+function data = LoadTracesBinary2( filename, indexes )
+% Loads binary data from the current standard trace format.
 
 dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'int8', 'int16', 'int32', 'int16', ...
@@ -217,12 +213,11 @@ dataTypes = {'char','uint8','uint16','uint32','uint16', ...
 fid=fopen(filename,'r');
 
 % 2) Read header information
-z         = fread( fid, 1, 'uint32' );  %identifies the new traces format.
+z = fread( fid, 1, 'uint32' );  %identifies the new traces format.
 
 if z~=0,
     disp('Assuming this is an old format traces file');
-    [donor,acceptor,fret,ids,time] = LoadTracesBinary(filename,constants,indexes);
-    metadata = struct();
+    data = LoadTracesBinary(filename,indexes);
     return;
 end
 
@@ -254,29 +249,6 @@ if exist('indexes','var') && ~isempty(indexes),
     acceptor = acceptor(indexes,:);
     fret     = fret(indexes,:);
 end
-
-% offset = ftell(fid);
-% 
-% mmap = memmapfile( filename, 'Offset',offset, 'Format', {...
-%                        'single',[nTraces traceLen],'donor'; ...
-%                     }, 'Repeat',1,'Writable',false );
-% options.forwardToVar='donor';
-% donor = mmapPassthrough( mmap, options );
-% 
-% offset = offset+ (nTraces*traceLen)*szSingle;
-% mmap = memmapfile( filename, 'Offset',offset, 'Format', {...
-%                        'single',[nTraces traceLen],'acceptor'; ...
-%                     }, 'Repeat',1,'Writable',false );
-% options.forwardToVar='acceptor';
-% acceptor = mmapPassthrough( mmap, options );
-% 
-% offset = offset+ (nTraces*traceLen)*szSingle;
-% mmap = memmapfile( filename, 'Offset',offset, 'Format', {...
-%                        'single',[nTraces traceLen],'fret'; ...
-%                     }, 'Repeat',1,'Writable',false );
-% options.forwardToVar='fret';
-% fret = mmapPassthrough( mmap, options );
-
 
 % 5) Read metadata.
 metadata = struct();
@@ -316,45 +288,12 @@ end
 fclose(fid);
 
 
-
-end %function LoadTracesBinary
-
-
-
-
-
-
-function [donor,acceptor,fret,ids,time] = LoadTracesBinary_old( ...
-                                        filename,constants,indexes )
-% THIS FUNCTION IS TO LOAD THE DEPRICATED FORMAT.
-% Only a few traces files may be found with this format,
-% and will have the extension .traces_old...
-% These files have no ids!
-% NEED TO VERIFY THIS WORKS!
-                                    
-% Open the traces file.
-fid=fopen(filename,'r');
-len=fread(fid,1,'int32');
-Ntraces=fread(fid,1,'int16');
-
-% Read data
-Data = fread( fid, [Ntraces+1 len], 'int16' );
-fclose(fid);
-
-% Parse the data into donor, acceptor, etc. arrays.
-time     = double( Data(1,:) );
-donor    = double( Data(2:2:end-1,:) );
-acceptor = double( Data(3:2:end,  :) );
-ids = {};
-
-clear Data;
-
-% Make an adjustment for crosstalk on the camera
-acceptor = acceptor - constants.crosstalk*donor;
-
-% Subtract background and calculate FRET
-[donor,acceptor,fret] = correctTraces(donor,acceptor,constants,indexes);
-
+data.donor    = donor;
+data.acceptor = acceptor;
+data.fret     = fret;
+data.time     = time;
+data.ids      = ids;
+data.metadata = metadata;
 
 end %function LoadTracesBinary
 

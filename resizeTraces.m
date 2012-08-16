@@ -1,4 +1,4 @@
-function resizeTraces( traceLen )
+function resizeTraces( traceLen, files )
 % resizeTraces   Change length of a .traces files
 %
 %   resizeTraces( TRACE_LEN )
@@ -16,29 +16,27 @@ if nargin<1,
     traceLen = str2double(f);
 end
 
-direct=uigetdir('','Choose directory of traces:');
-if direct==0, return; end
-
-files = dir([direct filesep '*.traces']);
-
+if nargin<2,
+    files = getFiles;
+end
 
 constants = cascadeConstants();
 
 
 % For each file in the user-selected directory
-for file = files',
+for i=1:numel(files),
     
     % ---- Read traces file
-    filename = [direct filesep file.name];
-    [donor,accep,f,ids,time] = LoadTraces( filename );
-    [nTraces,actualLen] = size(donor);
+    filename = files{i};
+    data = loadTraces( filename );
+    [nTraces,actualLen] = size( data.donor );
     
     % ---- Reconstruct time axis (assuming linear, contiguous acquisition)
-    dt = time(2)-time(1);
-    time = cumsum( [time(1) repmat(dt,1,traceLen-1)] );
+    dt = data.time(2)-data.time(1);
+    data.time = cumsum( [data.time(1) repmat(dt,1,traceLen-1)] );
     
     % ---- Undo crosstalk correction (otherwise it will be done twice).
-    accep = accep + constants.crosstalk*donor;
+    data.acceptor = data.acceptor + constants.crosstalk*data.donor;
     
     % ---- Modify traces, if they do not match the target trace length.
     if traceLen == actualLen,
@@ -48,19 +46,21 @@ for file = files',
     elseif traceLen > actualLen,
         % Expand traces using last value
         delta = traceLen-actualLen;
-        donor = [donor repmat( donor(:,end), 1, delta )];
-        accep = [accep repmat( accep(:,end), 1, delta )];
+        data.donor    = [data.donor    repmat( data.donor(:,end), 1, delta )];
+        data.acceptor = [data.acceptor repmat( data.acceptor(:,end), 1, delta )];
+        data.fret     = [data.fret     zeros( nTraces, delta )];
     
     else
-        % Truncate tracesa
-        donor = donor(:,1:traceLen);
-        accep = accep(:,1:traceLen);
+        % Truncate traces
+        data.donor    = data.donor(:,1:traceLen);
+        data.acceptor = data.acceptor(:,1:traceLen);
+        data.fret     = data.fret(:,1:traceLen);
     end
     
-    disp( sprintf('Resizing %.0f to %.0f: %s',actualLen,traceLen,file.name) );
+    disp( sprintf('Resizing %.0f to %.0f: %s',actualLen,traceLen,filename) );
     
     % ---- Save the results.
-    saveTraces( filename,'traces',donor,accep,ids,time );
+    saveTraces( filename,'traces',data );
     
     
 end

@@ -36,17 +36,17 @@ d = cell(0,1); a=d; f=d; ids=d; time=d;
 for i=1:nFiles,
 
     % Load traces from file
-    [d_in,a_in,f_in,ids_in,time_in] = loadTraces(filenames{i});
-    d{i} = d_in;
-    a{i} = a_in;
-    f{i} = f_in;
-    ids{i} = ids_in;
-    time{i} = time_in;
+    data = loadTraces(filenames{i});
+    d{i} = data.donor;
+    a{i} = data.acceptor;
+    f{i} = data.fret;
+    ids{i}  = data.ids;
+    time{i} = data.time;
     
-    assert( ~any(isnan(d_in(:))) & ~any(isnan(a_in(:))) & ~any(isnan(f_in(:))) );
+    assert( ~any(isnan(data.donor(:))) & ~any(isnan(data.acceptor(:))) & ~any(isnan(data.fret(:))) );
     
-    nTraces = nTraces+size(d_in,1);
-    traceLen(i) = numel(time_in);
+    nTraces = nTraces+size(data.donor,1);
+    traceLen(i) = numel(data.time);
     assert( traceLen(i)>1 );
     
     waitbar(0.3*i/nFiles,h);
@@ -77,14 +77,21 @@ for i=1:nFiles,
     d_out = [d_out; d{i}];
     a_out = [a_out; a{i}];
     f_out = [f_out; f{i}];
-    ids_out = [ids_out ids{i}];
+    ids_out = [ids_out ; ids{i}];
     
     waitbar(0.3+0.2*i/nFiles,h);
 end
 
 assert( size(f_out,1)==nTraces );
 
-saveTraces( outFilename, 'traces', d_out,a_out,f_out,ids_out,time{1} );
+clear data;
+data.donor    = d_out;
+data.acceptor = a_out;
+data.fret     = f_out;
+data.ids      = ids_out;
+data.time     = time{1};
+
+saveTraces( outFilename, 'traces', data );
 
 waitbar(1,h);
 close(h);

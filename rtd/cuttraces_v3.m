@@ -24,7 +24,7 @@ sel_mol_no=0;
 
 %---Open the corresonding file of traces
 if nargin<1,
-    [filename,filepath]=uigetfile('*.txt','Choose a traces (.txt) file:');
+    [filename,filepath]=uigetfile('*.traces','Choose a processed traces file:');
     if filename==0
         disp('No traces file selected.');
         return;
@@ -33,11 +33,13 @@ if nargin<1,
     end
 end
 
-[cy3,cy5,fret,ids,time_axis] = loadTraces(traceFilename);
-[nTraces,traceLen] = size(cy3);
-fret_org = fret; %fret unmodified
-fret_noise = fret; %fret with noise
-fret_noNoise = fret; %fret without noise
+data = loadTraces(traceFilename);
+[nTraces,traceLen] = size(data.donor);
+fret_org     = data.fret; %fret unmodified
+fret_noise   = data.fret; %fret with noise
+fret_noNoise = data.fret; %fret without noise
+time_axis = data.time;
+ids = data.ids;
 
 %---Open the QuB dwt file from idealization
 if nargin<1
@@ -203,7 +205,7 @@ for mol_no=1:nTraces,
     %--- Store rt_traces truncated after 120ms in high FRET  
     if cutMol>0, %
         pepSelected(end+1) = sel_mol_no;
-        fret(sel_mol_no,:) = rt_fret;
+        data.fret(sel_mol_no,:) = rt_fret;
         
     elseif cutMol==0 && ndwells>1,
         noPepSelected(end+1) = sel_mol_no;
@@ -234,13 +236,20 @@ disp(['no. Cutoff-Events in %: ', num2str(NoCutEvent)]);
 %--- all_rtfret: all Molecules, all traces which are being longer 
 %--- than 120ms in high FRET are truncated and subsituted by a 
 %--- mean mean FRET-value
-z = zeros( size(cy3) );
- saveTraces( 'allMol_ac120.txt','txt', z,z, fret_noNoise, ids,time_axis );
+z = zeros( size(data.donor) );
+data.donor = z;
+data.acceptor = z;
+data.fret = fret_noNoise;
+data.ids = ids;
+data.time=time_axis;
+
+ saveTraces( 'allMol_ac120.traces','traces', data );
  saveTraces( 'allMol_ac120.qub.txt','qub', fret_noNoise );
  
 waitbar(0.2,wbh,'Saving Traces...');
 
- %saveTraces( 'allMol_ac120-noise.txt','txt', z,z, fret_noise, ids,time_axis );
+ %data.fret = fret_noise;
+ %saveTraces( 'allMol_ac120-noise.traces','txt', data );
  %saveTraces( 'allMol_ac120-noise.qub.txt','qub', fret_noise );
  
 
@@ -248,23 +257,23 @@ waitbar(0.2,wbh,'Saving Traces...');
 %--- only Molecules forming a peptide bond
 %---
 waitbar(0.3,wbh,'Saving Traces...');
- saveTraces('PEP120org.txt','txt',cy3(pepSelected,:),cy5(pepSelected,:), ...
+ saveTraces('PEP120org.txt','txt',data.donor(pepSelected,:),data.acceptor(pepSelected,:), ...
             fret_org(pepSelected,:), ids(pepSelected), time_axis );
 waitbar(0.4,wbh,'Saving Traces...');
- saveTraces('PEP120.txt','txt',cy3(pepSelected,:),cy5(pepSelected,:), ...
-            fret(pepSelected,:), ids(pepSelected), time_axis );
+ saveTraces('PEP120.txt','txt',data.donor(pepSelected,:),data.acceptor(pepSelected,:), ...
+            data.fret(pepSelected,:), ids(pepSelected), time_axis );
 waitbar(0.5,wbh,'Saving Traces...');
- saveTraces( 'PEP120.qub.txt','qub', fret(pepSelected,:) );
+ saveTraces( 'PEP120.qub.txt','qub', data.fret(pepSelected,:) );
  
 
 %---
 %--- only Molecules forming no peptide bond
 %---
 waitbar(0.6,wbh,'Saving Traces...');
- saveTraces('noPep120.txt','txt',cy3(noPepSelected,:),cy5(noPepSelected,:), ...
+ saveTraces('noPep120.txt','txt',data.donor(noPepSelected,:),data.acceptor(noPepSelected,:), ...
             fret(noPepSelected,:),ids(noPepSelected), time_axis );
 waitbar(0.7,wbh,'Saving Traces...');
- saveTraces( 'noPep120.qub.txt','qub', fret(noPepSelected,:) );
+ saveTraces( 'noPep120.qub.txt','qub', data.donorfret(noPepSelected,:) );
  
 waitbar(0.95,wbh);
 close(wbh);

@@ -71,13 +71,14 @@ disp('02. Running gettraces...');
 % Get the sampling rate
 d = rdir( [dataDir filesep '**' filesep '*.traces'] );
 tracesFiles = {d.name};
-[~,~,~,~,time] = loadTraces( tracesFiles{1} );
-sampling = time(2); %ms
+data = loadTraces( tracesFiles{1} );
+sampling = data.time(2); %ms
 disp(['sampling [ms]:', num2str(sampling)]);
 
 %% 3. Run pickTraces.m to filter acquired data
 
 disp('03. Running pickTraces...');
+% *** TODO: replace with loadPickSaveTraces()
 % Find the location of all traces files to analyze
 % d = dir( [dataDir filesep '*.traces'] );
 d = rdir( [dataDir filesep '**' filesep '*.traces'] );
@@ -91,38 +92,47 @@ d_out = []; a_out = []; f_out = []; ids_out = {};
 for i=1:nFiles,
 
     % Load traces file
-    [d,a,f,ids,time] = loadTraces( tracesFiles{i} );
+    data = loadTraces( tracesFiles{i} );
+    time = data.time;
     
     % Select traces according to selection criteria.
-    stats = traceStat( d,a,f );
+    stats = traceStat( data );
     indexes = pickTraces( stats, selectionCriteria );
     
-    d_out   = [d_out ; d(indexes,:)];
-    a_out   = [a_out ; a(indexes,:)];
-    f_out   = [f_out ; f(indexes,:)];
-    ids_out = [ids_out ids(indexes)];
+    d_out   = [d_out ; data.donor(indexes,:)];
+    a_out   = [a_out ; data.acceptor(indexes,:)];
+    f_out   = [f_out ; data.fret(indexes,:)];
+    ids_out = [ids_out data.ids(indexes)];
 
 end
 
+clear data;
+data.donor = d_out;
+data.acceptor = a_out;
+data.fret = f_out;
+data.ids = ids_out;
+data.time = time;
+
 % Save selected traces
-saveTraces( 'selected_traces.txt', 'txt', d_out,a_out,f_out,ids_out,time );
+saveTraces( 'selected_traces.traces', 'traces', data );
 clear d_out; clear a_out; clear f_out; clear ids_out; clear time;
+clear data;
 
 %% 4. Run autosort.m and seperate events
 
 disp('04. Running autosort...');
-autosort( 'selected_traces.txt' );
+autosort( 'selected_traces.traces' );
 drawnow;
 
 %% 5. Remove traces with no transitions and make a preliminary 2D post-synchronized FRET histogram
 
 disp('05. Running filter_1...');
 % Load FRET data (seperated events)
-[donor,acceptor,fret,ids,time] = loadTraces('ips.txt');
-[nTraces,traceLen] = size(fret);
+data = loadTraces('ips.traces');
+[nTraces,traceLen] = size(data.fret);
 
 % Idealize FRET data using SKM
-[dwt] = skm( fret, sampling, model1, skmParams );
+[dwt] = skm( data.fret, sampling, model1, skmParams );
 
 % Remove traces with no transitions
 nDwells = cellfun( @numel, dwt )./2;
@@ -132,18 +142,18 @@ dwt     = dwt( selected );
 nTraces = sum(selected);
 offsets = traceLen*((1:nTraces)-1);
 
-donor    = donor( selected, :);
-acceptor = acceptor( selected, :);
-fret     = fret( selected, :);
-ids      = ids( selected );
+data.donor    = data.donor( selected, :);
+data.acceptor = data.acceptor( selected, :);
+data.fret     = data.fret( selected, :);
+data.ids      = data.ids( selected );
 
 % Save the filtered data...
-saveTraces( 'ips.flt.txt', 'txt', donor,acceptor,fret,ids,time );
-forQuB2( {'ips.flt.txt'} );
+saveTraces( 'ips.flt.traces', 'txt', data );
+forQuB2( {'ips.flt.traces'} );
 saveDWT( 'ips1DHst.flt.qub.dwt', dwt, offsets, fretModel1, sampling );
 
 % Plot the results
-frethist_norm_v4('ips.flt.txt',1,0,sampling);
+frethist_norm_v4('ips.flt.traces',1,0,sampling);
 
 
 %% 6. Run statehist_2StateModel_v3.m and generate a 1D FRET histogram

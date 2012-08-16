@@ -49,11 +49,8 @@ selectionCriteria.eq_overlap    = 0;
 selectionCriteria.maxTotalSigma = 2;
 selectionCriteria.max_ncross    = 4;
 
-% Load traces file
-[d,a,f] = loadTraces( filename );
-
 % Calculate trace statistics
-stats = traceStat(d,a,f);
+stats = traceStat( filename );
 
 % Filter traces based on standard criteria
 idxSelected = pickTraces( stats, selectionCriteria );

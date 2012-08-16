@@ -69,8 +69,15 @@ if ischar( varargin{1} ),
     varargin{1} = { varargin{1} };
 end
 
+% If the user gives a structure, this is a data structure with fluorescence
+% data etc from loadTraces. Parse out the fields.
+if isstruct( varargin{1} ),
+    data = varargin{1};
+    nTraces = size( data.donor, 1 );
+    retval = traceStat_data( data.donor, data.acceptor, data.fret );
+
 % If the user gave filenames, load stats from each and combine them.
-if iscell( varargin{1} ),
+elseif iscell( varargin{1} ),
     files = varargin{1};
     retval = struct([]);
     nTraces = zeros( numel(files),1 );
@@ -78,9 +85,9 @@ if iscell( varargin{1} ),
     h = waitbar(0, 'Loading traces and calculating properties...');
     
     for i=1:numel(files),
-        [d,a,f] = loadTraces( files{i} );
-        retval = [retval  traceStat_data( d,a,f )  ];
-        nTraces(i) = size(d,1);
+        data = loadTraces( files{i} );
+        retval = [retval  traceStat_data( data.donor, data.acceptor, data.fret )  ];
+        nTraces(i) = size(data.donor,1);
 
         waitbar(i/numel(files),h);
     end

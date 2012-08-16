@@ -15,14 +15,14 @@ function forvbFRET()
 
 
 % Get filename from user
-[name,filepath]=uigetfile('*.txt','Choose a fret file:');
+[name,filepath]=uigetfile('*.traces','Choose a fret file:');
 if name==0,  return;  end
 filename = strcat( filepath, filesep, name );
 
 
 % Load the traces files
-[donor,acceptor,fret] = loadTraces( filename );
-[Ntraces,Nframes] = size(donor);
+data = loadTraces( filename );
+[Ntraces,Nframes] = size(data.donor);
 
 % Calculate lifetimes
 % lifetimes = CalcLifetime( donor+acceptor )-2;
@@ -31,22 +31,18 @@ filename = strcat( filepath, filesep, name );
 output = zeros(Nframes,Ntraces);
 for i=1:Ntraces,
     % Prune data to remove donor-dark regions, which confuse HaMMy
-    window = fret(i,:) ~= 0;
-    donor(i,~window) = 0;
-    acceptor(i,~window) = 0;
+    window = data.fret(i,:) ~= 0;
+    data.donor(i,~window) = 0;
+    data.acceptor(i,~window) = 0;
     
-    % Gather output data in correct format
-    % (truncate to before photobleaching)
-%     len = sum(window);
-%     data = [1:len ; donor(i,window) ; acceptor(i,window)];
-    
-    output(:,(2*(i-1))+1) = donor(i,:)';
-    output(:,(2*i)    ) = acceptor(i,:)';
+    % 
+    output(:,(2*(i-1))+1) = data.donor(i,:)';
+    output(:,(2*i)    ) = data.acceptor(i,:)';
 end
 
 % Save data to file
 % Write file to disk as a vector (columnwise through <data>)
-outfile = strrep(filename,'.txt','_vbFRET.dat');
+outfile = strrep(filename,'.traces','_vbFRET.dat')
 dlmwrite( outfile, output, ' ' );
 
 

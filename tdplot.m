@@ -63,10 +63,9 @@ total_time = 0;  %total time in frames
 nTraces = numel(dwt);
 
 %---Open the corresonding qub data file (slowest step)
-[d,a,data] = loadTraces(tracefilename);
-data = data';
+d = loadTraces(tracefilename);
+data = d.fret';
 data = data(:);
-clear d; clear a;
 
 
 

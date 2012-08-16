@@ -289,7 +289,8 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         sprintf('%d: %s', i,filename);
 
         % Load data
-        [d,a,data] = loadTraces(dataFilenames{i});
+        d = loadTraces(dataFilenames{i});
+        data = d.fret;
 
         % Idealize data using user-specified algorithm...
         if strcmp(options.idealizeMethod,'Segmental k-means'),

@@ -51,11 +51,11 @@ for i=1:nFiles,
     end
     
     % Load FRET data
-    [d,a,fret,ids,time] = loadTraces( tracesFiles{i} );
+    data = loadTraces( tracesFiles{i} );
+    fret = data.fret;
     [nTraces,traceLen] = size(fret);
-    clear d; clear a;
-    assert( time(1)~=1, 'No time axis found' );
-    sampling = time(2)-time(1);
+    assert( data.time(1)~=1, 'No time axis found' );
+    sampling = data.time(2)-data.time(1);
 
     % Idealize FRET data
     [p,n] = fileparts(traceFiles{i});

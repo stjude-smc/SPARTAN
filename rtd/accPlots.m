@@ -10,7 +10,7 @@ if nargin<1,
     filenames = getFiles('*.traces');
 end
 
-autoFilenames = strrep(filenames,'.traces','_auto.txt');
+autoFilenames = strrep(filenames,'.traces','_auto.traces');
 nFiles = numel(filenames);
 
 if nFiles<1,
@@ -45,19 +45,8 @@ selectionCriteria.maxTotalSigma = 2; %total intensity w/i 2 sigma
 
 for i=1:nFiles,
     
-    % Load traces data
-    [d,a,f,ids,time] = loadTraces( filenames{i} );
-    sampling = time(2)-time(1);
-    
-    % Filter traces file    
-    stats = traceStat(d,a,f);
-    idxPicked = pickTraces( stats, selectionCriteria );
-    d = d(idxPicked,:);
-    a = a(idxPicked,:);
-    f = f(idxPicked,:);
-    ids = ids(idxPicked);
-    
-    saveTraces( autoFilenames{i}, 'txt', d,a,f,ids,time );
+    % Select traces passing criteria defined above.
+    loadPickSaveTraces( filenames{i}, selectionCriteria );
     
     % Display contour plots with extended axes
     h = subplot(1,nFiles+1,i);

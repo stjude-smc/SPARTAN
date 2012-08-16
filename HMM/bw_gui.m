@@ -199,9 +199,9 @@ for i=1:nFiles
     p0 = results(i).p0;
     A = results(i).A;
     
-    [d,a,traces] = loadTraces(filename);
+    data = loadTraces(filename);
     
-    [dwt,idl,offsets] = idealize( traces, fretModel, p0, A );
+    [dwt,idl,offsets] = idealize( data.fret, fretModel, p0, A );
     
     dwtFilename = strrep(filename,'.txt','.qub.dwt');
     saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
@@ -234,8 +234,8 @@ function [results,errorResults] = runBW( ...
                 filename, sampling, model, BWparameters )
 %
 
-[d,a,observations] = loadTraces(filename);
-clear d; clear a;
+data = loadTraces(filename);
+observations = data.fret;
 
 
 %------ Run Baum-Welch optimization proceedure

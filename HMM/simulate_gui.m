@@ -160,29 +160,32 @@ end
 dataSize = [nTraces traceLen];
 fretModel = [options.mu' options.sigma'];
 
-[dwt,fret,donor,acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
-time = 1000*sampling*( 0:(traceLen-1) );
+[dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
+data.time = 1000*sampling*( 0:(traceLen-1) );
 
 % Generate ids for the traces
 [p,name] = fileparts(fname_txt);
-ids = cell(nTraces,1);
+data.ids = cell(nTraces,1);
 for j=1:nTraces;
-    ids{j} = sprintf('%s_%d', name, j);
+    data.ids{j} = sprintf('%s_%d', name, j);
 end
 
 % Save resulting raw traces files
 fname_trc = strrep(fname_txt, '.txt', '.traces');
-saveTraces( fname_trc, 'traces', donor,acceptor, ids, time );
+saveTraces( fname_trc, 'traces', data );
 
-% Produce a .txt data file, as if it had been processed by autotrace/sorttraces.
+% Produce a .traces data file, as if it had been processed by autotrace/sorttraces.
 % Traces without a descernable bleaching event are removed.
-[d,a,f,ids,time] = loadTraces(fname_trc);
+data = loadTraces(fname_trc);
 
-stats = traceStat(d,a,f);
+stats = traceStat( data );
 sel = [stats.snr]>=1;
-d = d(sel,:); a = a(sel,:); f = f(sel,:); ids = ids(sel);
+data.donor    = data.donor(sel,:);
+data.acceptor = data.acceptor(sel,:);
+data.fret     = data.fret(sel,:);
+data.ids      = data.ids(sel);
 
-saveTraces( fname_txt, 'txt', d,a,f,ids,time );
+saveTraces( fname_txt, 'txt', data );
 
 % Save the underlying state trajectory.
 % Only traces passing autotrace are saved so that the "true" idealization

@@ -122,10 +122,10 @@ for i=1:nFiles,
     % Unless provided, calc trace properties and select those that meet criteria.
     if ~isfield( options, 'indexes' ),
         % Load traces file data
-        [d,a,f,ids,t] = loadTraces( files{i} );
+        data = loadTraces( files{i} );
         
         % Calculate trace statistics
-        stats = traceStat( d,a,f );
+        stats = traceStat( data );
     
         % Pick traces passing criteria
         [indexes] = pickTraces( stats, criteria );
@@ -136,23 +136,23 @@ for i=1:nFiles,
     % Remove traces that were not selected
     if isfield( options, 'indexes' ),
         indexes = options.indexes{i};
-        [d,a,f,ids,t] = loadTraces( files{i}, cascadeConstants(), indexes );
-        assert( numel(ids)==size(d,1) );
+        data = loadTraces( files{i}, indexes );
+        assert( numel(data.ids)==size(data.donor,1) );
         
         stats = struct([]);
     else
-        d = d(indexes,:);
-        a = a(indexes,:);
-        f = f(indexes,:);
-        ids = ids{indexes};
+        data.donor    = data.donor(indexes,:);
+        data.acceptor = data.acceptor(indexes,:);
+        data.fret     = data.fret(indexes,:);
+        data.ids      = data.ids{indexes};
     end
     
     % Save trace data into one large pile for saving at the end
-    donorAll = [donorAll; d];
-    acceptorAll = [acceptorAll; a];
-    fretAll = [fretAll; f];
-    timeAxis = t;
-    idsAll = [idsAll ids];
+    donorAll = [donorAll; data.donor];
+    acceptorAll = [acceptorAll; data.acceptor];
+    fretAll = [fretAll; data.fret];
+    timeAxis = data.time;
+    idsAll = [idsAll; data.ids];
     
     
     % Save stats info for logging.
@@ -161,7 +161,7 @@ for i=1:nFiles,
     else
         allStats = cat(2, allStats, stats  );
     end
-    nTracesPerFile(i) = size(d,1);
+    nTracesPerFile(i) = size(data.donor,1);
 
     if options.showWaitbar,
         waitbar(i/nFiles,wbh);
@@ -176,7 +176,14 @@ end
 % Save trace data to file
 [p,n,ext] = fileparts(outFilename);
 format = ext(2:end);
-saveTraces(outFilename,format,donorAll,acceptorAll,fretAll,idsAll,timeAxis);
+
+clear data;
+data.donor = donorAll;
+data.acceptor = acceptorAll;
+data.fret = fretAll;
+data.time = timeAxis;
+
+saveTraces(outFilename,format,data);
 
 
 % Clean up

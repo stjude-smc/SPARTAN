@@ -37,7 +37,7 @@ end
 % First parameter is a filename; load traces data from file.
 if ischar(varargin{1})
     tracesFilename = varargin{1};
-    [donor,acceptor,ids,time] = loadTraces( tracesFilename );
+    data = loadTraces( tracesFilename );
     
     bgMovieFilenames = varargin{2};
     params = varargin{3};
@@ -45,9 +45,9 @@ if ischar(varargin{1})
 % First parameter is a matrix of numbers, specifying donor/acceptor traces.
 else
     tracesFilename = [pwd filesep 'sim.traces'];
-    donor    = varargin{1};
-    acceptor = varargin{2};
-    time = 1:size(donor,2);
+    data.donor    = varargin{1};
+    data.acceptor = varargin{2};
+    data.time = 1:size(data.donor,2);
     
     bgMovieFilenames = varargin{3};
     params = varargin{4};
@@ -92,13 +92,13 @@ rand( 'twister', params.randomSeed+1299 );
 
 % Simulate the effect of donor to acceptor channel crosstalk
 constants = cascadeConstants;
-acceptor = acceptor + constants.crosstalk*donor;
+data.acceptor = data.acceptor + constants.crosstalk*data.donor;
 
 
 
 %% Simulate Wide-field Fluorescence Movies.
 
-[nTracesTotal,traceLen] = size(donor);
+[nTracesTotal,traceLen] = size(data.donor);
 nTracesUsed = 0;
 peakLocations = cell(0,1);
 
@@ -166,8 +166,8 @@ for n=1:numel(bgMovieFilenames)
     
     for i=1:nPeaks,
         traceID = mod(i+nTracesUsed-1,nTracesTotal)+1;
-        d = donor(traceID,:);
-        a = acceptor(traceID,:);
+        d = data.donor(traceID,:);
+        a = data.acceptor(traceID,:);
         
         cy = donorPos(i,1);
         cx = donorPos(i,2);

@@ -13,8 +13,8 @@ end
 % Load the traces files
 fret = [];
 for i=1:length(files),
-    [d,a,f] = loadTraces(files{i});
-    fret = [fret ; f];
+    data = loadTraces(files{i});
+    fret = [fret ; data.fret];
 end
 
 

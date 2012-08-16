@@ -7,14 +7,14 @@ maxBlink = 5; %frames
 
 % Load traces data
 if exist('filename','var'),
-    [d,a,fret,ids,time] = loadTraces(filename);
+    data = loadTraces(filename);
 else
-    [d,a,fret,ids,time] = loadTraces;
+    data = loadTraces;
 end
-[nTraces,traceLen] = size(d);
+[nTraces,traceLen] = size(data.donor);
 
 % Load idealization data (.DWT)
-idl = zeros( size(d) );
+idl = zeros( nTraces,traceLen );
 
 if ~exist('dwtFilename','var'),
     [f,p] = uigetfile('*.dwt');
@@ -51,6 +51,8 @@ end
 
 
 % Set time axis if not available,
+time = data.time;
+
 if time(1)==1,
     if ~exist('sampling','var')
         f = inputdlg('What is the sampling interval (in ms) for this data?');
@@ -71,28 +73,18 @@ output = zeros(traceLen,totalSize+1);
 for i=1:nTraces,
     idx = 1+ (i-1)*4;
     
-    output(1:end,idx+1) = fret(i,:)';
+    output(1:end,idx+1) = data.fret(i,:)';
     output(1:end,idx+2) = idl(i,:)';
-    output(1:end,idx+3) = d(i,:)';
-    output(1:end,idx+4) = a(i,:)';
+    output(1:end,idx+3) = data.donor(i,:)';
+    output(1:end,idx+4) = data.acceptor(i,:)';
 end
 
-%
-% if sampling >= 200,
-%     output(:,1) = time./60000; %in minutes
-%     timeUnit = 'min';
-% elseif sampling <= 10,
-%     output(:,1) = time; %in milliseconds
-%     timeUnit = 'ms';
-% else
-    output(:,1) = time./1000; %in seconds
-    timeUnit = 'sec';
-% end
+output(:,1) = time./1000; %convert to seconds
 
 % Output header lines
 fid = fopen('traces.txt','w');
 
-fprintf(fid,'Time (%s)',timeUnit);
+fprintf(fid,'Time (s)');
 
 for i=1:nTraces,
     fprintf(fid,'\tFRET%d\tIdl%d\tDonor%d\tAcceptor%d',i,i,i,i);

@@ -24,10 +24,12 @@ end
 
 
 % Load fluorescence and FRET data
-[donor,acceptor,fret,ids,time] = loadTraces( filename );
-fret(fret>1) = 1;
-fret(fret<-0.5) = -0.5;
-[nTraces,len] = size(donor);
+% [donor,acceptor,fret,ids,time] = loadTraces( filename );
+data = loadTraces( filename );
+data.fret(data.fret>1) = 1;
+data.fret(data.fret<-0.5) = -0.5;
+time = data.time;
+[nTraces,len] = size(data.donor);
 
 inFrames = (time(1)==1);
 if ~inFrames
@@ -160,8 +162,8 @@ function showTrace
     % Draw fluorescence time trace
     ax(1) = subplot(nrows,ncols,1);
 
-    d = gamma*donor(i,:) /1000;
-    a = acceptor(i,:) /1000;
+    d = gamma*data.donor(i,:) /1000;
+    a = data.acceptor(i,:) /1000;
     
 %     sd  = sort(d);  sa = sort(a);
 %     sdm = sd( end-ceil(0.01*length(sd)) );
@@ -183,7 +185,7 @@ function showTrace
     ax(2) = subplot(nrows,ncols,ncols+1);
     cla;
     
-    plot( time/sampFact, fret(i,:), 'b-', 'LineWidth',1 );
+    plot( time/sampFact, data.fret(i,:), 'b-', 'LineWidth',1 );
 
     % Draw idealization on top of FRET trace
     if ~isempty(dwtID),
@@ -197,7 +199,7 @@ function showTrace
     ylim( [-0.1 1.0] );
 
 
-    pbTime = (find( fret(i,:)~=0, 1, 'last' )*1.04) * sampling/sampFact/1000;
+    pbTime = (find( data.fret(i,:)~=0, 1, 'last' )*1.04) * sampling/sampFact/1000;
 
 %     maxlife = sum(times) * sampling/1000 +0.5;
     maxlife = max( pbTime, 5 );
@@ -219,17 +221,17 @@ function showTrace
     if ncols>=2,
     
         % Generate the histograms
-        pbFrame = find( fret(i,:)~=0, 1, 'last' )-1;
+        pbFrame = find( data.fret(i,:)~=0, 1, 'last' )-1;
 
-        f = [acceptor(i,:) donor(i,:)]/1000;
+        f = [data.acceptor(i,:) data.donor(i,:)]/1000;
         fluor_bins = min(f)-2:(range(f)/nBins):max(f)+1;
 
-        f = fret(i,:);
+        f = data.fret(i,:);
         fret_bins = min(f)-0.1:(range(f)/nBins):max(f)+0.1;
 
-        [ha] = hist( acceptor(i,1:pbFrame)/1000, fluor_bins);
-        [hd] = hist( donor(i,1:pbFrame)/1000, fluor_bins);
-        [hf] = hist( fret(i,1:pbFrame), fret_bins);
+        [ha] = hist( data.acceptor(i,1:pbFrame)/1000, fluor_bins);
+        [hd] = hist( data.donor(i,1:pbFrame)/1000, fluor_bins);
+        [hf] = hist( data.fret(i,1:pbFrame), fret_bins);
 
         % Plot distribution of fluorescence
         ax(3) = subplot(nrows,ncols,2);
@@ -268,8 +270,8 @@ function showTrace
     if nrows>=3,
         ax3 = subplot(3,1,3);
         
-        mfd = medianfilter(donor(i,:),9);
-        mfa = medianfilter(acceptor(i,:),9);
+        mfd = medianfilter(data.donor(i,:),9);
+        mfa = medianfilter(data.acceptor(i,:),9);
         
         s = -gradient(mfd).*gradient(mfa);
         s(s<0)=0;

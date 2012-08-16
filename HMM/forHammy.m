@@ -15,21 +15,22 @@ disp( 'Best to include only a few of your best traces to define the model' );
 
 
 % Get filename from user
-[name,filepath]=uigetfile('*.txt','Choose a fret file:');
+[name,filepath]=uigetfile('*.traces','Choose a fret file:');
 if name==0,  return;  end
 filename = strcat( filepath, filesep, name );
 
 
 % Load the traces files
-[donor,acceptor,fret,ids] = loadTraces( filename );
-[Ntraces,Nframes] = size(donor);
+data = loadTraces( filename );
+[Ntraces,Nframes] = size(data.donor);
 
 % Calculate lifetimes
-lifetimes = CalcLifetime( donor+acceptor )-4;
+lifetimes = calcLifetime( data.donor+data.acceptor )-4;
 
 
 % Save data to file
-basename = strrep(filename,'.txt','_HaMMy');
+[p,f] = fileparts(filename);
+basename = [p filesep f '_HaMMy'];
 basename = strrep(basename,'.','p');
 
 for i=1:Ntraces, % for each trace
@@ -38,15 +39,15 @@ for i=1:Ntraces, % for each trace
     outfile = sprintf( '%s%04d.dat', basename, i );
     
     % Prune data to remove donor-dark regions, which confuse HaMMy
-    window = fret(i,:) ~= 0;
+    window = data.fret(i,:) ~= 0;
     
     % Gather output data in correct format
     % (truncate to before photobleaching)
     len = sum(window);
-    data = [1:len ; donor(i,window) ; acceptor(i,window)];
+    output = [1:len ; data.donor(i,window) ; data.acceptor(i,window)];
     
     % Write file to disk as a vector (columnwise through <data>)
-    dlmwrite( outfile, data(:)', ' ' );
+    dlmwrite( outfile, output(:)', ' ' );
 
 end % for each trace
 

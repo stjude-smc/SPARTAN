@@ -158,8 +158,11 @@ function handles = OpenTracesFile( filename, handles )
 handles.filename = filename;
 
 % Load the file
-[handles.donor,handles.acceptor,handles.fret,handles.ids,handles.time] = ...
-    loadTraces( filename );
+data = loadTraces( filename );
+handles.donor    = data.donor;
+handles.acceptor = data.acceptor;
+handles.fret     = data.fret;
+handles.time     = data.time;
 
 [handles.Ntraces,handles.len] = size(handles.donor);
 
@@ -402,71 +405,59 @@ function btnSave_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Create filenames for output files
-filename = handles.filename;
-[pathstr, name, ext]=fileparts(filename);
-
-fileNoFRETs = strrep(filename,ext,'_no_fret.traces');
-fileFRETs = strrep(filename,ext,'_all_fret.traces');
-fileBest = strrep(filename,ext,'_best_fret.traces');
-
 
 %--- Save indexes of picked molecules to file
-NoFRETs = handles.NoFRETs_indexes;
-best    = handles.Best_indexes;
-FRETs   = handles.FRETs_indexes;
+[p,f]=fileparts(handles.filename);
+baseFilename = [p filesep f];
 
-fname = strrep(fileNoFRETs,'_no_fret.txt', '_picked_inds.txt');
-fid = fopen(fname,'w');
-fprintf(fid, '%d ', NoFRETs); fprintf(fid,'\n');
-fprintf(fid, '%d ', FRETs);   fprintf(fid,'\n');
-fprintf(fid, '%d ', best);    fprintf(fid,'\n');
+fid = fopen( [baseFilename '_picked_inds.txt'], 'w' );
+fprintf(fid, '%d ', handles.NoFRETs_indexes); fprintf(fid,'\n');
+fprintf(fid, '%d ', handles.FRETs_indexes);   fprintf(fid,'\n');
+fprintf(fid, '%d ', handles.Best_indexes);    fprintf(fid,'\n');
 fclose(fid);
 
 
 %--- Save files
-if isfield(handles,'idl') && ~isempty(handles.idl),
-    model = handles.dwtModel;
-    sampling = handles.dwtSampling;
-    traceLen = numel(handles.time);
+if ~isempty(handles.Best_indexes),
+    filename = [baseFilename '_best_fret.traces'];
+    savePickedTraces( handles, filename, handles.Best_indexes );
 end
 
-if ~isempty(best),
-    saveTraces( fileBest, 'traces', handles.donor(best,:), ...
-                handles.acceptor(best,:), handles.fret(best,:), ...
-                handles.ids(best), handles.time );
-            
-    if isfield(handles,'idl') && ~isempty(handles.idl),
-        saveDWT( strrep(fileBest,'.txt','.qub.dwt'), handles.dwt(best), ...
-                 (0:numel(best)-1)*traceLen, model, sampling );
-    end
+if ~isempty(handles.FRETs_indexes),
+    filename = [baseFilename '_all_fret.traces'];
+    savePickedTraces( handles, filename, handles.FRETs_indexes );
 end
 
-if ~isempty(FRETs),
-    saveTraces( fileFRETs, 'traces', handles.donor(FRETs,:), ...
-                handles.acceptor(FRETs,:), handles.fret(FRETs,:), ...
-                handles.ids(FRETs), handles.time ); 
-            
-    if isfield(handles,'idl') && ~isempty(handles.idl),
-        saveDWT( strrep(fileFRETs,'.txt','.qub.dwt'), handles.dwt(FRETs), ...
-                 (0:numel(FRETs)-1)*traceLen, model, sampling );
-    end
+if ~isempty(handles.Best_indexes),
+    filename = [baseFilename '_no_fret.traces'];
+    savePickedTraces( handles, filename, handles.NoFRETs_indexes );
 end
 
-if ~isempty(NoFRETs),
-    saveTraces( fileNoFRETs, 'traces', handles.donor(NoFRETs,:), ...
-                handles.acceptor(NoFRETs,:), handles.fret(NoFRETs,:), ...
-                handles.ids(NoFRETs), handles.time ); 
-    
-    if isfield(handles,'idl') && ~isempty(handles.idl),
-        saveDWT( strrep(fileNoFRETs,'.txt','.qub.dwt'), handles.dwt(NoFRETs), ...
-                 (0:numel(NoFRETs)-1)*traceLen, model, sampling );
-    end
-end
 
 % Finish up
 set(hObject,'Enable','off');
 
+
+
+function savePickedTraces( handles, filename, indexes )
+% Save picked traces and idealizations to file.
+
+data.time     = handles.time;
+data.donor    = handles.donor(indexes,:);
+data.acceptor = handles.acceptor(indexes,:);
+data.fret     = handles.fret(indexes,:);
+
+saveTraces( filename, 'traces', data );
+
+% Save idealizations of selected traces, if available.
+if isfield(handles,'idl') && ~isempty(handles.idl),
+    traceLen = numel(data.time);
+    
+    saveDWT( strrep(filename,'.txt','.qub.dwt'), handles.dwt(indexes), ...
+             (0:numel(indexes)-1)*traceLen, handles.dwtModel, handles.dwtSampling );
+end
+
+% end function savePickedTraces
 
 
 

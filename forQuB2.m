@@ -11,8 +11,8 @@ if nargin<1,
 end
 
 for i=1:length(files),
-    [d,a,fret] = loadTraces( files{i} );
-    fret = fret';
+    data = loadTraces( files{i} );
+    fret = data.fret';
     fret( fret<-0.5 ) = -0.5;
     fret( fret>1 ) = 1;
 

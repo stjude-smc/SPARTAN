@@ -29,7 +29,7 @@ fretOnly = false;  % if true, fluorescence intensity information is unavailable.
 
 %% Load trace data from user
 if ~exist('filename','var'),
-    [datafile,datapath] = uigetfile({'*.txt'},'Choose a traces file:');
+    [datafile,datapath] = uigetfile({'*.traces'},'Choose a traces file:');
     if datafile==0, return; end
 
     filename = [datapath filesep datafile];
@@ -56,19 +56,19 @@ if strfind(filename,'.qub.txt'),
 % If the datafile is an auto.txt file...
 else
     if ~exist('picks','var')
-        [d,a,f,ids] = loadTraces( filename );
+        data = loadTraces( filename );
     else
-        [d,a,f,ids] = loadTraces( filename, constants, picks );
+        data = loadTraces( filename, picks );
         showWB = 0;
     end
 end
 
 
-[nTraces,traceLen] = size(f);
+[nTraces,traceLen] = size(data.fret);
 
 % Calculate properties of each trace, which are used for filtering...
 if ~fretOnly,
-    stats = traceStat( d,a,f );
+    stats = traceStat( data );
 end
 
 
@@ -88,7 +88,7 @@ end
 
 for m=1:nTraces,
 
-    fret = f(m,:);
+    fret = data.fret(m,:);
         
     %===== Isolate individual events
 
@@ -112,8 +112,8 @@ for m=1:nTraces,
     % Calculate a score of the magnitude of anti-correlation in
     % fluorescence (minimumal value of zero).
     if ~fretOnly,
-        donor = d(m,:);
-        acceptor = a(m,:);
+        donor = data.donor(m,:);
+        acceptor = data.acceptor(m,:);
 
         meanT = stats(m).t;
         dd = gradient( donor ) / meanT;
@@ -245,13 +245,19 @@ if nargout==0
     end
 
     % Save each event as a seperate trace
-    saveTraces( [datapath 'ips.txt'],     'txt', sDonor,sAcceptor,sFRET,sIDs );
+    sData.donor    = sDonor;
+    sData.acceptor = sAcceptor;
+    sData.fret     = sFRET;
+    sData.ids      = sIDs;
+    
+    saveTraces( [datapath 'ips.traces'], 'traces', sData );
     saveTraces( [datapath 'ips.qub.txt'], 'qub', sFRET );
     
     % Save the set of traces that have at least one event.
     idxTracesWithEvents = find( hasEvents );
-    saveTraces( [datapath 'tracesWithEvents.txt'],'txt', d(idxTracesWithEvents,:), ...
-        a(idxTracesWithEvents,:), f(idxTracesWithEvents,:), ids(idxTracesWithEvents) );
+    saveTraces( [datapath 'tracesWithEvents.txt'],'txt', data.donor(idxTracesWithEvents,:), ...
+        data.acceptor(idxTracesWithEvents,:), data.fret(idxTracesWithEvents,:), ...
+        data.ids(idxTracesWithEvents) );
     
 % Otherwise, Save FRET data to output
 else
