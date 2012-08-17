@@ -114,8 +114,7 @@ donorAll = [];
 acceptorAll = [];
 fretAll = [];
 timeAxis = [];
-idsAll = {};
-
+traceMetadata = struct();
         
 for i=1:nFiles,
     
@@ -136,15 +135,13 @@ for i=1:nFiles,
     % Remove traces that were not selected
     if isfield( options, 'indexes' ),
         indexes = options.indexes{i};
-        data = loadTraces( files{i}, indexes );
-        assert( numel(data.ids)==size(data.donor,1) );
-        
+        data = loadTraces( files{i}, indexes );        
         stats = struct([]);
     else
         data.donor    = data.donor(indexes,:);
         data.acceptor = data.acceptor(indexes,:);
         data.fret     = data.fret(indexes,:);
-        data.ids      = data.ids{indexes};
+        data.traceMetadata = data.traceMetadata(indexes);
     end
     
     % Save trace data into one large pile for saving at the end
@@ -152,8 +149,12 @@ for i=1:nFiles,
     acceptorAll = [acceptorAll; data.acceptor];
     fretAll = [fretAll; data.fret];
     timeAxis = data.time;
-    idsAll = [idsAll; data.ids];
     
+    if i==1,
+        traceMetadataAll = data.traceMetadata;
+    else
+        traceMetadataAll = [traceMetadataAll data.traceMetadata];
+    end
     
     % Save stats info for logging.
     if isempty( allStats )
@@ -182,6 +183,7 @@ data.donor = donorAll;
 data.acceptor = acceptorAll;
 data.fret = fretAll;
 data.time = timeAxis;
+data.traceMetadata = traceMetadataAll;
 
 saveTraces(outFilename,format,data);
 

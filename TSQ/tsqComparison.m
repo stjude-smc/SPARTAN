@@ -39,20 +39,21 @@ binCenters = [];
 for i=1:nFiles,
    
     % Load dataset
-    [d,a,f,ids,time] = loadTraces(files{i});
+    data = loadTraces(files{i});
     
     if ~exist('sampling','var')
-        if time(1)==1,
+        if data.time(1)==1,
             framerate = inputdlg('What is the sampling interval (in ms) for this data?');
             sampling = str2double(framerate)
         else
-            sampling = time(2)-time(1)
+            sampling = data.time(2)-data.time(1)
         end
     end
 
     
     % Calculate trace properties, including intensity and bleaching time
-    stats = traceStat(d,a,f);
+    stats = traceStat( data );
+    clear data;
     
     % 
     meanIntensity(i) = mean( [stats.t] );

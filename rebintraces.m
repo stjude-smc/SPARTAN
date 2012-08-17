@@ -18,15 +18,8 @@ assert( factor>=1, 'Cannot expand trace resolution' );
 
 % If no files specified, prompt user for them.
 if ~exist('files','var'),
-    files = cell(0,1);
-
     disp('Select traces files, hit cancel when finished');
-    while 1,
-        [datafile,datapath] = uigetfile({'*.txt'},'Choose a traces file:');
-        if datafile==0, break; end  %user hit "cancel"
-
-        files{end+1} = [datapath filesep datafile];
-    end
+    files = getFiles;
 end
 
 nFiles = numel(files);
@@ -41,52 +34,29 @@ end
 for i=1:nFiles,
     
     % Load traces file
-    [donor,acceptor,fret,ids] = LoadTraces( files{i} );
+    data = LoadTraces( files{i} );
     
     % Shrink it
-    newSize = ceil(size(donor,2)/factor);
-    nTraces = size(donor,1);
+    newSize = ceil(size(data.donor,2)/factor);
+    nTraces = size(data.donor,1);
     disp( sprintf('Resizing to %d frames',newSize) );
     
-    donor2 = zeros(nTraces,newSize);
-    acceptor2 = zeros(nTraces,newSize);
+    data2.donor = zeros(nTraces,newSize);
+    data2.acceptor = zeros(nTraces,newSize);
     
     for j=1:nTraces,
-       donor2(j,:)    = TimeScale( donor(j,:),    factor );
-       acceptor2(j,:) = TimeScale( acceptor(j,:), factor );  
+       data2.donor(j,:)    = TimeScale( data.donor(j,:),    factor );
+       data2.acceptor(j,:) = TimeScale( data.acceptor(j,:), factor );  
     end
-    times2 = times(1:newSize); %*factor;
+    data2.times = times(1:newSize); %*factor;
     
-    fret = acceptor2./(donor2+acceptor2);
+    %Should actually have correctTraces here??
+    data2.fret = data2.acceptor./(data2.donor+data2.acceptor);
     
     
     % Write file back to disk
-    filename = strrep(files{i}, '.txt', '_shrunk.txt');
-    
-    fid=fopen(filename,'w');
-
-    % Write fluorescence data: {name} {datapoints...}
-    % 3 lines per molecule: donor, acceptor, fret
-    fprintf(fid, '%f ', times2);
-    fprintf(fid,'\n');
-    
-    for j=1:nTraces
-        
-        fprintf(fid,'%s ', ids{j});
-        fprintf(fid,'%g ', donor2(j,:));
-        fprintf(fid,'\n');
-        
-        fprintf(fid,'%s ', ids{j});
-        fprintf(fid,'%g ', acceptor2(j,:));
-        fprintf(fid,'\n');
-
-        fprintf(fid,'%s ', ids{j});
-        fprintf(fid,'%g ', fret(j,:));
-        fprintf(fid,'\n');
-        
-    end % for each molecule
-    
-    fclose(fid);
+    [p f] = fileparts( files{i} );
+    saveTraces( [p filesep f '_shrunk.traces'], data2 );
 end
 
 % end function

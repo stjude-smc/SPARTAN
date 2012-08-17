@@ -677,28 +677,39 @@ acceptor = acceptor - params.crosstalk*donor;
 
 
 % ---- Metadata: save various metadata parameters from movie here.
-% -- General terms that /must/ be the same in all traces.
-% metadata.channelNames   = 'donor,acceptor,fret';
 
 % -- Fields specific to this movie.
-% stk_fname = strrep(stk_fname,'.bz2','');
-% metadata.movieData.movieFilename  = stk_fname;
-% metadata.movieData.donorThreshold = params.don_thresh;
-% metadata.movieData.nPixelsToSum   = params.nPixelsToSum;
+% data.movieMetadata.filename  = strrep(stk_fname,'.bz2','');
+% data.movieMetadata.crosstalk = params.crosstalk;
 
 % -- Fields specific to each trace:
 % Save the locations of the picked peaks for later lookup.
-% traceData contains anything that is specific to individual traces and
-% thus will be passed along with it through processing.
-% nTraces = size(data.donor,1);
+% Also save indexes to map traces to movie metadata (here, everything is 1
+% because there is only one movie).
+nTraces = size(data.donor,1);
 
-% metadata.traceData = struct( ...
-%     'donor_x',    num2cell( x(1:2:end) ), 'donor_y',    num2cell( x(1:2:end) ), ...
-%     'acceptor_x', num2cell( x(1:2:end) ), 'acceptor_y', num2cell( x(1:2:end) ), ...
-%     'movieIndex', num2cell( ones(1,nTraces) )  ...
-% );
-%data.metadata = metadata;
+if params.geometry==1
+    data.traceMetadata = struct( 'donor_x',num2cell(x), 'donor_y',num2cell(y) );
+elseif params.geometry==2,
+    data.traceMetadata = struct( ...
+        'donor_x',    num2cell( x(1:2:end) ), 'donor_y',    num2cell( y(1:2:end) ), ...
+        'acceptor_x', num2cell( x(2:2:end) ), 'acceptor_y', num2cell( y(2:2:end) ) ...
+    );
+elseif params.geometry>2,
+    % TODO
+end
+% z = num2cell( ones(1,nTraces) );
+% [data.traceMetadata.movieIndex] = deal( z{:} );
 
+% -- Create trace identifiers.
+% This is just the full path to the movie plus a trace number. This can be
+% used to later find the corresponding original movie data for each
+% individual trace, even after many rounds of processing.
+stk_fname = strrep(stk_fname,'.bz2','');
+
+for i=1:nTraces,
+    data.traceMetadata(i).ids = sprintf( '%s#%d', stk_fname, i );
+end
 
 % ---- Save data to file.
 [p,name]=fileparts(stk_fname);

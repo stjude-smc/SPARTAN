@@ -12,8 +12,8 @@ end
 
 % Load traces
 for i=1:numel(filenames),
-    [d,a,f,ids,time] = loadTraces(filenames{i});
-    stats = traceStat(d,a,f);
+    data = loadTraces(filenames{i});
+    stats = traceStat(data);
     t = [stats.t];
     donorlife = [stats.donorlife];
     bg = [stats.bg];
@@ -30,9 +30,13 @@ for i=1:numel(filenames),
     
     % Select traces and save to a new file.
     ind = pickTraces( stats, criteria  );
+    data.donor    = data.donor(ind,:);
+    data.acceptor = data.acceptor(ind,:);
+    data.fret     = data.fret(ind,:);
+    data.traceMetadata = data.traceMetadata(ind);
     
-    fname = strrep(filenames{i},'.txt','_sel.txt');
-    saveTraces( fname, 'txt', d(ind,:),a(ind,:),f(ind,:),ids(ind),time );
+    [p f] = fileparts(filenames{i});
+    saveTraces( [p filesep f '_sel.txt'], 'traces', data );
 end
 
 

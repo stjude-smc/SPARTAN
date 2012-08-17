@@ -177,8 +177,6 @@ end
 % Verify input arguments
 if any( size(data.donor)~=size(data.acceptor) )
     error('Data matrix dimensions must agree');
-% elseif exist('ids','var') && numel(ids)~=nTraces
-%     error('Not enough IDs');
 end
 
 if any( isnan(data.donor(:)) | isnan(data.acceptor(:)) | isnan(data.fret(:)) )
@@ -187,12 +185,13 @@ end
 
 
 % 1) Create IDs if not specified and add to the metadata list
-if ~isfield(data,'ids') || isempty(data.ids),
-    [p,name] = fileparts(filename);
-    
-    data.ids = cell(nTraces,1);
-    for j=1:nTraces;
-        data.ids{j} = sprintf('%s_%d', name, j);
+if ~isfield(data,'traceMetadata');
+    data.traceMetadata = struct();
+end
+
+if ~isfield(data.traceMetadata,'ids'),
+    for i=1:nTraces;
+        data.traceMetadata(i).ids = sprintf('%s#%d', filename, i);
     end
 end
 
@@ -219,28 +218,38 @@ fwrite( fid, data.acceptor, 'single' );
 fwrite( fid, data.fret,     'single' );  
 
 % 5) Write metadata pages (if any)
-if ~isfield(data,'metadata'),
-    data.metadata = struct();
-end
-
-fnames = fieldnames( data.metadata );
+fnames = fieldnames( data.traceMetadata );
 
 for i=1:numel(fnames),
-    field = fnames{i};
-    metadataText = data.metadata.(field);
+    fname = fnames{i};
+    
+    % Collapse strucutre array into a single field for serialization.
+    m = data.traceMetadata(1).(fname);
+    
+    if isnumeric(m),
+        metadata = [data.traceMetadata.(fname)];
+    elseif ischar(m),
+        metadata = strcat( {data.traceMetadata.(fname)}, char(31) );
+        metadata = [ metadata{:} ];
+        metadata = metadata(1:end-1); %removing trailing seperator
+    else
+        warning('Unsupported field type');
+        continue;
+    end
     
     % Write metadata header
-    fwrite( fid, numel(field), 'uint8' );  % field title length
-    fwrite( fid, field, 'char' );          % field title text
+    fwrite( fid, numel(fname), 'uint8' );  % field title length
+    fwrite( fid, fname, 'char' );          % field title text
     
-    fieldDataType = find( strcmp(class(metadataText),dataTypes) );
+    fieldDataType = find( strcmp(class(metadata),dataTypes) );
     if isempty( fieldDataType ),
        error( 'Unsupported metadata field data type' ); 
     end
     
+    % Write field content
     fwrite( fid, fieldDataType-1, 'uint8' );
-    fwrite( fid, numel(metadataText), 'uint32' );
-    fwrite( fid, metadataText, class(metadataText) );
+    fwrite( fid, numel(metadata), 'uint32' );
+    fwrite( fid, metadata, class(metadata) );
  end
 
 

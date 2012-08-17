@@ -520,6 +520,8 @@ guidata(hObject,handles);
 % --- Executes on selection change in cboGeometry.
 function cboGeometry_Callback(hObject, eventdata, handles)
 %
+constants = cascadeConstants;
+
 handles.params.geometry = get(hObject,'Value');
 
 % If a movie has already been loaded, reload movie with new setup
@@ -528,14 +530,16 @@ if isfield(handles,'stkfile'),
 end
 
 if handles.params.geometry==1, %Single-channel recordings
-    set( handles.txtDACrosstalk, 'String', '' );
+    handles.params.crosstalk = 0;
     set( handles.txtDACrosstalk, 'Enable', 'off' );
 elseif handles.params.geometry==2, %Dual-channel recordings
-    set( handles.txtDACrosstalk, 'String', num2str(handles.params.crosstalk) );
+    handles.params.crosstalk = constants.crosstalk;
     set( handles.txtDACrosstalk, 'Enable', 'on' );
 elseif handles.params.geometry>2,
     % TODO
 end
+
+set( handles.txtDACrosstalk, 'String', num2str(handles.params.crosstalk) );
 
 guidata(hObject,handles);
 

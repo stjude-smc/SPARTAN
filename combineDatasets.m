@@ -31,7 +31,7 @@ h = waitbar(0,'Combining datasets');
 %% Load data
 nTraces = 0;
 traceLen = zeros(nFiles,1);
-d = cell(0,1); a=d; f=d; ids=d; time=d;
+d = cell(0,1); a=d; f=d; time=d;
 
 for i=1:nFiles,
 
@@ -40,8 +40,13 @@ for i=1:nFiles,
     d{i} = data.donor;
     a{i} = data.acceptor;
     f{i} = data.fret;
-    ids{i}  = data.ids;
-    time{i} = data.time;
+    time = data.time;
+    
+    if i==1,
+        metadataAll = data.traceMetadata;
+    else
+        metadataAll = [metadataAll data.traceMetadata];
+    end
     
     assert( ~any(isnan(data.donor(:))) & ~any(isnan(data.acceptor(:))) & ~any(isnan(data.fret(:))) );
     
@@ -49,9 +54,10 @@ for i=1:nFiles,
     traceLen(i) = numel(data.time);
     assert( traceLen(i)>1 );
     
-    waitbar(0.3*i/nFiles,h);
+    waitbar(0.7*i/nFiles,h);
 end
 minTraceLen = min( traceLen );
+
 
 % Resize traces so they are all the same length
 for i=1:nFiles,
@@ -59,39 +65,25 @@ for i=1:nFiles,
     d{i} = d{i}(:,1:minTraceLen);
     a{i} = a{i}(:,1:minTraceLen);
     f{i} = f{i}(:,1:minTraceLen);
-    time{i} = time{i}(1:minTraceLen);
 end
+waitbar(0.8,h);
 
 
+% Merge fluorescence and FRET data
+data.time = time(1:minTraceLen);
+data.donor    = vertcat( d{:} );
+data.acceptor = vertcat( a{:} );
+data.fret     = vertcat( f{:} );
+data.traceMetadata = metadataAll;
 
-%%
+assert( size(data.fret,1)==nTraces );
 
-d_out = [];
-a_out = [];
-f_out = [];
-ids_out = {};
 
-for i=1:nFiles,
-
-    % Add data to combined dataset
-    d_out = [d_out; d{i}];
-    a_out = [a_out; a{i}];
-    f_out = [f_out; f{i}];
-    ids_out = [ids_out ; ids{i}];
-    
-    waitbar(0.3+0.2*i/nFiles,h);
-end
-
-assert( size(f_out,1)==nTraces );
-
-clear data;
-data.donor    = d_out;
-data.acceptor = a_out;
-data.fret     = f_out;
-data.ids      = ids_out;
-data.time     = time{1};
-
+% Save merged dataset to file.
 saveTraces( outFilename, 'traces', data );
 
 waitbar(1,h);
 close(h);
+
+
+

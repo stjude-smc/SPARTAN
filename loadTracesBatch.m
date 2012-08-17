@@ -1,28 +1,19 @@
-function [data,ids,indexes] = loadTracesBatch( files )
+function [data,indexes] = loadTracesBatch( files )
 % LOADBATCH   Loads a list of files or all traces in a directory.
 %
-%   [DATA,IDS,INDEXES] = loadBatch( FILES )
-%   Loads fluorescence/FRET data from files in the cell array FILES. These
-%   are combined together into a structure (DATA) containing binary arrays
-%   for donor, acceptor, and fret (d,a,f) data; the time axis (.time) and
-%   a cell array of ids (.ids). INDEXES is an Nx2 array of the start and end
-%   trace IDs (in the large arrays) for each file. This allows one to easily
-%   seperate out the traces contributed by each file in the list.
+%   [DATA,INDEXES] = loadBatch( FILES )
+%   Loads fluorescence/FRET data from files in the cell array FILES.
 %
 
 %   [DATA,IDS,TIME] = loadBatch( DIR )
 %   Load all .traces files in the directory DIR.
 %
 
+data = struct();
 
 if nargin<1,
-    filter = {'*.txt;*.traces','All Traces Files (*.txt,*.traces)'; ...
-              '*.txt','Text Files (*.txt)'; ...
-              '*.traces','Binary Traces Files (*.traces)'; ...
-              '*.*','All Files (*.*)'};
     files = getFiles( filter );
     if isempty(files),
-        data = [];
         return;
     end
 end

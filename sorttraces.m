@@ -163,6 +163,7 @@ handles.donor    = data.donor;
 handles.acceptor = data.acceptor;
 handles.fret     = data.fret;
 handles.time     = data.time;
+handles.traceMetadata = data.traceMetadata;
 
 [handles.Ntraces,handles.len] = size(handles.donor);
 
@@ -446,6 +447,7 @@ data.time     = handles.time;
 data.donor    = handles.donor(indexes,:);
 data.acceptor = handles.acceptor(indexes,:);
 data.fret     = handles.fret(indexes,:);
+data.traceMetadata = handles.traceMetadata(indexes);
 
 saveTraces( filename, 'traces', data );
 

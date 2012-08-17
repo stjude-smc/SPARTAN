@@ -44,13 +44,20 @@ for i=1:nFiles,
     
     %-------------------------------------------------------------
     % 2) Load data from each file and calculate stats. 
-    [d,a,f,ids,time] = loadTraces( fnames{i} );
+    data = loadTraces( fnames{i} );
     [~,names{i},ext] = fileparts( fnames{i} );
+    
+    time = data.time;
+    d = data.donor;
+    a = data.acceptor;
+    f = data.fret;
     
     
     %-------------------------------------------------------------
     % 3) Pick traces according to defined criteria if not already filtered.
-    stats = traceStat( d,a,f, constants );
+    %stats = traceStat( data, constants );
+    stats = traceStat( data );
+    clear data;
     
     if strcmp(ext,'.traces'),
         % Fit the background distribution to find a good cutoff.
@@ -76,7 +83,6 @@ for i=1:nFiles,
         d = d(indexes,:);
         a = a(indexes,:);
         f = f(indexes,:);
-        ids = ids(indexes);
         stats = stats(indexes);
     end
     
@@ -158,16 +164,30 @@ for i=1:nFiles,
     sigma = initialModel.sigma';
     FRETmodel = [mu sigma];
     dwtFilename{i} = [ removeExt(fnames{i}) '.qub.dwt' ];
+    
+    % Save selected traces and idealization.
+    selectedData.time     = time;
+    selectedData.donor    = d(selected,:);
+    selectedData.acceptor = a(selected,:);
+    selectedData.fret     = f(selected,:);
+    
     offsets = traceLen*((1:sum(selected))-1);
-    saveTraces( [removeExt(fnames{i}) '_auto.txt'], 'txt', ...
-                d(selected,:),a(selected,:),f(selected,:),ids(selected),time );
+    
+    saveTraces( [removeExt(fnames{i}) '_auto.traces'], 'traces', selectedData );
     saveDWT( dwtFilename{i}, dwt(selected), offsets, FRETmodel, sampling );
+    clear selectedData;
+    
+    % Save rejectedtraces and idealization.
+    rejectedData.time     = time;
+    rejectedData.donor    = d(~selected,:);
+    rejectedData.acceptor = a(~selected,:);
+    rejectedData.fret     = f(~selected,:);
     
     offsets = traceLen*((1:sum(~selected))-1);
-    saveTraces( [removeExt(fnames{i}) '_rejected.txt'], 'txt', ...
-                d(~selected,:),a(~selected,:),f(~selected,:),ids(~selected),time );
+    saveTraces( [removeExt(fnames{i}) '_rejected.traces'], 'traces', rejectedData );
     saveDWT( strrep(dwtFilename{i},'.dwt','_rejected.dwt'), dwt(~selected), ...
              offsets, FRETmodel, sampling );
+    clear rejectedData;
          
          
     %-------------------------------------------------------------   

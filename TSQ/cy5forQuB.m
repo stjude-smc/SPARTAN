@@ -19,7 +19,9 @@ for i=1:nFiles,
     filename = files{i};
     
     % Load FRET data file
-    [d,a,f] = loadTraces( filename );
+    data = loadTraces( filename );
+    d = data.donor;
+    a = data.acceptor;
     
     % Use Cy3 if channels are reversed (instead of making a Cy3forqub script).
     if mean(d(:)) > mean(a(:)), a = d; end
@@ -29,7 +31,8 @@ for i=1:nFiles,
     % Using traceStat seems to bias toward high intensities and gives a poor
     % normalization. Fitting to Gaussians sometimes works and may be more
     % accurate, but not all data has a clear Gaussian distribution.
-    stats = traceStat( d,a,f, const );
+    %stats = traceStat( d,a,f, const );
+    stats = traceStat( data );
     a = a./mean([stats.t]);
 
 %     [amp,x] = hist( a(:), 100 );
@@ -44,7 +47,8 @@ for i=1:nFiles,
     %   All datapoints are concatinated into a M*N column vector;
     %   each datapoint is on a new line.
     %
-    outfilename = strrep( filename, '.txt', '.qub_cy5.txt' );
+    [p f] = fileparts(filename);
+    outfilename = [p filesep f '.qub_cy5.txt'];
     
     fid=fopen(outfilename,'w');
     if fid<=0,

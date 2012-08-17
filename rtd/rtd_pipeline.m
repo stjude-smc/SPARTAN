@@ -75,48 +75,13 @@ data = loadTraces( tracesFiles{1} );
 sampling = data.time(2); %ms
 disp(['sampling [ms]:', num2str(sampling)]);
 
-%% 3. Run pickTraces.m to filter acquired data
-
-disp('03. Running pickTraces...');
-% *** TODO: replace with loadPickSaveTraces()
-% Find the location of all traces files to analyze
-% d = dir( [dataDir filesep '*.traces'] );
+%% 3. Select traces according to selection criteria
+disp('03. Running autotrace...');
 d = rdir( [dataDir filesep '**' filesep '*.traces'] );
 
-tracesFiles = {d.name};
-nFiles = numel(tracesFiles);
+loadPickSaveTraces( {d.name}, selectionCriteria, ...
+                    'outFilename','selected_traces.traces' );
 
-% Select traces according to selection criteria
-d_out = []; a_out = []; f_out = []; ids_out = {};
-
-for i=1:nFiles,
-
-    % Load traces file
-    data = loadTraces( tracesFiles{i} );
-    time = data.time;
-    
-    % Select traces according to selection criteria.
-    stats = traceStat( data );
-    indexes = pickTraces( stats, selectionCriteria );
-    
-    d_out   = [d_out ; data.donor(indexes,:)];
-    a_out   = [a_out ; data.acceptor(indexes,:)];
-    f_out   = [f_out ; data.fret(indexes,:)];
-    ids_out = [ids_out data.ids(indexes)];
-
-end
-
-clear data;
-data.donor = d_out;
-data.acceptor = a_out;
-data.fret = f_out;
-data.ids = ids_out;
-data.time = time;
-
-% Save selected traces
-saveTraces( 'selected_traces.traces', 'traces', data );
-clear d_out; clear a_out; clear f_out; clear ids_out; clear time;
-clear data;
 
 %% 4. Run autosort.m and seperate events
 
@@ -145,10 +110,10 @@ offsets = traceLen*((1:nTraces)-1);
 data.donor    = data.donor( selected, :);
 data.acceptor = data.acceptor( selected, :);
 data.fret     = data.fret( selected, :);
-data.ids      = data.ids( selected );
+data.traceMetadata = data.traceMetadata( selected );
 
 % Save the filtered data...
-saveTraces( 'ips.flt.traces', 'txt', data );
+saveTraces( 'ips.flt.traces', 'traces', data );
 forQuB2( {'ips.flt.traces'} );
 saveDWT( 'ips1DHst.flt.qub.dwt', dwt, offsets, fretModel1, sampling );
 
@@ -159,7 +124,6 @@ frethist_norm_v4('ips.flt.traces',1,0,sampling);
 %% 6. Run statehist_2StateModel_v3.m and generate a 1D FRET histogram
 
 disp('06. Running statehist...');
-[nTraces,traceLen] = size(fret);
 x = repmat( [1 traceLen-1],[nTraces,1] );
 % y = repmat( offsets', [1,2] );
 y = repmat( [0:traceLen:(nTraces*traceLen-1)]', [1,2] );
@@ -181,7 +145,7 @@ statehist_2stateModel_v3( 'ips1DHst.flt.qub.dwt', ...
 disp('07. Running filter_2...');
 % Idealize the filtered data using SKM
 clear dwt; clear offsets;
-[dwt] = skm( fret, sampling, model2, skmParams );
+[dwt] = skm( data.fret, sampling, model2, skmParams );
 
 % Remove outliers
 nDwells = cellfun( @numel, dwt )./2;
@@ -192,13 +156,13 @@ dwt     = dwt( selected );
 nTraces = sum(selected);
 offsets = traceLen*((1:nTraces)-1);
 
-donor    = donor( selected, :);
-acceptor = acceptor( selected, :);
-fret     = fret( selected, :);
-ids      = ids( selected );
+data.donor    = data.donor( selected, :);
+data.acceptor = data.acceptor( selected, :);
+data.fret     = data.fret( selected, :);
+data.traceMetadata = data.traceMetadata( selected );
 
 % Save the filtered data...
-saveTraces( 'ips.flt.flt.txt', 'txt', donor,acceptor,fret,ids,time );
+saveTraces( 'ips.flt.flt.txt', 'traces', data );
 forQuB2( {'ips.flt.flt.txt'} );
 saveDWT( 'ips.flt.flt.qub.dwt', dwt, offsets, fretModel2, sampling );
 
@@ -213,8 +177,8 @@ cuttraces_v3('ips.flt.flt.txt', 'ips.flt.flt.qub.dwt',FRETac,time2peptide,sampli
 % Re-idealize each of the datasets. This is neccessary because the data
 % were modified by cuttraces. This also enables the model used for
 % idealization to better fit the unique features of each dataset.
-[d,a,fret] = loadTraces('allMol_ac120.txt');
-
+data = loadTraces('allMol_ac120.traces');
+fret = data.fret;
 if (size(fret,1))>0
     [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
     saveDWT( 'allMol_ac120.qub.dwt', dwt, offsets, fretModel2, sampling );
@@ -224,7 +188,8 @@ else
     file_allMol_ac120=0;
 end
 
-[d,a,fret] = loadTraces('PEP120.txt');
+data = loadTraces('PEP120.traces');
+fret = data.fret;
 if (size(fret,1))>0
     [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
     saveDWT( 'PEP120.qub.dwt', dwt, offsets, fretModel2, sampling );
@@ -234,7 +199,8 @@ else
     file_PEP120=0;
 end
 
-[d,a,fret] = loadTraces('noPep120.txt');
+data = loadTraces('noPep120.traces');
+fret = data.fret;
 if (size(fret,1))>0
     [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
     saveDWT( 'noPep120.qub.dwt', dwt, offsets, fretModel2, sampling );
@@ -254,7 +220,7 @@ set(gcf,'Position',[186 411 1037 404]);
 % Make FRET contour plots for each dataset.
 if file_allMol_ac120>0
     subplot(1,3,1);
-    [nAllMol,normfactor,frethst]=frethist_norm_v4('ips.flt.flt.txt',1,0,sampling);
+    [nAllMol,normfactor,frethst]=frethist_norm_v4('ips.flt.flt.traces',1,0,sampling);
     time_axis=frethst(1,2:end);
     fret_axis=frethst(2:end,1);
     con = 0:0.01:0.13;
@@ -278,7 +244,7 @@ end
 
 if file_PEP120>0
     subplot(1,3,2);
-    [nPEP,~,frethst]=frethist_norm_v4('PEP120org.txt',2,0,sampling,normfactor);
+    [nPEP,~,frethst]=frethist_norm_v4('PEP120org.traces',2,0,sampling,normfactor);
     time_axis=frethst(1,2:end);
     fret_axis=frethst(2:end,1);
     con = 0:0.01:0.13;
@@ -302,7 +268,7 @@ end
 
 if file_PEP120>0
     subplot(1,3,3);
-    [nNoPep,~,frethst]=frethist_norm_v4('noPep120.txt',2,0,sampling,normfactor);
+    [nNoPep,~,frethst]=frethist_norm_v4('noPep120.traces',2,0,sampling,normfactor);
     time_axis=frethst(1,2:end);
     fret_axis=frethst(2:end,1);
     con = 0:0.01:0.13;
@@ -332,7 +298,7 @@ set(gcf,'Position',[166 391 1037 404]);
 
 if file_allMol_ac120>0 
     subplot(1,3,1);
-    [nTraces1, nTrans1,tdpData] = tdplot_rtdata_v3( 'allMol_ac120.qub.dwt','allMol_ac120.txt',1);
+    [nTraces1, nTrans1,tdpData] = tdplot_rtdata_v3( 'allMol_ac120.qub.dwt','allMol_ac120.traces',1);
     tplot( tdpData, tdpOptions{:} );
     xlim([-0.15 1.0]); xlabel('Initial FRET');
     ylim([-0.15 1.0]); ylabel('Final FRET');
@@ -351,7 +317,7 @@ end
 
 if file_PEP120>0
     subplot(1,3,2);
-    [nTraces2, nTrans2,tdpData] = tdplot_rtdata_v3('PEP120.qub.dwt','PEP120.txt',2,nTrans1);
+    [nTraces2, nTrans2,tdpData] = tdplot_rtdata_v3('PEP120.qub.dwt','PEP120.traces',2,nTrans1);
     tplot( tdpData, tdpOptions{:} );
     xlim([-0.15 1.0]); xlabel('Initial FRET');
     ylim([-0.15 1.0]); ylabel('Final FRET');
@@ -370,7 +336,7 @@ end
 
 if file_noPEP120>0
     subplot(1,3,3);
-    [nTraces3, nTrans3,tdpData] = tdplot_rtdata_v3('noPep120.qub.dwt','noPep120.txt',2,nTrans1);
+    [nTraces3, nTrans3,tdpData] = tdplot_rtdata_v3('noPep120.qub.dwt','noPep120.traces',2,nTrans1);
     tplot( tdpData, tdpOptions{:} );
     xlim([-0.15 1.0]); xlabel('Initial FRET');
     ylim([-0.15 1.0]); ylabel('Final FRET');

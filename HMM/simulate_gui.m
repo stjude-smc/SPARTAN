@@ -94,9 +94,9 @@ disp( options );
 
 
 %----- Prompt user for location to save file in...
-[f,p] = uiputfile('*.txt','Save simulated data as...');
+[f,p] = uiputfile('*.traces','Save simulated data as...');
 if f==0, return; end  %user pressed "cancel"
-fname_txt = [p f];
+fname_output = [p f];
 
 
 %----- If requested, prompt user for background movie location:
@@ -163,37 +163,17 @@ fretModel = [options.mu' options.sigma'];
 [dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
 data.time = 1000*sampling*( 0:(traceLen-1) );
 
-% Generate ids for the traces
-[p,name] = fileparts(fname_txt);
-data.ids = cell(nTraces,1);
-for j=1:nTraces;
-    data.ids{j} = sprintf('%s_%d', name, j);
-end
-
 % Save resulting raw traces files
-fname_trc = strrep(fname_txt, '.txt', '.traces');
-saveTraces( fname_trc, 'traces', data );
-
-% Produce a .traces data file, as if it had been processed by autotrace/sorttraces.
-% Traces without a descernable bleaching event are removed.
-data = loadTraces(fname_trc);
-
-stats = traceStat( data );
-sel = [stats.snr]>=1;
-data.donor    = data.donor(sel,:);
-data.acceptor = data.acceptor(sel,:);
-data.fret     = data.fret(sel,:);
-data.ids      = data.ids(sel);
-
-saveTraces( fname_txt, 'txt', data );
+saveTraces( fname_output, 'traces', data );
 
 % Save the underlying state trajectory.
 % Only traces passing autotrace are saved so that the "true" idealization
 % can be directly compared to estimations.
-dwt = dwt(sel);
+% dwt = dwt(sel);
 offsets = (0:(numel(dwt)-1))*traceLen * (sampling*1000);
 
-fname_idl = strrep(fname_txt, '.txt', '.sim.dwt');
+[p f] = fileparts(fname_output);
+fname_idl = [p filesep f '.sim.dwt'];
 saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
 
@@ -201,15 +181,15 @@ saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 if simMovies
     % Run simulateMovie.m with user-provided parameter values.
     % TODO?: Peak locations are saved in simulateMovie for accuracy evaluation.
-     simulateMovie( fname_trc, bgMovieFilenames, options );
+     simulateMovie( fname_output, bgMovieFilenames, options );
 end
 
 
 %----- Save a log file detailing the input parameters...
 constants = cascadeConstants;
 
-logname = strrep( fname_txt, '.txt','.log' );
-fid = fopen(logname,'w');
+[p f] = fileparts(fname_output);
+fid = fopen( [p filesep f '.log'], 'w' );
 
 t = clock;
 fprintf(fid, 'Run time:  %d/%d/%d %d:%d  (v%s)', t(1:5), constants.version);

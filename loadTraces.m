@@ -23,6 +23,7 @@ function data = loadTraces( filename, indexes )
 %   number of traces are needed from a large file.
 %   
 
+data = struct();
 
 % If no file is specified, ask for one from the user.
 if nargin<1 || isempty(filename),
@@ -54,14 +55,10 @@ else
 end
 
 % If IDs are not present, create them.
-if isempty(data.ids)
-    [p,name] = fileparts(filename);
-    name = [name '_'];
-
-    nTraces = size(data.donor,1);
-    data.ids  = cell(nTraces,1);
-    data.ids(:) = {name};
-    strcat( data.ids, char((1:nTraces)+47)' );
+if ~isfield(data,'traceMetadata') || ~isfield(data.traceMetadata,'ids')
+    for i=1:size(data.donor,1),
+        data.traceMetadata(i).ids = sprintf( '%s#%d', filename, i );
+    end
 end
 
 end %function LoadTraces
@@ -140,7 +137,8 @@ data.fret = fret(indexes,:);
 % Get trace IDs, if available...
 if hasIDs,
     ids = ids(1:3:end-2);
-    data.ids = ids(indexes);
+    ids = ids(indexes);
+    data.traceMetadata = struct( 'ids', ids );
 end
 
 % Clean up
@@ -162,26 +160,24 @@ fid=fopen(filename,'r');
 len=fread(fid,1,'int32');
 Ntraces=fread(fid,1,'int16');
 
-% Read in the trace ids:
+% Read in the trace ids (required!)
 c = textscan(fid, '%[^-]', Ntraces/2, 'Delimiter','-');
 ids = c{1}';
-
-%If IDs are not present, create them
 assert( length(ids) == Ntraces/2, 'LoadTracesBinary: data mismatch' );
 
 % Read in the data:
-Data = fread( fid, [Ntraces len], 'int16' );
-time = fread( fid,  len, 'int32' );
+Input = fread( fid, [Ntraces len], 'int16' );
+data.time = fread( fid,  len, 'int32' );
 
 if isempty(time)
-    time = 1:len;
+    data.time = 1:len;
 else
-    assert( length(time)==len, 'loadTraces: Time axis size mismatch' );
+    assert( length(data.time)==len, 'loadTraces: Time axis size mismatch' );
 end
 
 % Parse the data into donor, acceptor, etc. arrays.
-donor    = double( Data(1:2:end-1,:) );
-acceptor = double( Data(2:2:end,  :) );
+donor    = double( Input(1:2:end-1,:) );
+acceptor = double( Input(2:2:end,  :) );
 
 % Make an adjustment for crosstalk on the camera
 acceptor = acceptor - constants.crosstalk*donor;
@@ -189,7 +185,7 @@ acceptor = acceptor - constants.crosstalk*donor;
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces( ...
                                 donor,acceptor,constants,indexes);
-data.ids = ids(indexes);
+data.traceMetadata = struct( 'ids', ids(indexes) );
 
 % Clean up
 clear Data;
@@ -237,21 +233,26 @@ assert( version==3, 'Version not supported!' );
 assert( nChannels==3, 'Only 2-color FRET data are currently recognized.' );
 assert( dataType==9, 'Only single values are supported.');
 
-time = fread( fid, [traceLen,1], 'single' ); %time axis (in seconds)
-donor    = fread( fid, [nTraces,traceLen], 'single' );
-acceptor = fread( fid, [nTraces,traceLen], 'single' );
-fret     = fread( fid, [nTraces,traceLen], 'single' );
+data.time = fread( fid, [traceLen,1], 'single' ); %time axis (in seconds)
+data.donor    = fread( fid, [nTraces,traceLen], 'single' );
+data.acceptor = fread( fid, [nTraces,traceLen], 'single' );
+data.fret     = fread( fid, [nTraces,traceLen], 'single' );
 szSingle = 4; %size of a single (32 bits)
 
-    
-if exist('indexes','var') && ~isempty(indexes),
-    donor    = donor(indexes,:);
-    acceptor = acceptor(indexes,:);
-    fret     = fret(indexes,:);
+
+% Select subset of traces if indexes are given.
+% If no indexes given, just select all. (simplifies later steps)
+if nargin<2 || isempty(indexes),
+    indexes = 1:nTraces;
 end
+    
+data.donor    = data.donor(indexes,:);
+data.acceptor = data.acceptor(indexes,:);
+data.fret     = data.fret(indexes,:);
 
 % 5) Read metadata.
-metadata = struct();
+% Adding this just to give the traceMetadata struct a basic structure.
+traceMetadata = struct( 'temp', num2cell(indexes) );
 
 while 1,
     % Read the page header.
@@ -260,8 +261,6 @@ while 1,
     
     pageDatatype = fread( fid, 1, 'uint8' );
     pageSize     = fread( fid, 1, 'uint32' );
-    
-    %pageY = fread( fid, 1, 'uint32' );
     
     if feof(fid), break; end
     
@@ -272,28 +271,28 @@ while 1,
         title(title==' ') = '_';
     end
     
-    metadata.(title) = fread( fid, [1,pageSize], ['*' dataTypes{pageDatatype+1}] );
-end
-
-% Parse out IDs
-if isfield(metadata,'ids')
-    c = textscan(metadata.ids, '%s', nTraces, 'Delimiter','\t');
-    ids = c{1}';
-else
-    ids = {};
+    m = fread( fid, [1,pageSize], ['*' dataTypes{pageDatatype+1}] );
+    
+    % Extract ids (delimited text)
+    if strcmp(title,'ids'),
+        c = textscan(m, '%s', nTraces, 'Delimiter',char(31));
+        m = c{1}';
+    end
+    
+    % Convert into structure array.
+    if iscell(m),
+        [traceMetadata.(title)] = deal( m{indexes} );
+    elseif isnumeric(m),
+        d = num2cell(m(indexes));
+        [traceMetadata.(title)] = deal( d{:} );
+    end
 end
 
 
 % Clean up
+data.traceMetadata = rmfield(traceMetadata,'temp');
 fclose(fid);
 
-
-data.donor    = donor;
-data.acceptor = acceptor;
-data.fret     = fret;
-data.time     = time;
-data.ids      = ids;
-data.metadata = metadata;
 
 end %function LoadTracesBinary
 

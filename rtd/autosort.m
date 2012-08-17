@@ -78,7 +78,6 @@ end
 sDonor    = zeros(0,traceLen);
 sAcceptor = zeros(0,traceLen);
 sFRET     = zeros(0,traceLen);
-sIDs      = cell(0,1);
 hasEvents = zeros(nTraces,1); %1 if trace has at least one accepted event
 nTracesWithEvents = 0;
 
@@ -213,8 +212,6 @@ for m=1:nTraces,
             sDonor(end+1,:)    = donor;
             sAcceptor(end+1,:) = acceptor;
         end
-        
-        sIDs{end+1}        = [ ids{m} 'e' num2str(i) ];
     end
     
     if showWB,  waitbar(m/nTraces,wb);  end
@@ -230,7 +227,7 @@ end
 
 if showWB,  close(wb);  end
 
-nEvents = size(sFRET,1);
+% nEvents = size(sFRET,1);
 %disp( sprintf('Found %.0f events from %.0f traces (%.0f total)', ...
 %              nEvents, nTracesWithEvents, nTraces) );
 
@@ -248,16 +245,17 @@ if nargout==0
     sData.donor    = sDonor;
     sData.acceptor = sAcceptor;
     sData.fret     = sFRET;
-    sData.ids      = sIDs;
     
     saveTraces( [datapath 'ips.traces'], 'traces', sData );
     saveTraces( [datapath 'ips.qub.txt'], 'qub', sFRET );
     
     % Save the set of traces that have at least one event.
     idxTracesWithEvents = find( hasEvents );
-    saveTraces( [datapath 'tracesWithEvents.txt'],'txt', data.donor(idxTracesWithEvents,:), ...
-        data.acceptor(idxTracesWithEvents,:), data.fret(idxTracesWithEvents,:), ...
-        data.ids(idxTracesWithEvents) );
+    sData.donor    = sData.donor(idxTracesWithEvents,:);
+    sData.acceptor = sData.acceptor(idxTracesWithEvents,:);
+    sData.fret     = sData.fret(idxTracesWithEvents,:);
+    
+    saveTraces( [datapath 'tracesWithEvents.traces'],'traces', sData );
     
 % Otherwise, Save FRET data to output
 else

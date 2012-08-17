@@ -222,7 +222,7 @@ if numel(idxToKeep)<numel(handles.filesLoaded),
     tracesLoaded.d   = tracesLoaded.d(tracesToKeep,:);
     tracesLoaded.a   = tracesLoaded.a(tracesToKeep,:);
     tracesLoaded.f   = tracesLoaded.f(tracesToKeep,:);
-    tracesLoaded.ids = tracesLoaded.ids(tracesToKeep);
+    tracesLoaded.traceMetadata = tracesLoaded.traceMetadata(tracesToKeep);
     
     stats = stats(tracesToKeep);
     
@@ -252,7 +252,7 @@ if ~isempty(filesToLoad)
     tracesLoaded(1).d   = [tracesLoaded.d ;  traceData.d  ];
     tracesLoaded.a   = [tracesLoaded.a ;  traceData.a  ];
     tracesLoaded.f   = [tracesLoaded.f ;  traceData.f  ];
-    tracesLoaded.ids = [tracesLoaded.ids ids];
+    tracesLoaded.traceMetadata = [tracesLoaded.traceMetadata traceData.traceMetadata];
     clear traceData;
 
     handles.nTraces = size( tracesLoaded.d,1 );

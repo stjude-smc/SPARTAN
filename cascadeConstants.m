@@ -1,14 +1,14 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '1.9';  %pipeline release version number
+constants.version = '2.0';  %pipeline release version number
 
 
 %--- Application settings for memory/CPU usage:
 
 % Correction factor for fluor detection efficiency.
 % 
-constants.gamma = 0.7; %
+constants.gamma = 1.0; %
 
 constants.min_fret = 0.125; % above which consider acceptor dye alive
 constants.fretEventTreshold = 0.14; % FRET value used for detecting FRET events
@@ -26,7 +26,7 @@ constants.blink_nstd=4;% set FRET=0 below threshold (donor is blinking)
 
 
 % Donor->Acceptor channel signal crosstalk (CorrectTraces.m)
-constants.crosstalk = 0.075;
+constants.crosstalk = 0.07;
 
 
 % CONSTANTS FOR PLOTTING FUNCTIONS
@@ -42,7 +42,7 @@ constants.contour_length = 50; %default # frames to display in cplot
 
 % 
 if ispc,
-    constants.modelLocation = 'C:\Analysis Files\models\';
+    constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
 else
     constants.modelLocation = '/home/dsterry/data/Daniel/models/';
 end
