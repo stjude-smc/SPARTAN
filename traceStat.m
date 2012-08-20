@@ -142,8 +142,6 @@ retval = struct( ...
     'timeSaturated', z ...
 );
 
-clear lifetime;
-
 
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
@@ -158,7 +156,7 @@ for i=1:Ntraces
     %---- Calculate donor lifetime
     % FRET is undefined when donor is dark, so it is always set
     % to exactly 0.  The last non-0 point is the photobleaching point.
-    % Bit of a hack, I know, but it works great.
+    % See the end of gettraces. This is a hack. FIXME.
     lt = find( fret~=0, 1,'last' )+1;
     if ~isempty(lt) && lt<len,
         retval(i).lifetime = lt;
@@ -173,7 +171,7 @@ for i=1:Ntraces
     dfilt_total = gradient(filt_total);
     thresh = mean(dfilt_total) - constants.overlap_nstd*std(dfilt_total);
     
-    dips = dfilt_total(1:lt)<=thresh;  %all points beyond threshold
+    dips = dfilt_total<=thresh;  %all points beyond threshold
     events = find( ~dips & [dips(2:end) 0] )+1;  %start points of drops in fluor
 
     lastPB = 0;

@@ -666,11 +666,15 @@ end
 
 
 % Make an adjustment for crosstalk on the camera.
+% I deliberately make the minimum value non-zero. This is useful so that
+% FRET ends up being non-zero and thus we can find where calcLifetime sets
+% the end of the trace by FRET values still. Otherwise, lt ends up being 0
+% for all traces. See traceStat. This is a hack. FIXME.
 constants = cascadeConstants;
 if ~isfield(params,'crosstalk'),
     params.crosstalk = constants.crosstalk;
 end
-acceptor = acceptor - params.crosstalk*donor;
+acceptor = acceptor - params.crosstalk*donor + 0.01;
 
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);
