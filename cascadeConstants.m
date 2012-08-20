@@ -20,6 +20,7 @@ constants.NSTD=8; % PB detection threshold (see CalcLifetime)
 constants.TAU=9; % median filter window size (PB detection).
 
 constants.gettracesThresholdStd = 8; %see gettraces.m
+constants.photonConversionFactor = 100/3.1; %Fluoescence AU/photon conversion.
 
 constants.overlap_nstd=5; % multiple PB detection threshold
 constants.blink_nstd=4;% set FRET=0 below threshold (donor is blinking)

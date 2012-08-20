@@ -35,6 +35,9 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %     - geometry: imaging geometry can be single-channel/full-chip (1), 
 %                 dual-channel/left-right (2), or quad-channel (3).
 %                 Default: dual-channel (2).
+%     - crosstalk: donor-to-acceptor channel fluorescence channel
+%                  bleedthrough (crosstalk) as a fraction. For correction.
+%     - photonConversion: fluorescence AU/photon conversion factor.
 %
 
 % TODO: also return unfiltered peak list (overlap=0) so overlap statistics
@@ -665,12 +668,20 @@ else  %quad-channel
 end
 
 
+% Convert fluorescence to arbitrary units to photon counts.
+% FIXME (?): make sure this doesn't mess up other functions that might rely
+% on the absolute intensities (are there any??).
+constants = cascadeConstants;
+if isfield(params,'photonConversion'),
+    donor    = donor./params.photonConversion;
+    acceptor = acceptor./params.photonConversion;
+end
+
 % Make an adjustment for crosstalk on the camera.
 % I deliberately make the minimum value non-zero. This is useful so that
 % FRET ends up being non-zero and thus we can find where calcLifetime sets
 % the end of the trace by FRET values still. Otherwise, lt ends up being 0
 % for all traces. See traceStat. This is a hack. FIXME.
-constants = cascadeConstants;
 if ~isfield(params,'crosstalk'),
     params.crosstalk = constants.crosstalk;
 end
