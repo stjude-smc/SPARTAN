@@ -21,7 +21,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 28-Oct-2010 17:14:14
+% Last Modified by GUIDE v2.5 20-Aug-2012 16:10:29
 
 
 % Begin initialization code - DO NOT EDIT
@@ -844,5 +844,49 @@ set(handles.editBin3,'String',num2str(Best_no));
 
 set(handles.btnSave,'Enable','on');
 guidata(hObject,handles);
+
+
+
+
+% --- Executes on button press in btnGettraces.
+function btnGettraces_Callback(hObject, eventdata, handles)
+%
+
+% Get the filename and movie coordinates of the selected trace.
+% FIXME: this assumes new format traces!
+m = handles.molecule_no;
+id = handles.traceMetadata(m).ids;
+output = split('#',id);
+[movieFilename,traceID] = deal( output{:} );
+
+% Verify file actually exists in the specified location. If not, given a
+% warning and try to find it in the current location.
+if ~exist( movieFilename, 'file' ),
+    warning('Movie file specified in trace metadata doesn''t exist!');
+        
+    [p,f,e] = fileparts(movieFilename);
+    altFilename = [pwd filesep f e];
+    if exist( altFilename, 'file' ),
+        movieFilename = altFilename;
+    else        
+        disp( ['Unable to find associated movie file: ' movieFilename] );
+        disp( 'Please find the associated movie file manually.' )
+        [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', [p filesep f e] );
+        movieFilename = [p f];
+        
+        % Verify the selected file exists.
+        if ~ischar(f) || ~exist(movieFilename,'file'),
+            return;
+        end
+    end
+end
+
+gettraces_gui( movieFilename, handles.traceMetadata(m) );
+
+
+% end function btnGettraces_Callback
+
+
+
 
 

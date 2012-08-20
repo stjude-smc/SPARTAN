@@ -61,27 +61,73 @@ function gettraces_OpeningFcn(hObject, eventdata, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to gettraces (see VARARGIN)
 
-% Choose default command line output for gettraces
-handles.output = hObject;
 
-% Setup initial values for parameter values
-constants = cascadeConstants();
+% Initialize GUI if gettraces is being launched for the first time.
+if ~isfield(handles,'params')
+    % Choose default command line output for gettraces
+    handles.output = hObject;
 
-% params.don_thresh = 0; %not specified = auto pick
-params.overlap_thresh = 2.1;
-params.nPixelsToSum   = 4;
-params.saveLocations  = 0;
-params.crosstalk = constants.crosstalk;
-params.geometry = 2; %dual-channel by default.
+    % Setup initial values for parameter values
+    constants = cascadeConstants();
 
-set( handles.txtIntensityThreshold,'String','' );
-set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
-set( handles.txtIntegrationWindow,'String',num2str(params.nPixelsToSum) );
-set( handles.txtDACrosstalk,'String',num2str(params.crosstalk) );
+    % params.don_thresh = 0; %not specified = auto pick
+    params.overlap_thresh = 2.1;
+    params.nPixelsToSum   = 4;
+    params.saveLocations  = 0;
+    params.crosstalk = constants.crosstalk;
+    params.geometry = 2; %dual-channel by default.
+
+    set( handles.txtIntensityThreshold,'String','' );
+    set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
+    set( handles.txtIntegrationWindow,'String',num2str(params.nPixelsToSum) );
+    set( handles.txtDACrosstalk,'String',num2str(params.crosstalk) );
+
+    handles.params = params;
+end
 
 % Update handles structure
-handles.params = params;
 guidata(hObject, handles);
+
+% gettraces may be called from sorttraces to load the movie associated with
+% a particular trace. The first argument is then the filename of the movie
+% file and the second argument is the x-y coordinate of the trace.
+if numel(varargin) > 0,
+    handles.stkfile = varargin{1};
+    traceMetadata = varargin{2};
+    
+    % Determine imaging geometry.
+    geometry=1;
+    if isfield(traceMetadata,'acceptor_x'),
+        geometry=2;
+    end
+    handles.params.geometry = geometry;
+    set( handles.cboGeometry, 'Value', geometry );
+    
+    % Load file
+    handles = OpenStk( handles.stkfile, handles, hObject );
+    set(handles.getTraces,'Enable','on');
+    
+    % If a trace number is given, highlight it.
+    if handles.params.geometry==2, %dual-channel
+        % Draw markers on selection points (donor side)
+        axes(handles.axDonor);
+        line(traceMetadata.donor_x,traceMetadata.donor_y,'LineStyle','none','marker','o','color','w','EraseMode','background');
+
+        % Draw markers on selection points (acceptor side)
+        ncol = size(handles.stk_top,2);
+        axes(handles.axAcceptor);
+        line(traceMetadata.acceptor_x-(ncol/2),traceMetadata.acceptor_y,'LineStyle','none','marker','o','color','w','EraseMode','background');
+    end
+
+    % Draw markers on selection points (total intensity composite image)
+    axes(handles.axTotal);
+    line(traceMetadata.donor_x,traceMetadata.donor_y,'LineStyle','none','marker','o','color','w','EraseMode','background');
+end
+
+
+% Update handles structure
+guidata(hObject, handles);
+
 
 
 % --- Outputs from this function are returned to the command line.
