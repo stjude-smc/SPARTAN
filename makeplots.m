@@ -74,15 +74,6 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
 %% INITIALIZE & PROCESS FUNCTION PARAMETERS
 
 % Option 1: If no files specified, prompt user for them.

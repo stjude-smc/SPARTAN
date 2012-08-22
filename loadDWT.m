@@ -1,4 +1,4 @@
-function [dwells,sampling,offsets,modelOut] = loadDWT(dwtfilename)
+function [dwells,sampling,offsets,model] = loadDWT(dwtfilename)
 % LOADDWT  Loads a QuB idealization dwell time file
 %     
 %   [DWELLS,SAMPLING,OFFSETS,FRET_MODEL] = LoadDWT( DWTFILENAME )
@@ -10,8 +10,9 @@ function [dwells,sampling,offsets,modelOut] = loadDWT(dwtfilename)
 %
 
 % Set default values for outputs in case user cancels.
-[sampling,offsets,modelOut] = deal( [] );
+[sampling,offsets,nStates] = deal( [] );
 dwells  = {};
+model = {};
 
 % Ask user for file if none specified.
 if nargin<1 || isempty(dwtfilename),
@@ -41,7 +42,14 @@ while 1,
     sampling  = data{3};
     startTime = data{4};
     nClasses  = data{5};
-    model     = str2num(data{6}{1});
+    
+    % Reshape model to expected dimensions (FRET first column, std second).
+    m = str2num(data{6}{1});
+    modelOut = zeros( numel(m)/2, 2 );
+    modelOut(:,1) = m(1:2:end); %FRET values
+    modelOut(:,2) = m(2:2:end); %standard deviations
+    model{segid} = modelOut;
+    nStates(segid) = numel(m)/2;
     
     offsets(segid) = startTime/sampling;  %segment start time (frames)
     
@@ -55,11 +63,13 @@ while 1,
 end
 fclose(fid);
 
-% Convert model information into the expected matrix shape.
-assert( mod(numel(model),2)==0, 'Bad FRET model definition' );
-modelOut = zeros( numel(model)/2, 2 );
-modelOut(:,1) = model(1:2:end); %FRET values
-modelOut(:,2) = model(2:2:end); %standard deviations
+% If all the models are identical, merge into a single model. Many
+% QuB-based functions assume this.
+if numel( unique(nStates) )==1,
+    if all(model{1}(:)==model{end}(:))
+        model = model{1};
+    end
+end
 
 if ~exist('sampling','var'),
     error('Malformed DWT file');

@@ -37,7 +37,6 @@ end
 % verify input arguments
 assert( iscell(idealization), 'Idealization must be a cell array' );
 assert( numel(idealization)==numel(offsets), 'Offsets do not match idealization' );
-assert( size(model,2)==2, 'Incorrect model dimensions' );
 
 nSegments = numel(idealization);
 
@@ -45,15 +44,11 @@ nSegments = numel(idealization);
 % Switch to row order so that (:) creates a sequence of mean+stdev pairs
 if ~iscell(model),
     assert( size(model,2)==2, 'Invalid model array shape' );
-    model = model'; % FRET in first row, stdev in second row.
-    nStates = numel(model)/2;
     
-    fretValues = model(1,:);
+    fretValues = model(:,1);
     if any( diff(fretValues)<=0 ),
         warning('saveDWT: FRET values are non-increasing!');
     end
-else
-    nStates = numel(model{1})/2;
 end
 
 
@@ -63,6 +58,15 @@ disp( ['Saving to ' filename] );
 
 for ctrSeg=1:nSegments,
     
+    %
+    if iscell(model),
+        m = model{ctrSeg};
+    else
+        m = model;
+    end
+    nStates = size(m,1);
+    
+    %
     segment = idealization{ctrSeg};
     nDwells = size(segment,1);
     offset  = offsets(ctrSeg);
@@ -78,13 +82,8 @@ for ctrSeg=1:nSegments,
     fprintf(fid, 'Segment: %d Dwells: %d Sampling(ms): %d Start(ms): %d ClassCount: %d', ...
                  ctrSeg, nDwells, sampling, offset*sampling, nStates );
     
-    if iscell(model),
-        m = model{ctrSeg}';
-        m = m(:);
-    else
-        m = model(:);
-    end    
-    fprintf(fid, ' %f', m );
+    
+    fprintf(fid, ' %f', m' );
     fprintf(fid, '\n');
     
     % Write sequence of dwells

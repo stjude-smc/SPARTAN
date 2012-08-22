@@ -774,7 +774,6 @@ handles.dwt = dwt;
 handles.dwtSampling = dwtSampling;
 handles.dwtModel = model;
 
-fretValues = model(:,1);
 dwtSampling = double(dwtSampling);
 
 % Verify that the DWT matches the trace data.
@@ -787,13 +786,23 @@ elseif offsets(end)>(nTraces*traceLen)
     msgbox('Idealization size does not match trace data.','Error loading idealization','Error');
 
 else
-    % Convert DWT to idealization
+    % Convert DWT to idealization (state sequence).
     idl = dwtToIdl( dwt, traceLen, offsets );
 
-    fretValues = [NaN; fretValues];
-    handles.idl = fretValues( idl+1 );
+    % Convert state sequence to idealized FRET trace.
+    for i=1:size(idl,1),
+        if iscell(model),
+            m = model{i};
+        else
+            m = model;
+        end
+        
+        fretValues = [NaN; m(:,1)];
+        idl(i,:) = fretValues( idl(i,:)+1 );
+    end
     
-    handles.idl = reshape( handles.idl, size(handles.fret) );
+%     handles.idl = reshape( idl, size(handles.fret) );
+    handles.idl = idl;
     
 end %if errors
 

@@ -41,9 +41,19 @@ for i=1:Ntraces,
 end
 
 % Save data to file
-% Write file to disk as a vector (columnwise through <data>)
 outfile = strrep(filename,'.traces','_vbFRET.dat')
-dlmwrite( outfile, output, ' ' );
+
+% Write header (trace names).
+fid = fopen(outfile,'w');
+ids = num2cell( ceil(0.5:0.5:Ntraces) );
+[~,baseName] = fileparts(filename);
+baseName = strrep( baseName, ' ','_' );
+
+fprintf( fid, [baseName '%04d\t' baseName '%04d\t'], ids{:} );
+fprintf( fid, '\n' );
+
+% Write file to disk as a vector (columnwise through <data>)
+dlmwrite( outfile, output, '-append', 'delimiter','\t' );
 
 
 end % function forvbFRET
