@@ -218,7 +218,10 @@ fwrite( fid, data.acceptor, 'single' );
 fwrite( fid, data.fret,     'single' );  
 
 % 5) Write metadata pages (if any)
-fnames = fieldnames( data.traceMetadata );
+fnames = {};
+if numel( data.traceMetadata )>0,
+    fnames = fieldnames( data.traceMetadata );
+end
 
 for i=1:numel(fnames),
     fname = fnames{i};

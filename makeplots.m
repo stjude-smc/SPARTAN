@@ -286,9 +286,17 @@ for i=1:numel(baseFilenames),  %for each sample
         axes(ax);
     end
     
-    % Draw the contour plot
-    cplot( ax, cplotdata, options.contour_bounds, constants );
-
+    % Draw the contour plot (which may be time-binned)
+    cpdata = cplot( ax, cplotdata, options.contour_bounds, constants );
+    
+    data = loadTraces(data_fname);
+    nTraces = size( data.donor, 1 );
+    cpdata(2:end,2:end) = cpdata(2:end,2:end)/nTraces; %normalize
+    
+    [p,n]  = fileparts(data_fname);
+    histfile = [p filesep n '_binnednormhist.txt'];
+    dlmwrite(histfile,cpdata,' ');
+    
     % Formatting
     title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
     

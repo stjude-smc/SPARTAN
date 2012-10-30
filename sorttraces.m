@@ -455,7 +455,10 @@ saveTraces( filename, 'traces', data );
 if isfield(handles,'idl') && ~isempty(handles.idl),
     traceLen = numel(data.time);
     
-    saveDWT( strrep(filename,'.txt','.qub.dwt'), handles.dwt(indexes), ...
+    [p,f] = fileparts(filename);
+    dwtFilename = [p filesep f '.qub.dwt'];
+    
+    saveDWT( dwtFilename, handles.dwt(indexes), ...
              (0:numel(indexes)-1)*traceLen, handles.dwtModel, handles.dwtSampling );
 end
 
@@ -865,8 +868,15 @@ function btnGettraces_Callback(hObject, eventdata, handles)
 % FIXME: this assumes new format traces!
 m = handles.molecule_no;
 id = handles.traceMetadata(m).ids;
-output = split('#',id);
-[movieFilename,traceID] = deal( output{:} );
+
+if any( id=='#' ),
+    output = split('#',id);
+    [movieFilename,traceID] = deal( output{:} );
+else
+    warning('No gettraces metadata available. re-run gettraces!');
+    return;
+end
+
 
 % Verify file actually exists in the specified location. If not, given a
 % warning and try to find it in the current location.
@@ -880,7 +890,7 @@ if ~exist( movieFilename, 'file' ),
     else        
         disp( ['Unable to find associated movie file: ' movieFilename] );
         disp( 'Please find the associated movie file manually.' )
-        [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', [p filesep f e] );
+        [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', [pwd filesep f e] );
         movieFilename = [p f];
         
         % Verify the selected file exists.

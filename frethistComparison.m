@@ -10,9 +10,9 @@ function f = frethistComparison(files, titles)
 % OPTIONS:
 nBootstrap = 100;
 constants = cascadeConstants();
-sampling = 40; %doesn't really matter, as long as its close
+sampling = 20; %doesn't really matter, as long as its close
 contour_bin_size = 0.03;
-pophist_sumlen = 80;
+pophist_sumlen = 100;
 pophist_offset = 20; %for removing contributions of gain drift
 fretaxis = (-0.2:contour_bin_size:1.2)';
 nbins = length(fretaxis);
@@ -62,8 +62,8 @@ skmParams.quiet = 1;
 for i=1:nFiles
     
     % Load FRET data
-    [d,a,fret] = loadTraces( files{i} );
-    fret = fret( :, pophist_offset+(1:pophist_sumlen) );
+    data = loadTraces( files{i} );
+    fret = data.fret( :, pophist_offset+(1:pophist_sumlen) );
     [nTraces,nFrames] = size(fret);
     
     

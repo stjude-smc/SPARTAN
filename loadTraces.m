@@ -169,7 +169,7 @@ assert( length(ids) == Ntraces/2, 'LoadTracesBinary: data mismatch' );
 Input = fread( fid, [Ntraces len], 'int16' );
 data.time = fread( fid,  len, 'int32' );
 
-if isempty(time)
+if isempty(data.time)
     data.time = 1:len;
 else
     assert( length(data.time)==len, 'loadTraces: Time axis size mismatch' );
