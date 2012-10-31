@@ -691,6 +691,20 @@ acceptor = acceptor - params.crosstalk*donor + 0.01;
 [data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);
 
 
+% Correct for variable sensitivity across acceptor-channel camera,
+% according to measurements with DNA oligos -- QZ
+% This is very specific to our equipment, so it should realistically be put
+% somewhere outside (cascadeConstants) as an option.
+% if params.acceptorFieldRescale,
+    % creat a Look up table for intensity correction
+    for j=1:Npeaks/2,
+        acc_y = y(2*j);
+        yCorrection = 0.87854+acc_y*9.45332*10^(-4);
+        acceptor(j,:) = acceptor(j,:)/yCorrection;
+    end
+% end
+
+
 % ---- Metadata: save various metadata parameters from movie here.
 
 % -- Fields specific to this movie.
