@@ -18,7 +18,7 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %
 %    GETTRACES( DIRECTORY, PARAMS )
 %    For each filename in DIRECTORY, the movie is loaded, processed, and
-%    a .traces file is saved automatically. No data is returned.
+%    a .rawtraces file is saved automatically. No data is returned.
 %    This is "batch mode".  Additional (optional) fields in PARAMS include
 %    option to check all child folders (recursive) and option to skip
 %    movies that have already been processed (skipExisting).
@@ -302,10 +302,10 @@ existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
 
 for i=1:nFiles,
     
-    % Skip if previously processed (.traces file exists)
+    % Skip if previously processed (.rawtraces file exists)
     stk_fname = strrep(movieFilenames(i).name,'.bz2','');
     [p,name]=fileparts(stk_fname);
-    traceFname = [p filesep name '.traces'];
+    traceFname = [p filesep name '.rawtraces'];
     
     if params.skipExisting && exist(traceFname,'file'),
         if ~params.quiet,
@@ -728,7 +728,7 @@ end
 
 % ---- Save data to file.
 [p,name]=fileparts(stk_fname);
-save_fname = [p filesep name '.traces'];
+save_fname = [p filesep name '.rawtraces'];
 
 saveTraces( save_fname, 'traces', data );
 

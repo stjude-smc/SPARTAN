@@ -11,7 +11,12 @@ function rogerTSQ(fnames)
 %-------------------------------------------------------------
 % 1) Request filenames from user.
 if nargin<1,
-    fnames = getFiles;
+    filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
+          '*.traces','Binary Traces Files (*.traces)'; ...
+          '*.txt','Text Files (*.txt)'; ...
+          '*.*','All Files (*.*)'};
+
+    fnames = getFiles(filter);
     if isempty(fnames), return; end
 end
 nFiles = numel(fnames);

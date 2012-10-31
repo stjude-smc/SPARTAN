@@ -17,7 +17,9 @@ if nargin<1,
 end
 
 if nargin<2,
-    files = getFiles;
+    filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces)'; ...
+              '*.*','All Files (*.*)'};
+    files = getFiles(filter);
 end
 
 constants = cascadeConstants();

@@ -230,7 +230,8 @@ function OpenTracesFile_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Open file with user-interface.
-filter = {'*.traces','Traces files (*.traces)'; ...
+filter = {'*.rawtraces;*.traces','All traces files (*.rawtraces,*.traces)'; ...
+          '*.rawtraces','Raw traces files (*.rawtraces)'; ...
           '*.txt','Old format traces files (*.txt)'};
       
 [datafile,datapath] = uigetfile( filter,'Choose a traces file:', ...
@@ -281,8 +282,8 @@ function btnOpenDirectory_Callback(hObject, eventdata, handles)
 datapath=uigetdir;
 if datapath==0, return; end %user hit cancel.
 
-% Create list of .traces files in the directory.
-traces_files = dir( [datapath filesep '*.traces'] );
+% Create list of .rawtraces files in the directory.
+traces_files = dir( [datapath filesep '*.rawtraces'] );
 
 if numel(traces_files) == 0
     disp('No files in this directory!');
@@ -324,8 +325,8 @@ if datapath==0, return; end
 handles.isBatchMode = 1;
 
 
-% Get a list of all traces files under the current directory
-trace_files  = rdir([datapath filesep '**' filesep '*.traces']);
+% Get a list of all raw traces files under the current directory
+trace_files  = rdir([datapath filesep '**' filesep '*.rawtraces']);
 
 % Pool these files into
 data_dirs = {};
@@ -349,8 +350,8 @@ for i=1:numel(data_dirs)
     
     datapath = data_dirs{i};
     
-    % Create list of .traces files in the directory.
-    traces_files = dir( [datapath filesep '*.traces'] );
+    % Create list of .rawtraces files in the directory.
+    traces_files = dir( [datapath filesep '*.rawtraces'] );
     handles.nFiles = numel(traces_files);
 
     if handles.nFiles == 0
@@ -401,8 +402,9 @@ if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
 end
 
 % Determine default filename to use when saving.
-handles.outfile = strrep(handles.inputfiles{1}, '.traces', '_auto.traces');
-handles.outfile = strrep(handles.outfile, '_01_auto.traces', '_auto.traces');
+[p f] = fileparts( handles.inputfiles{1} );
+handles.outfile = [p filesep f '_auto.traces'];
+% handles.outfile = strrep(f, '_01_auto.traces', '_auto.traces');
 
 % Calculate trace stats
 [infoStruct,nTracesPerFile] = traceStat( handles.inputfiles, handles.constants );
@@ -456,7 +458,7 @@ guidata(hObject,handles);
 
 
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
-function SaveTraces( filename, handles, txtOnly )
+function SaveTraces( filename, handles )
 
 % Build list of trace indexes in each file
 picks = handles.inds_picked;
@@ -522,7 +524,7 @@ guidata(hObject,handles);
 function ViewPickedTraces_Callback(hObject, eventdata, handles)
 
 [inputfile inputpath]=...
-    uiputfile('.txt','Save picked traces as:',handles.outfile);
+    uiputfile('.traces','Save picked traces as:',handles.outfile);
 if inputfile==0, return; end
 
 handles.outfile=[inputpath inputfile];
@@ -530,7 +532,7 @@ guidata(hObject,handles);
 
 
 % Save picked data to handles.outfile
-SaveTraces( handles.outfile, handles, 1 );
+SaveTraces( handles.outfile, handles );
 
 % Update GUI controls:
 % Disabling the button as a means of confirming operation success.

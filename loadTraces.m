@@ -27,7 +27,7 @@ data = struct();
 
 % If no file is specified, ask for one from the user.
 if nargin<1 || isempty(filename),
-    [f,p] = uigetfile( {'*.traces','Traces files (*.traces)'; ...
+    [f,p] = uigetfile( {'*.traces;*.rawtraces','Binary Traces Files (*.traces;*.rawtraces)'; ...
                         '*.txt','Old format traces files (*.txt)'; ...
                         '*.*','All Files (*.*)'}, 'Select a traces file');
     if p==0, return; end
@@ -47,7 +47,7 @@ end
 if strcmp(ext,'.txt')
     data = LoadTracesTxt( filename, indexes );
     
-elseif strcmp(ext,'.traces')
+elseif strcmp(ext,'.traces') || strcmp(ext,'.rawtraces')
     data = LoadTracesBinary2( filename, indexes );
     
 else
@@ -212,7 +212,7 @@ fid=fopen(filename,'r');
 z = fread( fid, 1, 'uint32' );  %identifies the new traces format.
 
 if z~=0,
-    disp('Assuming this is an old format traces file');
+    disp('Assuming this is an old format binary traces file');
     data = LoadTracesBinary(filename,indexes);
     return;
 end

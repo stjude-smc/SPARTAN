@@ -19,7 +19,12 @@ assert( factor>=1, 'Cannot expand trace resolution' );
 % If no files specified, prompt user for them.
 if ~exist('files','var'),
     disp('Select traces files, hit cancel when finished');
-    files = getFiles;
+    
+    filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces,*.rawtraces)'; ...
+          '*.txt','Text Files (*.txt)'; ...
+          '*.*','All Files (*.*)'};
+    
+    files = getFiles(filter);
 end
 
 nFiles = numel(files);
@@ -56,7 +61,7 @@ for i=1:nFiles,
     
     % Write file back to disk
     [p f] = fileparts( files{i} );
-    saveTraces( [p filesep f '_shrunk.traces'], data2 );
+    saveTraces( [p filesep f '_rebin.traces'], data2 );
 end
 
 % end function

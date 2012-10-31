@@ -82,7 +82,7 @@ end
 output(:,1) = time./1000; %convert to seconds
 
 % Output header lines
-fid = fopen('traces.txt','w');
+fid = fopen('forOrigin_traces.txt','w');
 
 fprintf(fid,'Time (s)');
 

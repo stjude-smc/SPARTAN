@@ -135,10 +135,14 @@ function btnOpen_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Get traces filename by menu driven input
-[handles.datafile,handles.datapath]=...
-    uigetfile({'*.traces;*.txt'},'Choose a traces file');
+filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces,*.rawtraces)'; ...
+          '*.txt','Text Files (*.txt)'; ...
+          '*.*','All Files (*.*)'};
+
+[handles.datafile,handles.datapath] = uigetfile(filter,'Choose a traces file');
+
 if handles.datafile==0, return; end
-handles.filename=[handles.datapath handles.datafile];
+handles.filename = [handles.datapath handles.datafile];
 
 % Load the file and initialize sorttraces
 handles = OpenTracesFile( handles.filename, handles );
@@ -447,7 +451,10 @@ data.time     = handles.time;
 data.donor    = handles.donor(indexes,:);
 data.acceptor = handles.acceptor(indexes,:);
 data.fret     = handles.fret(indexes,:);
-data.traceMetadata = handles.traceMetadata(indexes);
+
+if isfield(data,'traceMetadata')
+    data.traceMetadata = handles.traceMetadata(indexes);
+end
 
 saveTraces( filename, 'traces', data );
 
