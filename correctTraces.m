@@ -74,7 +74,7 @@ total = donor+acceptor;
 fret  = acceptor ./ total;
 
 
-% Sets FRET value to 0 when FRET is below a calculated threshold
+% Sets FRET value to 0 when intensity is below a calculated threshold
 % based on the number of standard devations above background
 for m=1:Ntraces,
 

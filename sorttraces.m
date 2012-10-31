@@ -68,7 +68,7 @@ if ~isfield(handles,'constants')
 
     % Initialize some variables, utilizing the handles structure
     handles.constants = cascadeConstants();
-    handles.defaultFretThreshold=3000;
+    handles.defaultFretThreshold=100;
     handles.default_crosstalk=0;
     set(handles.sldCrosstalk, 'Value',  handles.default_crosstalk);
     set(handles.sldThreshold, 'Value',  handles.defaultFretThreshold);
@@ -220,24 +220,39 @@ set(handles.btnSelAll2,'Enable','on');
 set(handles.btnSelAll3,'Enable','on');
 
 
-% Set data correction starting values
-handles.fretThreshold = handles.defaultFretThreshold;
-handles.crosstalk = handles.default_crosstalk;
-
 % Initialize arrays for background subtraction.
 handles.donor_background = 0;
 handles.acceptor_background = 0;
 
-% Initialize arrays for tracking FRET donor-blinking threshold value
-handles.fretThresholdArray = repmat( handles.defaultFretThreshold, ...
-                                    handles.Ntraces,1  );
+% Load trace properties for display.
+handles.stats = traceStat( data.donor,data.acceptor,data.fret );
 
-% Re-initialize figure objects
+% Initialize arrays for tracking FRET donor-blinking threshold value.
+handles.fretThreshold = repmat( handles.defaultFretThreshold, handles.Ntraces,1  );
+
+total = data.donor+data.acceptor;
+constants = cascadeConstants;
+
+for m=1:handles.Ntraces,
+    s = handles.stats(m).lifetime +5;
+    range = s:min(s+constants.NBK,handles.len);
+    if numel(range)<10, continue; end
+    
+    stdbg = std( total(m,range) );
+    handles.fretThreshold(m) = round(100*constants.blink_nstd*stdbg)/100;
+end
+
+% Set data correction starting values and re-initialize figure objects
+handles.crosstalk = handles.default_crosstalk;
+
 handles.molecule_no = 1;
 set(handles.editGoTo,'Enable','on','String',num2str(handles.molecule_no));
 
-set(handles.edThreshold, 'Enable','on', 'String',num2str(handles.fretThreshold));
-set(handles.sldThreshold,'Enable','on', 'Value', handles.fretThreshold);
+sliderMax = round(3*median([handles.stats.t]));
+set( handles.sldThreshold, 'min', 0, 'max', sliderMax, 'sliderstep', [0.01 0.1] );
+
+set(handles.edThreshold, 'Enable','on', 'String',num2str(handles.fretThreshold(1)));
+set(handles.sldThreshold,'Enable','on', 'Value', handles.fretThreshold(1));
 
 set(handles.edCrosstalk, 'Enable','on', 'String',num2str(handles.crosstalk));
 set(handles.sldCrosstalk,'Enable','on', 'Value', handles.crosstalk);
@@ -301,8 +316,6 @@ else
 end
 
 % Reset these values for the new trace.
-% handles.fretThreshold = handles.defaultFretThreshold;
-handles.fretThreshold = handles.fretThresholdArray(mol);
 handles.crosstalk     = handles.default_crosstalk;
 
 handles.donor_background = 0;
@@ -317,8 +330,8 @@ set(handles.chkBin3,'Value', any(handles.Best_indexes==mol) );
 set(handles.edCrosstalk,'String',num2str(handles.crosstalk));
 set(handles.sldCrosstalk,'Value',handles.crosstalk);
 
-set(handles.edThreshold,'String',num2str(handles.fretThreshold));
-set(handles.sldThreshold,'Value',handles.fretThreshold);
+set(handles.edThreshold,'String',num2str(handles.fretThreshold(mol)));
+set(handles.sldThreshold,'Value',handles.fretThreshold(mol));
 
 set(handles.btnSubDonor,'Enable','on');
 set(handles.btnSubBoth,'Enable','on');
@@ -578,10 +591,8 @@ function sldThreshold_Callback(hObject, eventdata, handles)
 mol = handles.molecule_no;
 
 % Update edit box with new value
-handles.fretThreshold = get(hObject,'Value');
-set(handles.edThreshold,'String', num2str(handles.fretThreshold) );
-
-handles.fretThresholdArray(mol) = handles.fretThreshold;
+handles.fretThreshold(mol) = get(hObject,'Value');
+set(handles.edThreshold,'String', num2str(handles.fretThreshold(mol)) );
 
 % Plot data with new threshold value
 handles = updateTraceData( handles );
@@ -598,11 +609,11 @@ function edThreshold_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of edThreshold as text
 %        str2double(get(hObject,'String')) returns contents of edThreshold as a double
 
+mol = handles.molecule_no;
+
 % Update slider with new value
 handles.fretThreshold = str2double( get(hObject,'String') );
-set( handles.sldThreshold, 'Value', handles.fretThreshold );
-
-handles.fretThresholdArray(mol) = handles.fretThreshold;
+set( handles.sldThreshold, 'Value', handles.fretThreshold(mol) );
 
 % Plot data with new threshold value
 handles = updateTraceData( handles );
@@ -626,7 +637,7 @@ total    = donor+acceptor;
 stats = traceStat( donor,acceptor,fret );
 lt = stats.lifetime;
 fret = acceptor./total;
-fret( total<handles.fretThreshold ) = 0;
+fret( total<handles.fretThreshold(m) ) = 0;
 if lt>0,
     fret( lt:end ) = 0;
 end
@@ -666,22 +677,14 @@ m        = handles.molecule_no;
 donor    = handles.donor(m,:);
 acceptor = handles.acceptor(m,:);
 fret     = handles.fret(m,:);
-total    = donor+acceptor;
 
-try
-    stats = traceStat( donor,acceptor,fret, constants );
-
-    % Save calculated values
-    %handles.minlt = minlt;
-    lt = stats.lifetime;
-    FRETlifetime = stats.acclife;
-    snr = stats.snr;
-    CC = stats.corr;
-catch err
-    lt = 0; FRETlifetime=0; snr=0; CC=0;
-    disp('Could not calculate values: error in traceStat');
-end
-
+% Get trace properties
+stats = handles.stats(m);
+%handles.minlt = minlt;
+lt = stats.lifetime;
+FRETlifetime = stats.acclife;
+snr = stats.snr;
+CC = stats.corr;
 
 % Reset GUI values with these results
 set(handles.editCorrelation,'String', sprintf('%.2f',CC) );
@@ -694,7 +697,6 @@ data_fname = strrep(name, '_', '\_');
 
 % Plot fluorophore traces
 signal = donor+acceptor;
-% time = 1:handles.len;
 
 time = handles.time;
 inFrames = (handles.time(1)==1);
@@ -719,7 +721,7 @@ axes(handles.axTotal);
 hold off;
 cla;
 plot( time,gamma*donor+acceptor,'k',...
-    time,handles.fretThreshold*ones(1,handles.len),'m');
+    time,handles.fretThreshold(m)*ones(1,handles.len),'m');
 ylabel('Total Fluorescence');
 grid on;
 zoom on;
@@ -759,7 +761,7 @@ hold off;
 if inFrames,
     xlabel('Frame Number');
 else
-    xlabel('Time (sec)');
+    xlabel('Time (s)');
 end
 
 
