@@ -268,7 +268,18 @@ set(handles.btnPrevBottom,'Enable','off');
 set(handles.btnPrint, 'Enable','on');
 set(handles.btnLoadDWT, 'Enable','on');
 
-handles.idl = [];
+
+% Look for an corresponding idealization file and load it if found.
+dwt_fname = [p filesep fname '.qub.dwt'];
+dwt_fname2 = [p filesep fname '.dwt'];
+
+if exist( dwt_fname, 'file' ),
+    handles = loadDWT_ex( handles, dwt_fname );
+elseif exist( dwt_fname2, 'file' ),
+    handles = loadDWT_ex( handles, dwt_fname2 );
+else
+    handles.idl = [];
+end
 
 plotter(handles);
 
@@ -774,12 +785,29 @@ end
 function btnLoadDWT_Callback(hObject, eventdata, handles)
 % Loads an idealization (.dwt file) for later plotting in plotter().
 
+handles = loadDWT_ex( handles );
+
+% Save data to GUI
+guidata(hObject,handles);
+
+% Update GUI
+plotter(handles);
+
+
+
+function handles = loadDWT_ex( handles, filename)
+% This function actually loads the dwell-time information.
+
 time = handles.time;
 sampling = time(2)-time(1);
 [nTraces,traceLen] = size(handles.fret);
 
 % Get filename for .dwt file from user and load it.
-[dwt,dwtSampling,offsets,model] = loadDWT;
+if nargin>1,
+    [dwt,dwtSampling,offsets,model] = loadDWT(filename);
+else
+    [dwt,dwtSampling,offsets,model] = loadDWT;
+end
 if isempty(dwt), return; end
 
 handles.dwt = dwt;
@@ -818,12 +846,6 @@ else
     
 end %if errors
 
-
-% Save data to GUI
-guidata(hObject,handles);
-
-% Update GUI
-plotter(handles);
 
 
 
