@@ -200,6 +200,10 @@ end
 
 %% ---- Save log file
 
+if isempty(p)
+    p = pwd;
+end
+    
 % logFilename = strrep(outFilename,'.traces','.log');
 logFilename = [p filesep n '.log'];
 fid = fopen(logFilename,'w');

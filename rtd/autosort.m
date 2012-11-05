@@ -251,11 +251,11 @@ if nargout==0
     
     % Save the set of traces that have at least one event.
     idxTracesWithEvents = find( hasEvents );
-    sData.donor    = sData.donor(idxTracesWithEvents,:);
-    sData.acceptor = sData.acceptor(idxTracesWithEvents,:);
-    sData.fret     = sData.fret(idxTracesWithEvents,:);
+    dataEvents.donor    = data.donor(idxTracesWithEvents,:);
+    dataEvents.acceptor = data.acceptor(idxTracesWithEvents,:);
+    dataEvents.fret     = data.fret(idxTracesWithEvents,:);
     
-    saveTraces( [datapath 'tracesWithEvents.traces'],'traces', sData );
+    saveTraces( [datapath 'tracesWithEvents.traces'],'traces', dataEvents );
     
 % Otherwise, Save FRET data to output
 else

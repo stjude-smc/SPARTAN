@@ -46,10 +46,11 @@ end
 
 
 % Load FRET data.
-[d,a,data] = loadTraces(tracefilename);
-[nTraces,traceLen] = size(data);
-data = data';
-data = data(:);
+data = loadTraces(tracefilename);
+fretData = data.fret;
+[nTraces,traceLen] = size(fretData);
+fretData = fretData';
+fretData = fretData(:);
 % Load dwell-time information
 [dwt,sampling,offsets] = loadDWT(dwtfilename);
 nsegs = numel(dwt);
@@ -69,7 +70,7 @@ for i=1:nsegs
 
     
     % Load FRET data for this trace.
-    seg = data( offsets(i)+(1:traceLen-1) );
+    seg = fretData( offsets(i)+(1:traceLen-1) );
  
     %---
     %---Convert the lists of initial and final dwell times into lists of
