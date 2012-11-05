@@ -12,15 +12,13 @@ dataDir = uigetdir(pwd,'Select data directory');
 cd(dataDir);
 disp('01. Set Pipeline Parameters...');
 % Load model and set re-estimation constraints: based 2-state model.
-%model1 = qub_loadModel( [modelDir filesep 'FretHist_2State_model.qmf'] );
-model1 = qub_loadModel('D:\backup-part3\tRNA-selection_DCMutans_DH5a\QuB-Models\FretHist_2State_model.qmf');
+model1 = qub_loadModel( [constants.modelLocation filesep 'tRNA selection/090520_FretHist_2State_model.qmf'] );
 model1.fixMu    = ones( model1.nStates,1 );
 model1.fixSigma = ones( model1.nStates,1 );
 fretModel1 = [model1.mu' model1.sigma'];
 
 % Load model and set re-estimation constraints: full 6-state kinetic model
-%model2 = qub_loadModel( [modelDir filesep 'BL21_initial_model_k20linear.qmf'] );
-model2 = qub_loadModel('D:\backup-part3\tRNA-selection_BL21\QuB-Models\BL21_initial_model_k20linear.qmf');
+model2 = qub_loadModel( [constants.modelLocation filesep 'tRNA selection/090520_OH_initial_model_k20linear.qmf'] );
 model2.fixMu    = ones( model2.nStates,1 );
 model2.fixSigma = ones( model2.nStates,1 );
 fretModel2 = [model2.mu' model2.sigma'];
@@ -69,7 +67,7 @@ timeWindow=42; %unit: Images
 disp('02. Running gettraces...');
 
 % Get the sampling rate
-d = rdir( [dataDir filesep '**' filesep '*.traces'] );
+d = rdir( [dataDir filesep '**' filesep '*.rawtraces'] );
 tracesFiles = {d.name};
 data = loadTraces( tracesFiles{1} );
 sampling = data.time(2); %ms
@@ -77,10 +75,10 @@ disp(['sampling [ms]:', num2str(sampling)]);
 
 %% 3. Select traces according to selection criteria
 disp('03. Running autotrace...');
-d = rdir( [dataDir filesep '**' filesep '*.traces'] );
+d = rdir( [dataDir filesep '**' filesep '*.rawtraces'] );
 
-loadPickSaveTraces( {d.name}, selectionCriteria, ...
-                    'outFilename','selected_traces.traces' );
+opt.outFilename = 'selected_traces.traces';
+loadPickSaveTraces( {d.name}, selectionCriteria, opt );
 
 
 %% 4. Run autosort.m and seperate events
@@ -162,8 +160,8 @@ data.fret     = data.fret( selected, :);
 data.traceMetadata = data.traceMetadata( selected );
 
 % Save the filtered data...
-saveTraces( 'ips.flt.flt.txt', 'traces', data );
-forQuB2( {'ips.flt.flt.txt'} );
+saveTraces( 'ips.flt.flt.traces', 'traces', data );
+forQuB2( {'ips.flt.flt.traces'} );
 saveDWT( 'ips.flt.flt.qub.dwt', dwt, offsets, fretModel2, sampling );
 
 
@@ -172,7 +170,7 @@ saveDWT( 'ips.flt.flt.qub.dwt', dwt, offsets, fretModel2, sampling );
 disp('08. Running cuttraces...');
 % Seperate data into three groups, according to whether a peptide bond was
 % formed or not: allMol12, Pep120, and noPep120.
-cuttraces_v3('ips.flt.flt.txt', 'ips.flt.flt.qub.dwt',FRETac,time2peptide,sampling);
+cuttraces_v3('ips.flt.flt.traces', 'ips.flt.flt.qub.dwt',FRETac,time2peptide,sampling);
 
 % Re-idealize each of the datasets. This is neccessary because the data
 % were modified by cuttraces. This also enables the model used for
@@ -199,11 +197,11 @@ else
     file_PEP120=0;
 end
 
-data = loadTraces('noPep120.traces');
+data = loadTraces('noPEP120.traces');
 fret = data.fret;
 if (size(fret,1))>0
     [dwt,m,l,offsets] = skm( fret, sampling, model2, skmParams );
-    saveDWT( 'noPep120.qub.dwt', dwt, offsets, fretModel2, sampling );
+    saveDWT( 'noPEP120.qub.dwt', dwt, offsets, fretModel2, sampling );
     file_noPEP120=1;
 else
     disp('file is emty');
@@ -268,7 +266,7 @@ end
 
 if file_PEP120>0
     subplot(1,3,3);
-    [nNoPep,~,frethst]=frethist_norm_v4('noPep120.traces',2,0,sampling,normfactor);
+    [nNoPep,~,frethst]=frethist_norm_v4('noPEP120.traces',2,0,sampling,normfactor);
     time_axis=frethst(1,2:end);
     fret_axis=frethst(2:end,1);
     con = 0:0.01:0.13;
@@ -336,7 +334,7 @@ end
 
 if file_noPEP120>0
     subplot(1,3,3);
-    [nTraces3, nTrans3,tdpData] = tdplot_rtdata_v3('noPep120.qub.dwt','noPep120.traces',2,nTrans1);
+    [nTraces3, nTrans3,tdpData] = tdplot_rtdata_v3('noPEP120.qub.dwt','noPEP120.traces',2,nTrans1);
     tplot( tdpData, tdpOptions{:} );
     xlim([-0.15 1.0]); xlabel('Initial FRET');
     ylim([-0.15 1.0]); ylabel('Final FRET');

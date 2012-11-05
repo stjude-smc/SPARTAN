@@ -16,7 +16,13 @@ switch format
         saveTracesBinary( filename, data );
         
     case 'qub'
-        saveTracesQUB( filename, data.fret );
+        if isstruct(data)
+            fret = data.fret;
+        else
+            fret = data;
+        end
+        
+        saveTracesQUB( filename, fret );
         
     otherwise
         error('Unknown file format');

@@ -279,10 +279,10 @@ dataNoPep.donor    = data.donor(noPepSelected,:);
 dataNoPep.acceptor = data.acceptor(noPepSelected,:);
 dataNoPep.fret     = fret(noPepSelected,:);
 
-saveTraces('noPep120.traces','traces',dataNoPep );
+saveTraces('noPEP120.traces','traces',dataNoPep );
         
 waitbar(0.7,wbh,'Saving Traces...');
- saveTraces( 'noPep120.qub.txt','qub', fret(noPepSelected,:) );
+ saveTraces( 'noPEP120.qub.txt','qub', fret(noPepSelected,:) );
  
 waitbar(0.95,wbh);
 close(wbh);
