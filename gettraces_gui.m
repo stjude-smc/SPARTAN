@@ -318,7 +318,7 @@ for i=1:nFiles
     % Skip if previously processed (.traces file exists)
     stk_fname = strrep(stk_fname,'.bz2','');
     [p,name] = fileparts(stk_fname);
-    traceFname = [p filesep name '.traces'];
+    traceFname = [p filesep name '.rawtraces'];
     
     if skipExisting && exist(traceFname,'file'),
         disp( ['Skipping (already processed): ' stk_fname] );

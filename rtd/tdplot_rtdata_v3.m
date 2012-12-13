@@ -147,12 +147,14 @@ switch (answer)
 end
 
 %--- Save Files
+[p,n] = fileparts(tracefilename);
+    
 if normMethod==1
-    outfile=strrep(tracefilename,'.txt','_tdp1.txt');
+    outfile = [p n '_tdp1.txt'];
 elseif normMethod==2
-    outfile=strrep(tracefilename,'.txt','_tdp2.txt');
+    outfile = [p n '_tdp2.txt'];
 elseif normMethod==3
-    outfile=strrep(tracefilename,'.txt','_tdp3.txt'); 
+    outfile = [p n '_tdp3.txt'];
 end
 dlmwrite(outfile,tdp,' ');
 
