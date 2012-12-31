@@ -488,10 +488,12 @@ for j=1:nPicked,
 end
 
 % Verify the alignment
-x_align = mean( align_acc_y-acc_y );
+x_align = mean( align_acc_x-acc_x );
 y_align = mean( align_acc_y-acc_y );
-if abs(x_align)+abs(y_align)>0.5,
+if abs(x_align)>0.5 || abs(y_align)>0.5,
     warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
+    abs(x_align)
+    abs(y_align)
 end
 
 

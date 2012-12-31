@@ -9,7 +9,8 @@ function combineDatasets( filenames, outFilename )
 %  not specified, the user will be prompted for them.
 
 
-%%
+
+%% Get file names if not specified.
 if nargin<1,
     filenames = getFiles;
     if isempty(filenames), return; end;
@@ -31,7 +32,7 @@ h = waitbar(0,'Combining datasets');
 %% Load data
 nTraces = 0;
 traceLen = zeros(nFiles,1);
-d = cell(0,1); a=d; f=d; time=d;
+d = cell(0,1); a=d; f=d; time=[];
 
 for i=1:nFiles,
 
@@ -40,8 +41,13 @@ for i=1:nFiles,
     d{i} = data.donor;
     a{i} = data.acceptor;
     f{i} = data.fret;
-    time = data.time;
     
+    % Find the longest time axis for merged traces.
+    if length(data.time)>max(traceLen),
+        time = data.time;
+    end
+    
+    % Merge metadata fields into the final structure.
     if i==1,
         metadataAll = data.traceMetadata;
     else
@@ -56,21 +62,56 @@ for i=1:nFiles,
     
     waitbar(0.7*i/nFiles,h);
 end
-minTraceLen = min( traceLen );
 
 
-% Resize traces so they are all the same length
-for i=1:nFiles,
-    if isempty(d{i}), continue; end
-    d{i} = d{i}(:,1:minTraceLen);
-    a{i} = a{i}(:,1:minTraceLen);
-    f{i} = f{i}(:,1:minTraceLen);
-end
+
+
+%% Resize traces so they are all the same length
+if min( traceLen )~=max( traceLen ),
+    
+    choice = questdlg('Traces are different lengths. How do you want to modify the traces so they are all the same length?', ...
+                      'Resize traces', 'Truncate','Extend','Cancel', 'Cancel');
+
+    if strcmp(choice,'Cancel'),
+        close(h);
+        return;
+
+    elseif strcmp(choice,'Truncate'),
+        % Shorten traces to the same length
+        newTraceLength = min( traceLen );
+
+        for i=1:nFiles,
+            if isempty(d{i}), continue; end
+            d{i} = d{i}(:,1:newTraceLength);
+            a{i} = a{i}(:,1:newTraceLength);
+            f{i} = f{i}(:,1:newTraceLength);
+        end
+        
+        time = time(1:newTraceLength);
+
+    else
+        % Extend the traces so they are the same length by duplicating
+        % the values in the last frame to pad the end. This can create 
+        % problems later on, so use with caution!
+        newTraceLength = max( traceLen );
+
+        for i=1:nFiles,
+            if isempty(d{i}), continue; end
+
+            delta = newTraceLength-size(d{i},2);
+            d{i} = [d{i} repmat( d{i}(:,end), 1, delta )];
+            a{i} = [a{i} repmat( a{i}(:,end), 1, delta )];
+            f{i} = [f{i} zeros( size(d{i},1), delta )];
+        end
+    end
+    
+end %if trace length mismatch
+
 waitbar(0.8,h);
 
 
 % Merge fluorescence and FRET data
-data.time = time(1:minTraceLen);
+data.time = time;
 data.donor    = vertcat( d{:} );
 data.acceptor = vertcat( a{:} );
 data.fret     = vertcat( f{:} );

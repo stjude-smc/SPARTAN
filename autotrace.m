@@ -147,7 +147,7 @@ end
 
 % Set default selections for the drop-down boxes.
 set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
-set( handles.cboStat2, 'Value', find(strcmp('lifetime',shortNames))  );
+set( handles.cboStat2, 'Value', find(strcmp('donorlife',shortNames))  );
 set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
 set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
 set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );

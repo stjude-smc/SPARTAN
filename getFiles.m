@@ -25,15 +25,7 @@ if nargin<1 || isempty(filter),
 end
 
 while 1,
-    % re-order filter list to make the selection go to the top.
-    % (for convenience when selection many files).
-    % If the user enters a custom filter, we cannot get it so do nothing
-    % (this happens when filterIndex>number of defined filters).
-    if ~isempty(filterIndex) && filterIndex<=size(filter,1) && filterIndex>0,
-        ind = 1:size(filter,1);
-        filter = [ filter(filterIndex,:); filter(ind~=filterIndex,:) ];
-    end
-    
+    % Get file name from user.
     [f,p,filterIndex] = uigetfile(filter, prompt, 'MultiSelect','on');
     
     if iscell(f),
@@ -47,7 +39,7 @@ while 1,
     % (for convenience when selection many files).
     % If the user enters a custom filter, we cannot get it so do nothing
     % (this happens when filterIndex>number of defined filters).
-    if filterIndex<=size(filter,1),
+    if filterIndex<=size(filter,1) && filterIndex>0,
         ind = 1:size(filter,1);
         filter = [ filter(filterIndex,:); filter(ind~=filterIndex,:) ];
     end

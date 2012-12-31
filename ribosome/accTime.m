@@ -58,7 +58,7 @@ for i=1:nFiles,
     sampling = data.time(2)-data.time(1);
 
     % Idealize FRET data
-    [p,n] = fileparts(traceFiles{i});
+    [p,n] = fileparts(tracesFiles{i});
     dwtFilename = [p filesep n '.qub.dwt'];
     [dwt,newModel,LL,offsets] = skm( fret, sampling, model, skmParams );
     saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
