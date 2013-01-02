@@ -105,6 +105,11 @@ else
     error('gettraces: Invalid param 1');
 end
 
+% If all we want is the movie data, don't pick yet.
+if nargout==1,
+    return;
+end
+
 
 
 
@@ -134,6 +139,9 @@ end
 [peaksX,peaksY] = getPeaks( image_t, params );
 peaks = [peaksX peaksY];
 
+% Generate integration windows for later extracting traces.
+[stkData.regions,stkData.integrationEfficiency] = ...
+                            getIntegrationWindows(image_t, peaks', params);
 
 
 %------ Extract traces using peak locations
@@ -143,7 +151,7 @@ if nargin>=3 && ischar(varargin{3}),
     end
     
     outputFilename = varargin{3};
-    integrateAndSave( stkData.movie, stkData.stk_top, peaks', outputFilename );
+    integrateAndSave( stkData, peaks', outputFilename );
 end
     
 return;
@@ -368,7 +376,7 @@ for i=1:nFiles,
     nTraces(i) = numel(peaksX)/2;
     
     % Save the traces to file
-    integrateAndSave( stkData.movie, stkData.stk_top, peaks', traceFname );
+    integrateAndSave( stkData, peaks', traceFname );
     
     waitbar(i/nFiles, h); drawnow;
 end
@@ -497,6 +505,7 @@ if abs(x_align)>0.5 || abs(y_align)>0.5,
 end
 
 
+
 % end function getTraces
 
 
@@ -590,17 +599,7 @@ don_y = tempy(indexes);
 
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
-
-% function saveTraces( handles, hObject )
-function integrateAndSave( movie, stk_top, peaks, stk_fname )
-% NOTE: can find which pixels to use by correlation
-
-global params;
-
-
-nFrames = movie.nFrames;
-data.time = movie.timeAxis;
-wbh = waitbar(0,'Extracting traces from movie data');
+function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks, params )
 
 % Specify the number of most intense proximal pixels to sum when generating
 % fluorescence traces (depends on experimental point-spread function).
@@ -619,6 +618,10 @@ regions=zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
+% TODO: estimate the amount of intensity summed at any particular
+% integration window size to determine if it is optimal.
+integrationEfficiency = zeros(Npeaks,1);
+
 for m=1:Npeaks
     
     hw = floor(squarewidth/2);
@@ -627,7 +630,12 @@ for m=1:Npeaks
     peak = stk_top( ...
             y(m)-hw:y(m)+hw, ...
             x(m)-hw:x(m)+hw  );
-    center = sort( peak(:) );  %vector of sorted intensities
+    center = sort( peak(:) );  %vector of sorted intensities in peak.
+    
+    % Estimate the fraction of fluorescence intensity collected by summing
+    % just the specified number of pixels. This can be used to give a
+    % warning if the value is not optimal.
+    integrationEfficiency(m) = sum( center(end-params.nPixelsToSum+1:end) ) / sum(center);
     
     % Get pixels whose intensity is greater than the median (max=NumPixels).
     % We just want the centroid to avoid adding noise ...
@@ -638,6 +646,31 @@ for m=1:Npeaks
     % Define a region over which to integrate each peak
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
 end
+
+integrationEfficiency = 100*mean(integrationEfficiency);
+
+% end function getIntegrationWindows
+
+
+
+
+% function saveTraces( handles, hObject )
+function integrateAndSave( stkData, peaks, stk_fname )
+% NOTE: can find which pixels to use by correlation
+
+global params;
+
+movie = stkData.movie;
+nFrames = movie.nFrames;
+data.time = movie.timeAxis;
+wbh = waitbar(0,'Extracting traces from movie data');
+
+% Get x,y coordinates of picked peaks
+Npeaks = size(peaks,2);
+x = peaks(1,:);
+y = peaks(2,:);
+
+regions = stkData.regions;  % pixel#, dimension(x,y), peak#
 
 
 % Create a trace for each molecule across the entire movie
@@ -671,8 +704,6 @@ end
 
 
 % Convert fluorescence to arbitrary units to photon counts.
-% FIXME (?): make sure this doesn't mess up other functions that might rely
-% on the absolute intensities (are there any??).
 constants = cascadeConstants;
 if isfield(params,'photonConversion'),
     donor    = donor./params.photonConversion;
@@ -680,14 +711,10 @@ if isfield(params,'photonConversion'),
 end
 
 % Make an adjustment for crosstalk on the camera.
-% I deliberately make the minimum value non-zero. This is useful so that
-% FRET ends up being non-zero and thus we can find where calcLifetime sets
-% the end of the trace by FRET values still. Otherwise, lt ends up being 0
-% for all traces. See traceStat. This is a hack. FIXME.
 if ~isfield(params,'crosstalk'),
     params.crosstalk = constants.crosstalk;
 end
-acceptor = acceptor - params.crosstalk*donor + 0.01;
+acceptor = acceptor - params.crosstalk*donor;
 
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);

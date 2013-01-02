@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 20-Aug-2012 18:06:27
+% Last Modified by GUIDE v2.5 01-Jan-2013 14:41:56
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -172,12 +172,13 @@ guidata(hObject,handles);
 % --------------------- OPEN SINGLE MOVIE --------------------- %
 function handles = OpenStk(filename, handles, hObject)
 
-
 [p,f,e] = fileparts(filename);
 if numel(p)>55, p=[p(1:55) '...']; end %trancate path, if too long
 fnameText = [p filesep f e];
 
 set(handles.txtFilename,'String',fnameText);
+set( handles.txtOverlapStatus, 'String', '' );
+set(  handles.txtIntegrationStatus, 'String', '' );
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -396,6 +397,41 @@ function handles = getTraces_Callback(hObject, eventdata, handles)
 stkData = getappdata(handles.figure1,'stkData');
 [stkData,peaks] = gettraces( stkData, handles.params );
 
+
+% Get locations also without overlap rejection to estimate the number of
+% molecules that are overlapping. This can be used to give the user a
+% warning if the density is too high (here by showing it in red).
+% FIXME: This is kinda ugly. percentOverlap should be calculating within
+% gettraces() and then saved in stkData to be retrieved here.
+p = handles.params;
+p.overlap_thresh = 0;
+[~,peaksZ] = gettraces( stkData, p );
+percentOverlap = 100*( size(peaksZ,1)-size(peaks,1) )/size(peaksZ,1);
+
+set(  handles.txtOverlapStatus, 'String', ...
+      sprintf('%0.1f%% molecules overlapped', percentOverlap)  );
+
+if percentOverlap>=30,
+    set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtOverlapStatus, 'ForegroundColor', [0 0 0] );
+end
+
+
+% Get (approximate) average fraction of fluorescence collected within the
+% integration window of each molecule. Set the text color to red where the
+% intensity is not well collected at the current integration window size.
+efficiency = stkData.integrationEfficiency;
+set(  handles.txtIntegrationStatus, 'String', ...
+      sprintf('%0.1f%% intensity collected', efficiency)  );
+
+if efficiency<60,
+    set( handles.txtIntegrationStatus, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtIntegrationStatus, 'ForegroundColor', [0 0 0] );
+end
+    
+
 % Update guidata with peak selection coordinates
 handles.x = peaks(:,1);
 handles.y = peaks(:,2);
@@ -609,4 +645,20 @@ handles.params.photonConversion = str2num( get(hObject,'String') );
 guidata(hObject,handles);
 
 
+
+
+
+% --- Executes on button press in chkAlignTranslate.
+function chkAlignTranslate_Callback(hObject, eventdata, handles)
+%
+handles.params.alignTranslate = get(hObject,'Value');
+guidata(hObject,handles);
+
+
+
+% --- Executes on button press in chkAlignRotate.
+function chkAlignRotate_Callback(hObject, eventdata, handles)
+%
+handles.params.alignRotate = get(hObject,'Value');
+guidata(hObject,handles);
 
