@@ -409,9 +409,9 @@ p.overlap_thresh = 0;
 percentOverlap = 100*( size(peaksZ,1)-size(peaks,1) )/size(peaksZ,1);
 
 set(  handles.txtOverlapStatus, 'String', ...
-      sprintf('%0.1f%% molecules overlapped', percentOverlap)  );
+      sprintf('%0.0f%% molecules overlapped', percentOverlap)  );
 
-if percentOverlap>=30,
+if percentOverlap>25,
     set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
 else
     set( handles.txtOverlapStatus, 'ForegroundColor', [0 0 0] );
@@ -421,16 +421,28 @@ end
 % Get (approximate) average fraction of fluorescence collected within the
 % integration window of each molecule. Set the text color to red where the
 % intensity is not well collected at the current integration window size.
-efficiency = stkData.integrationEfficiency;
+eff = 100*stkData.integrationEfficiency(:,handles.params.nPixelsToSum);
+eff = mean(eff);
 set(  handles.txtIntegrationStatus, 'String', ...
-      sprintf('%0.1f%% intensity collected', efficiency)  );
+      sprintf('%0.0f%% intensity collected', eff)  );
 
-if efficiency<60,
+if eff<66.6,
     set( handles.txtIntegrationStatus, 'ForegroundColor', [0.9 0 0] );
 else
     set( handles.txtIntegrationStatus, 'ForegroundColor', [0 0 0] );
 end
-    
+
+
+% Estimate the peak width from pixel intensity distribution.
+eff = stkData.integrationEfficiency;
+decay = zeros( size(eff,1), 1 ); %number pixels to integrate to get 70% intensity integrated.
+
+for i=1:size(eff,1),
+    decay(i) = find( eff(i,:)>=0.666, 1, 'first' );
+end
+
+set(  handles.txtPSFWidth, 'String', ...
+                         sprintf('PSF size: %0.1f px', mean(decay))  );
 
 % Update guidata with peak selection coordinates
 handles.x = peaks(:,1);

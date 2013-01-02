@@ -618,9 +618,7 @@ regions=zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
-% TODO: estimate the amount of intensity summed at any particular
-% integration window size to determine if it is optimal.
-integrationEfficiency = zeros(Npeaks,1);
+integrationEfficiency = zeros(Npeaks,squarewidth^2);
 
 for m=1:Npeaks
     
@@ -632,10 +630,11 @@ for m=1:Npeaks
             x(m)-hw:x(m)+hw  );
     center = sort( peak(:) );  %vector of sorted intensities in peak.
     
-    % Estimate the fraction of fluorescence intensity collected by summing
-    % just the specified number of pixels. This can be used to give a
-    % warning if the value is not optimal.
-    integrationEfficiency(m) = sum( center(end-params.nPixelsToSum+1:end) ) / sum(center);
+    % Estimate the fraction of intensity in each pixel.
+    % This is used in the GUI to show the efficiency of collecting
+    % intensity at a given integratin window size and to estimate the size
+    % of the point-spread function.
+    integrationEfficiency(m,:) = integrationEfficiency(m,:) + cumsum( center(end:-1:1)/sum(center) )';
     
     % Get pixels whose intensity is greater than the median (max=NumPixels).
     % We just want the centroid to avoid adding noise ...
@@ -647,7 +646,6 @@ for m=1:Npeaks
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
 end
 
-integrationEfficiency = 100*mean(integrationEfficiency);
 
 % end function getIntegrationWindows
 
