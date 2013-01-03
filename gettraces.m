@@ -67,16 +67,10 @@ else
     params = varargin{2};
 end
 
-% PARAMTERES FOR SOFTWARE ALIGNMENT!
-% The numbers are the displacements of the right (acceptor) field relative to
-% the left (donor) field that are required to get the two fields aligned.
-params.align_dx =  0;
-params.align_dy =  0;
-
 
 % If any parameters are not specified, give a default value of 0.
 % This way, we don't have to constantly check if a parameter exists.
-paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations','quiet'};
+paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations','quiet','alignTranlate','refineAlign'};
 for i=1:numel(paramNames),
     if ~isfield(params,paramNames{i})
         params.(paramNames{i}) = 0;
@@ -423,17 +417,17 @@ fclose(log_fid);
 
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
-%------------- Pick Cy3 spots ----------------- 
-function [picksX,picksY,total_t] = getPeaks( image_t, params )
-% Localizes the peaks of molecules in the Cy3 channel and infers the
-% positions of the Cy5 peaks by applying a transofmration to the Cy3 peak
-% positions.
+%------------- Pick single molecule spots ----------------- 
+function [picksX,picksY,total_t, align] = getPeaks( image_t, params )
+% Localizes the peaks of molecules from a summed image of the two channels
+% (in FRET experiments).
 %
 % picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
 % picksY - Y-coords ...
 
 
-% If using a single-channel setup, use a simplified proceedure.
+% If using a single-channel setup, use a simplified proceedure
+% since we don't have to worry about alignment, etc.
 if params.geometry==1,
     total_t = image_t;
     [picksX,picksY] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
@@ -447,63 +441,107 @@ end
 [nrow ncol] = size(image_t);
 ncol = ncol/2;
 
-%---- 1. Transform acceptor side so that the two channels align properly.
+
+%---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
 donor_t    = image_t( :, 1:ncol );
 acceptor_t = image_t( :, (ncol+1):end );
 
-dx = round(params.align_dx);
-dy = round(params.align_dy);
+total_t = acceptor_t + donor_t; %sum the two fluorescence channels.
 
-total_t = zeros( size(donor_t) );
-total_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
-    acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
-
-total_t = total_t + donor_t; %sum the two fluorescence channels.
-%FIXME: regions w/o acceptor intensity should be erased!
-
-
-%---- 2. Get coordinates of intensity peaks using the summed image.
 [don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 nPicked = numel(don_x);
 
-acc_x = don_x + ncol +dx;
-acc_y = don_y        +dy;
-
-
-%---- 3. Save results for output
+% Define acceptor size peaks as a simple translation across the chip.
 picksX = zeros(nPicked*2,1);
 picksY = zeros(nPicked*2,1);
 
-for i=1:nPicked,
-    picksX(2*i-1) = don_x(i);
-    picksY(2*i-1) = don_y(i);
-    picksX(2*i)   = acc_x(i);
-    picksY(2*i)   = acc_y(i);
-end    
+picksX(1:2:end) = don_x;        %donor
+picksX(2:2:end) = don_x + ncol; %acceptor
+picksY(1:2:end) = don_y;        %donor
+picksY(2:2:end) = don_y;        %acceptor
+
+% Refine peak locations to determine if realignment is needed.
+[refinedX,refinedY] = refinePeaks( image_t, picksX,picksY );
+
+x_align = mean( refinedX(2:2:end)-refinedX(1:2:end)-ncol );
+y_align = mean( refinedY(2:2:end)-refinedY(1:2:end)      );
+x_align_abs = mean(abs( refinedX(2:2:end)-refinedX(1:2:end)-ncol )); %this will detect rotation as well
+y_align_abs = mean(abs( refinedY(2:2:end)-refinedY(1:2:end)      ));
+align = [x_align y_align x_align_abs y_align_abs];
+
+% If specified, use the refined peak positions to handle slight misalignment.
+if params.refineAlign,
+    picksX = refinedX;
+    picksY = refinedY;
+end
+
+% If the alignment is close (by translation), we're done.
+if abs(x_align)<0.5 && abs(y_align)<0.5,
+    return;
+end
+
+
+%---- 2. Transform acceptor side so that the two channels align properly.
+% If the alignment is off by a significant margin, the fields are
+% realigned in software. This will only handle translation. Rotation and
+% other complex distortions are harder. FIXME.
+warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
+fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
+fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
+
+% Just give a warning unless asked to do software alignment in settings.
+if ~params.alignTranslate,  return;  end 
+
+
+dx = round( x_align );
+dy = round( y_align );
+
+% Sum the donor and acceptor fields, after translating the acceptor size to
+% deal with the misalignment.
+align_t = zeros( size(donor_t) );
+align_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
+    acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
+
+total_t_old = total_t;
+total_t = align_t + donor_t; %sum the two fluorescence channels.
+
+% Pick peaks from the aligned image.
+[don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+nPicked = numel(don_x);
+
+% Since the alignment image has been shifted to compensate for misalignment
+% already (above), adjust the output coordinates so they are relative to
+% the actual fields, not the adjusted fields.
+picksX = zeros(nPicked*2,1);
+picksY = zeros(nPicked*2,1);
+
+picksX(1:2:end) = don_x;            %donor
+picksX(2:2:end) = don_x + ncol -dx; %acceptor
+picksY(1:2:end) = don_y;     %donor
+picksY(2:2:end) = don_y -dy; %acceptor
 
 
 %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
-align_acc_x = acc_x;
-align_acc_y = acc_y;
+[refinedX,refinedY] = refinePeaks( image_t, picksX,picksY );
 
-for j=1:nPicked,
-    % Refine acceptor peak positions by finding local maxima
-    % within the 3x3 grid around the initial guess.
-    temp = image_t( acc_y(j)-1:acc_y(j)+1, acc_x(j)-1:acc_x(j)+1 );
-    [maxy, maxx] = find(temp==max(max(temp)),1);
-    align_acc_x(j) = align_acc_x(j) +maxx-2;
-    align_acc_y(j) = align_acc_y(j) +maxy-2;
+% If specified, use the refined peak positions to handle slight misalignment.
+if params.refineAlign,
+    picksX = refinedX;
+    picksY = refinedY;
 end
 
 % Verify the alignment
-x_align = mean( align_acc_x-acc_x );
-y_align = mean( align_acc_y-acc_y );
-if abs(x_align)>0.5 || abs(y_align)>0.5,
-    warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
-    abs(x_align)
-    abs(y_align)
-end
+x_align = mean( refinedX(2:2:end)-refinedX(1:2:end)-ncol );
+y_align = mean( refinedY(2:2:end)-refinedY(1:2:end)      );
+x_align_abs = mean(abs( refinedX(2:2:end)-refinedX(1:2:end)-ncol )); %this will detect rotation as well
+y_align_abs = mean(abs( refinedY(2:2:end)-refinedY(1:2:end)      ));
+align = [x_align y_align x_align_abs y_align_abs];
 
+if x_align_abs>0.5 || y_align_abs>0.5,
+    warning('gettraces:badAlignment','Fluorescence fields are STILL out of alignment. Rotation is off?');
+    fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
+    fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
+end
 
 
 % end function getTraces
@@ -522,15 +560,14 @@ wavg = sum( vals.*weights );
 
 
 
-function [don_x,don_y] = pickPeaks( image_t, threshold, overlap_thresh )
+function [don_x,don_y,tempx,tempy] = pickPeaks( image_t, threshold, overlap_thresh )
 % Localizes the peaks of fluorescence, removing any too close together.
-% NOTE: only the donor side is passed to this function
 
 [nrow ncol] = size(image_t);
 
 
 % 1. For each pixel (excluding edges), pick those above threshold that have
-% greater intensity than their neighbors (3x3,local maxima) -- donor only.
+% greater intensity than their neighbors (3x3,local maxima).
 % tempxy is peak position, centroidxy is estimated true molecule position.
 nMols=0;
 for i=1+3:nrow-3,
@@ -593,7 +630,24 @@ don_y = tempy(indexes);
 % END FUNCTION pickPeaks
 
 
+function [peaksX,peaksY] = refinePeaks( image_t, peaksX, peaksY )
+% pickPeaks simply finds peaks of intensity in the total (D+A) image. Here
+% the peak locations are refined to account for slight differences due to
+% misalignment, where the donor and acceptor peaks may be in different
+% relative positions. This can be used to re-align the images in software.
+% The input image and peak locations are listed as:
+%     donor/acceptor/donor/acceptor/etc.
 
+for j=1:numel(peaksX),
+    % Refine acceptor peak positions by finding local maxima
+    % within the 3x3 grid around the initial guess.
+    temp = image_t( peaksY(j)-1:peaksY(j)+1, peaksX(j)-1:peaksX(j)+1 );
+    [maxy, maxx] = find(temp==max(temp(:)),1);
+    peaksX(j) = peaksX(j) +maxx-2;
+    peaksY(j) = peaksY(j) +maxy-2;
+end
+
+% END FUNCTION refinePeaks
 
 
 

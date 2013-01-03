@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 01-Jan-2013 14:41:56
+% Last Modified by GUIDE v2.5 02-Jan-2013 18:36:06
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -71,18 +71,25 @@ if ~isfield(handles,'params')
     constants = cascadeConstants();
 
     % params.don_thresh = 0; %not specified = auto pick
-    params.overlap_thresh = 2.1;
+    params.overlap_thresh = 2.3;
     params.nPixelsToSum   = 4;
     params.saveLocations  = 0;
     params.crosstalk = constants.crosstalk;
     params.photonConversion = constants.photonConversionFactor;
     params.geometry = 2; %dual-channel by default.
+    params.alignTranslate = 1;
+    params.alignRotate = 0;
+    params.refineAlign = 1;
 
     set( handles.txtIntensityThreshold,'String','' );
     set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
     set( handles.txtIntegrationWindow,'String',num2str(params.nPixelsToSum) );
     set( handles.txtDACrosstalk,'String',num2str(params.crosstalk) );
     set( handles.txtPhotonConversion,'String',num2str(params.photonConversion) );
+    
+    set( handles.chkAlignTranslate, 'Value', params.alignTranslate );
+    set( handles.chkAlignRotate,    'Value', params.alignRotate    );
+    set( handles.chkRefineAlign,    'Value', params.refineAlign    );
 
     handles.params = params;
 end
@@ -426,7 +433,7 @@ eff = mean(eff);
 set(  handles.txtIntegrationStatus, 'String', ...
       sprintf('%0.0f%% intensity collected', eff)  );
 
-if eff<66.6,
+if eff<70,
     set( handles.txtIntegrationStatus, 'ForegroundColor', [0.9 0 0] );
 else
     set( handles.txtIntegrationStatus, 'ForegroundColor', [0 0 0] );
@@ -438,11 +445,17 @@ eff = stkData.integrationEfficiency;
 decay = zeros( size(eff,1), 1 ); %number pixels to integrate to get 70% intensity integrated.
 
 for i=1:size(eff,1),
-    decay(i) = find( eff(i,:)>=0.666, 1, 'first' );
+    decay(i) = find( eff(i,:)>=0.7, 1, 'first' );
 end
 
 set(  handles.txtPSFWidth, 'String', ...
                          sprintf('PSF size: %0.1f px', mean(decay))  );
+                     
+if mean(decay) > handles.params.nPixelsToSum,
+    set( handles.txtPSFWidth, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtPSFWidth, 'ForegroundColor', [0 0 0] );
+end
 
 % Update guidata with peak selection coordinates
 handles.x = peaks(:,1);
@@ -627,15 +640,21 @@ end
 
 if handles.params.geometry==1, %Single-channel recordings
     handles.params.crosstalk = 0;
-    set( handles.txtDACrosstalk, 'Enable', 'off' );
+    set( handles.txtDACrosstalk, 'Enable','off','String','' );
+    set( handles.chkAlignTranslate, 'Value',0, 'Enable',0 );
+    %set( handles.chkAlignRotate,    'Value',0, 'Enable',0 );
+    set( handles.chkRefineAlign,    'Value',0, 'Enable',0 );
+    
 elseif handles.params.geometry==2, %Dual-channel recordings
-    handles.params.crosstalk = constants.crosstalk;
-    set( handles.txtDACrosstalk, 'Enable', 'on' );
+    set( handles.txtDACrosstalk, 'Enable','on', 'String',num2str(handles.params.crosstalk) );
+    set( handles.chkAlignTranslate, 'Value',handles.params.alignTranslate, 'Enable',1 );
+    %set( handles.chkAlignRotate,    'Value',handles.params.alignRotate, 'Enable',1 );
+    set( handles.chkRefineAlign,    'Value',handles.params.refineAlign, 'Enable',1 );
+    
 elseif handles.params.geometry>2,
     % TODO
 end
 
-set( handles.txtDACrosstalk, 'String', num2str(handles.params.crosstalk) );
 
 guidata(hObject,handles);
 
@@ -674,3 +693,10 @@ function chkAlignRotate_Callback(hObject, eventdata, handles)
 handles.params.alignRotate = get(hObject,'Value');
 guidata(hObject,handles);
 
+
+
+% --- Executes on button press in chkRefineAlign.
+function chkRefineAlign_Callback(hObject, eventdata, handles)
+%
+handles.params.refineAlign = get(hObject,'Value');
+guidata(hObject,handles);
