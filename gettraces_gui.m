@@ -77,9 +77,9 @@ if ~isfield(handles,'params')
     params.crosstalk = constants.crosstalk;
     params.photonConversion = constants.photonConversionFactor;
     params.geometry = 2; %dual-channel by default.
-    params.alignTranslate = 1;
+    params.alignTranslate = 0;
     params.alignRotate = 0;
-    params.refineAlign = 1;
+    params.refineAlign = 0;
 
     set( handles.txtIntensityThreshold,'String','' );
     set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
@@ -400,6 +400,12 @@ function handles = getTraces_Callback(hObject, eventdata, handles)
 
 %----- Find peak locations from total intensity
 
+% Do nothing if no file has been loaded. This function may be triggered by
+% changing the settings fields before a file is open.
+if ~isfield(handles, 'stkfile')
+    return;
+end
+
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
 [stkData,peaks] = gettraces( stkData, handles.params );
@@ -568,6 +574,9 @@ if ~isempty( text )
 elseif isfield(handles.params,'overlap_thresh');
     handles.params = rmfield( handles.params,'overlap_thresh' );
 end
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
 
@@ -683,6 +692,9 @@ guidata(hObject,handles);
 function chkAlignTranslate_Callback(hObject, eventdata, handles)
 %
 handles.params.alignTranslate = get(hObject,'Value');
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
 
@@ -691,6 +703,9 @@ guidata(hObject,handles);
 function chkAlignRotate_Callback(hObject, eventdata, handles)
 %
 handles.params.alignRotate = get(hObject,'Value');
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
 
@@ -699,4 +714,7 @@ guidata(hObject,handles);
 function chkRefineAlign_Callback(hObject, eventdata, handles)
 %
 handles.params.refineAlign = get(hObject,'Value');
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
