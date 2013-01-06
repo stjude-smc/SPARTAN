@@ -62,7 +62,8 @@ global params;
 
 if nargin<2, %provide defaults if no parameters given.
     params.don_thresh = 0;
-    params.overlap_thresh = 2.1;
+    params.overlap_thresh = 2.3;
+    params.nPixelsToSum = 4;
 else
     params = varargin{2};
 end
@@ -130,8 +131,7 @@ else
 end
 
 % Find peak locations from total intensity
-[peaksX,peaksY] = getPeaks( image_t, params );
-peaks = [peaksX peaksY];
+peaks = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
@@ -365,9 +365,12 @@ for i=1:nFiles,
     params2 = params;
     params2.don_thresh = don_thresh;
     
-    [peaksX,peaksY] = getPeaks( image_t, params2 );
-    peaks = [peaksX peaksY];
-    nTraces(i) = numel(peaksX)/2;
+    peaks = getPeaks( image_t, params2 );
+    nTraces(i) = size(peaks,1);
+    
+    % Generate integration windows for later extracting traces.
+    [stkData.regions,stkData.integrationEfficiency] = ...
+                                getIntegrationWindows(image_t, peaks', params);
     
     % Save the traces to file
     integrateAndSave( stkData, peaks', traceFname );
@@ -401,7 +404,7 @@ for i=1:nFiles
     if existing(i),
         fprintf(log_fid, 'SKIP %s\n', movieFilenames(i).name);
     else
-        fprintf(log_fid, '%.0f %s\n', nTraces(i), movieFilenames(i).name);
+        fprintf(log_fid, '%.0f %s\n', nTraces(i)/2, movieFilenames(i).name);
     end
 end
 
@@ -418,7 +421,7 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick single molecule spots ----------------- 
-function [picksX,picksY,total_t, align] = getPeaks( image_t, params )
+function [picks,total_t, align] = getPeaks( image_t, params )
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments).
 %
@@ -430,9 +433,8 @@ function [picksX,picksY,total_t, align] = getPeaks( image_t, params )
 % since we don't have to worry about alignment, etc.
 if params.geometry==1,
     total_t = image_t;
-    [picksX,picksY] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-    picksX = reshape( picksX, numel(picksX),1 );
-    picksY = reshape( picksY, numel(picksY),1 );
+    picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+    assert( size(picks,2)==2 ); %x and y columns, molecules in rows.
     return;
 end
 % Otherwise, assume dual-channel. FIXME
@@ -448,31 +450,28 @@ acceptor_t = image_t( :, (ncol+1):end );
 
 total_t = acceptor_t + donor_t; %sum the two fluorescence channels.
 
-[don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-nPicked = numel(don_x);
+donor_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+nPicked = size(donor_picks,1);
 
 % Define acceptor size peaks as a simple translation across the chip.
-picksX = zeros(nPicked*2,1);
-picksY = zeros(nPicked*2,1);
+picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
 
-picksX(1:2:end) = don_x;        %donor
-picksX(2:2:end) = don_x + ncol; %acceptor
-picksY(1:2:end) = don_y;        %donor
-picksY(2:2:end) = don_y;        %acceptor
+picks(1:2:end,:) = donor_picks; %donor
+picks(2:2:end,1) = donor_picks(:,1) + ncol; %acceptor
+picks(2:2:end,2) = donor_picks(:,2);        %acceptor
 
 % Refine peak locations to determine if realignment is needed.
-[refinedX,refinedY] = refinePeaks( image_t, picksX,picksY );
+refinedPicks = refinePeaks( image_t, picks );
 
-x_align = mean( refinedX(2:2:end)-refinedX(1:2:end)-ncol );
-y_align = mean( refinedY(2:2:end)-refinedY(1:2:end)      );
-x_align_abs = mean(abs( refinedX(2:2:end)-refinedX(1:2:end)-ncol )); %this will detect rotation as well
-y_align_abs = mean(abs( refinedY(2:2:end)-refinedY(1:2:end)      ));
+x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
+y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
+x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,2)-ncol )); %this will detect rotation as well
+y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
 align = [x_align y_align x_align_abs y_align_abs];
 
 % If specified, use the refined peak positions to handle slight misalignment.
 if params.refineAlign,
-    picksX = refinedX;
-    picksY = refinedY;
+    picks = refinedPicks;
 end
 
 % If the alignment is close (by translation), we're done.
@@ -512,29 +511,27 @@ nPicked = numel(don_x);
 % Since the alignment image has been shifted to compensate for misalignment
 % already (above), adjust the output coordinates so they are relative to
 % the actual fields, not the adjusted fields.
-picksX = zeros(nPicked*2,1);
-picksY = zeros(nPicked*2,1);
+picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
 
-picksX(1:2:end) = don_x;            %donor
-picksX(2:2:end) = don_x + ncol -dx; %acceptor
-picksY(1:2:end) = don_y;     %donor
-picksY(2:2:end) = don_y -dy; %acceptor
+picks(1:2:end,1) = don_x;            %donor
+picks(2:2:end,1) = don_x + ncol -dx; %acceptor
+picks(1:2:end,2) = don_y;     %donor
+picks(2:2:end,2) = don_y -dy; %acceptor
 
 
 %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
-[refinedX,refinedY] = refinePeaks( image_t, picksX,picksY );
+refinedPicks = refinePeaks( image_t, picks );
 
 % If specified, use the refined peak positions to handle slight misalignment.
 if params.refineAlign,
-    picksX = refinedX;
-    picksY = refinedY;
+    picks = refinedPicks;
 end
 
 % Verify the alignment
-x_align = mean( refinedX(2:2:end)-refinedX(1:2:end)-ncol );
-y_align = mean( refinedY(2:2:end)-refinedY(1:2:end)      );
-x_align_abs = mean(abs( refinedX(2:2:end)-refinedX(1:2:end)-ncol )); %this will detect rotation as well
-y_align_abs = mean(abs( refinedY(2:2:end)-refinedY(1:2:end)      ));
+x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
+y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
+x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,2)-ncol )); %this will detect rotation as well
+y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
 align = [x_align y_align x_align_abs y_align_abs];
 
 if x_align_abs>0.5 || y_align_abs>0.5,
@@ -560,7 +557,7 @@ wavg = sum( vals.*weights );
 
 
 
-function [don_x,don_y,tempx,tempy] = pickPeaks( image_t, threshold, overlap_thresh )
+function [clean_picks,all_picks] = pickPeaks( image_t, threshold, overlap_thresh )
 % Localizes the peaks of fluorescence, removing any too close together.
 
 [nrow ncol] = size(image_t);
@@ -594,8 +591,7 @@ for i=1+3:nrow-3,
 end
 
 if nMols<1,
-    don_x = [];
-    don_y = [];
+    donor_picks = zeros(0,2);
     return;
 end
 
@@ -626,11 +622,14 @@ indexes = find( overlap==0 ); %find peaks with overlap less than threshold
 don_x = tempx(indexes);
 don_y = tempy(indexes);
 
+clean_picks = [don_x' don_y'];
+all_picks = [tempx' tempy'];
+
 
 % END FUNCTION pickPeaks
 
 
-function [peaksX,peaksY] = refinePeaks( image_t, peaksX, peaksY )
+function peaks = refinePeaks( image_t, peaks )
 % pickPeaks simply finds peaks of intensity in the total (D+A) image. Here
 % the peak locations are refined to account for slight differences due to
 % misalignment, where the donor and acceptor peaks may be in different
@@ -638,13 +637,13 @@ function [peaksX,peaksY] = refinePeaks( image_t, peaksX, peaksY )
 % The input image and peak locations are listed as:
 %     donor/acceptor/donor/acceptor/etc.
 
-for j=1:numel(peaksX),
+for j=1:size(peaks,1),
     % Refine acceptor peak positions by finding local maxima
     % within the 3x3 grid around the initial guess.
-    temp = image_t( peaksY(j)-1:peaksY(j)+1, peaksX(j)-1:peaksX(j)+1 );
+    temp = image_t( peaks(j,2)-1:peaks(j,2)+1, peaks(j,1)-1:peaks(j,1)+1 );
     [maxy, maxx] = find(temp==max(temp(:)),1);
-    peaksX(j) = peaksX(j) +maxx-2;
-    peaksY(j) = peaksY(j) +maxy-2;
+    peaks(j,1) = peaks(j,1) +maxx-2;  %X
+    peaks(j,2) = peaks(j,2) +maxy-2;  %Y
 end
 
 % END FUNCTION refinePeaks

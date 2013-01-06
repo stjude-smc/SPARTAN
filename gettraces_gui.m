@@ -180,12 +180,13 @@ guidata(hObject,handles);
 function handles = OpenStk(filename, handles, hObject)
 
 [p,f,e] = fileparts(filename);
-if numel(p)>55, p=[p(1:55) '...']; end %trancate path, if too long
+if numel(p)>70, p=[p(1:70) '...']; end %trancate path, if too long
 fnameText = [p filesep f e];
 
-set(handles.txtFilename,'String',fnameText);
+set( handles.txtFilename,'String',fnameText);
 set( handles.txtOverlapStatus, 'String', '' );
-set(  handles.txtIntegrationStatus, 'String', '' );
+set( handles.txtIntegrationStatus, 'String', '' );
+set( handles.txtPSFWidth, 'String', '' );
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -326,7 +327,7 @@ for i=1:nFiles
     % Skip if previously processed (.traces file exists)
     stk_fname = strrep(stk_fname,'.bz2','');
     [p,name] = fileparts(stk_fname);
-    traceFname = [p filesep name '.traces'];
+    traceFname = [p filesep name '.rawtraces'];
     
     if skipExisting && exist(traceFname,'file'),
         disp( ['Skipping (already processed): ' stk_fname] );
@@ -648,17 +649,16 @@ if isfield(handles,'stkfile'),
 end
 
 if handles.params.geometry==1, %Single-channel recordings
-    handles.params.crosstalk = 0;
-    set( handles.txtDACrosstalk, 'Enable','off','String','' );
-    set( handles.chkAlignTranslate, 'Value',0, 'Enable',0 );
-    %set( handles.chkAlignRotate,    'Value',0, 'Enable',0 );
-    set( handles.chkRefineAlign,    'Value',0, 'Enable',0 );
+    set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
+    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0   );
+    %set( handles.chkAlignRotate,   'Enable','off', 'Value',0   );
+    set( handles.chkRefineAlign,    'Enable','off', 'Value',0   );
     
 elseif handles.params.geometry==2, %Dual-channel recordings
-    set( handles.txtDACrosstalk, 'Enable','on', 'String',num2str(handles.params.crosstalk) );
-    set( handles.chkAlignTranslate, 'Value',handles.params.alignTranslate, 'Enable',1 );
-    %set( handles.chkAlignRotate,    'Value',handles.params.alignRotate, 'Enable',1 );
-    set( handles.chkRefineAlign,    'Value',handles.params.refineAlign, 'Enable',1 );
+    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
+    set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
+    %set( handles.chkAlignRotate,   'Enable','on', 'Value',handles.params.alignRotate  );
+    set( handles.chkRefineAlign,    'Enable','on', 'Value',handles.params.refineAlign  );
     
 elseif handles.params.geometry>2,
     % TODO
