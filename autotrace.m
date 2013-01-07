@@ -147,7 +147,7 @@ end
 
 % Set default selections for the drop-down boxes.
 set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
-set( handles.cboStat2, 'Value', find(strcmp('lifetime',shortNames))  );
+set( handles.cboStat2, 'Value', find(strcmp('donorlife',shortNames))  );
 set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
 set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
 set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
@@ -229,7 +229,7 @@ function OpenTracesFile_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Open file with user-interface.
+%--- Open file with user-interface.
 filter = {'*.rawtraces;*.traces','All traces files (*.rawtraces,*.traces)'; ...
           '*.rawtraces','Raw traces files (*.rawtraces)'; ...
           '*.txt','Old format traces files (*.txt)'};
@@ -240,23 +240,31 @@ filter = {'*.rawtraces;*.traces','All traces files (*.rawtraces,*.traces)'; ...
 if datapath==0, return; end %user hit cancel
 
 
-% Convert filename list into a cell array
+%--- Convert filename list into a cell array
 if ~iscell(datafile), datafile = {datafile}; end
 filename = strcat(datapath,datafile);
 
-% Save file list for later use.
+%--- Save file list for later use.
 handles.inputdir = datapath;
 handles.inputfiles = filename;
 
-% Update GUI listing of number of files and file types
+%--- Update GUI listing of number of files and file types
 handles.inputfiles{:}
+
 if numel(filename) == 1,
-    set(handles.editFilename,'String',handles.inputfiles{1});
+    fileDisplayText = handles.inputfiles{1};
 else
-    set(handles.editFilename,'String',handles.inputdir);
+    fileDisplayText = handles.inputdir;
 end
 
-% Load the traces files.
+% Shorten display name by removing initial part of the path if too long.
+if length(fileDisplayText)>80,
+    fileDisplayText = ['...' fileDisplayText(end-77:end)];
+end
+
+set(handles.editFilename,'String', fileDisplayText);
+
+%--- Load the traces files.
 OpenTracesBatch( hObject, handles );
 
 

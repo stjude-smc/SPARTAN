@@ -90,9 +90,6 @@ end
 
 %% ---- Load each file, select traces, and add it to output.
 
-allStats = struct( [] );
-picks = [];
-nTracesPerFile = zeros(nFiles,1);
 
 % Open file handles for output
 if isfield(options,'outFilename'),
@@ -115,34 +112,37 @@ acceptorAll = [];
 fretAll = [];
 timeAxis = [];
 traceMetadata = struct();
+allStats = struct( [] );
+picks = [];
+nTracesPerFile = zeros(nFiles,1);
         
 for i=1:nFiles,
     
+    % Load traces file data
+    data = loadTraces( files{i} );
+    nTracesPerFile(i) = size(data.donor,1);
+    
     % Unless provided, calc trace properties and select those that meet criteria.
     if ~isfield( options, 'indexes' ),
-        % Load traces file data
-        data = loadTraces( files{i} );
-        
         % Calculate trace statistics
         stats = traceStat( data );
     
         % Pick traces passing criteria
         [indexes] = pickTraces( stats, criteria );
         indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
-        picks = [picks indexes+sum(nTracesPerFile)];
-    end
-    
+        picks = [picks indexes+sum(nTracesPerFile)];  %indexes of picked molecules as if all files were concatinated.
+
     % Remove traces that were not selected
-    if isfield( options, 'indexes' ),
+    else   %if isfield( options, 'indexes' ),
         indexes = options.indexes{i};
-        data = loadTraces( files{i}, indexes );        
         stats = struct([]);
-    else
-        data.donor    = data.donor(indexes,:);
-        data.acceptor = data.acceptor(indexes,:);
-        data.fret     = data.fret(indexes,:);
-        data.traceMetadata = data.traceMetadata(indexes);
     end
+
+    data.donor    = data.donor(indexes,:);
+    data.acceptor = data.acceptor(indexes,:);
+    data.fret     = data.fret(indexes,:);
+    data.traceMetadata = data.traceMetadata(indexes);
+
     
     % Save trace data into one large pile for saving at the end
     donorAll = [donorAll; data.donor];
@@ -162,7 +162,6 @@ for i=1:nFiles,
     else
         allStats = cat(2, allStats, stats  );
     end
-    nTracesPerFile(i) = size(data.donor,1);
 
     if options.showWaitbar,
         waitbar(i/nFiles,wbh);
@@ -189,8 +188,9 @@ saveTraces(outFilename,format,data);
 
 
 % Clean up
-nPicked = numel(picks);
-nTracesTotal = sum(nTracesPerFile);
+% nPicked = numel(picks);
+nPicked = size( data.donor,1 );
+nTotalTraces = sum(nTracesPerFile);
 
 if options.showWaitbar,
     waitbar(1,wbh,'Finished!');
@@ -218,7 +218,7 @@ for i=1:numel(files)
 end
 
 fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
-            nPicked, nTracesTotal, 100*nPicked/nTracesTotal );  
+            nPicked, nTotalTraces, 100*nPicked/nTotalTraces );  
 
         
 % Descriptive statistics about dataset
@@ -229,10 +229,10 @@ hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 )
 other           = nPicked;
 
 fprintf(fid,'PICKING RESULTS\n');
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/nTracesTotal);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Have FRET',           hasFRET, 100*hasFRET/singleMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Pass other criteria', other,   100*other/hasFRET);
+fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/nTotalTraces);
+fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
+fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET, 100*hasFRET/singleMolecule);
+fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Pass all criteria', other,   100*other/hasFRET);
 fprintf(fid, '\n\n');
 
 

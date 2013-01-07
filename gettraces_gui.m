@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 20-Aug-2012 18:06:27
+% Last Modified by GUIDE v2.5 02-Jan-2013 18:36:06
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -71,18 +71,25 @@ if ~isfield(handles,'params')
     constants = cascadeConstants();
 
     % params.don_thresh = 0; %not specified = auto pick
-    params.overlap_thresh = 2.1;
+    params.overlap_thresh = 2.3;
     params.nPixelsToSum   = 4;
     params.saveLocations  = 0;
     params.crosstalk = constants.crosstalk;
     params.photonConversion = constants.photonConversionFactor;
     params.geometry = 2; %dual-channel by default.
+    params.alignTranslate = 0;
+    params.alignRotate = 0;
+    params.refineAlign = 0;
 
     set( handles.txtIntensityThreshold,'String','' );
     set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
     set( handles.txtIntegrationWindow,'String',num2str(params.nPixelsToSum) );
     set( handles.txtDACrosstalk,'String',num2str(params.crosstalk) );
     set( handles.txtPhotonConversion,'String',num2str(params.photonConversion) );
+    
+    set( handles.chkAlignTranslate, 'Value', params.alignTranslate );
+    set( handles.chkAlignRotate,    'Value', params.alignRotate    );
+    set( handles.chkRefineAlign,    'Value', params.refineAlign    );
 
     handles.params = params;
 end
@@ -172,12 +179,15 @@ guidata(hObject,handles);
 % --------------------- OPEN SINGLE MOVIE --------------------- %
 function handles = OpenStk(filename, handles, hObject)
 
-
 [p,f,e] = fileparts(filename);
-if numel(p)>55, p=[p(1:55) '...']; end %trancate path, if too long
+if numel(p)>70, p=[p(1:70) '...']; end %trancate path, if too long
 fnameText = [p filesep f e];
 
-set(handles.txtFilename,'String',fnameText);
+set( handles.txtFilename,          'String',fnameText);
+set( handles.txtOverlapStatus,     'String', '' );
+set( handles.txtIntegrationStatus, 'String', '' );
+set( handles.txtPSFWidth,          'String', '' );
+set(  handles.txtAlignStatus,      'String', '' );
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -392,9 +402,81 @@ function handles = getTraces_Callback(hObject, eventdata, handles)
 
 %----- Find peak locations from total intensity
 
+% Do nothing if no file has been loaded. This function may be triggered by
+% changing the settings fields before a file is open.
+if ~isfield(handles, 'stkfile')
+    return;
+end
+
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
 [stkData,peaks] = gettraces( stkData, handles.params );
+
+
+% Display alignment status to inform user if realignment may be needed.
+% Format: translation deviation (x, y), absolute deviation (x, y)
+absDev = mean(stkData.alignStatus(3:4));
+set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
+        [stkData.alignStatus(1:2) absDev] ) );
+    
+if any(stkData.alignStatus>0.5) || absDev>0.25,
+    set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+else
+    set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+end
+
+
+% Get locations also without overlap rejection to estimate the number of
+% molecules that are overlapping. This can be used to give the user a
+% warning if the density is too high (here by showing it in red).
+% FIXME: This is kinda ugly. percentOverlap should be calculating within
+% gettraces() and then saved in stkData to be retrieved here.
+p = handles.params;
+p.overlap_thresh = 0;
+[~,peaksZ] = gettraces( stkData, p );
+percentOverlap = 100*( size(peaksZ,1)-size(peaks,1) )/size(peaksZ,1);
+
+set(  handles.txtOverlapStatus, 'String', ...
+      sprintf('%0.0f%% molecules overlapped', percentOverlap)  );
+
+if percentOverlap>30,
+    set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtOverlapStatus, 'ForegroundColor', [0 0 0] );
+end
+
+
+% Get (approximate) average fraction of fluorescence collected within the
+% integration window of each molecule. Set the text color to red where the
+% intensity is not well collected at the current integration window size.
+eff = 100*stkData.integrationEfficiency(:,handles.params.nPixelsToSum);
+eff = mean(eff);
+set(  handles.txtIntegrationStatus, 'String', ...
+      sprintf('%0.0f%% intensity collected', eff)  );
+
+if eff<70,
+    set( handles.txtIntegrationStatus, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtIntegrationStatus, 'ForegroundColor', [0 0 0] );
+end
+
+
+% Estimate the peak width from pixel intensity distribution.
+eff = stkData.integrationEfficiency;
+decay = zeros( size(eff,1), 1 ); %number pixels to integrate to get 70% intensity integrated.
+
+for i=1:size(eff,1),
+    decay(i) = find( eff(i,:)>=0.7, 1, 'first' );
+end
+
+set(  handles.txtPSFWidth, 'String', ...
+                         sprintf('PSF size: %0.1f px', mean(decay))  );
+                     
+if mean(decay) > handles.params.nPixelsToSum,
+    set( handles.txtPSFWidth, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtPSFWidth, 'ForegroundColor', [0 0 0] );
+end
 
 % Update guidata with peak selection coordinates
 handles.x = peaks(:,1);
@@ -507,6 +589,9 @@ if ~isempty( text )
 elseif isfield(handles.params,'overlap_thresh');
     handles.params = rmfield( handles.params,'overlap_thresh' );
 end
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
 
@@ -578,16 +663,21 @@ if isfield(handles,'stkfile'),
 end
 
 if handles.params.geometry==1, %Single-channel recordings
-    handles.params.crosstalk = 0;
-    set( handles.txtDACrosstalk, 'Enable', 'off' );
+    set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
+    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0   );
+    %set( handles.chkAlignRotate,   'Enable','off', 'Value',0   );
+    set( handles.chkRefineAlign,    'Enable','off', 'Value',0   );
+    
 elseif handles.params.geometry==2, %Dual-channel recordings
-    handles.params.crosstalk = constants.crosstalk;
-    set( handles.txtDACrosstalk, 'Enable', 'on' );
+    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
+    set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
+    %set( handles.chkAlignRotate,   'Enable','on', 'Value',handles.params.alignRotate  );
+    set( handles.chkRefineAlign,    'Enable','on', 'Value',handles.params.refineAlign  );
+    
 elseif handles.params.geometry>2,
     % TODO
 end
 
-set( handles.txtDACrosstalk, 'String', num2str(handles.params.crosstalk) );
 
 guidata(hObject,handles);
 
@@ -610,3 +700,35 @@ guidata(hObject,handles);
 
 
 
+
+
+% --- Executes on button press in chkAlignTranslate.
+function chkAlignTranslate_Callback(hObject, eventdata, handles)
+%
+handles.params.alignTranslate = get(hObject,'Value');
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
+guidata(hObject,handles);
+
+
+
+% --- Executes on button press in chkAlignRotate.
+function chkAlignRotate_Callback(hObject, eventdata, handles)
+%
+handles.params.alignRotate = get(hObject,'Value');
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
+guidata(hObject,handles);
+
+
+
+% --- Executes on button press in chkRefineAlign.
+function chkRefineAlign_Callback(hObject, eventdata, handles)
+%
+handles.params.refineAlign = get(hObject,'Value');
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
+guidata(hObject,handles);

@@ -43,7 +43,7 @@ if nargin<1,
     ln.fretEvents = 'Number of FRET events';
     ln.acclife  = 'FRET Lifetime';
     ln.donorlife  = 'Donor Lifetime';
-    ln.lifetime = 'Donor time before bleaching';
+    ln.lifetime = 'End of trace';
     ln.corr     = 'Correlation of Fluor.';
     ln.corrd    = 'Correlation of Fluor. Derivitive';
     ln.snr      = 'SNR-bg';
@@ -153,23 +153,31 @@ for i=1:Ntraces
     fret     = fretAll(i,:);
     total    = donor+acceptor;
     
+    
     %---- Calculate donor lifetime
-    % FRET is undefined when donor is dark, so it is always set
-    % to exactly 0.  The last non-0 point is the photobleaching point.
-    % See the end of gettraces. This is a hack. FIXME.
-    lt = find( fret~=0, 1,'last' )+1;
-    if ~isempty(lt) && lt<len,
-        retval(i).lifetime = lt;
-    end
+    % Find Cy3 photobleaching event by finding *last* large drop in total
+    % fluorescence in the median filtered trace.
+    % This cannot be combined with overlap detection because
+    % the thresholds are different.
+    total2 = constants.gamma*donor + acceptor;
+    filt_total  = medianfilter(total2,constants.TAU);
+    dfilt_total = gradient(filt_total);
+    mean_dfilt_total = mean( dfilt_total );
+    std_dfilt_total  = std( dfilt_total );
+    
+    thresh = mean_dfilt_total - constants.NSTD*std_dfilt_total;
+    lt = find( dfilt_total<=thresh, 1,'last' );
 
+    if ~isempty(lt) && lt<len,
+        retval(i).lifetime = max(2,lt);
+    end
+    clear dips; clear thresh;
+    
     
     %---- OVERLAP DETECTION: Find multiple photobleaching events
     % Ignore first frame of median filtered signal: my be very low b/c of 0
     % padding.
-    total2 = constants.gamma*donor + acceptor;
-    filt_total  = medianfilter(total2,constants.TAU);
-    dfilt_total = gradient(filt_total);
-    thresh = mean(dfilt_total) - constants.overlap_nstd*std(dfilt_total);
+    thresh = mean_dfilt_total - constants.overlap_nstd*std_dfilt_total;
     
     dips = dfilt_total<=thresh;  %all points beyond threshold
     events = find( ~dips & [dips(2:end) 0] )+1;  %start points of drops in fluor
@@ -207,7 +215,7 @@ for i=1:Ntraces
         x = total(1:lt-3) <= constants.blink_nstd*stdbg;
         retval(i).ncross = sum(  x & ~[0 x(1:end-1)]  );
         
-        % Remove from consideration regions where Cy3 is photobleached
+        % Remove from consideration regions where Cy3 is dark
         donorRange = ~x;  %logical index w/o Cy3 blinking region
         
         % Save the length of the "donor-alive" region as the lifetime

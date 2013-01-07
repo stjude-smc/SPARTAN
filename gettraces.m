@@ -62,21 +62,16 @@ global params;
 
 if nargin<2, %provide defaults if no parameters given.
     params.don_thresh = 0;
-    params.overlap_thresh = 2.1;
+    params.overlap_thresh = 2.3;
+    params.nPixelsToSum = 4;
 else
     params = varargin{2};
 end
 
-% PARAMTERES FOR SOFTWARE ALIGNMENT!
-% The numbers are the displacements of the right (acceptor) field relative to
-% the left (donor) field that are required to get the two fields aligned.
-params.align_dx =  0;
-params.align_dy =  0;
-
 
 % If any parameters are not specified, give a default value of 0.
 % This way, we don't have to constantly check if a parameter exists.
-paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations','quiet'};
+paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations','quiet','alignTranlate','refineAlign'};
 for i=1:numel(paramNames),
     if ~isfield(params,paramNames{i})
         params.(paramNames{i}) = 0;
@@ -105,6 +100,11 @@ else
     error('gettraces: Invalid param 1');
 end
 
+% If all we want is the movie data, don't pick yet.
+if nargout==1,
+    return;
+end
+
 
 
 
@@ -131,9 +131,11 @@ else
 end
 
 % Find peak locations from total intensity
-[peaksX,peaksY] = getPeaks( image_t, params );
-peaks = [peaksX peaksY];
+[peaks,stkData.stkData.total_t,stkData.alignStatus] = getPeaks( image_t, params );
 
+% Generate integration windows for later extracting traces.
+[stkData.regions,stkData.integrationEfficiency] = ...
+                            getIntegrationWindows(image_t, peaks', params);
 
 
 %------ Extract traces using peak locations
@@ -143,7 +145,7 @@ if nargin>=3 && ischar(varargin{3}),
     end
     
     outputFilename = varargin{3};
-    integrateAndSave( stkData.movie, stkData.stk_top, peaks', outputFilename );
+    integrateAndSave( stkData, peaks', outputFilename );
 end
     
 return;
@@ -363,12 +365,15 @@ for i=1:nFiles,
     params2 = params;
     params2.don_thresh = don_thresh;
     
-    [peaksX,peaksY] = getPeaks( image_t, params2 );
-    peaks = [peaksX peaksY];
-    nTraces(i) = numel(peaksX)/2;
+    peaks = getPeaks( image_t, params2 );
+    nTraces(i) = size(peaks,1);
+    
+    % Generate integration windows for later extracting traces.
+    [stkData.regions,stkData.integrationEfficiency] = ...
+                                getIntegrationWindows(image_t, peaks', params);
     
     % Save the traces to file
-    integrateAndSave( stkData.movie, stkData.stk_top, peaks', traceFname );
+    integrateAndSave( stkData, peaks', traceFname );
     
     waitbar(i/nFiles, h); drawnow;
 end
@@ -399,7 +404,7 @@ for i=1:nFiles
     if existing(i),
         fprintf(log_fid, 'SKIP %s\n', movieFilenames(i).name);
     else
-        fprintf(log_fid, '%.0f %s\n', nTraces(i), movieFilenames(i).name);
+        fprintf(log_fid, '%.0f %s\n', nTraces(i)/2, movieFilenames(i).name);
     end
 end
 
@@ -415,22 +420,21 @@ fclose(log_fid);
 
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
-%------------- Pick Cy3 spots ----------------- 
-function [picksX,picksY,total_t] = getPeaks( image_t, params )
-% Localizes the peaks of molecules in the Cy3 channel and infers the
-% positions of the Cy5 peaks by applying a transofmration to the Cy3 peak
-% positions.
+%------------- Pick single molecule spots ----------------- 
+function [picks,total_t, align] = getPeaks( image_t, params )
+% Localizes the peaks of molecules from a summed image of the two channels
+% (in FRET experiments).
 %
 % picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
 % picksY - Y-coords ...
 
 
-% If using a single-channel setup, use a simplified proceedure.
+% If using a single-channel setup, use a simplified proceedure
+% since we don't have to worry about alignment, etc.
 if params.geometry==1,
     total_t = image_t;
-    [picksX,picksY] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-    picksX = reshape( picksX, numel(picksX),1 );
-    picksY = reshape( picksY, numel(picksY),1 );
+    picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+    assert( size(picks,2)==2 ); %x and y columns, molecules in rows.
     return;
 end
 % Otherwise, assume dual-channel. FIXME
@@ -439,59 +443,101 @@ end
 [nrow ncol] = size(image_t);
 ncol = ncol/2;
 
-%---- 1. Transform acceptor side so that the two channels align properly.
+
+%---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
 donor_t    = image_t( :, 1:ncol );
 acceptor_t = image_t( :, (ncol+1):end );
 
-dx = round(params.align_dx);
-dy = round(params.align_dy);
+total_t = acceptor_t + donor_t; %sum the two fluorescence channels.
 
-total_t = zeros( size(donor_t) );
-total_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
+donor_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+nPicked = size(donor_picks,1);
+
+% Define acceptor size peaks as a simple translation across the chip.
+picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
+
+picks(1:2:end,:) = donor_picks; %donor
+picks(2:2:end,1) = donor_picks(:,1) + ncol; %acceptor
+picks(2:2:end,2) = donor_picks(:,2);        %acceptor
+
+% Refine peak locations to determine if realignment is needed.
+refinedPicks = refinePeaks( image_t, picks );
+
+x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
+y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
+x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
+y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
+align = [x_align y_align x_align_abs y_align_abs];
+
+% If specified, use the refined peak positions to handle slight misalignment.
+if params.refineAlign,
+    picks = refinedPicks;
+end
+
+% If the alignment is close (by translation), we're done.
+if abs(x_align)<0.5 && abs(y_align)<0.5,
+    return;
+end
+
+
+%---- 2. Transform acceptor side so that the two channels align properly.
+% If the alignment is off by a significant margin, the fields are
+% realigned in software. This will only handle translation. Rotation and
+% other complex distortions are harder. FIXME.
+warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
+fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
+fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
+
+% Just give a warning unless asked to do software alignment in settings.
+if ~params.alignTranslate,  return;  end 
+
+
+dx = round( x_align );
+dy = round( y_align );
+
+% Sum the donor and acceptor fields, after translating the acceptor size to
+% deal with the misalignment.
+align_t = zeros( size(donor_t) );
+align_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
     acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
 
-total_t = total_t + donor_t; %sum the two fluorescence channels.
-%FIXME: regions w/o acceptor intensity should be erased!
+total_t_old = total_t;
+total_t = align_t + donor_t; %sum the two fluorescence channels.
 
-
-%---- 2. Get coordinates of intensity peaks using the summed image.
+% Pick peaks from the aligned image.
 [don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 nPicked = numel(don_x);
 
-acc_x = don_x + ncol +dx;
-acc_y = don_y        +dy;
+% Since the alignment image has been shifted to compensate for misalignment
+% already (above), adjust the output coordinates so they are relative to
+% the actual fields, not the adjusted fields.
+picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
 
-
-%---- 3. Save results for output
-picksX = zeros(nPicked*2,1);
-picksY = zeros(nPicked*2,1);
-
-for i=1:nPicked,
-    picksX(2*i-1) = don_x(i);
-    picksY(2*i-1) = don_y(i);
-    picksX(2*i)   = acc_x(i);
-    picksY(2*i)   = acc_y(i);
-end    
+picks(1:2:end,1) = don_x;            %donor
+picks(2:2:end,1) = don_x + ncol -dx; %acceptor
+picks(1:2:end,2) = don_y;     %donor
+picks(2:2:end,2) = don_y -dy; %acceptor
 
 
 %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
-align_acc_x = acc_x;
-align_acc_y = acc_y;
+refinedPicks = refinePeaks( image_t, picks );
 
-for j=1:nPicked,
-    % Refine acceptor peak positions by finding local maxima
-    % within the 3x3 grid around the initial guess.
-    temp = image_t( acc_y(j)-1:acc_y(j)+1, acc_x(j)-1:acc_x(j)+1 );
-    [maxy, maxx] = find(temp==max(max(temp)),1);
-    align_acc_x(j) = align_acc_x(j) +maxx-2;
-    align_acc_y(j) = align_acc_y(j) +maxy-2;
+% If specified, use the refined peak positions to handle slight misalignment.
+if params.refineAlign,
+    picks = refinedPicks;
 end
 
 % Verify the alignment
-x_align = mean( align_acc_y-acc_y );
-y_align = mean( align_acc_y-acc_y );
-if abs(x_align)+abs(y_align)>0.5,
-    warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
+x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
+y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
+x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
+y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
+align = [x_align y_align x_align_abs y_align_abs];
+
+if x_align_abs>0.5 || y_align_abs>0.5,
+    warning('gettraces:badAlignment','Fluorescence fields are STILL out of alignment. Rotation is off?');
+    fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
+    fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
 end
 
 
@@ -511,15 +557,14 @@ wavg = sum( vals.*weights );
 
 
 
-function [don_x,don_y] = pickPeaks( image_t, threshold, overlap_thresh )
+function [clean_picks,all_picks] = pickPeaks( image_t, threshold, overlap_thresh )
 % Localizes the peaks of fluorescence, removing any too close together.
-% NOTE: only the donor side is passed to this function
 
 [nrow ncol] = size(image_t);
 
 
 % 1. For each pixel (excluding edges), pick those above threshold that have
-% greater intensity than their neighbors (3x3,local maxima) -- donor only.
+% greater intensity than their neighbors (3x3,local maxima).
 % tempxy is peak position, centroidxy is estimated true molecule position.
 nMols=0;
 for i=1+3:nrow-3,
@@ -546,8 +591,7 @@ for i=1+3:nrow-3,
 end
 
 if nMols<1,
-    don_x = [];
-    don_y = [];
+    donor_picks = zeros(0,2);
     return;
 end
 
@@ -578,27 +622,37 @@ indexes = find( overlap==0 ); %find peaks with overlap less than threshold
 don_x = tempx(indexes);
 don_y = tempy(indexes);
 
+clean_picks = [don_x' don_y'];
+all_picks = [tempx' tempy'];
+
 
 % END FUNCTION pickPeaks
 
 
+function peaks = refinePeaks( image_t, peaks )
+% pickPeaks simply finds peaks of intensity in the total (D+A) image. Here
+% the peak locations are refined to account for slight differences due to
+% misalignment, where the donor and acceptor peaks may be in different
+% relative positions. This can be used to re-align the images in software.
+% The input image and peak locations are listed as:
+%     donor/acceptor/donor/acceptor/etc.
 
+for j=1:size(peaks,1),
+    % Refine acceptor peak positions by finding local maxima
+    % within the 3x3 grid around the initial guess.
+    temp = image_t( peaks(j,2)-1:peaks(j,2)+1, peaks(j,1)-1:peaks(j,1)+1 );
+    [maxy, maxx] = find(temp==max(temp(:)),1);
+    peaks(j,1) = peaks(j,1) +maxx-2;  %X
+    peaks(j,2) = peaks(j,2) +maxy-2;  %Y
+end
+
+% END FUNCTION refinePeaks
 
 
 
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
-
-% function saveTraces( handles, hObject )
-function integrateAndSave( movie, stk_top, peaks, stk_fname )
-% NOTE: can find which pixels to use by correlation
-
-global params;
-
-
-nFrames = movie.nFrames;
-data.time = movie.timeAxis;
-wbh = waitbar(0,'Extracting traces from movie data');
+function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks, params )
 
 % Specify the number of most intense proximal pixels to sum when generating
 % fluorescence traces (depends on experimental point-spread function).
@@ -617,6 +671,8 @@ regions=zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
+integrationEfficiency = zeros(Npeaks,squarewidth^2);
+
 for m=1:Npeaks
     
     hw = floor(squarewidth/2);
@@ -625,7 +681,13 @@ for m=1:Npeaks
     peak = stk_top( ...
             y(m)-hw:y(m)+hw, ...
             x(m)-hw:x(m)+hw  );
-    center = sort( peak(:) );  %vector of sorted intensities
+    center = sort( peak(:) );  %vector of sorted intensities in peak.
+    
+    % Estimate the fraction of intensity in each pixel.
+    % This is used in the GUI to show the efficiency of collecting
+    % intensity at a given integratin window size and to estimate the size
+    % of the point-spread function.
+    integrationEfficiency(m,:) = integrationEfficiency(m,:) + cumsum( center(end:-1:1)/sum(center) )';
     
     % Get pixels whose intensity is greater than the median (max=NumPixels).
     % We just want the centroid to avoid adding noise ...
@@ -636,6 +698,30 @@ for m=1:Npeaks
     % Define a region over which to integrate each peak
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
 end
+
+
+% end function getIntegrationWindows
+
+
+
+
+% function saveTraces( handles, hObject )
+function integrateAndSave( stkData, peaks, stk_fname )
+% NOTE: can find which pixels to use by correlation
+
+global params;
+
+movie = stkData.movie;
+nFrames = movie.nFrames;
+data.time = movie.timeAxis;
+wbh = waitbar(0,'Extracting traces from movie data');
+
+% Get x,y coordinates of picked peaks
+Npeaks = size(peaks,2);
+x = peaks(1,:);
+y = peaks(2,:);
+
+regions = stkData.regions;  % pixel#, dimension(x,y), peak#
 
 
 % Create a trace for each molecule across the entire movie
@@ -669,8 +755,6 @@ end
 
 
 % Convert fluorescence to arbitrary units to photon counts.
-% FIXME (?): make sure this doesn't mess up other functions that might rely
-% on the absolute intensities (are there any??).
 constants = cascadeConstants;
 if isfield(params,'photonConversion'),
     donor    = donor./params.photonConversion;
@@ -678,14 +762,10 @@ if isfield(params,'photonConversion'),
 end
 
 % Make an adjustment for crosstalk on the camera.
-% I deliberately make the minimum value non-zero. This is useful so that
-% FRET ends up being non-zero and thus we can find where calcLifetime sets
-% the end of the trace by FRET values still. Otherwise, lt ends up being 0
-% for all traces. See traceStat. This is a hack. FIXME.
 if ~isfield(params,'crosstalk'),
     params.crosstalk = constants.crosstalk;
 end
-acceptor = acceptor - params.crosstalk*donor + 0.01;
+acceptor = acceptor - params.crosstalk*donor;
 
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);

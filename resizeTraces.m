@@ -38,7 +38,10 @@ for i=1:numel(files),
     data.time = cumsum( [data.time(1) repmat(dt,1,traceLen-1)] );
     
     % ---- Undo crosstalk correction (otherwise it will be done twice).
-    data.acceptor = data.acceptor + constants.crosstalk*data.donor;
+    % This only applies to old format files!
+    if isfield(data,'traceMetaData') && ~isempty(data.traceMetadata),
+        data.acceptor = data.acceptor + constants.crosstalk*data.donor;
+    end
     
     % ---- Modify traces, if they do not match the target trace length.
     if traceLen == actualLen,
