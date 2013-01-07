@@ -183,10 +183,11 @@ function handles = OpenStk(filename, handles, hObject)
 if numel(p)>70, p=[p(1:70) '...']; end %trancate path, if too long
 fnameText = [p filesep f e];
 
-set( handles.txtFilename,'String',fnameText);
-set( handles.txtOverlapStatus, 'String', '' );
+set( handles.txtFilename,          'String',fnameText);
+set( handles.txtOverlapStatus,     'String', '' );
 set( handles.txtIntegrationStatus, 'String', '' );
-set( handles.txtPSFWidth, 'String', '' );
+set( handles.txtPSFWidth,          'String', '' );
+set(  handles.txtAlignStatus,      'String', '' );
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -412,6 +413,19 @@ stkData = getappdata(handles.figure1,'stkData');
 [stkData,peaks] = gettraces( stkData, handles.params );
 
 
+% Display alignment status to inform user if realignment may be needed.
+% Format: translation deviation (x, y), absolute deviation (x, y)
+absDev = mean(stkData.alignStatus(3:4));
+set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
+        [stkData.alignStatus(1:2) absDev] ) );
+    
+if any(stkData.alignStatus>0.5) || absDev>0.25,
+    set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+else
+    set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+end
+
+
 % Get locations also without overlap rejection to estimate the number of
 % molecules that are overlapping. This can be used to give the user a
 % warning if the density is too high (here by showing it in red).
@@ -425,7 +439,7 @@ percentOverlap = 100*( size(peaksZ,1)-size(peaks,1) )/size(peaksZ,1);
 set(  handles.txtOverlapStatus, 'String', ...
       sprintf('%0.0f%% molecules overlapped', percentOverlap)  );
 
-if percentOverlap>25,
+if percentOverlap>30,
     set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
 else
     set( handles.txtOverlapStatus, 'ForegroundColor', [0 0 0] );

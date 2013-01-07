@@ -131,7 +131,7 @@ else
 end
 
 % Find peak locations from total intensity
-peaks = getPeaks( image_t, params );
+[peaks,stkData.stkData.total_t,stkData.alignStatus] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
@@ -465,7 +465,7 @@ refinedPicks = refinePeaks( image_t, picks );
 
 x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
 y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
-x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,2)-ncol )); %this will detect rotation as well
+x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
 y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
 align = [x_align y_align x_align_abs y_align_abs];
 
@@ -530,7 +530,7 @@ end
 % Verify the alignment
 x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
 y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
-x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,2)-ncol )); %this will detect rotation as well
+x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
 y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
 align = [x_align y_align x_align_abs y_align_abs];
 
