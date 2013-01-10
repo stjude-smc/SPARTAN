@@ -116,6 +116,8 @@ if numel(varargin) > 0,
     handles = OpenStk( handles.stkfile, handles, hObject );
     set(handles.getTraces,'Enable','on');
     
+    assert( handles.params.geometry<=2, 'Quad-view not supported (yet)' );  % FIXME
+    
     % If a trace number is given, highlight it.
     if handles.params.geometry==2, %dual-channel
         % Draw markers on selection points (donor side)
@@ -265,8 +267,45 @@ elseif handles.params.geometry==2,
     linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
     
 %---- Show fields for Quad-Channel (quarter-chip, L/R/U/D) recordings.
-elseif geometry>2,
-    %TODO
+elseif handles.params.geometry>2,
+    % Split up channels and combine, assuming perfect alignment.
+    upperLeft  = image_t( 1:nrow/2, 1:ncol/2 );
+    upperRight = image_t( 1:nrow/2, (ncol/2)+1:end );
+    lowerLeft  = image_t( (nrow/2)+1:end, 1:ncol/2 );
+    lowerRight = image_t( (nrow/2)+1:end, (ncol/2)+1:end );
+    total_t = upperLeft + upperRight + lowerLeft + lowerRight;
+    
+    % Create axes for each of the fluorescence channels.
+    handles.axUL    = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5 0.25 0.5] );
+    axes( handles.axUL );
+    imshow( upperLeft, [low*2 (high+low)] );
+    colormap(colortable);  zoom on;
+    title('Donor (Cy3)');
+    
+    handles.axUR    = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35 0.5 0.25 0.5] );
+    axes( handles.axUR );
+    imshow( upperRight, [low*2 (high+low)] );
+    colormap(colortable);  zoom on;
+    
+    handles.axLR    = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35 0.025 0.25 0.5] );
+    axes( handles.axLR );
+    imshow( lowerRight, [low*2 (high+low)] );
+    colormap(colortable);  zoom on;
+    title('Factor Binding (Cy2)');
+    
+    handles.axLL    = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.25 0.5] );
+    axes( handles.axLL );
+    imshow( lowerLeft, [low*2 (high+low)] );
+    colormap(colortable);  zoom on;
+    title('Donor (Cy5)');
+    
+    handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.65 0.25 0.25 0.5] );
+    axes( handles.axTotal );
+    imshow( total_t, [low*2 (high+low)] );
+    colormap(colortable);  zoom on;
+    title('Total');
+    
+    linkaxes( [handles.axUL handles.axUR handles.axLL handles.axLR handles.axTotal] );
 end
 
 
@@ -415,15 +454,15 @@ stkData = getappdata(handles.figure1,'stkData');
 
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
-absDev = mean(stkData.alignStatus(3:4));
-set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
-        [stkData.alignStatus(1:2) absDev] ) );
-    
-if any(stkData.alignStatus>0.5) || absDev>0.25,
-    set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
-else
-    set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
-end
+% absDev = mean(stkData.alignStatus(3:4));
+% set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
+%         [stkData.alignStatus(1:2) absDev] ) );
+%     
+% if any(stkData.alignStatus>0.5) || absDev>0.25,
+%     set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+% else
+%     set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+% end
 
 
 % Get locations also without overlap rejection to estimate the number of
@@ -486,6 +525,7 @@ handles.y = peaks(:,2);
 %----- Graphically show peak centers
 
 ncol = stkData.stkX;
+nrow = stkData.stkY;
 clear stkData;
 
 % Clear selection markers
@@ -515,6 +555,35 @@ elseif handles.params.geometry==2, %dual-channel
     line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','y','EraseMode','background');
 
     handles.num = numel(handles.x)/2;
+    
+elseif handles.params.geometry==3, %quad-channel
+    indUL = 1:3:numel(handles.x); %Cy3 donor
+    indLR = 2:3:numel(handles.x); %Cy5 acceptor
+    indLL = 3:3:numel(handles.x); %Cy2 factor binding
+    
+    % Draw markers on selection points (donor side)
+    args = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
+    
+    axes(handles.axUL);
+    line(handles.x(indUL),handles.y(indUL), args{:});
+    
+    %axes(handles.axUR);
+    %line(handles.x(indUR)-(ncol/2),handles.y(indUR), args{:});
+    
+    axes(handles.axLR);
+    line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), args{:});
+    
+    axes(handles.axLL);
+    line(handles.x(indLL),handles.y(indLL)-(nrow/2), args{:});
+    
+    % Draw markers on selection points (total intensity composite image)
+    axes(handles.axTotal);
+    line(handles.x(indUL),handles.y(indUL),'LineStyle','none','marker','o','color','y','EraseMode','background');
+    
+    handles.num = numel(handles.x)/3;
+    
+elseif handles.params.geometry==4,
+    error('Four-color FRET not yet supported');
 end
 
 % Update GUI controls
@@ -560,7 +629,11 @@ elseif handles.params.geometry==2, %Dual-channel recordings
     set( handles.axAcceptor, 'CLim',[minimum val] );
     set( handles.axTotal,    'CLim',[minimum*2 val*2] );
 elseif handles.params.geometry>2,
-    %TODO
+    set( handles.axUL, 'CLim',[minimum val] );
+    set( handles.axUR, 'CLim',[minimum val] );
+    set( handles.axLL, 'CLim',[minimum val] );
+    set( handles.axLR, 'CLim',[minimum val] );
+    set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 end
 
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
@@ -640,7 +713,11 @@ elseif handles.params.geometry==2, %Dual-channel recordings
 
     
 elseif handles.params.geometry>2,
-    %TODO
+    set( handles.axUL, 'CLim',[minimum val] );
+    set( handles.axUR, 'CLim',[minimum val] );
+    set( handles.axLL, 'CLim',[minimum val] );
+    set( handles.axLR, 'CLim',[minimum val] );
+    set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 end
 
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
@@ -653,7 +730,6 @@ guidata(hObject,handles);
 % --- Executes on selection change in cboGeometry.
 function cboGeometry_Callback(hObject, eventdata, handles)
 %
-constants = cascadeConstants;
 
 handles.params.geometry = get(hObject,'Value');
 
@@ -668,13 +744,13 @@ if handles.params.geometry==1, %Single-channel recordings
     %set( handles.chkAlignRotate,   'Enable','off', 'Value',0   );
     set( handles.chkRefineAlign,    'Enable','off', 'Value',0   );
     
-elseif handles.params.geometry==2, %Dual-channel recordings
+elseif handles.params.geometry>2, %Dual-channel recordings
     set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
     %set( handles.chkAlignRotate,   'Enable','on', 'Value',handles.params.alignRotate  );
     set( handles.chkRefineAlign,    'Enable','on', 'Value',handles.params.refineAlign  );
     
-elseif handles.params.geometry>2,
+% elseif handles.params.geometry>2,
     % TODO
 end
 

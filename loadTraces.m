@@ -1,27 +1,27 @@
 function data = loadTraces( filename, indexes )
 % LOADTRACES  Loads fluorescence trace files
 %
-%   DATA = LOADTRACES( FILENAME, INDEXES )
-%   
-%   Loads fluorescence DATA and metadata from file. For non-obselete
-%   versions of this format, no corrections are made here.
-%   
+%   DATA = LOADTRACES( FILENAME )  loads fluorescence DATA and metadata
+%   from file. For non-obselete versions of this format, no corrections
+%   are made here (they should have been done in gettraces.m).
+%
+%   DATA = LOADTRACES( FILENAME, INDEXES )  loads only specified traces.
+%
 %   For two-color FRET experiments, fields include:
-%      donor, acceptor, fret, time, ids
-%   Where donor and acceptor are fluorescence data, fret is calculated fret
-%   values, time is the time axis (in seconds), and ids are trace
-%   identifiers.
+%      donor, acceptor, fret, time
+%   Where donor and acceptor are fluorescence data, fret is calculated FRET
+%   ratio trace, time is the time axis (in seconds).
 % 
 %   Metadata fields include:
-%      traceMetadata:   data specific to each trace (structure array)
-%      movieMetadata:   data specific to each movie
-%      channelNames:    names of the data channels ('donor','acceptor',etc)
+%      channelNames:   names of the data channels ('donor','acceptor',etc)
+%      traceMetadata:  data specific to each trace (structure array)
+%      fileMetadata:   data specific to each the entire file
 %   
-%   FILENAME is the path to the file to load.
+%   Additional fields may be present for addition fluorescence channels.
+%   This includes 'factor' for factor binding or 'acceptor2' for a
+%   three-color FRET experiment with a single donor and two acceptors.
+%   Four-color FRET and more complex experiments are not supported. FIXME
 %
-%   INDEXES specifies the indexes of traces to load. Useful if only a small
-%   number of traces are needed from a large file.
-%   
 
 data = struct();
 
@@ -224,35 +224,52 @@ nChannels = fread( fid, 1, '*uint8'  );
 nTraces   = fread( fid, 1, 'uint32'  );
 traceLen  = fread( fid, 1, 'uint32'  );
 
+data.nChannels = nChannels;
+
 % 3) Check validity of header data.
 assert( (z==0 && strcmp(magic,'TRCS')), 'loadTraces: invalid header' );
-assert( version==3, 'Version not supported!' );
+assert( version>=3 && version<=4, 'Version not supported!' );
 
-% 4) Read fluorescence and FRET data.
+
+% 4a) Read data field names
+if version>3, %field names are specified in the new format.
+    szNames = fread( fid, 1, 'uint32' );
+    channelNames = strtrim(  fread( fid, [1,szNames], '*char' )  );
+
+    c = textscan(channelNames, '%s', 'Delimiter',char(31));
+    channelNames = c{1}';
+else
+    % For backward compatibility (with ver. 3), assume 2-color FRET.
+    assert( nChannels==3 );
+    channelNames = {'donor','acceptor','fret'};
+end
+
+data.channelNames = channelNames;
+
+
+% 4b) Read fluorescence and FRET data.
 % TODO: To save memory, the data is memory mapped and copied when needed.
-assert( nChannels==3, 'Only 2-color FRET data are currently recognized.' );
 assert( dataType==9, 'Only single values are supported.');
 
 data.time = fread( fid, [traceLen,1], 'single' ); %time axis (in seconds)
-data.donor    = fread( fid, [nTraces,traceLen], 'single' );
-data.acceptor = fread( fid, [nTraces,traceLen], 'single' );
-data.fret     = fread( fid, [nTraces,traceLen], 'single' );
-szSingle = 4; %size of a single (32 bits)
-
 
 % Select subset of traces if indexes are given.
-% If no indexes given, just select all. (simplifies later steps)
 if nargin<2 || isempty(indexes),
     indexes = 1:nTraces;
 end
-    
-data.donor    = data.donor(indexes,:);
-data.acceptor = data.acceptor(indexes,:);
-data.fret     = data.fret(indexes,:);
+
+% Read data fields.
+for i=1:nChannels,
+    d = fread( fid, [nTraces,traceLen], 'single' );
+    data.( channelNames{i} ) = d(indexes,:);
+end
+
 
 % 5) Read metadata.
-% Adding this just to give the traceMetadata struct a basic structure.
+% Adding this just to give the traceMetadata struct a basic structure,
+% which is needed for building structure arrays. 'temp' is removed later.
 traceMetadata = struct( 'temp', num2cell(indexes) );
+mode = 1; %1=reading traceMetadata (default), 2=reading fileMetadata
 
 while 1,
     % Read the page header.
@@ -273,18 +290,37 @@ while 1,
     
     m = fread( fid, [1,pageSize], ['*' dataTypes{pageDatatype+1}] );
     
-    % Extract ids (delimited text)
+    % Extract ids (delimited text).
+    % FIXME: do this for any field with char(31) -- delimited text.
     if strcmp(title,'ids'),
         c = textscan(m, '%s', nTraces, 'Delimiter',char(31));
         m = c{1}';
     end
     
-    % Convert into structure array.
-    if iscell(m),
-        [traceMetadata.(title)] = deal( m{indexes} );
-    elseif isnumeric(m),
-        d = num2cell(m(indexes));
-        [traceMetadata.(title)] = deal( d{:} );
+    % Look for section markers that delimit traceMetadata from fileMetadata
+    if strcmp(title,'section_heading'),
+        assert( ischar(m) );
+        if strcmp(m,'traceMetadata'),
+            mode=1;
+        elseif strcmp(m,'fileMetadata'),
+            mode=2;
+        else
+            error('Unknown section seperator');
+        end
+    end
+    
+    % Convert into structure array for traceMetadata.
+    if mode==1,
+        if iscell(m),
+            [traceMetadata.(title)] = deal( m{indexes} );
+        elseif isnumeric(m),
+            d = num2cell(m(indexes));
+            [traceMetadata.(title)] = deal( d{:} );
+        end
+    
+    % Simply add fields (which may be arrays) for fileMetadata.
+    elseif mode==2,
+        data.fileMetadata.(title) = m;
     end
 end
 

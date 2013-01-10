@@ -589,6 +589,7 @@ end
 function PickTraces_Callback(hObject, handles)
 
 criteria = getSpecialCriteria( handles );
+handles.criteria = criteria;
 
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
@@ -723,7 +724,7 @@ PickTraces_Callback(hObject,handles);
 % Updates the selection criteria automatically, w/o running PickTraces().
 function chkOverlap_Callback(hObject, eventdata, handles)
 handles.criteria.overlap = get(hObject,'Value');
-guidata(hObject,handles);
+% guidata(hObject,handles);
 PickTraces_Callback(hObject,handles);
 
 
@@ -731,7 +732,7 @@ PickTraces_Callback(hObject,handles);
 % Updates the selection criteria automatically, w/o running PickTraces().
 function updateCriteria_Callback( hObject, handles, criteriaName )
 handles.criteria.(criteriaName) = str2double(get(hObject,'String'));
-guidata(hObject,handles);
+% guidata(hObject,handles);
 PickTraces_Callback(hObject,handles);
 
 
@@ -750,7 +751,7 @@ else
     set(textbox,'Enable','off');
 end
 
-guidata(hObject,handles);
+% guidata(hObject,handles);
 PickTraces_Callback(hObject,handles);
 
 

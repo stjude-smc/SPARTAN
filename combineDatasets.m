@@ -59,7 +59,7 @@ for i=1:nFiles,
     end
     
     % Merge metadata fields into the final structure.
-    assert( isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
+    assert( ~isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
     if i==1,
         metadataAll = data.traceMetadata(indexes);
     else

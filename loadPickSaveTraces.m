@@ -107,23 +107,33 @@ end
 
 
 % Ideally, space should be pre-allocated. TODO.
-donorAll = [];
-acceptorAll = [];
-fretAll = [];
-timeAxis = [];
-traceMetadata = struct();
+dataAll = struct();
 allStats = struct( [] );
 picks = [];
 nTracesPerFile = zeros(nFiles,1);
+channelNames = {};
         
 for i=1:nFiles,
     
     % Load traces file data
     data = loadTraces( files{i} );
     nTracesPerFile(i) = size(data.donor,1);
+    dataAll.time = data.time;  % need to verify this is consistent. FIXME
+    %dataAll.fileMetadata = data.fileMetadata;  % need to verify this is consistent. FIXME
+    
+    % Verify that all files have the same imaging geometry/channel definitions.
+    if i==1,
+        channelNames = data.channelNames;
+        dataAll.channelNames = data.channelNames;
+    else
+        assert( strcmp(channelNames,data.channelNames), 'Traces data format mismatch (different geometry?)' );
+    end
     
     % Unless provided, calc trace properties and select those that meet criteria.
-    if ~isfield( options, 'indexes' ),
+    if isfield( options, 'indexes' ),
+        indexes = options.indexes{i};
+        stats = struct([]);
+    else
         % Calculate trace statistics
         stats = traceStat( data );
     
@@ -131,25 +141,25 @@ for i=1:nFiles,
         [indexes] = pickTraces( stats, criteria );
         indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
         picks = [picks indexes+sum(nTracesPerFile)];  %indexes of picked molecules as if all files were concatinated.
-
-    % Remove traces that were not selected
-    else   %if isfield( options, 'indexes' ),
-        indexes = options.indexes{i};
-        stats = struct([]);
+        
+        % Save stats info for logging.
+        if i==1
+            allStats = stats;
+        else
+            allStats = cat(2, allStats, stats);
+        end
     end
 
-    data.donor    = data.donor(indexes,:);
-    data.acceptor = data.acceptor(indexes,:);
-    data.fret     = data.fret(indexes,:);
-    if isfield(data,'traceMetadata'),
-        data.traceMetadata = data.traceMetadata(indexes);
+    % Remove molecules that are not selected, pool together with data sets
+    % already loaded (in dataAll).
+    for j=1:numel(channelNames),
+        c = channelNames{j};
+        if i==1,
+            dataAll.(c) = data.(c)(indexes,:);
+        else
+            dataAll.(c) = [ dataAll.(c) ; data.(c)(indexes,:) ];
+        end
     end
-    
-    % Save trace data into one large pile for saving at the end
-    donorAll = [donorAll; data.donor];
-    acceptorAll = [acceptorAll; data.acceptor];
-    fretAll = [fretAll; data.fret];
-    timeAxis = data.time;
     
     assert( isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
     if i==1,
@@ -163,13 +173,7 @@ for i=1:nFiles,
         dataAll.traceMetadata = [dataAll.traceMetadata data.traceMetadata(indexes)];
     end
     
-    % Save stats info for logging.
-    if isempty( allStats )
-        allStats = stats;
-    else
-        allStats = cat(2, allStats, stats  );
-    end
-
+    % Update status bar
     if options.showWaitbar,
         waitbar(i/nFiles,wbh);
     end
@@ -181,25 +185,7 @@ end
 
 
 % Save trace data to file
-[p,n,ext] = fileparts(outFilename);
-format = ext(2:end);
-
-clear data;
-data.donor = donorAll;
-data.acceptor = acceptorAll;
-data.fret = fretAll;
-data.time = timeAxis;
-if isfield(data,'traceMetadata'),
-    data.traceMetadata = traceMetadataAll;
-end
-
-saveTraces(outFilename,format,data);
-
-
-% Clean up
-% nPicked = numel(picks);
-nPicked = size( data.donor,1 );
-nTotalTraces = sum(nTracesPerFile);
+saveTraces(outFilename,dataAll);
 
 if options.showWaitbar,
     waitbar(1,wbh,'Finished!');
@@ -208,7 +194,7 @@ end
 
 
 %% ---- Save log file
-
+[p,n,ext] = fileparts(outFilename);
 if isempty(p)
     p = pwd;
 end
@@ -225,6 +211,10 @@ for i=1:numel(files)
     shortName = files{i}(numel(dirName)+1:end);
     fprintf(fid,' %5d: %s\n',nTracesPerFile(i),shortName);
 end
+
+% nPicked = numel(picks);
+nPicked = size( data.donor,1 );
+nTotalTraces = sum(nTracesPerFile);
 
 fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
             nPicked, nTotalTraces, 100*nPicked/nTotalTraces );  

@@ -1,12 +1,42 @@
-function saveTraces( filename, format, data )
+function saveTraces( filename, varargin )
 % SAVETRACES    Saves trace data to file
 %
-%    SAVETRACES( FNAME, FORMAT, DATA )
+%    SAVETRACES( FNAME, [FORMAT,] DATA )
 %
-%    
+% Saves fluorescence and FRET data to file. FNAME is the filename to save
+% to, FORMAT is the file format, and data are is a structure with all of
+% the fluorescence/FRET traces. 'txt' format saves the time axis, IDs,
+% donor/acceptor/fret traces as plain text. 'qub' format saves just the
+% FRET data as text (for importing into QuB software). 'traces' format
+% saves as the binary traces format (default). If format is not given, the
+% standard 'traces' format is assumed.
+%
+% DATA typically contains the following fields: (see gettraces.m)
+%   - channelNames (cell array of strings: donor, acceptor fret, ...)
+%   - donor (donor fluorescence)
+%   - acceptor (acceptor fluorescence)
+%   - fret (fret ratio as A/(A+D))
+%   - factor (miscellaneous fluorescence signal, eg, factor binding, optional)
+%   - traceMetadata (structure array of metadata for each molecule, optional)
+%   - fileMetadata (structure of metadata that is applies to the whole file, optional)
+%
+% The channel names can be anything really, but these are values that most
+% of the code expects. Multi-pair FRET not supported yet. FIXME
+% 
+% For 'qub' files, data may just be the FRET traces
 % 
 
+% If no format name given, assume traces file.
+if nargin==2 && isstruct( varargin{1} ),
+    saveTracesBinary( filename, varargin{1} );
+    return;
+end
+
 assert( nargin==3, 'Invalid number of arguments' );
+
+% Otherwise, determine the data type by the format.
+format = varargin{1};
+data   = varargin{2};
 
 switch format
     case 'txt'
@@ -214,26 +244,36 @@ end
 fid=fopen(filename,'w');
 
 % 3) Write header data
-version = 3; %3 has no data descriptions, 4 does (FUTURE!)
-nChannels = 3; %D,A,F
+version = 4; % ver 4 adds file-global metadata (see #6 below).
+nChannels = numel(data.channelNames);
 
 fwrite( fid, 0,         'uint32' );  %identifies the new traces format.
 fwrite( fid, 'TRCS',    'char'   );  %format identifier ("magic")
 fwrite( fid, version,   'uint16' );  %format version number
-fwrite( fid, 9,         'uint8'  );  %trace data type (see loadTraces.m)
+fwrite( fid, 9,         'uint8'  );  %trace data type (single, see loadTraces.m)
 fwrite( fid, nChannels, 'uint8'  );
-
 fwrite( fid, [nTraces traceLen], 'uint32' );
 
-% 4) Write fluorescence and FRET data.
-fwrite( fid, data.time,     'single' ); %time axis (in seconds)
-fwrite( fid, data.donor,    'single' );
-fwrite( fid, data.acceptor, 'single' );
-fwrite( fid, data.fret,     'single' );  
+% Write channel names (donor, acceptor, fret, etc).
+channelNames = strcat( data.channelNames, char(31) );
+channelNames = strcat( channelNames{:} );
+channelNames = channelNames(1:end-1); %removing trailing seperator
 
-% 5) Write metadata pages (if any)
+fwrite( fid, numel(channelNames), 'uint32' );
+fwrite( fid, channelNames, 'char' );
+
+
+% 4) Write fluorescence and FRET data.
+fwrite( fid, data.time, 'single' ); %time axis (in seconds)
+
+for i=1:nChannels,
+    fwrite( fid, data.(data.channelNames{i}), 'single' );
+end
+
+
+% 5) Write per-trace metadata pages (if any)
 fnames = {};
-if numel( data.traceMetadata )>0,
+if isfield(data,'traceMetadata') && numel( data.traceMetadata )>0,
     fnames = fieldnames( data.traceMetadata );
 end
 
@@ -250,7 +290,7 @@ for i=1:numel(fnames),
         metadata = [ metadata{:} ];
         metadata = metadata(1:end-1); %removing trailing seperator
     else
-        warning('Unsupported field type');
+        warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
         continue;
     end
     
@@ -267,7 +307,41 @@ for i=1:numel(fnames),
     fwrite( fid, fieldDataType-1, 'uint8' );
     fwrite( fid, numel(metadata), 'uint32' );
     fwrite( fid, metadata, class(metadata) );
- end
+end
+ 
+
+% 5) Write global metadata pages (if any).
+fnames = {};
+if isfield(data,'fileMetadata') && numel( data.fileMetadata )>0,
+    fnames = fieldnames( data.fileMetadata );
+end
+
+for i=1:numel(fnames),
+    % Get next field.
+    % Note that here these are not arrays over traces (the structure is not
+    % an array), so it is simpler to process than traceMetadata.
+    fname = fnames{i};
+    m = data.fileMetadata.(fname);
+    
+    if ~isnumeric(m) && ~ischar(m),
+        warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
+        continue;
+    end
+    
+    % Write metadata header
+    fwrite( fid, numel(fname), 'uint8' );  % field title length
+    fwrite( fid, fname, 'char' );          % field title text
+    
+    fieldDataType = find( strcmp(class(metadata),dataTypes) );
+    if isempty( fieldDataType ),
+       error( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
+    end
+    
+    % Write field content
+    fwrite( fid, fieldDataType-1, 'uint8' );
+    fwrite( fid, numel(metadata), 'uint32' );
+    fwrite( fid, metadata, class(metadata) );
+end
 
 
 % Finish up

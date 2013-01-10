@@ -135,7 +135,7 @@ end
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
-                            getIntegrationWindows(image_t, peaks', params);
+                            getIntegrationWindows(image_t, peaks, params);
 
 
 %------ Extract traces using peak locations
@@ -145,7 +145,7 @@ if nargin>=3 && ischar(varargin{3}),
     end
     
     outputFilename = varargin{3};
-    integrateAndSave( stkData, peaks', outputFilename );
+    integrateAndSave( stkData, peaks, outputFilename );
 end
     
 return;
@@ -247,14 +247,17 @@ endBackground = movie.readFrames(nFrames-11:nFrames-1);
 
 if params.geometry==1,
     % No combining needed for single-color imaging.
+    stkData.nChannels = 1;
 elseif params.geometry==2,
     % Combine left and right side of field for two-color imaging.
     endBackground = endBackground(:,1:stkX/2,:) + endBackground(:,(1+stkX/2):end,:);
+    stkData.nChannels = 2;
 elseif params.geometry>2,
     % Combine fluorescence from the four quadrants. For 3-color imaging, one
     % should be left out. FIXME
     endBackground = endBackground(1:stkY/2,1:stkX/2,:) + endBackground(1:stkY/2,(1+stkX/2):end,:) + ...
                     endBackground((1+stkY/2):end,1:stkX/2,:) + endBackground((1+stkY/2):end,(1+stkX/2):end,:);
+    stkData.nChannels = 4;
 end
 
 % Combine the image stack data with the extras just calculated for later
@@ -427,7 +430,9 @@ function [picks,total_t, align] = getPeaks( image_t, params )
 %
 % picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
 % picksY - Y-coords ...
+% For quad-color, UL,UR,LR,LL is the order.
 
+nChannels = params.geometry;
 
 % If using a single-channel setup, use a simplified proceedure
 % since we don't have to worry about alignment, etc.
@@ -440,105 +445,141 @@ end
 % Otherwise, assume dual-channel. FIXME
 
 
+% Define each channel's dimensions and sum fields together.
+% For dual-channel, we assume they are arranged L/R.
+% For quad-channel, it is UL/UR/LR/LL
 [nrow ncol] = size(image_t);
-ncol = ncol/2;
+
+if params.geometry==2,
+    donor_t    = image_t( :, 1:ncol/2 );
+    acceptor_t = image_t( :, (ncol/2+1):end );
+
+    total_t = acceptor_t + donor_t; %sum the two fluorescence channels.
+
+elseif params.geometry==3,
+    upperLeft  = image_t( 1:nrow/2, 1:ncol/2 );
+    upperRight = image_t( 1:nrow/2, (ncol/2)+1:end );
+    lowerLeft  = image_t( (nrow/2)+1:end, 1:ncol/2 );
+    lowerRight = image_t( (nrow/2)+1:end, (ncol/2)+1:end );
+    
+    total_t = upperLeft + lowerLeft + lowerRight;
+
+else
+    %FIXME: four-color
+    error('Four-color FRET not supported yet');
+end
 
 
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
-donor_t    = image_t( :, 1:ncol );
-acceptor_t = image_t( :, (ncol+1):end );
-
-total_t = acceptor_t + donor_t; %sum the two fluorescence channels.
-
 donor_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 nPicked = size(donor_picks,1);
 
+assert( all(donor_picks(:))>0, 'bad peak locations' );
+
 % Define acceptor size peaks as a simple translation across the chip.
-picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
+picks = ones(nChannels*nPicked, 2); %donor, acceptor alternating; 2 columns = x,y
 
-picks(1:2:end,:) = donor_picks; %donor
-picks(2:2:end,1) = donor_picks(:,1) + ncol; %acceptor
-picks(2:2:end,2) = donor_picks(:,2);        %acceptor
+if params.geometry==2
+    picks(1:nChannels:end,:) = donor_picks; % UL (donor)
 
-% Refine peak locations to determine if realignment is needed.
-refinedPicks = refinePeaks( image_t, picks );
+    picks(2:nChannels:end,1) = donor_picks(:,1) + ncol/2; % UR (acceptor) x
+    picks(2:nChannels:end,2) = donor_picks(:,2);          % UR (acceptor) y
 
-x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
-y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
-x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
-y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
-align = [x_align y_align x_align_abs y_align_abs];
+elseif params.geometry>2,
+    picks(1:nChannels:end,:) = donor_picks; % UL (Cy3 donor)
 
-% If specified, use the refined peak positions to handle slight misalignment.
-if params.refineAlign,
-    picks = refinedPicks;
-end
+    %picks(2:nChannels:end,1) = donor_picks(:,1) + ncol/2; % UR (unused) x
+    %picks(2:nChannels:end,2) = donor_picks(:,2);          % UR (unused) y
+    
+    picks(2:nChannels:end,1) = donor_picks(:,1) + ncol/2; % LR (Cy5 acceptor) x
+    picks(2:nChannels:end,2) = donor_picks(:,2) + nrow/2; % LR (Cy5 acceptor) y
 
-% If the alignment is close (by translation), we're done.
-if abs(x_align)<0.5 && abs(y_align)<0.5,
-    return;
+    picks(3:nChannels:end,1) = donor_picks(:,1);          % LL (Cy2 factor) x
+    picks(3:nChannels:end,2) = donor_picks(:,2) + nrow/2; % LL (Cy2 factor) y
 end
 
 
-%---- 2. Transform acceptor side so that the two channels align properly.
-% If the alignment is off by a significant margin, the fields are
-% realigned in software. This will only handle translation. Rotation and
-% other complex distortions are harder. FIXME.
-warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
-fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
-fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
+align = [];
 
-% Just give a warning unless asked to do software alignment in settings.
-if ~params.alignTranslate,  return;  end 
-
-
-dx = round( x_align );
-dy = round( y_align );
-
-% Sum the donor and acceptor fields, after translating the acceptor size to
-% deal with the misalignment.
-align_t = zeros( size(donor_t) );
-align_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
-    acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
-
-total_t_old = total_t;
-total_t = align_t + donor_t; %sum the two fluorescence channels.
-
-% Pick peaks from the aligned image.
-[don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-nPicked = numel(don_x);
-
-% Since the alignment image has been shifted to compensate for misalignment
-% already (above), adjust the output coordinates so they are relative to
-% the actual fields, not the adjusted fields.
-picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
-
-picks(1:2:end,1) = don_x;            %donor
-picks(2:2:end,1) = don_x + ncol -dx; %acceptor
-picks(1:2:end,2) = don_y;     %donor
-picks(2:2:end,2) = don_y -dy; %acceptor
-
-
-%---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
-refinedPicks = refinePeaks( image_t, picks );
-
-% If specified, use the refined peak positions to handle slight misalignment.
-if params.refineAlign,
-    picks = refinedPicks;
-end
-
-% Verify the alignment
-x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
-y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
-x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
-y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
-align = [x_align y_align x_align_abs y_align_abs];
-
-if x_align_abs>0.5 || y_align_abs>0.5,
-    warning('gettraces:badAlignment','Fluorescence fields are STILL out of alignment. Rotation is off?');
-    fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
-    fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
-end
+% % Refine peak locations to determine if realignment is needed.
+% refinedPicks = refinePeaks( image_t, picks );
+% 
+% x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
+% y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
+% x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
+% y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
+% align = [x_align y_align x_align_abs y_align_abs];
+% 
+% % If specified, use the refined peak positions to handle slight misalignment.
+% if params.refineAlign,
+%     picks = refinedPicks;
+% end
+% 
+% % If the alignment is close (by translation), we're done.
+% if abs(x_align)<0.5 && abs(y_align)<0.5,
+%     return;
+% end
+% 
+% 
+% %---- 2. Transform acceptor side so that the two channels align properly.
+% % If the alignment is off by a significant margin, the fields are
+% % realigned in software. This will only handle translation. Rotation and
+% % other complex distortions are harder. FIXME.
+% warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
+% fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
+% fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
+% 
+% % Just give a warning unless asked to do software alignment in settings.
+% if ~params.alignTranslate,  return;  end 
+% 
+% 
+% dx = round( x_align );
+% dy = round( y_align );
+% 
+% % Sum the donor and acceptor fields, after translating the acceptor size to
+% % deal with the misalignment.
+% align_t = zeros( size(donor_t) );
+% align_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
+%     acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
+% 
+% total_t_old = total_t;
+% total_t = align_t + donor_t; %sum the two fluorescence channels.
+% 
+% % Pick peaks from the aligned image.
+% [don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+% nPicked = numel(don_x);
+% 
+% % Since the alignment image has been shifted to compensate for misalignment
+% % already (above), adjust the output coordinates so they are relative to
+% % the actual fields, not the adjusted fields.
+% picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
+% 
+% picks(1:2:end,1) = don_x;            %donor
+% picks(2:2:end,1) = don_x + ncol -dx; %acceptor
+% picks(1:2:end,2) = don_y;     %donor
+% picks(2:2:end,2) = don_y -dy; %acceptor
+% 
+% 
+% %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
+% refinedPicks = refinePeaks( image_t, picks );
+% 
+% % If specified, use the refined peak positions to handle slight misalignment.
+% if params.refineAlign,
+%     picks = refinedPicks;
+% end
+% 
+% % Verify the alignment
+% x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
+% y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
+% x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
+% y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
+% align = [x_align y_align x_align_abs y_align_abs];
+% 
+% if x_align_abs>0.5 || y_align_abs>0.5,
+%     warning('gettraces:badAlignment','Fluorescence fields are STILL out of alignment. Rotation is off?');
+%     fprintf( 'X Translation (Absolute): %.1f  (%.1f)\n', x_align, x_align_abs );
+%     fprintf( 'Y Translation (Absolute): %.1f  (%.1f)\n', y_align, y_align_abs );
+% end
 
 
 % end function getTraces
@@ -663,9 +704,9 @@ idx = find( params.nPixelsToSum<=(swChoices.^2), 1,'first' );
 squarewidth = swChoices(idx);
 
 % Get x,y coordinates of picked peaks
-Npeaks = size(peaks,2);
-x = peaks(1,:);
-y = peaks(2,:);
+Npeaks = size(peaks,1);
+x = peaks(:,1);
+y = peaks(:,2);
 
 regions=zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
@@ -707,7 +748,15 @@ end
 
 % function saveTraces( handles, hObject )
 function integrateAndSave( stkData, peaks, stk_fname )
-% NOTE: can find which pixels to use by correlation
+% NOTE: can find which pixels to use by correlation.
+% Up to this point the code is basically generic about what the channels
+% mean (donor/acceptor/etc). Here with multi-color measurements, we need to
+% be able to handle many possibly configurations gracefully. Donor and
+% acceptor properties in the data structure should remain. Then addition
+% channels can augment that main signal (single FRET pair). This is most
+% often in the form of factor binding. Also have to handle each specific
+% quadrant may have a different assignment (donor in one, factor or
+% acceptor in another) for each experiment. GOOD TIMES! --d
 
 global params;
 
@@ -717,9 +766,9 @@ data.time = movie.timeAxis;
 wbh = waitbar(0,'Extracting traces from movie data');
 
 % Get x,y coordinates of picked peaks
-Npeaks = size(peaks,2);
-x = peaks(1,:);
-y = peaks(2,:);
+Npeaks = size(peaks,1);
+x = peaks(:,1);
+y = peaks(:,2);
 
 regions = stkData.regions;  % pixel#, dimension(x,y), peak#
 
@@ -743,22 +792,29 @@ for k=1:nFrames,
 end
 
 
-if params.geometry==1, %single-channel
-    donor    = traces;
-    acceptor = zeros( size(traces) );
-elseif params.geometry==2, %dual-channel
-    donor    = traces(1:2:end,:);
-    acceptor = traces(2:2:end,:);
-else  %quad-channel
-    %TODO
+% Convert fluorescence to arbitrary units to photon counts.
+constants = cascadeConstants;
+if isfield(params,'photonConversion') && ~isempty(params.photonConversion) && params.photonConversion~=0,
+    traces = traces./params.photonConversion;
 end
 
 
-% Convert fluorescence to arbitrary units to photon counts.
-constants = cascadeConstants;
-if isfield(params,'photonConversion'),
-    donor    = donor./params.photonConversion;
-    acceptor = acceptor./params.photonConversion;
+data.channelNames = {'donor','acceptor','fret'};
+    
+if params.geometry==1, %single-channel
+    donor    = traces;
+    acceptor = zeros( size(traces) );
+    
+elseif params.geometry==2, %dual-channel
+    donor    = traces(1:2:end,:);
+    acceptor = traces(2:2:end,:);
+
+elseif params.geometry==3, %three-color
+    donor    = traces(1:3:end,:);
+    acceptor = traces(2:3:end,:);
+    factor   = traces(3:3:end,:);
+    
+    data.channelNames = [data.channelNames 'factor'];
 end
 
 % Make an adjustment for crosstalk on the camera.
@@ -770,11 +826,22 @@ acceptor = acceptor - params.crosstalk*donor;
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);
 
+% Background substraction for third channel for factor binding.
+% This is tricky because it isn't dependant on the donor and very often may
+% not have a distinct "photobleaching" event.
+% So I just naively substract from the last 10 frames...
+if params.geometry==3,
+    data.factor = factor;
+    for i=1:size(factor,1),
+        data.factor(i,:) = factor(i,:) - mean( factor(i,end-9:end) );
+    end
+end
 
 % Correct for variable sensitivity across acceptor-channel camera,
 % according to measurements with DNA oligos -- QZ
 % This is very specific to our equipment, so it should realistically be put
 % somewhere outside (cascadeConstants) as an option.
+if params.geometry==2,
 % if params.acceptorFieldRescale,
     % creat a Look up table for intensity correction
     for j=1:Npeaks/2,
@@ -783,6 +850,7 @@ acceptor = acceptor - params.crosstalk*donor;
         acceptor(j,:) = acceptor(j,:)/yCorrection;
     end
 % end
+end
 
 
 % ---- Metadata: save various metadata parameters from movie here.
@@ -804,11 +872,15 @@ elseif params.geometry==2,
         'donor_x',    num2cell( x(1:2:end) ), 'donor_y',    num2cell( y(1:2:end) ), ...
         'acceptor_x', num2cell( x(2:2:end) ), 'acceptor_y', num2cell( y(2:2:end) ) ...
     );
-elseif params.geometry>2,
-    % TODO
+elseif params.geometry==3,
+    data.traceMetadata = struct( ...
+        'donor_x',    num2cell( x(1:3:end) ), 'donor_y',    num2cell( y(1:3:end) ), ...
+        'acceptor_x', num2cell( x(2:3:end) ), 'acceptor_y', num2cell( y(2:3:end) ), ...
+        'factor_x',   num2cell( x(3:3:end) ), 'factor_y',   num2cell( y(3:3:end) ) ...
+    );
 end
 % z = num2cell( ones(1,nTraces) );
-% [data.traceMetadata.movieIndex] = deal( z{:} );
+% [data.fileMetadata.movieIndex] = deal( z{:} );
 
 % -- Create trace identifiers.
 % This is just the full path to the movie plus a trace number. This can be
