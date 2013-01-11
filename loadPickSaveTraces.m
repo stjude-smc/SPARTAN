@@ -141,8 +141,9 @@ for i=1:nFiles,
     data.donor    = data.donor(indexes,:);
     data.acceptor = data.acceptor(indexes,:);
     data.fret     = data.fret(indexes,:);
-    data.traceMetadata = data.traceMetadata(indexes);
-
+    if isfield(data,'traceMetadata'),
+        data.traceMetadata = data.traceMetadata(indexes);
+    end
     
     % Save trace data into one large pile for saving at the end
     donorAll = [donorAll; data.donor];
@@ -150,10 +151,12 @@ for i=1:nFiles,
     fretAll = [fretAll; data.fret];
     timeAxis = data.time;
     
-    if i==1,
-        traceMetadataAll = data.traceMetadata;
-    else
-        traceMetadataAll = [traceMetadataAll data.traceMetadata];
+    if isfield(data,'traceMetadata'),
+        if i==1,
+            traceMetadataAll = data.traceMetadata;
+        else
+            traceMetadataAll = [traceMetadataAll data.traceMetadata];
+        end
     end
     
     % Save stats info for logging.
@@ -182,7 +185,9 @@ data.donor = donorAll;
 data.acceptor = acceptorAll;
 data.fret = fretAll;
 data.time = timeAxis;
-data.traceMetadata = traceMetadataAll;
+if isfield(data,'traceMetadata'),
+    data.traceMetadata = traceMetadataAll;
+end
 
 saveTraces(outFilename,format,data);
 
