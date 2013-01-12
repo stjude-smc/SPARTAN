@@ -155,6 +155,11 @@ for i=1:nFiles,
         if i==1,
             traceMetadataAll = data.traceMetadata;
         else
+            % Remove metadata fields that are not present in all datasets.
+            % Otherwise, concatinating the two will give an error.
+            data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(traceMetadataAll)) );
+            traceMetadataAll   = rmfield( traceMetadataAll, setdiff(fieldnames(traceMetadataAll),fieldnames(data.traceMetadata)) );
+            
             traceMetadataAll = [traceMetadataAll data.traceMetadata];
         end
     end
@@ -234,10 +239,10 @@ hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 )
 other           = nPicked;
 
 fprintf(fid,'PICKING RESULTS\n');
-fprintf(fid, '  %20s:  %-5d (%.1f%%)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/nTotalTraces);
+fprintf(fid, '  %20s:  %-5d (%.1f%% of total)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/nTotalTraces);
 fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET, 100*hasFRET/singleMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Pass all criteria', other,   100*other/hasFRET);
+fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET,        100*hasFRET/singleMolecule);
+fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Pass all criteria',   other,          100*other/hasFRET);
 fprintf(fid, '\n\n');
 
 

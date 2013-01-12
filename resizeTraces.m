@@ -38,10 +38,9 @@ for i=1:numel(files),
     data.time = cumsum( [data.time(1) repmat(dt,1,traceLen-1)] );
     
     % ---- Undo crosstalk correction (otherwise it will be done twice).
-    % This only applies to old format files!
-    if isfield(data,'traceMetaData') && ~isempty(data.traceMetadata),
-        data.acceptor = data.acceptor + constants.crosstalk*data.donor;
-    end
+    % FIXME: old format traces files will have the crosstalk substracted
+    % twice, but it is not simple (anymore) to determine if this is an old
+    % format traces file!
     
     % ---- Modify traces, if they do not match the target trace length.
     if traceLen == actualLen,
@@ -65,8 +64,12 @@ for i=1:numel(files),
     disp( sprintf('Resizing %.0f to %.0f: %s',actualLen,traceLen,filename) );
     
     % ---- Save the results.
-    saveTraces( filename,'traces',data );
-    
+    [p,f,e] = fileparts(filename);
+    if ~isempty(strfind(e,'traces')),
+        saveTraces( filename, 'traces', data );
+    elseif ~isempty(strfind(e,'txt')),
+        saveTraces( filename, 'txt', data );
+    end
     
 end
 

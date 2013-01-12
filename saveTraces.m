@@ -42,6 +42,9 @@ function saveTracesTxt( filename, data )
 %   ...
 % 
 
+[p,f,e] = fileparts(filename);
+assert( ~isempty(strcmp(e,'.txt')), 'TXT format traces files must have a ".txt" extension' );
+
 assert( isfield(data,'donor') & isfield(data,'acceptor') & isfield(data,'fret'), ...
         'Data to save must include, donor, acceptor, and fret traces' );
 
@@ -128,6 +131,9 @@ function saveTracesQUB( filename, fret )
 %   each datapoint is on a new line.
 %
 
+[p,f,e] = fileparts(filename);
+assert( ~isempty(strcmp(e,'.txt')), 'QuB TXT format traces files must have a ".txt" extension' );
+
 fret = fret';
 
 fid=fopen(filename,'w');
@@ -172,7 +178,6 @@ dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'int8', 'int16', 'int32', 'int16', ...
                     'single','double'};  %zero-based
 
-
 [nTraces,traceLen] = size(data.donor);
 
 if ~isfield(data,'time'),
@@ -188,6 +193,9 @@ end
 if any( isnan(data.donor(:)) | isnan(data.acceptor(:)) | isnan(data.fret(:)) )
     error('Cannot save NaN values!');
 end
+
+[p,f,e] = fileparts(filename);
+assert( ~isempty(strfind(e,'traces')), 'Binary format traces files must have a ".*traces" extension' );
 
 
 % 1) Create IDs if not specified and add to the metadata list

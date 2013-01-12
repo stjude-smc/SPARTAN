@@ -33,6 +33,7 @@ h = waitbar(0,'Combining datasets');
 nTraces = 0;
 traceLen = zeros(nFiles,1);
 d = cell(0,1); a=d; f=d; time=[];
+metadataAll = struct([]);
 
 for i=1:nFiles,
 
@@ -48,10 +49,17 @@ for i=1:nFiles,
     end
     
     % Merge metadata fields into the final structure.
-    if i==1,
-        metadataAll = data.traceMetadata;
-    else
-        metadataAll = [metadataAll data.traceMetadata];
+    if isfield(data,'traceMetadata'),
+        if i==1,
+            metadataAll = data.traceMetadata;
+        else
+            % Remove metadata fields that are not present in all datasets.
+            % Otherwise, concatinating the two will give an error.
+            data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(metadataAll)) );
+            metadataAll   = rmfield( metadataAll, setdiff(fieldnames(metadataAll),fieldnames(data.traceMetadata)) );
+            
+            metadataAll = [metadataAll data.traceMetadata];
+        end
     end
     
     assert( ~any(isnan(data.donor(:))) & ~any(isnan(data.acceptor(:))) & ~any(isnan(data.fret(:))) );
@@ -121,7 +129,12 @@ assert( size(data.fret,1)==nTraces );
 
 
 % Save merged dataset to file.
-saveTraces( outFilename, 'traces', data );
+[p,f,e] = fileparts(outFilename);
+if ~isempty(strfind(e,'traces')),
+    saveTraces( outFilename, 'traces', data );
+elseif ~isempty(strfind(e,'txt')),
+    saveTraces( outFilename, 'txt', data );
+end
 
 waitbar(1,h);
 close(h);
