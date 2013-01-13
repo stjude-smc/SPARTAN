@@ -30,10 +30,13 @@ h = waitbar(0,'Combining datasets');
 
 
 %% Load data
-nTraces = 0;
-traceLen = zeros(nFiles,1);
+nTracesTotal = 0;
+nTraces  = zeros(1,nFiles);
+traceLen = zeros(1,nFiles);
 d = cell(0,1); a=d; f=d; time=[];
 metadataAll = struct([]);
+dwt=cell(nFiles,1); sampling=zeros(nFiles,1);
+offsets=cell(nFiles,1); model=cell(nFiles,1);
 
 for i=1:nFiles,
 
@@ -43,28 +46,35 @@ for i=1:nFiles,
     a{i} = data.acceptor;
     f{i} = data.fret;
     
+    % Look for an idealization. These will be combined if every dataset has one.
+    [path,file] = fileparts( filenames{i} );
+    dwt_fname = [path filesep file '.qub.dwt'];
+    if exist(dwt_fname,'file'),
+        [dwt{i},sampling(i),offsets{i},model{i}] = loadDWT( dwt_fname );
+    end
+    
     % Find the longest time axis for merged traces.
     if length(data.time)>max(traceLen),
         time = data.time;
     end
     
     % Merge metadata fields into the final structure.
-    if isfield(data,'traceMetadata'),
-        if i==1,
-            metadataAll = data.traceMetadata;
-        else
-            % Remove metadata fields that are not present in all datasets.
-            % Otherwise, concatinating the two will give an error.
-            data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(metadataAll)) );
-            metadataAll   = rmfield( metadataAll, setdiff(fieldnames(metadataAll),fieldnames(data.traceMetadata)) );
-            
-            metadataAll = [metadataAll data.traceMetadata];
-        end
+    assert( isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
+    if i==1,
+        metadataAll = data.traceMetadata(indexes);
+    else
+        % Remove metadata fields that are not present in all datasets.
+        % Otherwise, concatinating the two will give an error.
+        data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(metadataAll)) );
+        metadataAll        = rmfield( metadataAll, setdiff(fieldnames(metadataAll),fieldnames(data.traceMetadata)) );
+
+        metadataAll = [metadataAll data.traceMetadata];
     end
     
     assert( ~any(isnan(data.donor(:))) & ~any(isnan(data.acceptor(:))) & ~any(isnan(data.fret(:))) );
     
-    nTraces = nTraces+size(data.donor,1);
+    nTraces(i) = size(data.donor,1);
+    nTracesTotal = nTracesTotal+size(data.donor,1);
     traceLen(i) = numel(data.time);
     assert( traceLen(i)>1 );
     
@@ -115,7 +125,7 @@ if min( traceLen )~=max( traceLen ),
     
 end %if trace length mismatch
 
-waitbar(0.8,h);
+waitbar(0.75,h);
 
 
 % Merge fluorescence and FRET data
@@ -125,7 +135,8 @@ data.acceptor = vertcat( a{:} );
 data.fret     = vertcat( f{:} );
 data.traceMetadata = metadataAll;
 
-assert( size(data.fret,1)==nTraces );
+assert( size(data.fret,1)==nTracesTotal );
+waitbar(0.9,h);
 
 
 % Save merged dataset to file.
@@ -135,6 +146,42 @@ if ~isempty(strfind(e,'traces')),
 elseif ~isempty(strfind(e,'txt')),
     saveTraces( outFilename, 'txt', data );
 end
+
+
+% Merge dwt files if present and consistent.
+% This is only attempt if not resizing. FIXME.
+if all( ~cellfun(@isempty,dwt) ) && min(traceLen)==max(traceLen),
+    
+    n = cellfun( @numel, model ); %count number of states in each model.
+    if ~all( n(1)==n ),
+        warning('.dwt files found for all files, but models have different numbers of states!');
+        
+    elseif ~all( sampling(1)==sampling ),
+        warning('.dwt files found for all files, but they are not the same time resolution and cannot be combined.');
+        
+    else
+        disp('Combining dwt files. I hope you used the same models for these!');
+        
+        offsetsAll = [];
+        dwtAll     = {};
+        modelAll   = zeros( size(model{1}) );
+        
+        % Merge all the idealizations, adjusting the offsets.
+        fileOffsets = cumsum( [0 nTraces.*traceLen] );
+        for i=1:numel(offsets),
+            offsetsAll = [offsetsAll offsets{i}+fileOffsets(i) ];
+            dwtAll     = [dwtAll dwt{i}];
+            modelAll   = modelAll + model{i};
+        end
+        modelAll = modelAll./numel(offsets); %this gives us an "average" model.
+        
+        % Save the dwt file.
+        if isempty(p), p=pwd; end
+        dwtFilename = [p filesep f '.qub.dwt'];
+        saveDWT( dwtFilename, dwtAll, offsetsAll, modelAll, sampling(1) );
+    end
+end
+
 
 waitbar(1,h);
 close(h);

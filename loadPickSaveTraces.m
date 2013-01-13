@@ -151,17 +151,16 @@ for i=1:nFiles,
     fretAll = [fretAll; data.fret];
     timeAxis = data.time;
     
-    if isfield(data,'traceMetadata'),
-        if i==1,
-            traceMetadataAll = data.traceMetadata;
-        else
-            % Remove metadata fields that are not present in all datasets.
-            % Otherwise, concatinating the two will give an error.
-            data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(traceMetadataAll)) );
-            traceMetadataAll   = rmfield( traceMetadataAll, setdiff(fieldnames(traceMetadataAll),fieldnames(data.traceMetadata)) );
-            
-            traceMetadataAll = [traceMetadataAll data.traceMetadata];
-        end
+    assert( isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
+    if i==1,
+        dataAll.traceMetadata = data.traceMetadata(indexes);
+    else
+        % Remove metadata fields that are not present in all datasets.
+        % Otherwise, concatinating the two will give an error.
+        data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(dataAll.traceMetadata)) );
+        dataAll.traceMetadata   = rmfield( dataAll.traceMetadata, setdiff(fieldnames(dataAll.traceMetadata),fieldnames(data.traceMetadata)) );
+
+        dataAll.traceMetadata = [dataAll.traceMetadata data.traceMetadata(indexes)];
     end
     
     % Save stats info for logging.
