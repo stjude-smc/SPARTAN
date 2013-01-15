@@ -163,23 +163,18 @@ handles.filename = filename;
 
 % Load the file
 data = loadTraces( filename );
-handles.donor    = data.donor;
-handles.acceptor = data.acceptor;
-handles.fret     = data.fret;
-handles.time     = data.time;
-handles.traceMetadata = data.traceMetadata;
+handles.data = data;
+[handles.Ntraces,handles.len] = size(data.donor);
 
-[handles.Ntraces,handles.len] = size(handles.donor);
-
-if size(handles.donor,1)<1,
+if size(data.donor,1)<1,
     error('File is empty');
 end
 
 % Make sure time axis is in seconds (not frames)
-if handles.time(1)==1,
+if handles.data.time(1)==1,
     f = inputdlg('What is the sampling interval (in ms) for this data?');
     sampling = str2double(f)
-    handles.time = sampling.*(0:handles.len-1);
+    handles.data.time = sampling.*(0:handles.len-1);
 end
 
 
@@ -221,11 +216,12 @@ set(handles.btnSelAll3,'Enable','on');
 
 
 % Initialize arrays for background subtraction.
-handles.donor_background = 0;
-handles.acceptor_background = 0;
+handles.backgrounds = zeros( 1,data.nChannels-1 ); %need background for all channels but FRET.
 
 % Load trace properties for display.
-handles.stats = traceStat( data.donor,data.acceptor,data.fret );
+% This slows down loading sorttraces. Consider loading each trace
+% seperately. FIXME.
+handles.stats = traceStat( data );
 
 % Initialize arrays for tracking FRET donor-blinking threshold value.
 handles.fretThreshold = repmat( handles.defaultFretThreshold, handles.Ntraces,1  );
@@ -327,10 +323,9 @@ else
 end
 
 % Reset these values for the new trace.
-handles.crosstalk     = handles.default_crosstalk;
+handles.crosstalk = handles.default_crosstalk;
 
-handles.donor_background = 0;
-handles.acceptor_background = 0;
+handles.backgrounds = zeros( 1,handles.data.nChannels-1 );
 
 % Set bin checkboxes
 set(handles.chkBin1,'Value', any(handles.NoFRETs_indexes==mol) );
@@ -457,7 +452,7 @@ if ~isempty(handles.FRETs_indexes),
     savePickedTraces( handles, filename, handles.FRETs_indexes );
 end
 
-if ~isempty(handles.Best_indexes),
+if ~isempty(handles.NoFRETs_indexes),
     filename = [baseFilename '_no_fret.traces'];
     savePickedTraces( handles, filename, handles.NoFRETs_indexes );
 end
@@ -471,16 +466,26 @@ set(hObject,'Enable','off');
 function savePickedTraces( handles, filename, indexes )
 % Save picked traces and idealizations to file.
 
-data.time     = handles.time;
-data.donor    = handles.donor(indexes,:);
-data.acceptor = handles.acceptor(indexes,:);
-data.fret     = handles.fret(indexes,:);
+data.channelNames = handles.data.channelNames;
+data.time         = handles.data.time;
 
-if isfield(data,'traceMetadata')
-    data.traceMetadata = handles.traceMetadata(indexes);
+for i=1:numel(data.channelNames),
+    c = data.channelNames{i};
+    data.(c) = handles.data.(c)(indexes,:);
 end
 
-saveTraces( filename, 'traces', data );
+if isfield(data,'traceMetadata')
+    data.traceMetadata = handles.data.traceMetadata(indexes);
+end
+
+[p,f,e] = fileparts(filename);
+if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
+    saveTraces( filename, 'traces', data );
+elseif strcmp(e,'.txt'),
+    saveTraces( filename, 'txt', data );
+else
+    error('Unknown file format extension');
+end
 
 % Save idealizations of selected traces, if available.
 if isfield(handles,'idl') && ~isempty(handles.idl),
@@ -503,21 +508,19 @@ end
 %======================   TRACE CORRECTIONS   ======================%
 
 
-%----------SUBTRACT BOTH BACKGROUNDS----------%
-% --- Executes on button press in btnSubBoth.
+%----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
+% --- Executes on button press in btnSubBoth, etc.
 function btnSubBoth_Callback(hObject, eventdata, handles, mode)
-% hObject    handle to btnSubBoth (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
+% 
 m = handles.molecule_no;
+time = handles.data.time;
 
 % Same as above, but only for both donor and acceptor.
 xlim=get(handles.axFluor,'XLim');
 
 % Convert axis limits to frames
-if handles.time(1)~=1,
-    dt = handles.time(2)-handles.time(1);
+if time(1)~=1,
+    dt = time(2)-time(1);
     xlim = floor(xlim./(dt/1000));
 end
 
@@ -525,29 +528,31 @@ if xlim(1)<1, xlim(1)=1; end
 if xlim(2)>handles.len, xlim(2)=handles.len; end
 
 % Subtract donor background
+% mode specifies which channels to substrate (3 means ALL, 3 means undo).
 if mode==1 || mode==3
-    handles.donor_background=...
-        mean(handles.donor(m,xlim(1):xlim(2)));
-    handles.donor(m,:)=...
-        handles.donor(m,:)-...
-        handles.donor_background;
+    handles.backgrounds(1) = mean(handles.data.donor(m,xlim(1):xlim(2)));
+    handles.data.donor(m,:) = handles.data.donor(m,:) - handles.backgrounds(1);
 end
 
 % Subtract acceptor background
 if mode==2 || mode==3
-    handles.acceptor_background=...
-        mean(handles.acceptor(m,xlim(1):xlim(2)));
-    handles.acceptor(m,:)=...
-        handles.acceptor(m,:)-...
-        handles.acceptor_background;
+    handles.backgrounds(2) = mean(handles.data.acceptor(m,xlim(1):xlim(2)));
+    handles.data.acceptor(m,:) = handles.data.acceptor(m,:) - handles.backgrounds(2);
+end
+
+% Substrate factor background, if 3-color.
+if mode==3 && numel(handles.backgrounds)>2,
+    handles.backgrounds(3) = mean(handles.data.factor(m,xlim(1):xlim(2)));
+    handles.data.factor(m,:) = handles.data.factor(m,:) - handles.backgrounds(3);
 end
 
 % Undo background subtraction
 if mode==4
-    handles.donor(m,:) = handles.donor(m,:) + handles.donor_background;
-    handles.acceptor(m,:)=...
-        handles.acceptor(m,:)+...
-        handles.acceptor_background;
+    handles.data.donor(m,:)      = handles.data.donor(m,:)    + handles.backgrounds(1);
+    handles.data.acceptor(m,:)   = handles.data.acceptor(m,:) + handles.backgrounds(2);
+    if numel(handles.backgrounds)>2,
+        handles.data.factor(m,:) = handles.data.factor(m,:)   + handles.backgrounds(3);
+    end
 end
 
 if mode<4
@@ -574,15 +579,15 @@ mol = handles.molecule_no;
 
 % First, restore trace to it's original state w/ no crosstalk correction
 oldCrosstalk = handles.crosstalk;
-handles.acceptor(mol,:) = ...
-    handles.acceptor(mol,:) + oldCrosstalk*handles.donor(mol,:);
+handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:) + ...
+                                oldCrosstalk*handles.data.donor(mol,:);
 
 % Second, make crosstalk correction again using new value
-handles.crosstalk=get(hObject,'Value');
+handles.crosstalk = get(hObject,'Value');
 set(handles.edCrosstalk,'String',num2str(handles.crosstalk));
 
-handles.acceptor(mol,:) = ...
-    handles.acceptor(mol,:) - handles.crosstalk*handles.donor(mol,:);
+handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:) - ...
+                                handles.crosstalk*handles.data.donor(mol,:);
 
 % Save and display the result
 handles = updateTraceData( handles );
@@ -636,13 +641,13 @@ plotter(handles);
 
 
 function handles = updateTraceData( handles )
-% 
+% Recalculate FRET.
 
 % Create a new FRET thresholded FRET signal
 m        = handles.molecule_no;
-donor    = handles.donor(m,:);
-acceptor = handles.acceptor(m,:);
-fret     = handles.fret(m,:);
+donor    = handles.data.donor(m,:);
+acceptor = handles.data.acceptor(m,:);
+fret     = handles.data.fret(m,:);
 total    = donor+acceptor;
 
 stats = traceStat( donor,acceptor,fret );
@@ -653,7 +658,7 @@ if lt>0,
     fret( lt:end ) = 0;
 end
 
-handles.fret(m,:) = fret;
+handles.data.fret(m,:) = fret;
 
 
 
@@ -685,9 +690,14 @@ constants = handles.constants;
 gamma = 1;
 
 m        = handles.molecule_no;
-donor    = handles.donor(m,:);
-acceptor = handles.acceptor(m,:);
-fret     = handles.fret(m,:);
+donor    = handles.data.donor(m,:);
+acceptor = handles.data.acceptor(m,:);
+fret     = handles.data.fret(m,:);
+total    = gamma*donor+acceptor;
+
+if isfield(handles.data,'factor'),
+    total = total+handles.data.factor(m,:);
+end
 
 % Get trace properties
 stats = handles.stats(m);
@@ -709,8 +719,8 @@ data_fname = strrep(name, '_', '\_');
 % Plot fluorophore traces
 signal = donor+acceptor;
 
-time = handles.time;
-inFrames = (handles.time(1)==1);
+time = handles.data.time;
+inFrames = (time(1)==1);
 if ~inFrames
     time = time/1000; %in seconds
 end
@@ -719,6 +729,9 @@ axes(handles.axFluor);
 cla;
 hold off;
 plot( time,gamma*donor,'g', time,acceptor,'r' );
+if isfield(handles.data,'factor'),
+    hold on; plot( time, handles.data.factor(m,:),'b' );
+end
 title(['Molecule ' num2str(m) ' of '...
     num2str(handles.Ntraces) ' of ' data_fname]);
 ylabel('Fluorescence');
@@ -731,7 +744,7 @@ hold on;
 axes(handles.axTotal);
 hold off;
 cla;
-plot( time,gamma*donor+acceptor,'k',...
+plot( time,total,'k',...
     time,handles.fretThreshold(m)*ones(1,handles.len),'m');
 ylabel('Total Fluorescence');
 grid on;
@@ -798,9 +811,9 @@ plotter(handles);
 function handles = loadDWT_ex( handles, filename)
 % This function actually loads the dwell-time information.
 
-time = handles.time;
+time = handles.data.time;
 sampling = time(2)-time(1);
-[nTraces,traceLen] = size(handles.fret);
+[nTraces,traceLen] = size(handles.data.fret);
 
 % Get filename for .dwt file from user and load it.
 if nargin>1,
