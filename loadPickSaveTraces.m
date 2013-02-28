@@ -126,7 +126,7 @@ for i=1:nFiles,
         channelNames = data.channelNames;
         dataAll.channelNames = data.channelNames;
     else
-        assert( strcmp(channelNames,data.channelNames), 'Traces data format mismatch (different geometry?)' );
+        assert( all(strcmp(sort(channelNames),sort(data.channelNames))), 'Traces data format mismatch (different geometry?)' );
     end
     
     % Unless provided, calc trace properties and select those that meet criteria.

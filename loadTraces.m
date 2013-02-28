@@ -146,6 +146,11 @@ close(h);
 fclose(fid);
 clear Data;
 
+% Add extra metadata for identifying fluorescence channels.
+% Code for later traces format relies on this!
+data.channelNames = {'donor','acceptor','fret'};
+data.nChannels = numel(data.channelNames);
+
 end %function LoadTracesTxt
     
     
@@ -191,6 +196,10 @@ data.traceMetadata = struct( 'ids', ids(indexes) );
 clear Data;
 fclose(fid);
 
+% Add extra metadata for identifying fluorescence channels.
+% Code for later traces format relies on this!
+data.channelNames = {'donor','acceptor','fret'};
+data.nChannels = numel(data.channelNames);
 
 end %function LoadTracesBinary
 

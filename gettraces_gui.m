@@ -30,10 +30,10 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 02-Jan-2013 18:36:06
+% Last Modified by GUIDE v2.5 28-Feb-2013 15:45:17
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
                    'gui_OpeningFcn', @gettraces_OpeningFcn, ...
@@ -80,6 +80,10 @@ if ~isfield(handles,'params')
     params.alignTranslate = 0;
     params.alignRotate = 0;
     params.refineAlign = 0;
+    
+    % Load default channel assignments for 2-color FRET (default geometry)
+    params.chNames = constants.gettraces_chNames2;
+    params.chDesc  = constants.gettraces_chDesc2;
 
     set( handles.txtIntensityThreshold,'String','' );
     set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
@@ -181,6 +185,8 @@ guidata(hObject,handles);
 % --------------------- OPEN SINGLE MOVIE --------------------- %
 function handles = OpenStk(filename, handles, hObject)
 
+constants = cascadeConstants;
+
 [p,f,e] = fileparts(filename);
 if numel(p)>70, p=[p(1:70) '...']; end %trancate path, if too long
 fnameText = [p filesep f e];
@@ -230,39 +236,43 @@ image_t    = handles.stk_top-stkData.background;
 
 %---- Show fields for Single-Channel (full-chip) recordings.
 if handles.params.geometry==1,
+    handles.params.chNames = constants.gettraces_chNames2;
+    handles.params.chDesc  = constants.gettraces_chDesc2;
+    
     % Show full field of view.
     handles.axTotal = subplot( 1,1,1, 'Parent',handles.panView, 'Position',[0.2 0 0.6 0.95] );
-    axes( handles.axTotal );
     imshow( image_t, [low (high+low)] );
     colormap(colortable);  zoom on;
     title('Single-Channel');
     
 %---- Show fields for Dual-Channel (half-chip, L/R) recordings.
 elseif handles.params.geometry==2,
+    handles.params.chNames = constants.gettraces_chNames2;
+    handles.params.chDesc  = constants.gettraces_chDesc2;
+    
     donor_t    = image_t(:,1:ncol/2);
     acceptor_t = image_t(:,(ncol/2)+1:end);
     total_t    = donor_t+acceptor_t;
+    
+    chNames = upperFirst( handles.params.chNames );
 
     % Show donor image
     handles.axDonor = subplot( 1,3,1, 'Parent',handles.panView, 'Position',[0.025 0 0.3 0.95] );
-    axes( handles.axDonor );
     imshow( donor_t, [low (high+low)/2] );
     colormap(colortable);  zoom on;
-    title('Donor');
+    title( [chNames{1} ' (' handles.params.chDesc{1} ')'] );
 
     % Show acceptor image
     handles.axAcceptor = subplot( 1,3,2, 'Parent',handles.panView, 'Position',[0.350 0 0.3 0.95] );
-    axes( handles.axAcceptor );
     imshow( acceptor_t, [low (high+low)/2] );
     colormap(colortable);  zoom on;
-    title('Acceptor');
+    title( [chNames{2} ' (' handles.params.chDesc{2} ')'] );
 
     % Show total intensity image
     handles.axTotal = subplot( 1,3,3, 'Parent',handles.panView, 'Position',[0.675 0 0.3 0.95] );
-    axes( handles.axTotal );
     imshow( total_t, [low*2 (high+low)] );
     colormap(colortable);  zoom on;
-    title('Total(D+A)');
+    title('Total');
 
     linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
     
@@ -275,32 +285,42 @@ elseif handles.params.geometry>2,
     lowerRight = image_t( (nrow/2)+1:end, (ncol/2)+1:end );
     total_t = upperLeft + upperRight + lowerLeft + lowerRight;
     
+    % Get channel names and make them easier to read.
+    handles.params.chNames = constants.gettraces_chNames4;
+    handles.params.chDesc  = constants.gettraces_chDesc4;
+    chNames = upperFirst( handles.params.chNames );
+    %chNames = strrep(chNames, 'Factor','Factor Binding');
+    
     % Create axes for each of the fluorescence channels.
     handles.axUL    = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5 0.25 0.5] );
-    axes( handles.axUL );
     imshow( upperLeft, [low*2 (high+low)] );
     colormap(colortable);  zoom on;
-    title('Donor (Cy3)');
+    if ~isempty(chNames{1})
+        title( [chNames{1} ' (' handles.params.chDesc{1} ')'] );
+    end
     
     handles.axUR    = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35 0.5 0.25 0.5] );
-    axes( handles.axUR );
     imshow( upperRight, [low*2 (high+low)] );
     colormap(colortable);  zoom on;
+    if ~isempty(chNames{4})
+        title( [chNames{4} ' (' handles.params.chDesc{4} ')'] );
+    end
     
     handles.axLR    = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35 0.025 0.25 0.5] );
-    axes( handles.axLR );
     imshow( lowerRight, [low*2 (high+low)] );
     colormap(colortable);  zoom on;
-    title('Factor Binding (Cy2)');
+    if ~isempty(chNames{3})
+        title( [chNames{3} ' (' handles.params.chDesc{3} ')'] );
+    end
     
     handles.axLL    = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.25 0.5] );
-    axes( handles.axLL );
     imshow( lowerLeft, [low*2 (high+low)] );
     colormap(colortable);  zoom on;
-    title('Donor (Cy5)');
+    if ~isempty(chNames{2})
+        title( [chNames{2} ' (' handles.params.chDesc{2} ')'] );
+    end
     
     handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.65 0.25 0.25 0.5] );
-    axes( handles.axTotal );
     imshow( total_t, [low*2 (high+low)] );
     colormap(colortable);  zoom on;
     title('Total');
@@ -312,6 +332,22 @@ end
 % Finish up
 guidata(hObject,handles);
 
+
+
+function names = upperFirst(names)
+% Make the first letter of a string uppercase
+
+if ~iscell(names)
+    names = {names};
+end
+
+for i=1:numel(names),
+    if ~isempty( names{i} ),
+        names{i} = [upper(names{i}(1)) names{i}(2:end)];
+    end
+end
+    
+% end
 
 
 
@@ -356,7 +392,7 @@ nTraces  = zeros(nFiles,1); % number of peaks found in file X
 existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
 
 % Show progress information
-h = waitbar(0,'Extracting traces from movies...');
+% h = waitbar(0,'Extracting traces from movies...');
 set(handles.txtProgress,'String','Creating traces, please wait...');
 
 % For each file...
@@ -390,9 +426,9 @@ for i=1:nFiles
     nTraces(i) = handles.num;
     
     guidata(hObject,handles);
-    waitbar(i/nFiles, h);
+%     waitbar(i/nFiles, h);
 end
-close(h);
+% close(h);
 
 
 
@@ -406,7 +442,13 @@ names = fieldnames(  handles.params );
 vals  = struct2cell( handles.params );
 
 for i=1:numel(names),
-    fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
+    if iscell( vals{i} )
+        f = repmat( '%s, ', 1,numel(vals{i}));
+        f = f(1:end-2);
+        fprintf(log_fid, ['  %15s:  ' f '\n'], names{i}, vals{i}{:});
+    else
+        fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
+    end
 end
 
 % Log list of files processed by gettraces
@@ -452,20 +494,27 @@ stkData = getappdata(handles.figure1,'stkData');
 [stkData,peaks] = gettraces( stkData, handles.params );
 
 
+% If no alignment data given (for example in single-channel recordings),
+% don't display any status messages.
+if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
+    set( handles.txtAlignStatus, 'String', '' );
+    
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
-% absDev = mean(stkData.alignStatus(3:4));
-% set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
-%         [stkData.alignStatus(1:2) absDev] ) );
-%     
-% if any(stkData.alignStatus>0.5) || absDev>0.25,
-%     set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
-% else
-%     set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
-% end
+else
+    absDev = mean(stkData.alignStatus(3:4));
+    set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
+            [stkData.alignStatus(1:2) absDev] ) );
+
+    if any(stkData.alignStatus>0.5) || absDev>0.25,
+        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+    else
+        set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+    end
+end
 
 
-% Get locations also without overlap rejection to estimate the number of
+% Get locations also without overlap rejection to estimate the number of%default 3-color channel assignments.
 % molecules that are overlapping. This can be used to give the user a
 % warning if the density is too high (here by showing it in red).
 % FIXME: This is kinda ugly. percentOverlap should be calculating within
@@ -505,7 +554,7 @@ eff = stkData.integrationEfficiency;
 decay = zeros( size(eff,1), 1 ); %number pixels to integrate to get 70% intensity integrated.
 
 for i=1:size(eff,1),
-    decay(i) = find( eff(i,:)>=0.7, 1, 'first' );
+    decay(i) = find( eff(i,:)>=0.7, 1, 'first' );%default 3-color channel assignments.
 end
 
 set(  handles.txtPSFWidth, 'String', ...
@@ -547,7 +596,7 @@ elseif handles.params.geometry==2, %dual-channel
     line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','w','EraseMode','background');
 
     % Draw markers on selection points (acceptor side)
-    axes(handles.axAcceptor);
+    axes(handles.axAcceptor);%default 3-color channel assignments.
     line(handles.x(indA)-(ncol/2),handles.y(indA),'LineStyle','none','marker','o','color','w','EraseMode','background');
 
     % Draw markers on selection points (total intensity composite image)
@@ -557,9 +606,11 @@ elseif handles.params.geometry==2, %dual-channel
     handles.num = numel(handles.x)/2;
     
 elseif handles.params.geometry==3, %quad-channel
-    indUL = 1:3:numel(handles.x); %Cy3 donor
-    indLR = 2:3:numel(handles.x); %Cy5 acceptor
-    indLL = 3:3:numel(handles.x); %Cy2 factor binding
+    % Assign each spot to a quadrant.
+    indUL = find( handles.x<=(ncol/2) & handles.y<=(nrow/2) );
+    indLL = find( handles.x<=(ncol/2) & handles.y> (nrow/2) );
+    indLR = find( handles.x> (ncol/2) & handles.y> (nrow/2) );
+    indUR = find( handles.x> (ncol/2) & handles.y<=(nrow/2) );
     
     % Draw markers on selection points (donor side)
     args = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
@@ -567,20 +618,20 @@ elseif handles.params.geometry==3, %quad-channel
     axes(handles.axUL);
     line(handles.x(indUL),handles.y(indUL), args{:});
     
-    %axes(handles.axUR);
-    %line(handles.x(indUR)-(ncol/2),handles.y(indUR), args{:});
+    axes(handles.axLL);
+    line(handles.x(indLL),handles.y(indLL)-(nrow/2), args{:});
     
     axes(handles.axLR);
     line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), args{:});
     
-    axes(handles.axLL);
-    line(handles.x(indLL),handles.y(indLL)-(nrow/2), args{:});
+    axes(handles.axUR);
+    line(handles.x(indUR)-(ncol/2),handles.y(indUR), args{:});
     
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
     line(handles.x(indUL),handles.y(indUL),'LineStyle','none','marker','o','color','y','EraseMode','background');
     
-    handles.num = numel(handles.x)/3;
+    handles.num = numel(handles.x)/handles.params.geometry;
     
 elseif handles.params.geometry==4,
     error('Four-color FRET not yet supported');
@@ -744,14 +795,17 @@ if handles.params.geometry==1, %Single-channel recordings
     %set( handles.chkAlignRotate,   'Enable','off', 'Value',0   );
     set( handles.chkRefineAlign,    'Enable','off', 'Value',0   );
     
-elseif handles.params.geometry>2, %Dual-channel recordings
+elseif handles.params.geometry==2, %Dual-channel recordings
     set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
     %set( handles.chkAlignRotate,   'Enable','on', 'Value',handles.params.alignRotate  );
     set( handles.chkRefineAlign,    'Enable','on', 'Value',handles.params.refineAlign  );
     
-% elseif handles.params.geometry>2,
-    % TODO
+elseif handles.params.geometry>2, %Three-color recordings
+    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
+    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0  );
+    %set( handles.chkAlignRotate,   'Enable','off', 'Value',0  );
+    set( handles.chkRefineAlign,    'Enable','off', 'Value',0  );
 end
 
 
@@ -808,3 +862,5 @@ handles.params.refineAlign = get(hObject,'Value');
 % Re-pick molecules with new settings.
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
+
+
