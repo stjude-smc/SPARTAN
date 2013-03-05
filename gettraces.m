@@ -428,6 +428,7 @@ function [picks,total_t, align] = getPeaks( image_t, params )
 % picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
 % picksY - Y-coords ...
 
+align = [];
 
 % If using a single-channel setup, use a simplified proceedure
 % since we don't have to worry about alignment, etc.

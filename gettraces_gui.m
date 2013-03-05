@@ -415,14 +415,18 @@ stkData = getappdata(handles.figure1,'stkData');
 
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
-absDev = mean(stkData.alignStatus(3:4));
-set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
-        [stkData.alignStatus(1:2) absDev] ) );
-    
-if any(stkData.alignStatus>0.5) || absDev>0.25,
-    set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+if isfield(stkData,'alignStatus') && ~isempty(stkData.alignStatus),
+    absDev = mean(stkData.alignStatus(3:4));
+    set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
+            [stkData.alignStatus(1:2) absDev] ) );
+
+    if any(stkData.alignStatus>0.5) || absDev>0.25,
+        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+    else
+        set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+    end
 else
-    set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+    set( handles.txtAlignStatus, 'String','' );
 end
 
 
