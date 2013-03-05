@@ -183,16 +183,23 @@ function saveTracesBinary( filename, data )
 % Saves trace data in binary format. Required fields: donor, acceptor, fret
 %
 % FORMAT:
-%   struct {
-%       (header data -- see below)
+%   {
+%       uint32:  zero (distinguishes from older format without a header)
+%       char4:   TRCS (magic string to unambiguously identify file)
+%       unit16:  version number (4)
+%       unit8:   traces data type (9=single, zero-based)
+%       
 %       uint8:   number of channels (C)
 %       uint32:  number of traces (M)
 %       uint32:  number of frames per traces (N)
 %
-%       {single}: fluorescence/fret data  (C x M x N matrix)
-%       {int32}: time axis (Nx1 vector)
+%       unit32:  length of channel names string...
+%       {char}:  list of channel names (delimited by char/31)
 %
-%       For each metadatafield (until end-of-file):
+%       {single}: fluorescence/fret data  (C x M x N matrix)
+%       {uint32}: time axis (Nx1 vector)
+%
+%       For each metadata page (until end-of-file):
 %         uint32:  field title length
 %         {char}:  filed title
 %         uint8:   data type identifider (see dataTypes)
@@ -200,10 +207,20 @@ function saveTracesBinary( filename, data )
 %         {xxx}:   metadata content
 %   }
 % 
+% There are two groups of metadata pages: fileMetadata and traceMetadata.
+% fileMetadata are arbitrary-length data that applies to all traces in the
+% file (e.g., power meter reading, EM gain settings, etc). traceMetadata is
+% a structure array with one element per trace that contains data specific
+% to each trace (e.g., molecule locations in the field-of-view, molecule
+% identifiers, etc). These sections are delineated by special
+% "section_heading" metadata pages containing the section name
+% (e.g., traceMetadata).
+% 
 
 assert( isfield(data,'donor') & isfield(data,'acceptor') & isfield(data,'fret'), ...
         'Data to save must include, donor, acceptor, and fret traces' );
 
+global dataTypes;
 dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'int8', 'int16', 'int32', 'int16', ...
                     'single','double'};  %zero-based
@@ -270,19 +287,20 @@ for i=1:nChannels,
     fwrite( fid, data.(data.channelNames{i}), 'single' );
 end
 
-
 % 5) Write per-trace metadata pages (if any)
 fnames = {};
 if isfield(data,'traceMetadata') && numel( data.traceMetadata )>0,
     fnames = fieldnames( data.traceMetadata );
+    
+    % Write section header to identify this as per-trace metadata.
+    writeMetadata( fid, 'section_heading', 'traceMetadata' );
 end
 
 for i=1:numel(fnames),
     fname = fnames{i};
+    m = data.traceMetadata(1).(fname); %just get first element for determining data type
     
     % Collapse strucutre array into a single field for serialization.
-    m = data.traceMetadata(1).(fname);
-    
     if isnumeric(m),
         metadata = [data.traceMetadata.(fname)];
     elseif ischar(m),
@@ -294,59 +312,56 @@ for i=1:numel(fnames),
         continue;
     end
     
-    % Write metadata header
-    fwrite( fid, numel(fname), 'uint8' );  % field title length
-    fwrite( fid, fname, 'char' );          % field title text
-    
-    fieldDataType = find( strcmp(class(metadata),dataTypes) );
-    if isempty( fieldDataType ),
-       error( 'Unsupported metadata field data type' ); 
-    end
-    
-    % Write field content
-    fwrite( fid, fieldDataType-1, 'uint8' );
-    fwrite( fid, numel(metadata), 'uint32' );
-    fwrite( fid, metadata, class(metadata) );
+    writeMetadata( fid, fname, metadata );
 end
  
 
 % 5) Write global metadata pages (if any).
+% Note that here these are not arrays over traces (the structure is not
+% an array), so it is simpler to process than traceMetadata.
 fnames = {};
 if isfield(data,'fileMetadata') && numel( data.fileMetadata )>0,
     fnames = fieldnames( data.fileMetadata );
+    
+    % Write section header to identify this as per-trace metadata.
+    writeMetadata( fid, 'section_heading', 'fileMetadata' );
 end
 
 for i=1:numel(fnames),
-    % Get next field.
-    % Note that here these are not arrays over traces (the structure is not
-    % an array), so it is simpler to process than traceMetadata.
-    fname = fnames{i};
-    m = data.fileMetadata.(fname);
-    
-    if ~isnumeric(m) && ~ischar(m),
-        warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
-        continue;
-    end
-    
-    % Write metadata header
-    fwrite( fid, numel(fname), 'uint8' );  % field title length
-    fwrite( fid, fname, 'char' );          % field title text
-    
-    fieldDataType = find( strcmp(class(metadata),dataTypes) );
-    if isempty( fieldDataType ),
-       error( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
-    end
-    
-    % Write field content
-    fwrite( fid, fieldDataType-1, 'uint8' );
-    fwrite( fid, numel(metadata), 'uint32' );
-    fwrite( fid, metadata, class(metadata) );
+    writeMetadata( fid, fnames{i}, data.fileMetadata.(fname) );
 end
 
 
 % Finish up
 fclose(fid);
 
+
+
+
+function writeMetadata( fid, fname, metadata )
+% Writes a single metadata "page" to currently open traces file
+% 
+% TODO(?): allow cell arrays of strings to be written as delimited lists.
+
+
+% Determine data type code and verify it is an allowed type.
+% A warning is ok here since this metadata info will just be skipped.
+global dataTypes;
+fieldDataType = find( strcmp(class(metadata),dataTypes) );
+if isempty( fieldDataType ),
+    warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(metadata) ')'] );
+    return;
+end
+
+% Write metadata header and content.
+fwrite( fid, numel(fname), 'uint8' );       % field title length
+fwrite( fid, fname, 'char' );               % field title text
+fwrite( fid, fieldDataType-1, 'uint8' );    % field type code
+fwrite( fid, numel(metadata), 'uint32' );   % content length
+fwrite( fid, metadata, class(metadata) );   % content
+
+
+% end function writeMetadata
 
 
 

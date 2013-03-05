@@ -209,6 +209,7 @@ end %function LoadTracesBinary
 
 function data = LoadTracesBinary2( filename, indexes )
 % Loads binary data from the current standard trace format.
+% See saveTraces.m for format information and more detail.
 
 dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'int8', 'int16', 'int32', 'int16', ...
@@ -226,8 +227,13 @@ if z~=0,
     return;
 end
 
+% Check validity of header data.
 magic     = fread( fid, [1,4], '*char' );  %format identifier ("magic")
 version   = fread( fid, 1, '*uint16' );   %format version number
+
+assert( (z==0 && strcmp(magic,'TRCS')), 'loadTraces: invalid header' );
+assert( version>=3 && version<=4, 'Version not supported!' );
+
 dataType  = fread( fid, 1, '*uint8'  );   %type of trace data - (usually single)
 nChannels = fread( fid, 1, '*uint8'  );
 nTraces   = fread( fid, 1, 'uint32'  );
@@ -235,13 +241,9 @@ traceLen  = fread( fid, 1, 'uint32'  );
 
 data.nChannels = nChannels;
 
-% 3) Check validity of header data.
-assert( (z==0 && strcmp(magic,'TRCS')), 'loadTraces: invalid header' );
-assert( version>=3 && version<=4, 'Version not supported!' );
 
-
-% 4a) Read data field names
-if version>3, %field names are specified in the new format.
+% 3) Read data channel names (version 4+)
+if version>3,
     szNames = fread( fid, 1, 'uint32' );
     channelNames = strtrim(  fread( fid, [1,szNames], '*char' )  );
 
@@ -253,14 +255,16 @@ else
     channelNames = {'donor','acceptor','fret'};
 end
 
+% Remove empty (trailing) channel names. This might happen if extra
+% delimiters are added to the end to pad to word boundries.
+channelNames = channelNames( ~cellfun(@isempty,channelNames) );
 data.channelNames = channelNames;
 
 
-% 4b) Read fluorescence and FRET data.
-% TODO: To save memory, the data is memory mapped and copied when needed.
+% 4) Read fluorescence and FRET data.
 assert( dataType==9, 'Only single values are supported.');
 
-data.time = fread( fid, [traceLen,1], 'single' ); %time axis (in seconds)
+data.time = fread( fid, [traceLen,1], dataTypes{dataType+1} ); %time axis (in seconds)
 
 % Select subset of traces if indexes are given.
 if nargin<2 || isempty(indexes),
@@ -269,16 +273,24 @@ end
 
 % Read data fields.
 for i=1:nChannels,
-    d = fread( fid, [nTraces,traceLen], 'single' );
+    d = fread( fid, [nTraces,traceLen], dataTypes{dataType+1} );
     data.( channelNames{i} ) = d(indexes,:);
 end
 
 
 % 5) Read metadata.
+
+% Data are divided into "sections" for different types of data/metadata.
+% Fluorescence data etc are in the root section (no heading). traceMetadata
+% etc are seperate sections and also seperate fields in the returned "data"
+% structure. For backward compatibility with version 3, we assume the first
+% fields are for traceMetadata unless specified.
+% section = 'traceMetadata';
+section = '';
+
 % Adding this just to give the traceMetadata struct a basic structure,
 % which is needed for building structure arrays. 'temp' is removed later.
 traceMetadata = struct( 'temp', num2cell(indexes) );
-mode = 1; %1=reading traceMetadata (default), 2=reading fileMetadata
 
 while 1,
     % Read the page header.
@@ -309,17 +321,12 @@ while 1,
     % Look for section markers that delimit traceMetadata from fileMetadata
     if strcmp(title,'section_heading'),
         assert( ischar(m) );
-        if strcmp(m,'traceMetadata'),
-            mode=1;
-        elseif strcmp(m,'fileMetadata'),
-            mode=2;
-        else
-            error('Unknown section seperator');
-        end
+        section = m;
+        continue;
     end
     
     % Convert into structure array for traceMetadata.
-    if mode==1,
+    if strcmp(section,'traceMetadata'),
         if iscell(m),
             [traceMetadata.(title)] = deal( m{indexes} );
         elseif isnumeric(m),
@@ -328,8 +335,16 @@ while 1,
         end
     
     % Simply add fields (which may be arrays) for fileMetadata.
-    elseif mode==2,
+    elseif strcmp(section,'fileMetadata')
         data.fileMetadata.(title) = m;
+        
+    % Empty section heading = root variables.
+    % Currently none are here! Future expansion?
+    elseif isempty(section),
+        data.(title) = m;
+    
+    else
+        error('Unknown metadata section heading!');
     end
 end
 
