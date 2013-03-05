@@ -30,10 +30,10 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 28-Feb-2013 15:45:17
+% Last Modified by GUIDE v2.5 05-Mar-2013 11:40:07
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 0;
+gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
                    'gui_OpeningFcn', @gettraces_OpeningFcn, ...
@@ -104,39 +104,44 @@ guidata(hObject, handles);
 % gettraces may be called from sorttraces to load the movie associated with
 % a particular trace. The first argument is then the filename of the movie
 % file and the second argument is the x-y coordinate of the trace.
+% FIXME: this way of doing it generates warnings in sorttraces, so there is
+% something not quite right!!
+% FIXME: there is some missing information for 3-color implementation.
+% Channel names (and the order) are really important, but they are not in
+% traceMetadata!
 if numel(varargin) > 0,
     handles.stkfile = varargin{1};
     traceMetadata = varargin{2};
     
-    % Determine imaging geometry.
+    % Determine imaging geometry and build list of coordinates from metadata.
     geometry=1;
+    handles.x = traceMetadata.donor_x;
+    handles.y = traceMetadata.donor_y;
+    
     if isfield(traceMetadata,'acceptor_x'),
         geometry=2;
+        handles.x = [handles.x traceMetadata.acceptor_x];
+        handles.y = [handles.y traceMetadata.acceptor_y];
     end
+    
+    if isfield(traceMetadata,'factor_x'),
+        geometry=3;
+        handles.x = [handles.x traceMetadata.factor_x];
+        handles.y = [handles.y traceMetadata.factor_y];
+    end
+    
     handles.params.geometry = geometry;
     set( handles.cboGeometry, 'Value', geometry );
+    
+    handles.num = numel(handles.x)/handles.params.geometry;
+    set(handles.nummoles,'String',num2str(handles.num));
     
     % Load file
     handles = OpenStk( handles.stkfile, handles, hObject );
     set(handles.getTraces,'Enable','on');
     
-    assert( handles.params.geometry<=2, 'Quad-view not supported (yet)' );  % FIXME
-    
-    % If a trace number is given, highlight it.
-    if handles.params.geometry==2, %dual-channel
-        % Draw markers on selection points (donor side)
-        axes(handles.axDonor);
-        line(traceMetadata.donor_x,traceMetadata.donor_y,'LineStyle','none','marker','o','color','w','EraseMode','background');
-
-        % Draw markers on selection points (acceptor side)
-        ncol = size(handles.stk_top,2);
-        axes(handles.axAcceptor);
-        line(traceMetadata.acceptor_x-(ncol/2),traceMetadata.acceptor_y,'LineStyle','none','marker','o','color','w','EraseMode','background');
-    end
-
-    % Draw markers on selection points (total intensity composite image)
-    axes(handles.axTotal);
-    line(traceMetadata.donor_x,traceMetadata.donor_y,'LineStyle','none','marker','o','color','w','EraseMode','background');
+    % Highlight the selected trace.
+    highlightPeaks(handles);
 end
 
 
@@ -566,16 +571,30 @@ else
     set( handles.txtPSFWidth, 'ForegroundColor', [0 0 0] );
 end
 
-% Update guidata with peak selection coordinates
-handles.x = peaks(:,1);
-handles.y = peaks(:,2);
-
 
 %----- Graphically show peak centers
+handles.x = peaks(:,1);
+handles.y = peaks(:,2);
+highlightPeaks( handles );
 
-ncol = stkData.stkX;
-nrow = stkData.stkY;
-clear stkData;
+% Update GUI controls
+handles.num = numel(handles.x)/handles.params.geometry;
+set(handles.nummoles,'String',num2str(handles.num));
+
+set(handles.saveTraces,'Enable','on');
+
+guidata(hObject,handles);
+
+% end function
+
+
+
+function highlightPeaks(handles)
+% Draw circles around each selected fluorescence spot, defined in handles.x
+% and handles.y
+%
+
+[nrow,ncol] = size(handles.stk_top);
 
 % Clear selection markers
 delete(findobj(gcf,'type','line'));
@@ -584,8 +603,6 @@ if handles.params.geometry==1, %single-channel
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
     line(handles.x,handles.y,'LineStyle','none','marker','o','color','y','EraseMode','background');
-
-    handles.num = numel(handles.x);
     
 elseif handles.params.geometry==2, %dual-channel
     indD = 1:2:numel(handles.x);
@@ -602,8 +619,6 @@ elseif handles.params.geometry==2, %dual-channel
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
     line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','y','EraseMode','background');
-
-    handles.num = numel(handles.x)/2;
     
 elseif handles.params.geometry==3, %quad-channel
     % Assign each spot to a quadrant.
@@ -627,21 +642,14 @@ elseif handles.params.geometry==3, %quad-channel
     axes(handles.axUR);
     line(handles.x(indUR)-(ncol/2),handles.y(indUR), args{:});
     
-    % Draw markers on selection points (total intensity composite image)
+    % Draw markers on selection points (total intensity composite image).
+    % FIXME: this assumes that ...
     axes(handles.axTotal);
     line(handles.x(indUL),handles.y(indUL),'LineStyle','none','marker','o','color','y','EraseMode','background');
-    
-    handles.num = numel(handles.x)/handles.params.geometry;
-    
-elseif handles.params.geometry==4,
-    error('Four-color FRET not yet supported');
 end
 
-% Update GUI controls
-set(handles.nummoles,'String',num2str(handles.num));
-set(handles.saveTraces,'Enable','on');
 
-guidata(hObject,handles);
+% end function highlightPeaks
 
 
 
@@ -701,6 +709,9 @@ if ~isempty( text )
 elseif isfield(handles.params,'don_thresh');
     handles.params = rmfield( handles.params,'don_thresh' );
 end
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
 
@@ -728,6 +739,11 @@ if ~isempty( text )
 elseif isfield(handles.params,'nPixelsToSum');
     handles.params = rmfield( handles.params,'nPixelsToSum' );
 end
+
+% Re-pick molecules with new settings.
+% This is only really necessary to update the GUI status (% intensity
+% collected).
+handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
 

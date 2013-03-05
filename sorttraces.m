@@ -911,7 +911,7 @@ function btnGettraces_Callback(hObject, eventdata, handles)
 % Get the filename and movie coordinates of the selected trace.
 % FIXME: this assumes new format traces!
 m = handles.molecule_no;
-id = handles.traceMetadata(m).ids;
+id = handles.data.traceMetadata(m).ids;
 
 if any( id=='#' ),
     output = split('#',id);
@@ -944,7 +944,7 @@ if ~exist( movieFilename, 'file' ),
     end
 end
 
-gettraces_gui( movieFilename, handles.traceMetadata(m) );
+gettraces_gui( movieFilename, handles.data.traceMetadata(m) );
 
 
 % end function btnGettraces_Callback
