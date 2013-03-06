@@ -1,10 +1,10 @@
  function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.2.0';  %pipeline release version number
+constants.version = '2.2.1';  %pipeline release version number
 
 
-%--- Application settings for memory/CPU usage:
+% ---- Algorithm constants that rarely need to be adjusted.
 
 % Correction factor for fluor detection efficiency.
 % 
@@ -20,11 +20,41 @@ constants.NSTD=8; % PB detection threshold (see CalcLifetime)
 constants.TAU=9; % median filter window size (PB detection).
 
 constants.gettracesThresholdStd = 8; %see gettraces.m
-constants.photonConversionFactor = 100/3.1; %Fluoescence AU/photon conversion.
 
 constants.overlap_nstd=5; % multiple PB detection threshold
-constants.blink_nstd=4;% set FRET=0 below threshold (donor is blinking)
+constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 
+
+% ---- Variable values that are specific to your experimental setup.
+
+% Donor->Acceptor channel signal crosstalk (gettraces)
+constants.crosstalk = 0.07;
+
+% ADU (arbitrary camera intensity units) to photon conversion. Includes
+% dividing by the EM gain (100x). See camera calibration data sheet for ADU
+% conversion. This may depend on which digitizer is selected!
+% If no information is available, leave this blank 
+constants.photonConversionFactor = 100/3.1;   % 10MHz
+%constants.photonConversionFactor = 100/2.6;   % 5MHz 
+
+
+% ---- Gettraces default settings
+% Algorithm settings:
+params.don_thresh = 0; %auto
+params.overlap_thresh = 2.3;
+params.nPixelsToSum   = 4;
+params.crosstalk = constants.crosstalk;
+params.photonConversion = constants.photonConversionFactor;
+params.geometry = 2; %dual-channel by default.
+
+% Options for alignment, etc:
+params.alignTranslate = 0;
+params.alignRotate = 0;
+params.refineAlign = 0;
+params.skipExisting = 0;
+params.recursive = 0;
+params.quiet = 0;
+params.saveLocations = 0;
 
 % Channel naming and description. There are specific acceptable names
 % (donor, acceptor, etc) that will be used for accessing traces data.
@@ -38,12 +68,19 @@ constants.gettraces_chDesc2  = {'Cy3','Cy5'};
 constants.gettraces_chNames4 = {'donor','factor','acceptor',''};
 constants.gettraces_chDesc4 = {'Cy3','Cy2','Cy5',''};
 
+if params.geometry==2,
+    params.chNames = constants.gettraces_chNames2;
+    params.chDesc  = constants.gettraces_chDesc2;
+elseif params.geometry>2,
+    params.chNames = constants.gettraces_chNames4;
+    params.chDesc  = constants.gettraces_chDesc4;
+end
 
-% Donor->Acceptor channel signal crosstalk (gettraces)
-constants.crosstalk = 0.07;
+constants.gettracesDefaultParams = params;
 
 
-% CONSTANTS FOR PLOTTING FUNCTIONS
+
+% ---- Constants for display/plotting functions
 
 % default transition density plot parameters (tdplot.m)
 constants.tdp_fret_axis = -0.1:0.030:1.0;
@@ -54,7 +91,8 @@ constants.cplot_scale_factor = 8;
 constants.contour_length = 50; %default # frames to display in cplot
 
 
-% 
+
+% ---- Other settings
 if ispc,
     constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
 else

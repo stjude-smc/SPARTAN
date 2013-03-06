@@ -92,7 +92,10 @@ methods
     end
     
     function data = readFrame( obj, idx )
-        data = squeeze( readFrames(obj,idx) );
+        fid = fopen( obj.filename );
+        fseek( fid, obj.dataOffsets(idx), 'bof' );
+        data = fread( fid, [obj.nX obj.nY], '*uint16' )';
+        fclose(fid);
     end
     
     

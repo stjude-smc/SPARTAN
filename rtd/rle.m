@@ -3,6 +3,10 @@ function [starts,ends] = rle( x, v )
 % which is assumed to be a vector.
 % 
 
+if nargin==1 && islogical(x),
+    v=1;
+end
+
 % Create a run-length-encoded version of signal
 ends = find(x(1:end-1) ~= x(2:end)); % length(x) ]; %run end positions
 len = diff([ 0 ; ends ]);

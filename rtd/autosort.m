@@ -99,7 +99,7 @@ for m=1:nTraces,
     % Seperate events
     [starts,ends] = rle( indf', 1 );
     starts = max(1,starts-1);
-    ends = ends+1;
+    ends = min(traceLen,ends+1);
     nEvents = length(starts);
     
     % By default, accept all events.  Below, some are filtered out...
@@ -254,6 +254,7 @@ if nargout==0
     dataEvents.donor    = data.donor(idxTracesWithEvents,:);
     dataEvents.acceptor = data.acceptor(idxTracesWithEvents,:);
     dataEvents.fret     = data.fret(idxTracesWithEvents,:);
+    dataEvents.channelNames = {'donor','acceptor','fret'};
     
     saveTraces( [datapath 'tracesWithEvents.traces'],'traces', dataEvents );
     

@@ -233,7 +233,7 @@ end
 
 
 % Verify input arguments
-if any( size(data.donor)~=size(data.acceptor) )
+if any( size(data.donor)~=size(data.acceptor) | size(data.donor)~=size(data.fret) )
     error('Data matrix dimensions must agree');
 end
 
@@ -244,6 +244,12 @@ end
 [p,f,e] = fileparts(filename);
 assert( ~isempty(strfind(e,'traces')), 'Binary format traces files must have a ".*traces" extension' );
 
+
+% Legacy code (or laziness) support. If no channel names are given, try to
+% guess based on what data are present.
+if ~isfield(data,'channelNames'),
+    data.channelNames = {'donor','acceptor','fret'};
+end
 
 % 1) Create IDs if not specified and add to the metadata list
 if ~isfield(data,'traceMetadata');

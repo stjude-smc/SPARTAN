@@ -5,7 +5,9 @@ function output = medianfilter(input,n)
 %   x     - row vector
 %   n     - order of the filter
 
-% Use fast compiled version if available
+% Use fast compiled version if available.
+% NOTE: this doesn't recognize the TAU argument and pads with zeros instead
+% of data: FIXME.
 if exist('medianfilterx','file') == 3
     output = medianfilterx(input')';
     return;
@@ -35,8 +37,8 @@ ind = repmat( 1:nx, n,1 ) + repmat( (0:n-1)', 1,nx );
 
 for row=1:size(input,1)
     
-    % Pad array with zeros so edges are defined
-    X = [zeros(m,1); input(row,:)'; zeros(m,1)];
+    % Pad array with data so edges are defined
+    X = [repmat(input(row,1),m,1); input(row,:)'; repmat(input(row,end),m,1)];
 
     % Do the median filtering
 %     output(row,:) = median( X(ind), 1 );

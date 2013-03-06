@@ -30,7 +30,7 @@ function varargout = gettraces_gui(varargin)
 
 % Edit the above text to modify the response to help gettraces
 
-% Last Modified by GUIDE v2.5 05-Mar-2013 11:40:07
+% Last Modified by GUIDE v2.5 06-Mar-2013 15:03:19
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -67,33 +67,28 @@ if ~isfield(handles,'params')
     % Choose default command line output for gettraces
     handles.output = hObject;
 
-    % Setup initial values for parameter values
+    % Setup default values for parameter values -- 2-color FRET.
     constants = cascadeConstants();
+    params = constants.gettracesDefaultParams;
 
-    % params.don_thresh = 0; %not specified = auto pick
-    params.overlap_thresh = 2.3;
-    params.nPixelsToSum   = 4;
-    params.saveLocations  = 0;
-    params.crosstalk = constants.crosstalk;
-    params.photonConversion = constants.photonConversionFactor;
-    params.geometry = 2; %dual-channel by default.
-    params.alignTranslate = 0;
-    params.alignRotate = 0;
-    params.refineAlign = 0;
-    
-    % Load default channel assignments for 2-color FRET (default geometry)
-    params.chNames = constants.gettraces_chNames2;
-    params.chDesc  = constants.gettraces_chDesc2;
-
-    set( handles.txtIntensityThreshold,'String','' );
-    set( handles.txtOverlap,'String',num2str(params.overlap_thresh) );
-    set( handles.txtIntegrationWindow,'String',num2str(params.nPixelsToSum) );
-    set( handles.txtDACrosstalk,'String',num2str(params.crosstalk) );
-    set( handles.txtPhotonConversion,'String',num2str(params.photonConversion) );
+    if ~isfield(params,'don_thresh') || params.don_thresh==0,
+        set( handles.txtIntensityThreshold,'String','' );
+    else
+        set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
+    end
+    set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
+    set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
+    set( handles.txtDACrosstalk,       'String', num2str(params.crosstalk)        );
+    set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
     
     set( handles.chkAlignTranslate, 'Value', params.alignTranslate );
     set( handles.chkAlignRotate,    'Value', params.alignRotate    );
     set( handles.chkRefineAlign,    'Value', params.refineAlign    );
+    
+    set( handles.chkRecursive, 'Value', params.recursive    );
+    set( handles.chkOverwrite, 'Value', params.skipExisting );
+    
+    set( handles.cboGeometry, 'Value', params.geometry );
 
     handles.params = params;
 end
@@ -182,7 +177,6 @@ handles.stkfile = strcat(datapath,datafile);
 handles = OpenStk( handles.stkfile, handles, hObject );
 
 % Update GUI now that data has been loaded.
-set(handles.getTraces,'Enable','on');
 guidata(hObject,handles);
 
 
@@ -193,8 +187,12 @@ function handles = OpenStk(filename, handles, hObject)
 constants = cascadeConstants;
 
 [p,f,e] = fileparts(filename);
-if numel(p)>70, p=[p(1:70) '...']; end %trancate path, if too long
 fnameText = [p filesep f e];
+
+% Trancate name if too long ot fit into window without wrapping.
+if numel(fnameText)>90,
+    fnameText = ['...' fnameText(end-90:end)];
+end
 
 set( handles.txtFilename,          'String',fnameText);
 set( handles.txtOverlapStatus,     'String', '' );
@@ -335,6 +333,8 @@ end
 
 
 % Finish up
+set(handles.getTraces,'Enable','on');
+set(handles.btnMetadata,'Enable','on');
 guidata(hObject,handles);
 
 
@@ -374,7 +374,6 @@ recursive = get(handles.chkRecursive,'Value');
 direct=uigetdir('','Choose directory:');
 if direct==0, return; end
 disp(direct);
-
 
 % Get list of files in current directory (option: and all subdirectories)
 if recursive
@@ -472,7 +471,6 @@ fclose(log_fid);
 
 
 % ----- Update GUI
-
 set(handles.txtProgress,'String','Finished.');
 guidata(hObject,handles);
 
@@ -878,5 +876,53 @@ handles.params.refineAlign = get(hObject,'Value');
 % Re-pick molecules with new settings.
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
+
+
+
+
+% --- Executes on button press in btnMetadata.
+function btnMetadata_Callback(hObject, eventdata, handles)
+% Display a simple diaglog with the MetaMorph metadata for the first frame.
+% 
+
+stkData = getappdata(handles.figure1,'stkData');
+
+if isempty(stkData) || ~isfield(stkData.movie.stkHeader,'MM')
+    % This movie doesn't have MetaMorph metadata (should never happen).
+    set( hObject, 'Enable','off' );
+    return;
+end
+
+% Grab extra MetaMorph fields outside the MM struct.
+metadata = stkData.movie.stkHeader.MM(1);
+
+if isfield( stkData.movie.stkHeader, 'MM_wavelength' ),
+    wv = stkData.movie.stkHeader.MM_wavelength;
+    metadata.MM_wavelength = wv(wv>100);
+end
+
+% Convert structure data into text to display.
+fields = fieldnames(metadata);
+flen = max( cellfun(@numel,fields) );
+nFields = numel(fields);
+
+output = cell( nFields, 1 );
+
+for i=1:nFields, %for each field
+    fname = fields{i};
+    data  = metadata.(fname);
+    
+    if isnumeric(data),
+        data = num2str(data);
+    end
+    
+    output{i} = sprintf( ['%' num2str(flen) 's:  %s'], fname, data );
+end
+
+
+% Display the dialog.
+msgbox( output, 'MetaMorph metadata' );
+
+
 
 

@@ -47,13 +47,10 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 % can be displayed in scripts that call this function.
 
 
+constants = cascadeConstants;
 
 
-
-%% Parse input arguments
-
-% If calling directly from command line,
-% launch the GUI.
+% If calling directly from command line, launch the GUI.
 if nargin==0,
     gettraces_gui;
     return;
@@ -63,27 +60,25 @@ end
 %------ Load parameter values (always second parameter!)
 global params;
 
-if nargin<2, %provide defaults if no parameters given.
-    params.don_thresh = 0;
-    params.overlap_thresh = 2.3;
-    params.nPixelsToSum = 4;
-else
-    params = varargin{2};
-end
 
+% Set default parameter values and merge with user-specified values.
+% The user's options will override any existing defaults.
+params = constants.gettracesDefaultParams;
 
-% If any parameters are not specified, give a default value of 0.
-% This way, we don't have to constantly check if a parameter exists.
-paramNames = {'skipExisting','recursive','don_thresh','overlap_thresh','saveLocations','quiet','alignTranlate','refineAlign'};
-for i=1:numel(paramNames),
-    if ~isfield(params,paramNames{i})
-        params.(paramNames{i}) = 0;
+if nargin>=2,
+    userParams = varargin{2};
+    
+    % Specify default channel assignments if none given.
+    % Setting it here is better in case geometry but not names are set in
+    % userParams because the default includes names for 2-channel.
+    if ~isfield(userParams,'chNames') && params.geometry>2
+        params.chNames = constants.gettraces_chNames4;
+        params.chDesc  = constants.gettraces_chDesc4;
     end
+    
+    params = catstruct( params, userParams );
 end
 
-if ~isfield(params,'geometry'),
-    params.geometry=2; %dual-channel (L/R).
-end
 
 
 %------ If a structure is specified, load as STK data
@@ -118,7 +113,6 @@ image_t = stkData.stk_top - stkData.background;
 
 if ~params.don_thresh
     if ~isfield(params,'thresh_std')
-        constants = cascadeConstants;
         thresh_std = constants.gettracesThresholdStd;
     else
         thresh_std = params.thresh_std;
@@ -134,9 +128,6 @@ else
 end
 
 % Find peak locations from total intensity
-% FIXME: alignStatus may not be relevant for single-channel. Returning it
-% as empty gives errors later! Also disabled for now in quad-channel so
-% similar problems there...
 [peaks,stkData.stkData.total_t,stkData.alignStatus] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
@@ -146,10 +137,6 @@ end
 
 %------ Extract traces using peak locations
 if nargin>=3 && ischar(varargin{3}),
-    if ~isfield(params,'nPixelsToSum'),
-        params.nPixelsToSum = 4;
-    end
-    
     outputFilename = varargin{3};
     integrateAndSave( stkData, peaks, outputFilename );
 end
@@ -379,10 +366,10 @@ for i=1:nFiles,
     
     % Generate integration windows for later extracting traces.
     [stkData.regions,stkData.integrationEfficiency] = ...
-                                getIntegrationWindows(image_t, peaks', params);
+                                getIntegrationWindows(image_t, peaks, params);
     
     % Save the traces to file
-    integrateAndSave( stkData, peaks', traceFname );
+    integrateAndSave( stkData, peaks, traceFname );
     
     waitbar(i/nFiles, h); drawnow;
 end
@@ -403,7 +390,13 @@ names = fieldnames(  params );
 vals  = struct2cell( params );
 
 for i=1:numel(names),
-    fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
+    if iscell( vals{i} )
+        f = repmat( '%s, ', 1,numel(vals{i}));
+        f = f(1:end-2);
+        fprintf(log_fid, ['  %15s:  ' f '\n'], names{i}, vals{i}{:});
+    else
+        fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
+    end
 end
 
 % Log list of files processed by gettraces
@@ -641,48 +634,56 @@ function [clean_picks,all_picks] = pickPeaks( image_t, threshold, overlap_thresh
 % 1. For each pixel (excluding edges), pick those above threshold that have
 % greater intensity than their neighbors (3x3,local maxima).
 % tempxy is peak position, centroidxy is estimated true molecule position.
+[rows,cols] = find( image_t(1+3:nrow-3,1+3:ncol-3)>threshold );
+rows = rows+3;
+cols = cols+3;
+
 nMols=0;
-for i=1+3:nrow-3,
-    for j=1+3:ncol-3,
-        block = image_t(i-1:i+1,j-1:j+1);
-        cross = block( [2,4,5,6,8] );
-        
-        if image_t(i,j)>threshold && image_t(i,j)==max(cross)
-            
-            % Calc centroid position using intensity-weighted average of
-            % position
-            off_x = WeightedAvg( 1:3, sum(block,1)  ) -1.5;
-            off_y = WeightedAvg( 1:3, sum(block,2)' ) -1.5;
-            
-            % Save the position of this molecule
-            nMols=nMols+1;
-            tempx(nMols)=j;
-            tempy(nMols)=i;
-            
-            centroidx(nMols) = j+ off_x;
-            centroidy(nMols) = i+ off_y;
-        end
+for n=1:numel(rows),
+    i = rows(n);
+    j = cols(n);
+    
+    block = image_t(i-1:i+1,j-1:j+1);
+    cross = block( [2,4,5,6,8] );
+
+    if image_t(i,j)==max(cross)
+        % Calc centroid position using intensity-weighted average of
+        % position. This gives some additional information that is useful
+        % for alignment...I think.
+        off_x = WeightedAvg( 1:3, sum(block,1)  ) -1.5;
+        off_y = WeightedAvg( 1:3, sum(block,2)' ) -1.5;
+
+        % Save the position of this molecule
+        nMols=nMols+1;
+        tempx(nMols)=j;
+        tempy(nMols)=i;
+
+        centroidx(nMols) = j+ off_x;
+        centroidy(nMols) = i+ off_y;
     end
 end
 
 if nMols<1,
-    donor_picks = zeros(0,2);
+    clean_picks = zeros(0,2);
+    all_picks = clean_picks;
     return;
 end
 
 
-% 2. Remove pick pairs that are closer than the cutoff radius:
-% Signals may have cross-contamination. -- donor only
-% THIS STEP NEEDS IMPROVEMENT - if molecules are too close, they will not
-% be picked as seperate peaks.
+% 2. Remove pick pairs that are closer than the cutoff radius, but still
+% easily distinguishable as distinct molecules. The loop iterates in a way
+% to avoid searching each pair twice and once the peaks are pretty far away
+% (in terms of y-axis/rows), it stops searching for overlap for that
+% molecule.
 overlap=zeros(1,nMols);
 
 for i=1:nMols,
     for j=i+1:nMols,
         % quickly ignore molecules way beyond the threshold
-        if abs(centroidy(j)-centroidy(i)) > overlap_thresh
+        if abs(centroidx(j)-centroidx(i)) > 1+ceil(overlap_thresh),
             break;
         end
+        
         % otherwise, we have to check more precisely
         if (centroidx(i)-centroidx(j))^2 + (centroidy(i)-centroidy(j))^2 ...
            < overlap_thresh^2
@@ -731,8 +732,6 @@ function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks
 
 % Specify the number of most intense proximal pixels to sum when generating
 % fluorescence traces (depends on experimental point-spread function).
-assert( isfield(params,'nPixelsToSum'), 'Missing nPixelsToSum' );
-
 swChoices = (1:2:19);
 idx = find( params.nPixelsToSum<=(swChoices.^2), 1,'first' );
 squarewidth = swChoices(idx);
@@ -830,6 +829,8 @@ end
 constants = cascadeConstants;
 if isfield(params,'photonConversion') && ~isempty(params.photonConversion) && params.photonConversion~=0,
     traces = traces./params.photonConversion;
+else
+    warning('Conversion from ADU to photons was not performed!');
 end
 
 % Extract individual channels from the traces matrix.
@@ -862,10 +863,6 @@ if ~isfield(params,'crosstalk'),
 end
 acceptor = acceptor - params.crosstalk*donor;
 
-% Subtract background and calculate FRET
-[data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);
-data.channelNames = [data.channelNames 'fret'];
-
 % Background substraction for third channel for factor binding.
 % This is tricky because it isn't dependant on the donor and very often may
 % not have a distinct "photobleaching" event.
@@ -890,6 +887,10 @@ if params.geometry==2,
         acceptor(j,:) = acceptor(j,:)/yCorrection;
     end
 end
+
+% Subtract background and calculate FRET
+[data.donor,data.acceptor,data.fret] = correctTraces(donor,acceptor,constants);
+data.channelNames = [data.channelNames 'fret'];
 
 
 % ---- Metadata: save various metadata parameters from movie here.

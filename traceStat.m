@@ -145,6 +145,7 @@ retval = struct( ...
 
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
+% figure;
 
 for i=1:Ntraces
     
@@ -155,10 +156,11 @@ for i=1:Ntraces
     
     
     %---- Calculate donor lifetime
-    % Find Cy3 photobleaching event by finding *last* large drop in total
-    % fluorescence in the median filtered trace.
-    % This cannot be combined with overlap detection because
-    % the thresholds are different.
+    % Find donor photobleaching event by finding *last* large drop in total
+    % fluorescence. Median-filtering smooths out noise, gradient works
+    % better than diff for finding the drops. The value of NSTD is optimal
+    % with our data (~300 photons/frame), but another value may be needed
+    % with very low intensity data?
     total2 = constants.gamma*donor + acceptor;
     filt_total  = medianfilter(total2,constants.TAU);
     dfilt_total = gradient(filt_total);
@@ -170,35 +172,43 @@ for i=1:Ntraces
 
     if ~isempty(lt) && lt<len,
         retval(i).lifetime = max(2,lt);
+    else
+        continue; %everything else is hard to calc w/o lifetime!
     end
-    clear dips; clear thresh;
     
     
     %---- OVERLAP DETECTION: Find multiple photobleaching events
-    % Ignore first frame of median filtered signal: my be very low b/c of 0
-    % padding.
-    thresh = mean_dfilt_total - constants.overlap_nstd*std_dfilt_total;
+    % Much like the above, we find drops in fluorescence as photobleaching
+    % events, but use a more sensitive threshold and only take events where
+    % the intensity never returns to its previous level after the "drop",
+    % as would be seen with multi-step photobleaching. This is less
+    % sensitive than detecting changes in *average* level, but produces way
+    % fewer false positives with real data (that have intensity drifting).
+
+    % Find each *run* of points that cross the threshold because the
+    % bleaching step may happen over 2 frames because of time averaging.
+    thresh = mean_dfilt_total-constants.overlap_nstd*std_dfilt_total;
+    events = find( diff(dfilt_total<=thresh)==1 )+1;
     
-    dips = dfilt_total<=thresh;  %all points beyond threshold
-    events = find( ~dips & [dips(2:end) 0] )+1;  %start points of drops in fluor
+    % Remove events right at the beginning that could be spurious.
+    events = events(events>5 & events<=lt);
 
     lastPB = 0;
 
-    for j=1:length(events)-1, %last event is PB
+    for j=1:length(events)-1,
         point = events(j);
-        if point<3, continue; end %ignore first few frames
         
         minb = min( filt_total(2:point-1 ) );
         maxa = max( filt_total(point+1:lt) );
 
         if maxa < minb,
-            lastPB = point+2;
+            lastPB = point;
         end
     end
 
     retval(i).overlap = lastPB~=0;
-    retval(i).safeRegion = max(1,lastPB+1);
-    
+    retval(i).safeRegion = max(1,lastPB+2);
+
     
     %---- Ignore regions where Cy3 is blinking
     s = lt+5;
