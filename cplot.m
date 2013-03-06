@@ -40,7 +40,8 @@ end
 scale = constants.cplot_scale_factor;
 
 
-% Time-bin the data if histogram axes are very long
+% Time-bin the data if histogram axes are very long.
+% 50 datapoints (frames) gives good resolution; any more is excessive.
 binFactor = ceil( (bounds(2)-bounds(1)+1)/50 );
 
 time_axis = hist2d(1,2:end);
@@ -48,22 +49,21 @@ fret_axis = hist2d(2:end,1);
 histdata  = hist2d(2:end,2:end);
 
 if binFactor>1,
-    [nRows,nCols] = size(histdata);
-    
-    time_axis = time_axis(1:binFactor:end);
+    time_axis = time_axis(1:binFactor:end); %new (binned) time axis)
     nTime = numel(time_axis);
     
-    histdata_b  = zeros( numel(fret_axis), nTime );
+    % Average over each time window to bin consecutively. Since the number
+    % of frames per bin will always be much less than the number of
+    % timepoints, iterate over each frame in the bin instead of every
+    % window (as before). This is much faster.
+    histdata_b = zeros( numel(fret_axis), nTime );
     
-    for i=1:nRows
-        for j=1:nTime,
-            idx = (1:binFactor) + binFactor*(j-1);
-            idx = idx(idx<=nCols);
-            histdata_b(i,j) = mean( histdata(i,idx) );
-        end
+    for i=1:binFactor,
+        histdata_b = histdata_b + histdata(:,i:binFactor:end);
     end
     
-    hist2d = zeros(nRows+1,nTime+1);
+    % Rebuild FRET histogram matrix with axes.
+    hist2d = zeros( numel(fret_axis)+1, nTime+1 );
     hist2d(2:end,1) = fret_axis;
     hist2d(1,2:end) = time_axis;
     hist2d(2:end,2:end) = histdata_b;

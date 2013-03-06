@@ -12,7 +12,7 @@ function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfile
 %---- USER TUNABLE PARAMETERS ----
 
 params.bMakeGUI = 1;
-params.useCorrectedDwelltimes = 0;  % merge blinks into previous dwell
+params.useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
 
 % Option to remove dwells whose durations are unknown because they are
 % cropped by the start of measurement, blinking, and photobleaching, resp.

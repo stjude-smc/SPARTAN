@@ -32,17 +32,18 @@ function [h1,baseFilenames] = makeplots(varargin)
 
 constants = cascadeConstants();
 
-% Range of FRET values to display in countor and TD plots
+% Range of FRET values to display in countor and TD plots.
 options.fretRange = [-0.1 1.0];
 
 % Length (in frames) of population histograms
-options.pophist_sumlen = constants.contour_length;
+options.pophist_sumlen = 100;%constants.contour_length;
 
 % Remove X frames from beginning of movies to avoid effect of gain drift.
 options.pophist_offset = 0;
 
 % axis bounds for contour plot and 1D population histogram
 options.contour_bin_size = 0.03;
+options.fret_axis = options.fretRange(1):options.contour_bin_size:options.fretRange(2);
 
 % colors for statehist, in order
 options.colors = [ 0 0 0 ; 0 0.5 0   ; 1 0 0 ; ...
@@ -220,7 +221,7 @@ for i=1:nSamples,
             fretaxis = options.contour_bounds(3):options.contour_bin_size:options.contour_bounds(4);
 
             disp('New data detected: generating state hist...');
-            shist = statehist( dwt_fname, data_fname, fretaxis );
+            shist = statehist( dwt_fname, data_fname, options );
             save( shist_fname, 'shist', '-ASCII' );
         end
     end

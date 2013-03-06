@@ -1,4 +1,11 @@
 function tdp=tdplot(dwtfilename,tracefilename,varargin)
+%
+%
+%
+%
+% NOTE: normalization for total time does not include time spent in dark
+% states (blinking)! Transitions to and from the dark state /are/ included,
+% however.
 
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
@@ -26,7 +33,7 @@ end
 
 % Load default values for plotting options.
 constants = cascadeConstants;
-options.tdp_fret_axis = constants.tdp_fret_axis;
+options.fret_axis = constants.tdp_fret_axis;
 options.normalize = 'total time';
 
 % Modify options if they are specified in the argument list.
@@ -47,7 +54,7 @@ end
 %%
 
 %---Histogram axes
-fret_axis = options.tdp_fret_axis;
+fret_axis = options.fret_axis;
 
 
 %---Initialize the 2d histogram
@@ -67,6 +74,9 @@ d = loadTraces(tracefilename);
 data = d.fret';
 data = data(:);
 
+if ~isfield(options,'pophist_sumlen'),
+    options.pophist_sumlen = size(d.fret,2);
+end
 
 
 %---Count all transitions and add to a transition-density matrix
@@ -109,10 +119,6 @@ for i=1:nTraces
     
     % Make sure there are no duplicate states.
     assert( all(diff(states)~=0 ),'Duplicate states!' );
-    
-    % Save data for calculating transitions per second.
-    nTrans = nTrans+ndwells-1;  %ntrans=ndwells-1
-    total_time = total_time + sum( times(states>0) );
 
     
     %---Convert the lists of initial and final dwell times into lists of
@@ -120,14 +126,26 @@ for i=1:nTraces
     ti = cumsum( [1 ; times(1:end-1)] );
     tf = cumsum( times );
     
-    fret=zeros(ndwells,1);  % mean FRET value of each dwell (1xN)
-    for j=1:ndwells
+    % Only consider FRET data within the user-specified range.
+    keep = ti<options.pophist_sumlen;
+    ti = ti(keep);  tf = tf(keep);
+    tf(end) = min( tf(end), options.pophist_sumlen );  %truncate last dwell if necessary.
+    ndwells = numel(ti);
+    
+    fret = zeros(ndwells,1);  % mean FRET value of each dwell (1xN)
+    for j=1:ndwells,
         fret(j) = mean(  fretData( ti(j):tf(j) )  );
     end
+    
+    % Save data for calculating transitions per second.
+    % NOTE: this code originally did not consider blinking times in the
+    % calculation of total time!
+    nTrans = nTrans + ndwells-1;  %ntrans=ndwells-1
+    total_time = total_time + tf(end);
 
     
-    % Place FRET values into contour bins
-    inds = zeros( ndwells,1 );  %bin number of each dwell
+    % Place FRET values into contour bins.
+    inds = zeros( ndwells,1 );  %fret bin number assignment of each dwell
     centers = (fret_axis(1:end-1)+fret_axis(2:end)) / 2;
 
     inds( fret<=centers(1) ) = 1;
@@ -160,7 +178,9 @@ elseif strcmpi(options.normalize,'total transitions')
     
     tdp(1,1) = maxVal; %max value=total # of transitions
     tdp(2:end,2:end) = tdpData/double(maxVal);
-    
+
+else
+    error('Invalid normalization setting');
 end
 
 % Save the normalized plot to disk.

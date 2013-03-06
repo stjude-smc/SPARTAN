@@ -57,7 +57,6 @@ while 1,
     data = textscan(fid, '%d%d');
     
     % Save dwells in segment
-    %            time (frames)  State # (zero-based)
     dwells{segid} = [data{1}+1 data{2}/sampling];
     
 end
