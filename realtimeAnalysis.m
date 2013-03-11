@@ -191,42 +191,41 @@ gettracesOptions.quiet = 1;
 
 gettraces( datapath, gettracesOptions );
 
+
 %---- Load traces files that have not already been loaded.
 
-% Get app data and remove them from the figure. We don't want to trigger a copy
-% when new traces are added to these variables.
-tracesLoaded = getappdata(handles.figure1,'tracesLoaded');
+% Get stats from already-processed files so we don't have to load it again.
 stats = getappdata(handles.figure1,'infoStruct');
 
 % Create list of .traces files in the selected directory.
-tracesToLoad = dir( [datapath filesep '*.traces'] );
-if isempty(tracesToLoad),
-    % No files found.
+allFiles = dir( [datapath filesep '*.rawtraces'] );
+
+if isempty(allFiles),
+    % No files found. Is it really ok to just do this? Shouldn't all the
+    % variables be cleared?? FIXME
     set( handles.txtStatus, 'String', 'IDLE.' ); drawnow;
     handles.isExecuting = 0;
     guidata(hObject,handles);
     return;
 end
 
-inputfiles = strcat( [datapath filesep], {tracesToLoad.name} );
+allFiles = strcat( [datapath filesep], {allFiles.name} );
 
 
 % If a file (and the corresponding .stk) were removed, trace data is removed
-% from the cache.
-[filesToKeep,idxToKeep] = intersect( handles.filesLoaded, inputfiles );
+% from the cache. Otherwise, this does nothing.
+% idxTraces is actually just the index of the first and last trace in each
+% file (as if all files were one big aggregate file). margeIndexes expands
+% this to an actual list of trace indexes, squashIndexes does the reverse.
+[filesToKeep,idxFilesToKeep] = intersect( handles.filesLoaded, allFiles );
 
-if numel(idxToKeep)<numel(handles.filesLoaded),
-    idxTraces = handles.idxTraces(idxToKeep,:);
-    tracesToKeep = mergeIndexes(idxTraces);
-    
-    tracesLoaded.d   = tracesLoaded.d(tracesToKeep,:);
-    tracesLoaded.a   = tracesLoaded.a(tracesToKeep,:);
-    tracesLoaded.f   = tracesLoaded.f(tracesToKeep,:);
-    tracesLoaded.traceMetadata = tracesLoaded.traceMetadata(tracesToKeep);
+if numel(idxFilesToKeep) < numel(handles.filesLoaded),
+    idxTraces = handles.idxTraces(idxFilesToKeep,:);
+    tracesToKeep = mergeIndexes(idxTraces); % get indexes into pooled dataset
     
     stats = stats(tracesToKeep);
     
-    handles.nTraces = size( tracesLoaded.d,1 );
+    handles.nTraces = numel(stats);
     handles.idxTraces = squashIndexes( idxTraces );
     handles.filesLoaded = filesToKeep;
     
@@ -234,40 +233,37 @@ if numel(idxToKeep)<numel(handles.filesLoaded),
 end
 
 
-% Load new files into the cache.
-filesToLoad = setdiff( inputfiles, handles.filesLoaded );
+% Load any new files into the cache.
+filesToLoad = setdiff( allFiles, handles.filesLoaded );
 
 if ~isempty(filesToLoad)
     % Load trace data from new files
     set( handles.txtStatus, 'String', 'Loading traces files...' ); drawnow;
-    [traceData,ids,indexes] = loadTracesBatch( filesToLoad );
-    if isempty(handles.timeAxis),
-        handles.timeAxis = traceData.time;
-    end
+    
+    % For each file, get stats and merge into cached list of stats.
+    % The actual trace data is not stored to save memory. Loading it
+    % doesn't take much time, but running traceStat() does.
+    for i=1:numel(filesToLoad),
+        d = loadTraces(filesToLoad{i});
+        handles.timeAxis = d.time;
+        stats_new = traceStat(d);
+        stats = cat(2, stats, stats_new);
+        
+        % Add indexes for the start/end of each file in the big aggregate
+        % list of traces for all files used to index into stats.
+        startend = [1 size(d.donor,1)] + handles.nTraces;
+        handles.idxTraces = [handles.idxTraces ; startend];
+        
+        handles.nTraces = numel(stats);
+    end    
+    
     handles.filesLoaded = [handles.filesLoaded filesToLoad];
-
-    % Merge new data into existing cache
-    handles.idxTraces = [handles.idxTraces ; indexes+handles.nTraces];
-    
-    tracesLoaded(1).d   = [tracesLoaded.d ;  traceData.d  ];
-    tracesLoaded.a   = [tracesLoaded.a ;  traceData.a  ];
-    tracesLoaded.f   = [tracesLoaded.f ;  traceData.f  ];
-    tracesLoaded.traceMetadata = [tracesLoaded.traceMetadata traceData.traceMetadata];
-    clear traceData;
-
-    handles.nTraces = size( tracesLoaded.d,1 );
-    handles.nFiles  = numel( inputfiles );
-    
-    % Calculate trace statistics for selection.
-    % TODO: only run this for the subset of data being loaded, then
-    %       merge with existing (cached) results!!!
-    stats = traceStat(tracesLoaded.d,tracesLoaded.a,tracesLoaded.f);
+    handles.nFiles = numel( handles.filesLoaded );
     
     needUpdate = 1;
 end
 
 % Save the trace data and trace stats for later access (save, plot, etc).
-setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
 setappdata(handles.figure1,'infoStruct',stats);
     
 
@@ -283,23 +279,33 @@ end
 %---- Select traces based on user-defined criteria.
 set( handles.txtStatus, 'String', 'Selecting traces with user-defined criteria...' );
 
-picks = pickTraces( stats, handles.criteria );
-handles.inds_picked = picks; %just picked traces.
+% lpst_options.indexes = handles.idxTraces;
+lpst_options.stats = stats;
+lpst_options.outFilename = [handles.inputdir filesep 'auto.traces'];
+
+[outFilename,picks,~,data] = loadPickSaveTraces( ...
+                    handles.filesLoaded, handles.criteria, lpst_options );
+
+handles.inds_picked = picks;
 handles.picked_mols = numel(picks);
+
+assert( max(picks)<=numel(stats) );
 
 
 %---- Update contour plots
 set( handles.txtStatus, 'String','Updating plots...' ); drawnow;
 
+% All selected traces.
 options = handles.makeplotsOptions;
 options.targetAxes = { handles.axFretContourAll };
-frethist = makecplot( tracesLoaded.f(picks,:), options );
-makeplots( frethist, 'All movies', options );
+% frethist = makecplot( data.fret, options );
+makeplots( outFilename, 'All movies', options );
 
-% Also show only traces from the last movie.
-selectedPicks = picks( picks>=handles.idxTraces(end,1) & picks<=handles.idxTraces(end,2) );
+% Only selected traces from the last movie.
+% ...get index into selected traces of mols from last movie.
+idxLastMovie = picks>=handles.idxTraces(end,1) & picks<=handles.idxTraces(end,2);
 options.targetAxes = { handles.axFretContourSelected };
-frethist = makecplot( tracesLoaded.f(selectedPicks,:), options );
+frethist = makecplot( data.fret(idxLastMovie,:), options );
 makeplots( frethist, 'Last movie', options );
 
 
@@ -313,7 +319,7 @@ handles = updateStats( stats, handles );
 lastMovie = 1:handles.nTraces;
 lastMovie = lastMovie>=handles.idxTraces(end,1) & lastMovie<=handles.idxTraces(end,2);
 handles = updateStats( stats(lastMovie), handles, 'Last' );
-set( handles.edAcceptanceLast,'String','' ); %not working yet.
+% set( handles.edAcceptanceLast,'String','' ); %not working yet.
 
 
 % Select traces with quantifiable stats.
@@ -351,11 +357,15 @@ dt = diff(handles.timeAxis(1:2))/1000; %integration time in seconds.
 
 %---- Show population statistics in GUI
 
+% Find traces with a single photobleaching event.
 clear basicCriteria;
 basicCriteria.min_snr = 2;
 basicCriteria.min_lifetime = 10;
 basicCriteria.overlap = 1;
 idx = pickTraces( stats, basicCriteria );
+
+% Find traces that pass all criteria.
+idxPicked = pickTraces( stats, handles.criteria );
 
 t = [stats.t];
 snr   = [stats.snr];
@@ -367,7 +377,8 @@ donorLifetime = [stats.lifetime];
 nTraces = numel(stats); %all data.
 nSingle = sum( snr>0 & ~[stats.overlap] );
 nFRET   = sum( acceptorLifetime>1 );
-nPicked = handles.picked_mols;
+% nPicked = handles.picked_mols;
+nPicked = numel(idxPicked);
 
 % Calculate important trace statistics.
 avgI    = median( t(idx) );
@@ -383,9 +394,9 @@ f = fit( donorAxes',donorDist','exp1' );
 % figure; plot( f ); hold on; bar( donorAxes',donorDist' );
 
 if handles.timeAxis(1)==0
-    donorT = sprintf('%.1f sec',-(1/f.b)*dt);
+    donorT = sprintf('%.0f s',-(1/f.b)*dt);
 else
-    donorT = sprintf('%.1f frames',-1/f.b);
+    donorT = sprintf('%.0f frames',-1/f.b);
 end
 
 % Calculate acceptor bleaching rate
@@ -399,18 +410,18 @@ accAxes = [0 accAxes];
 f = fit( accAxes',accDist','exp1' );
 
 if handles.timeAxis(1)==0
-    acceptorT = sprintf('%.1f sec',-(1/f.b)*dt);
+    acceptorT = sprintf('%.0f s',-(1/f.b)*dt);
 else
-    acceptorT = sprintf('%.1f frames',-1/f.b);
+    acceptorT = sprintf('%.0f frames',-1/f.b);
 end
 
 
 % Create data table for displaying states in GUI
 tableData = { sprintf('%.0f%% (%d)',100*nSingle/nTraces,nSingle); ...
               sprintf('%.0f%% (%d)',100*nFRET/nTraces,  nFRET  ); ...
-              sprintf('%.0f%% (%d)',100*nPicked/nTraces,nPicked); ...
+              sprintf('%.0f%% (%d)',100*nPicked/nTraces,nPicked); ... %This is wrong!! FIXME
               %' '; ... %spacer row
-              sprintf('%.1f',        avgI           ); ...
+              sprintf('%.0f',        avgI           ); ...
               sprintf('%.1f (%.1f)', avgSNR,avgSNRs ); ...
               donorT ; acceptorT  };
           
@@ -515,9 +526,6 @@ handles.nTraces = 0;
 handles.inds_picked = [];
 handles.picked_mols = 0;
 
-tracesLoaded = struct( 'd',[], 'a',[], 'f',[], 'ids',{} );
-handles.timeAxis = [];
-setappdata(handles.figure1,'tracesLoaded',tracesLoaded);
 setappdata(handles.figure1,'infoStruct',[]);
 
 % END FUNCTION resetGUI
@@ -555,12 +563,17 @@ function btnGo_Callback(hObject, eventdata, handles)
 
 handles.autoUpdate = get(hObject,'Value');
 
+
+%TEMP: just run it straight without a timer for debugging.
+updateGUI( hObject, handles );
+return;
+
 % If turned on, create a timer object to check the current directory
 if handles.autoUpdate    
     disp('Timer started.');
     handles.fileTimer = timer('ExecutionMode','fixedSpacing','StartDelay',1,...
                               'TimerFcn',{@timer_Callback,handles.figure1},...
-                              'Period',3.0,'BusyMode','drop');
+                              'Period',5.0,'BusyMode','drop');
     start(handles.fileTimer);
 
 % If turned off, disable the current timer
@@ -661,6 +674,9 @@ set(hBar(2),'facecolor',[251 251 196]/256);
 
 % --- Executes on button press in btnSaveTraces.
 function btnSaveTraces_Callback(hObject, eventdata, handles)
+% 
+% ****** THIS DOESN'T WORK ANYMORE..and it also may not be needed if it
+% automatically chooses a filename in the initial loading step...
 
 % Prevent callbacks from running.
 handles.isExecuting = 1;

@@ -1,4 +1,4 @@
-function [outFilename,picks,allStats]=loadPickSaveTraces( varargin )
+function [outFilename,picks,allStats,dataAll]=loadPickSaveTraces( varargin )
 % loadPickSaveTraces   Select traces passing defined criteria and save to disk.
 % 
 %   [] = loadPickSaveTraces( FILES, CRITERIA, ... )
@@ -117,7 +117,6 @@ for i=1:nFiles,
     
     % Load traces file data
     data = loadTraces( files{i} );
-    nTracesPerFile(i) = size(data.donor,1);
     dataAll.time = data.time;  % need to verify this is consistent. FIXME
     %dataAll.fileMetadata = data.fileMetadata;  % need to verify this is consistent. FIXME
     
@@ -135,8 +134,13 @@ for i=1:nFiles,
         stats = struct([]);
     else
         % Calculate trace statistics
-        stats = traceStat( data );
-    
+        % FIXME: this should check if stats are being passed!!
+        if isfield( options, 'stats' ),
+            stats = options.stats( sum(nTracesPerFile)+(1:size(data.donor,1)) );
+        else
+            stats = traceStat( data );
+        end
+        
         % Pick traces passing criteria
         [indexes] = pickTraces( stats, criteria );
         indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
@@ -177,6 +181,8 @@ for i=1:nFiles,
     if options.showWaitbar,
         waitbar(i/nFiles,wbh);
     end
+    
+    nTracesPerFile(i) = size(data.donor,1);
 end
 
 if isfield(options,'stats'),

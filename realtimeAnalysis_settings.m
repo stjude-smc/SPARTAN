@@ -73,11 +73,7 @@ handles.constants = constants;
 
 
 %---- INITIAL VALUES FOR PICKING CRITERIA
-criteria.max_corr=0.5;     % D/A correlation < 0.5
-criteria.min_snr=8;       % SNR over background
-criteria.max_bg=1500;      % Background noise
-criteria.max_ncross = 4;   % donor blinking events
-criteria.min_acclife = 15; % FRET lifetime
+criteria = constants.defaultAutotraceCriteria;
 
 
 %---- Setup drop-down boxes listing trace statistics.
@@ -99,8 +95,18 @@ end
 
 %---- Set default selections for the drop-down boxes.
 fnames = fieldnames(criteria);
+i = 1; %index into GUI elements
 
 for id=1:numel(fnames)
+    % Overlap criteria is formatted differently, so handle it seperately.
+    if strcmp( fnames{id}, 'overlap' ),
+        set( handles.chkOverlap, 'Value',criteria.overlap );
+        % FIXME: this still isn't correct since overlap=2 is valid.
+        % Ultimately overlap has to be formatted like the others and
+        % pickTraces has to be simplified to deal with this!
+        continue;
+    end
+    
     % Determine the short name of the criteria
     sepIndx = strfind(fnames{id},'_');
     criteriaName = fnames{id}(sepIndx+1:end);
@@ -115,21 +121,20 @@ for id=1:numel(fnames)
     assert( ~isempty(equalityIndex), 'Invalid equality name!' );
     
     % Set the dropdown boxes and criteria value textbox
-    set( handles.(['cboCriteria' num2str(id)]), 'Value',  criteriaIndex+1 );
-    set( handles.(['cboEquality' num2str(id)]), 'Value',  equalityIndex+1 );
-    set( handles.(['edCriteria'  num2str(id)]), 'String', ...
+    set( handles.(['cboCriteria' num2str(i)]), 'Value',  criteriaIndex+1 );
+    set( handles.(['cboEquality' num2str(i)]), 'Value',  equalityIndex+1 );
+    set( handles.(['edCriteria'  num2str(i)]), 'String', ...
                                            num2str(criteria.(fnames{id})) );
+                                       
+    i = i+1;
 end
 
 % This is set at the end since it has a non-standard name...
-criteria.overlap = 1; % Remove overlapping molecules
 handles.criteria = criteria;
 
 
 %---- Initial values for gettraces options
-options.don_thresh = 0;
-options.overlap_thresh = 2.1;
-options.nPixelsToSum = 4;
+options = constants.gettracesDefaultParams;
 handles.options = options;
 
 % Set field values in GUI

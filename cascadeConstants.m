@@ -38,7 +38,9 @@ constants.photonConversionFactor = 100/3.1;   % 10MHz
 %constants.photonConversionFactor = 100/2.6;   % 5MHz 
 
 
+
 % ---- Gettraces default settings
+
 % Algorithm settings:
 params.don_thresh = 0; %auto
 params.overlap_thresh = 2.3;
@@ -77,6 +79,19 @@ elseif params.geometry>2,
 end
 
 constants.gettracesDefaultParams = params;
+
+
+
+% ---- Gettraces default settings
+criteria.overlap = 1; % Remove overlapping molecules
+criteria.min_corr=-1.1;    % 
+criteria.max_corr=0.5;     % D/A correlation < 0.5
+criteria.min_snr=8;       % SNR over background
+criteria.max_bg=1500;      % Background noise
+criteria.max_ncross = 4;   % donor blinking events
+criteria.min_acclife = 15; % FRET lifetime
+
+constants.defaultAutotraceCriteria = criteria;
 
 
 

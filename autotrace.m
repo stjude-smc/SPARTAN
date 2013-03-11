@@ -97,18 +97,8 @@ handles.constants = constants;
 
 
 %---- INITIAL VALUES FOR PICKING CRITERIA
-criteria.overlap = 1; % Remove overlapping molecules
-
-% These can be changed while running the program.
-criteria.min_corr=-1.1;    % 
-criteria.max_corr=0.5;     % D/A correlation < 0.5
-criteria.min_snr=8;       % SNR over background
-criteria.max_bg=1500;      % Background noise
-criteria.max_ncross = 4;   % donor blinking events
-criteria.min_acclife = 15; % FRET lifetime
-
+criteria = constants.defaultAutotraceCriteria;
 handles.criteria = criteria;
-
 
 %---- OTHER USER-TUNABLE PARAMETERS
 handles.nHistBins=40; % histogram bins size
