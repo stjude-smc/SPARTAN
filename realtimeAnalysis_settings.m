@@ -92,18 +92,20 @@ for id=1:handles.nCriteriaBoxes
     set( handles.(['cboCriteria' num2str(id)]), 'String', criteriaNames );
 end
 
+% Setup default values (if no criteria seen) for special boxes.
+set( handles.chkOverlap, 'Value',0 );
+
 
 %---- Set default selections for the drop-down boxes.
 fnames = fieldnames(criteria);
 i = 1; %index into GUI elements
 
 for id=1:numel(fnames)
-    % Overlap criteria is formatted differently, so handle it seperately.
-    if strcmp( fnames{id}, 'overlap' ),
-        set( handles.chkOverlap, 'Value',criteria.overlap );
-        % FIXME: this still isn't correct since overlap=2 is valid.
-        % Ultimately overlap has to be formatted like the others and
-        % pickTraces has to be simplified to deal with this!
+    % There is a seperate control for removing overlapped/contamined
+    % traces. BUT eq_overlap=1 cannot be handled here and will be placed in
+    % the dropdown boxes instead.
+    if strcmp(fnames{id},'eq_overlap') && criteria.eq_overlap==0,
+        set( handles.chkOverlap, 'Value',1 );
         continue;
     end
     
@@ -205,7 +207,7 @@ function criteriaCheckbox_Callback(hObject, handles, criteriaName, textboxName)
 
 isChecked = (get(hObject,'Value')==get(hObject,'Max'));
 
-% Set textbook state, if there is one associated with this checkbox.
+% Set textbox state, if there is one associated with this checkbox.
 if nargin>=4, %checkbox with associated textbox
     textbox = handles.(textboxName);
 
@@ -216,6 +218,12 @@ if nargin>=4, %checkbox with associated textbox
     
 else %just a checkbox
     val = isChecked;
+end
+
+% overlap is alittle different than the others. If the box is checked, we
+% want the criteria to be "eq_overlap==0", but the "value" is 1.
+if strcmp(criteriaName,'eq_overlap'),
+    val = ~val;
 end
 
 % Add/remove criteria.
@@ -263,7 +271,7 @@ handles.criteria = criteria;
 guidata(hObject,handles);
 
 % Handle other criteria with checkboxes.
-criteriaCheckbox_Callback( handles.chkOverlap, handles, 'overlap' );
+criteriaCheckbox_Callback( handles.chkOverlap, handles, 'eq_overlap' );
 handles = guidata(hObject);
 criteriaCheckbox_Callback( handles.chkTotalSigma, handles, 'maxTotalSigma', 'edIntSigma' );
 

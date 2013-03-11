@@ -83,11 +83,11 @@ constants.gettracesDefaultParams = params;
 
 
 % ---- Gettraces default settings
-criteria.overlap = 1; % Remove overlapping molecules
+criteria.eq_overlap = 0;   % Remove overlapping molecules
 criteria.min_corr=-1.1;    % 
 criteria.max_corr=0.5;     % D/A correlation < 0.5
-criteria.min_snr=8;       % SNR over background
-criteria.max_bg=1500;      % Background noise
+criteria.min_snr=8;        % SNR over background
+criteria.max_bg=70;        % Background noise (in std photons!)
 criteria.max_ncross = 4;   % donor blinking events
 criteria.min_acclife = 15; % FRET lifetime
 

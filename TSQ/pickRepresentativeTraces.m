@@ -25,7 +25,7 @@ for i=1:numel(filenames),
     criteria.min_donorlife = 0.8*mean(donorlife);
     criteria.max_donorlife = 1.2*mean(donorlife);
     criteria.max_bg = 2*median(bg);
-    criteria.overlap = 1;
+    criteria.eq_overlap = 0;
     
     
     % Select traces and save to a new file.

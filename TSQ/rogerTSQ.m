@@ -80,7 +80,7 @@ for i=1:nFiles,
         
         % Define selection criteria
         criteria.min_snr = 10;
-        criteria.overlap = 1;
+        criteria.eq_overlap = 0;
         criteria.max_bg = cutoff
 
         % Select traces according to criteria defined above.

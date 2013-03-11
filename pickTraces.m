@@ -31,26 +31,9 @@ function [indexes,values] = pickTraces( stats, criteria  )
 % end
 
 
-% Get trace stat values
-t       = [stats.t];
-% d     = [stats.d];
-% a     = [stats.a];
-lifetime = [stats.lifetime];
-snr     = [stats.snr];
-snr_s = [stats.snr_s];
-nnr     = [stats.nnr];
-maxFRET = [stats.maxFRET];
-bg      = [stats.bg];
-corr    = [stats.corr];
-corrd   = [stats.corrd];
-ncross  = [stats.ncross];
-acclife = [stats.acclife];
-overlap = [stats.overlap];
-avgfret = [stats.avgfret];
-fretEvents = [stats.fretEvents];
-Ntraces = numel(t);
+Ntraces = numel(stats);
 
-picks = logical( ones(1,Ntraces) );
+picks = ones(1,Ntraces);
 
 
 
@@ -81,19 +64,20 @@ for i=1:numel(fn)
         cn = fn{i}(4:end);
         eq = '==';
     else
-        %warning('Filtering criteria not recognized...');
+        % You will get a warning for using the "non-standard" criteria
+        % below, but they will actually still be applied, despite the warning.
+        warning( 'pickTraces:badCriteria', 'Filtering criteria %s not recognized. Ignoring.', fn{i} );
         continue;
     end
     picks = picks & eval(['[stats.' cn ']' eq 'criteria.' fn{i}]);
 end
-    
-
-
 
 
 
 % Find traces which fit all the picking criteria (binary array)
 if isfield(criteria,'maxTotalSigma')
+    t = [stats.t];
+    
     % Fit distribution to a Gaussian function
     bins = 0:500:30000;
     [histdata] = hist( t(t>0), bins );
@@ -113,96 +97,10 @@ if isfield(criteria,'maxTotalSigma')
     %disp( [mu sigma] );
 end
 
-if isfield(criteria,'minFretEvents')
-    picks = picks & fretEvents >= criteria.minFretEvents;
-end
-
-if isfield(criteria,'minTotalIntensity')
-    picks = picks & t > criteria.minTotalIntensity;
-end    
-
-if isfield(criteria,'maxTotalIntensity')
-    picks = picks & t < criteria.maxTotalIntensity;
-end
-
-if isfield(criteria,'minIntensityNoise')
-    picks = picks & snr_s > criteria.minIntensityNoise;
-end    
-
-if isfield(criteria,'maxIntensityNoise')
-    picks = picks & snr_s < criteria.maxIntensityNoise;
-end
-
-if isfield(criteria,'minTotalLifetime')
-    picks = picks & lifetime > criteria.minTotalLifetime;
-end
-
-if isfield(criteria,'maxTotalLifetime')
-    picks = picks & lifetime < criteria.maxTotalLifetime;
-end
-
-if isfield(criteria,'minSNR')
-    picks = picks & snr > criteria.minSNR;
-end
-
-if isfield(criteria,'maxNNR')
-    picks = picks & nnr < criteria.maxNNR;
-end
-
-if isfield(criteria,'minFret')
-    picks = picks & maxFRET >= criteria.minFret;
-end
-
-if isfield(criteria,'maxBackground')
-    picks = picks & bg < criteria.maxBackground;
-end
-
-if isfield(criteria,'minCorrelation')
-    picks = picks & corr > criteria.minCorrelation;
-end
-
-if isfield(criteria,'maxCorrelation')
-    picks = picks & corr <= criteria.maxCorrelation;
-end
-
-if isfield(criteria,'minCorrD')
-    picks = picks & corrd > criteria.minCorrD;
-end
-
-if isfield(criteria,'maxCorrD')
-    picks = picks & corrd <= criteria.maxCorrD;
-end
-
-if isfield(criteria,'maxDonorBlinks')
-    picks = picks & ncross < criteria.maxDonorBlinks;
-end
-
-if isfield(criteria,'minFretLifetime')
-    picks = picks & acclife > criteria.minFretLifetime;
-end
-
-if isfield(criteria,'overlap')
-    % Find which molecules to remove by overlap citeria
-    if criteria.overlap == 0,  %disable overlap detection
-        overlap = zeros( size(overlap) );
-    elseif criteria.overlap == 2,  %select ONLY overlapping molecules
-        overlap = ~overlap;
-    end
-    
-    picks = picks & ~overlap;
-end
-
-if isfield(criteria,'minAverageFret')
-    picks = picks & avgfret > criteria.minAverageFret;
-end
-
-if isfield(criteria,'maxAverageFret')
-    picks = picks & avgfret < criteria.maxAverageFret;
-end
 
 % Return the results: picked molecule indexes, and stat values for picks
 indexes = find(picks);
-values = stats(picks);
+values = stats(indexes);
 
 
 % Random trace removal

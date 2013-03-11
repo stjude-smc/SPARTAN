@@ -276,12 +276,31 @@ if ~needUpdate && ~force,
 end
 
 
+
 %---- Select traces based on user-defined criteria.
 set( handles.txtStatus, 'String', 'Selecting traces with user-defined criteria...' );
 
-% lpst_options.indexes = handles.idxTraces;
+clear lpst_options;
+
+% Get output filename if not already defined.
+if ~isfield(handles,'outFilename'),
+    % Define default output filename (as in autotrace.m)
+    [p f] = fileparts( handles.filesLoaded{1} );
+    handles.outFilename = [p filesep f '_auto.traces'];
+    
+    [f p] = uiputfile('.traces','Save picked traces as:',handles.outFilename);
+    
+    % If user hits cancel, choosen some default temporary filename to store
+    % intermediate results. The name can be changed later...
+    if f~=0,
+        handles.outFilename = [p f];
+    else
+        handles.outFilename = [pwd filesep 'auto.traces'];
+    end
+end
+
+lpst_options.outFilename = handles.outFilename;
 lpst_options.stats = stats;
-lpst_options.outFilename = [handles.inputdir filesep 'auto.traces'];
 
 [outFilename,picks,~,data] = loadPickSaveTraces( ...
                     handles.filesLoaded, handles.criteria, lpst_options );
@@ -290,6 +309,7 @@ handles.inds_picked = picks;
 handles.picked_mols = numel(picks);
 
 assert( max(picks)<=numel(stats) );
+
 
 
 %---- Update contour plots
@@ -302,7 +322,6 @@ options.targetAxes = { handles.axFretContourAll };
 makeplots( outFilename, 'All movies', options );
 
 % Only selected traces from the last movie.
-% ...get index into selected traces of mols from last movie.
 idxLastMovie = picks>=handles.idxTraces(end,1) & picks<=handles.idxTraces(end,2);
 options.targetAxes = { handles.axFretContourSelected };
 frethist = makecplot( data.fret(idxLastMovie,:), options );
@@ -319,22 +338,10 @@ handles = updateStats( stats, handles );
 lastMovie = 1:handles.nTraces;
 lastMovie = lastMovie>=handles.idxTraces(end,1) & lastMovie<=handles.idxTraces(end,2);
 handles = updateStats( stats(lastMovie), handles, 'Last' );
-% set( handles.edAcceptanceLast,'String','' ); %not working yet.
-
-
-% Select traces with quantifiable stats.
-% selectedIdx = idx( idx>=handles.idxTraces(end,1) & idx<=handles.idxTraces(end,2) );
-% nSelected = diff( handles.idxTraces(end,:) );
 
 
 
 %---- Update GUI
-set( handles.txtStatus, 'String','Finished.' ); drawnow;
-
-handles.isExecuting = 0;
-guidata(hObject,handles);
-
-
 
 % Update trace statistic histograms for traces passing selection criteria.
 nAxes = length( handles.cboNames );
@@ -342,6 +349,12 @@ nAxes = length( handles.cboNames );
 for i=1:nAxes,
     cboStat_Callback(handles.(handles.cboNames{i}), handles);
 end
+
+set( handles.txtStatus, 'String','Finished.' ); drawnow;
+set( handles.btnSaveTraces,'Enable','on' );
+
+handles.isExecuting = 0;
+guidata(hObject,handles);
 
 
 % END FUNCTION OpenTracesBatch
@@ -361,7 +374,7 @@ dt = diff(handles.timeAxis(1:2))/1000; %integration time in seconds.
 clear basicCriteria;
 basicCriteria.min_snr = 2;
 basicCriteria.min_lifetime = 10;
-basicCriteria.overlap = 1;
+basicCriteria.eq_overlap = 0;
 idx = pickTraces( stats, basicCriteria );
 
 % Find traces that pass all criteria.
@@ -671,44 +684,52 @@ set(hBar(2),'facecolor',[251 251 196]/256);
 
 
 
-
 % --- Executes on button press in btnSaveTraces.
 function btnSaveTraces_Callback(hObject, eventdata, handles)
-% 
-% ****** THIS DOESN'T WORK ANYMORE..and it also may not be needed if it
-% automatically chooses a filename in the initial loading step...
+% Change the filename for saving the traces and "re-save" them by forcing
+% the update proceedure to re-run with the new output filename.
+%
+
 
 % Prevent callbacks from running.
 handles.isExecuting = 1;
 guidata(hObject,handles);
 
-% Create a name for the output file
-handles.outfile = strrep(handles.filesLoaded{1}, '.traces', '_auto.txt');
-handles.outfile = strrep(handles.outfile, '_01_auto.txt', '_auto.txt');
 
-[inputfile inputpath]=...
-    uiputfile('.txt','Save picked traces as:',handles.outfile);
-
-if inputfile~=0,
-    handles.outfile=[inputpath inputfile];
-    [p,n,ext] = fileparts( handles.outfile );
-    assert( strcmp(ext,'.txt'), 'must be .txt' );
-
-
-    %---- Save selected traces files.
-    tracesLoaded = getappdata(handles.figure1,'tracesLoaded');
-    picks = handles.inds_picked; %just picked traces.
-
-    saveTraces( handles.outfile, 'txt', tracesLoaded.d(picks,:), ...
-                tracesLoaded.a(picks,:), tracesLoaded.f(picks,:), ...
-                tracesLoaded.ids(picks), handles.timeAxis );
-
-    qubFile = strrep(handles.outfile,'.txt','.qub.txt');
-    saveTraces( qubFile, 'qub', tracesLoaded.f(picks,:) );
+% Define default output filename (as in autotrace.m)
+if ~isfield(handles,'outFilename') || isempty(handles.outFilename),
+    [p f] = fileparts( handles.filesLoaded{1} );
+    handles.outFilename = [p filesep f '_auto.traces'];
 end
+
+[f p] = uiputfile('.traces','Save picked traces as:',handles.outFilename);
+
+% If user hits cancel, do nothing.
+if f~=0,
+    handles.outFilename = [p f];
+    
+    % Re-pick/save the selected traces to the new file.
+    % Do nothing if no data has been loaded yet.    
+    if isfield(handles,'inds_picked'),
+        lpst_options.outFilename = handles.outFilename;
+        lpst_options.stats = getappdata(handles.figure1,'infoStruct');
+
+        [~,picks] = loadPickSaveTraces( ...
+                            handles.filesLoaded, handles.criteria, lpst_options );
+
+        handles.inds_picked = picks;
+        handles.picked_mols = numel(picks);
+    end
+end
+
         
 % Clean up
 handles.isExecuting = 0;
 guidata(hObject,handles);
-        
-        
+
+
+
+
+
+
+

@@ -108,6 +108,12 @@ handles.sync='n';
 
 
 %---- Initialize input fields with values defined above.
+if isfield(criteria,'eq_overlap') && criteria.eq_overlap==0,
+    set(handles.chkOverlap,'Value',1);
+else
+    set(handles.chkOverlap,'Value',0);
+end
+
 set(handles.lowThresh,'String',num2str(criteria.min_corr));
 set(handles.highThresh,'String',num2str(criteria.max_corr));
 set(handles.SignalNoiseThresh,'String',num2str(criteria.min_snr));
@@ -149,6 +155,9 @@ criteriaNames = [{''}; longNames];
 for id=1:handles.nCriteriaBoxes
     set( handles.(['cboCriteria' num2str(id)]), 'String', criteriaNames );
 end
+
+% FIXME: in future, default criteria values may include some that will show
+% up in the "special" boxes. Code is needed here to set these up.
 
 
 %---- Add context menus to the plots to launch curve fitting or copy data.
@@ -442,8 +451,6 @@ function SaveTraces_Callback(hObject, eventdata, handles)
 if inputfile==0, return; end
 
 handles.outfile=[inputpath inputfile];
-% [p,n,ext] = fileparts( handles.outfile );
-% assert( strcmp(ext,'.txt'), 'must be .txt' );
 
 % Save picked data to handles.outfile
 SaveTraces( handles.outfile, handles );
@@ -713,7 +720,13 @@ PickTraces_Callback(hObject,handles);
 % --- CALLED when "Remove overlapping traces" checkbox setting is changed.
 % Updates the selection criteria automatically, w/o running PickTraces().
 function chkOverlap_Callback(hObject, eventdata, handles)
-handles.criteria.overlap = get(hObject,'Value');
+
+if get(hObject,'Value'),
+    handles.criteria.eq_overlap = 0; %remove contaminated traces.
+else
+    handles.criteria = rmfield( handles.criteria, 'eq_overlap' );
+end
+
 % guidata(hObject,handles);
 PickTraces_Callback(hObject,handles);
 
@@ -733,7 +746,7 @@ PickTraces_Callback(hObject,handles);
 function criteriaCheckbox_Callback(hObject, handles, criteriaName, textboxName)
 textbox = handles.(textboxName);
 
-if (get(hObject,'Value')==get(hObject,'Max'))
+if get(hObject,'Value')==get(hObject,'Max')
     handles.criteria.(criteriaName) = str2double(get(textbox,'String'));
     set(textbox,'Enable','on');
 else
