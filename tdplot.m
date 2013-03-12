@@ -1,4 +1,4 @@
-function tdp=tdplot(dwtfilename,tracefilename,varargin)
+function tdp=tdplot(dwtfilename,traces_input,varargin)
 %
 %
 %
@@ -22,14 +22,39 @@ if nargin<2
     [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     if dwtfile==0, return;  end
         
-    dwtfilename=strcat(dwtpath,dwtfile);
+    dwtfilename = strcat(dwtpath,dwtfile);
 
-    %---Open the corresonding qub data file
-    [tracefile tracepath]=uigetfile('*.txt','Choose an auto.txt data file:');
+    %---Open the corresonding traces file
+    [tracefile tracepath]=uigetfile('*.traces','Choose an traces file:');
     if tracefile==0, return;  end
     
-    tracefilename=strcat(tracepath,tracefile);
+    traces_input = strcat(tracepath,tracefile);
 end
+
+
+% Load dwell-time information (dwt)
+[dwt,DT,offsets] = loadDWT(dwtfilename);
+
+
+% Load FRET data
+if ischar(traces_input),
+    d = loadTraces(traces_input);
+    fret = d.fret;
+    
+elseif isstruct(traces_input)
+    fret = traces_input.fret;
+    
+elseif isnumeric(traces_input)
+    fret = traces_input;
+    
+else
+    error('tdplot: Invalid traces input');
+end
+
+data = fret';
+data = data(:);
+
+
 
 % Load default values for plotting options.
 constants = cascadeConstants;
@@ -49,8 +74,6 @@ elseif nargin>3,
 end
 
 
-
-
 %%
 
 %---Histogram axes
@@ -65,20 +88,13 @@ tdp(2:end,1)=fret_axis;
 nTrans = 0;   %total number of transitions
 total_time = 0;  %total time in frames
 
-% Load idealization data.
-[dwt,DT,offsets] = loadDWT(dwtfilename);
 nTraces = numel(dwt);
-
-% Load FRET data.
-d = loadTraces(tracefilename);
-data = d.fret';
-data = data(:);
 
 % Truncate the idealization to match the contour plots, which only show
 % some of the data (e.g., first 50 frames).
-if ~isfield(options,'contour_length') || ...
-              isfield(options,'truncate_tdplot') && ~options.truncate_tdplot,
-    options.contour_length = size(d.fret,2);
+truncate = false;
+if isfield(options,'truncate_tdplot'),
+    truncate = options.truncate_tdplot;
 end
 
 disp(options);
@@ -131,10 +147,12 @@ for i=1:nTraces
     tf = cumsum( times );
     
     % Only consider FRET data within the user-specified range.
-    keep = ti<options.contour_length;
-    ti = ti(keep);  tf = tf(keep);
-    tf(end) = min( tf(end), options.contour_length );  %truncate last dwell if necessary.
-    ndwells = numel(ti);
+    if truncate,
+        keep = ti<options.contour_length;
+        ti = ti(keep);  tf = tf(keep);
+        tf(end) = min( tf(end), options.contour_length );  %truncate last dwell if necessary.
+        ndwells = numel(ti);
+    end
     
     fret = zeros(ndwells,1);  % mean FRET value of each dwell (1xN)
     for j=1:ndwells,
@@ -188,9 +206,10 @@ else
 end
 
 % Save the normalized plot to disk.
-outfile=strrep(dwtfilename,'.dwt','_tdp.txt');
-dlmwrite(outfile,tdp,' ');
-
+if nargout==0,
+    outfile=strrep(dwtfilename,'.dwt','_tdp.txt');
+    dlmwrite(outfile,tdp,' ');
+end
 
 % NOTE: the t here is all transitions, including to 0-FRET
 fprintf('t=%d  N=%d  t/n=%f\n', [nTrans nTraces nTrans/nTraces]);

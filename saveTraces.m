@@ -334,7 +334,15 @@ if isfield(data,'fileMetadata') && numel( data.fileMetadata )>0,
 end
 
 for i=1:numel(fnames),
-    writeMetadata( fid, fnames{i}, data.fileMetadata.(fname) );
+    fname = fnames{i};
+    m = data.fileMetadata.(fname);
+    
+    % Collapse strucutre array into a single field for serialization.
+    if ~isnumeric(m) || ischar(m),
+        warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
+    else
+        writeMetadata( fid, fname, m );
+    end
 end
 
 

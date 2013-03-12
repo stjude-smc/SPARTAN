@@ -1,4 +1,4 @@
-function shist=statehist(dwtfilename, tracefilename, options)
+function shist=statehist(dwtfilename, traces_input, options)
 % STATEHIST  state occupancy FRET histogram
 %
 %   S = STATEHIST( DWT, DATA, options )   where
@@ -21,7 +21,7 @@ function shist=statehist(dwtfilename, tracefilename, options)
 
 
 % Get filenames from user if not passed
-if ~exist('tracefilename','var')
+if nargin<2
      %---Open the QuB dwt file from idealization
     [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     if dwtfile==0, return;  end
@@ -46,9 +46,19 @@ end
 
 
 % --- Open the corresonding qub data file
-data = loadTraces(tracefilename);
-fret = data.fret;  clear data;
+if isstruct(traces_input)
+    data = loadTraces(tracefilename);
+    fret = data.fret;  clear data;
+    
+elseif isnumeric(traces_input),
+    fret = traces_input;
+    
+else
+    error('statehist: Invalid traces input');
+end
+
 [nTraces,traceLen] = size(fret);
+
 
 
 % --- Load the dwell-time data and create an idealization

@@ -63,14 +63,15 @@ handles.gettracesOptions = settingsHandle.options;
 
 
 %---- PROGRAM CONSTANTS
-handles.constants = cascadeConstants();
+constants = cascadeConstants();
 
 handles.nHistBins=40; % histogram bins size
 
-makeplotsOptions.contour_bin_size = 0.035;
-makeplotsOptions.no_tdp = 1;
-makeplotsOptions.pophist_offset = 0;
-% makeplotsOptions.hideText = true;
+makeplotsOptions = constants.defaultMakeplotsOptions;
+makeplotsOptions.no_tdp = true;
+makeplotsOptions.no_statehist = true;
+options.saveFiles = false;
+
 handles.makeplotsOptions = makeplotsOptions;
 
 
@@ -315,17 +316,31 @@ assert( max(picks)<=numel(stats) );
 %---- Update contour plots
 set( handles.txtStatus, 'String','Updating plots...' ); drawnow;
 
-% All selected traces.
 options = handles.makeplotsOptions;
+options.contour_bounds = [1 options.contour_length options.fretRange];
+
+% All selected traces.
 options.targetAxes = { handles.axFretContourAll };
 % frethist = makecplot( data.fret, options );
 makeplots( outFilename, 'All movies', options );
 
 % Only selected traces from the last movie.
 idxLastMovie = picks>=handles.idxTraces(end,1) & picks<=handles.idxTraces(end,2);
-options.targetAxes = { handles.axFretContourSelected };
-frethist = makecplot( data.fret(idxLastMovie,:), options );
-makeplots( frethist, 'Last movie', options );
+frethist = makecplot(data.fret(idxLastMovie,:), options);
+
+ax = handles.axFretContourSelected;
+cplot( ax, frethist );
+title('Last Movie', 'FontSize',16, 'FontWeight','bold', 'Parent',ax);
+text( 0.93*options.contour_length, 0.9*options.contour_bounds(4), ...
+      sprintf('N=%d', sum(idxLastMovie)), ...
+      'FontWeight','bold', 'FontSize',14, 'HorizontalAlignment','right', 'Parent',ax );
+  
+ylabel(ax,'FRET');
+xlabel(ax,'Time (frames)');
+ylim( ax, options.fretRange );
+set(ax,'YGrid','on');
+box(ax,'on');
+
 
 
 
@@ -578,8 +593,8 @@ handles.autoUpdate = get(hObject,'Value');
 
 
 %TEMP: just run it straight without a timer for debugging.
-updateGUI( hObject, handles );
-return;
+% updateGUI( hObject, handles );
+% return;
 
 % If turned on, create a timer object to check the current directory
 if handles.autoUpdate    

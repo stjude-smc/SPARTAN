@@ -1,7 +1,7 @@
  function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.2.1';  %pipeline release version number
+constants.version = '2.2.2';  %pipeline release version number
 
 
 % ---- Algorithm constants that rarely need to be adjusted.
@@ -151,7 +151,9 @@ options.ignoreState0 = true;   % do not include the first (lowest FRET) state in
                                %    state occupancy histograms
 options.hideText     = false;  % don't display N=, t/s, etc on plots
 
-options.hideBlinksInTDPlots = true;  % hide transitions to dark state in TD plots
+options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
+
+options.saveFiles    = false;  % save histogram txt files for plotting in Origin.
 
 if options.ignoreState0,
    options.colors = options.colors(2:end,:); 

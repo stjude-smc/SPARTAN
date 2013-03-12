@@ -34,7 +34,7 @@ end
 if numel(args)>=2
     bounds = args{2};
 else
-    bounds = [1 constants.contour_length constants.fretRange];
+    bounds = [1 constants.defaultMakeplotsOptions.contour_length constants.defaultMakeplotsOptions.fretRange];
 end
 
 scale = constants.defaultMakeplotsOptions.cplot_scale_factor;
