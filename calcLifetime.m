@@ -11,7 +11,7 @@ function life = calcLifetime(total,TAU,NSTD)
 [Ntraces,len] = size(total);
 life = repmat(len,[Ntraces 1]);  %default value = maximum trace length
 
-if ~exist('TAU','var')
+if nargin<3,
     constants = cascadeConstants();
     TAU  = constants.TAU;
     NSTD = constants.NSTD;

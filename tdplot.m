@@ -33,7 +33,7 @@ end
 
 % Load default values for plotting options.
 constants = cascadeConstants;
-options.fret_axis = constants.tdp_fret_axis;
+options = constants.defaultMakeplotsOptions;
 options.normalize = 'total time';
 
 % Modify options if they are specified in the argument list.
@@ -65,19 +65,23 @@ tdp(2:end,1)=fret_axis;
 nTrans = 0;   %total number of transitions
 total_time = 0;  %total time in frames
 
-%---Open the QuB dwt file from idealization
+% Load idealization data.
 [dwt,DT,offsets] = loadDWT(dwtfilename);
 nTraces = numel(dwt);
 
-%---Open the corresonding qub data file (slowest step)
+% Load FRET data.
 d = loadTraces(tracefilename);
 data = d.fret';
 data = data(:);
 
-if ~isfield(options,'pophist_sumlen'),
-    options.pophist_sumlen = size(d.fret,2);
+% Truncate the idealization to match the contour plots, which only show
+% some of the data (e.g., first 50 frames).
+if ~isfield(options,'contour_length') || ...
+              isfield(options,'truncate_tdplot') && ~options.truncate_tdplot,
+    options.contour_length = size(d.fret,2);
 end
 
+disp(options);
 
 %---Count all transitions and add to a transition-density matrix
 for i=1:nTraces
@@ -127,9 +131,9 @@ for i=1:nTraces
     tf = cumsum( times );
     
     % Only consider FRET data within the user-specified range.
-    keep = ti<options.pophist_sumlen;
+    keep = ti<options.contour_length;
     ti = ti(keep);  tf = tf(keep);
-    tf(end) = min( tf(end), options.pophist_sumlen );  %truncate last dwell if necessary.
+    tf(end) = min( tf(end), options.contour_length );  %truncate last dwell if necessary.
     ndwells = numel(ti);
     
     fret = zeros(ndwells,1);  % mean FRET value of each dwell (1xN)

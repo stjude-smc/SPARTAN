@@ -1,5 +1,20 @@
-function frethist = makecplot( input, options)
-% MAKECPLOT   creates _hist.txt FRET histogram file
+function [hist2d] = makecplot( input, options )
+% MAKECPLOT   Creates a contour plot of FRET values over time.
+%
+%   [HIST] = MAKECPLOT( FRET )
+%   Sums FRET values from FRET (traces in rows) into a histogram at each
+%   point in time (HIST).
+%
+%   [HIST] = MAKECPLOT( FILENAME )
+%   Sums FRET values from data loaded from FILENAME. The histogram data is
+%   also saved in a file with the extension "_normhist.txt".
+%
+%   [...] = MAKECPLOT( ..., options )
+%   A structure containing options can be given to specify how the
+%   histograms should be made. These are listed below in makeplots.m.
+%   FIXME: These actually need some work for consistency and setting all
+%   the defaults in cascadeConstants.m
+%
 
 % Load data
 if ischar(input)
@@ -10,22 +25,26 @@ if ischar(input)
     if size(data.donor,1)<1,
         error('File is empty: %s',data_filename);
     end
-else
+elseif isstruct(input)
+    fret = input.fret; %assuming traces data structure
+elseif isnumeric(input),
     fret = input;
+else
+    error('Unknown input data parameter type');
 end
 
 % Load options
 if nargin<2,
-    options.contour_bin_size = 0.03;
+    options = constants.defaultMakeplotsOptions;
 end
 
-if ~isfield(options,'options.pophist_offset'),
-    options.options.pophist_offset = 0;
+if ~isfield(options,'pophist_offset'),
+    options.pophist_offset = 0;
 end
 
 
 % Cut off first few frames to get rid of gain drift.
-fret = fret( :, (1+options.pophist_offset:end) );
+fret = fret( :, 1+options.pophist_offset:end );
 [Nmol len] = size(fret);
 
 % Remove traces with NaN values
@@ -35,42 +54,39 @@ if any(bad),
     warning('NaN values found in FRET data. Converting to zeros.');
 end
 
-% Axes for histogram includes all possible data
+% Axes for histogram includes all available data.
 time_axis = 1:len;
-fret_axis = -0.1:options.contour_bin_size:1.2;
+fret_axis = options.fret_axis;
 
 % Initialize histogram array, setting the time step in the first row,
 % and the FRET bins in the first column. This is done for import into
 % Origin.
-frethist = zeros( length(fret_axis)+1, length(time_axis)+1 );
-frethist(1,2:end) = time_axis;
-frethist(2:end,1) = fret_axis';
+hist2d = zeros( length(fret_axis)+1, length(time_axis)+1 );
+hist2d(1,2:end) = time_axis;
+hist2d(2:end,1) = fret_axis';
 
-% WARNING: if the fret variable is too large (>6M datapoints?) hist will fail
-% and return all zeros. As a hack, the traces are split into smaller batches
-% when the total size is large (>2M datapoints). FIXME
-% if numel(fret)>2e6,
-    nFrames=size(fret,2);
-    for i=1:1000:nFrames,
-        t_range = i:min(i+1000-1,nFrames);
-        frethist(2:end,1+t_range) = hist( fret(:,t_range), fret_axis  );
-    end
-% else
-%     frethist(2:end,2:end) = hist( fret, fret_axis  );
-% end
+% Calculate histograms over each time bin. NOTE: if the fret variable is
+% too large (>6M datapoints?) hist will fail and return all zeros.
+% As a hack, the traces are split into smaller batches.
+nFrames = size(fret,2);
+
+for i=1:1000:nFrames,
+    t_range = i:min(i+1000-1,nFrames);
+    hist2d(2:end,1+t_range) = hist( fret(:,t_range), fret_axis  );
+end
 
 
-% Save plots to file
-if exist('data_filename','var'),
-    [p,n,e]  = fileparts(data_filename);
-    histfile = [p filesep n '_hist.txt'];
-    dlmwrite(histfile,frethist,' ');
+% Normalize the histogram to the total number of traces. This way all plots
+% can use the same scale.
+hist2d(2:end,2:end) = hist2d(2:end,2:end)/Nmol;
 
-    % Also save a normalized histogram.
-    frethistn = frethist;
-    frethistn(2:end,2:end) = frethistn(2:end,2:end)/Nmol;
-    histfile = [p filesep n '_normhist.txt'];
-    dlmwrite(histfile,frethistn,' ');
+
+% Save the histogram to file. Only do this if user doesn't request output
+% arguments. What else could they want?
+if nargout==0 && exist(data_filename,'var'),
+    [p,n] = fileparts(data_filename);
+    hist_fname = [p filesep n '_hist.txt'];
+    dlmwrite(hist_fname,hist2d,' ');
 end
 
 

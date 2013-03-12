@@ -8,10 +8,10 @@ function output = medianfilter(input,n)
 % Use fast compiled version if available.
 % NOTE: this doesn't recognize the TAU argument and pads with zeros instead
 % of data: FIXME.
-if exist('medianfilterx','file') == 3
-    output = medianfilterx(input')';
-    return;
-end
+% if exist('medianfilterx','file') == 3
+%     output = medianfilterx(input')';
+%     return;
+% end
     
 nx = size(input,2);
 

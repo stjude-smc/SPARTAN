@@ -11,7 +11,7 @@ function tplot(tdp, varargin)
 
 % Load optional arguments
 constants = cascadeConstants();
-options.tdp_max = constants.tdp_max;
+options = constants.defaultMakeplotsOptions;
 
 if nargin==2,
     assert( isstruct(varargin{1}) );

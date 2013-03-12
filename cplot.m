@@ -1,4 +1,3 @@
-% function cplot(hist2d, bounds, constants)
 function hist2d = cplot( varargin )
 % CPLOT  Draws FRET 2D contour plot
 %
@@ -26,30 +25,36 @@ else
     figure();
 end
 
-if numel(args)>=2
-    bounds = args{2};
-else
-    bounds = [1 constants.contour_length -0.1 1.0];
-end
-
 if numel(args)>=3,
     constants = args{3};
 else
     constants = cascadeConstants();
 end
-scale = constants.cplot_scale_factor;
+
+if numel(args)>=2
+    bounds = args{2};
+else
+    bounds = [1 constants.contour_length constants.fretRange];
+end
+
+scale = constants.defaultMakeplotsOptions.cplot_scale_factor;
 
 
 % Time-bin the data if histogram axes are very long.
 % 50 datapoints (frames) gives good resolution; any more is excessive.
 binFactor = ceil( (bounds(2)-bounds(1)+1)/50 );
 
-time_axis = hist2d(1,2:end);
-fret_axis = hist2d(2:end,1);
-histdata  = hist2d(2:end,2:end);
-
 if binFactor>1,
-    time_axis = time_axis(1:binFactor:end); %new (binned) time axis)
+    % This method splits the traces up into binFactor strides for summing
+    % over time bins. For this to work, the trace length must be divisble
+    % by binFactor. Truncate here to make this so.
+    len = size(hist2d,2)-1;
+    len = len-mod(len,binFactor);  %truncated size
+    time_axis = hist2d(1,2:len+1);
+    fret_axis = hist2d(2:end,1);
+    histdata  = hist2d(2:end,2:len+1);
+    
+    time_axis = time_axis(1:binFactor:end); %new (binned) time axis
     nTime = numel(time_axis);
     
     % Average over each time window to bin consecutively. Since the number
@@ -68,6 +73,9 @@ if binFactor>1,
     hist2d(1,2:end) = time_axis;
     hist2d(2:end,2:end) = histdata_b;
 end
+
+time_axis = hist2d(1,2:end);
+fret_axis = hist2d(2:end,1);
 
 
 % Load Stanford colormap

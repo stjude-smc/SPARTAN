@@ -29,25 +29,20 @@ if ~exist('tracefilename','var')
     dwtfilename=strcat(dwtpath,dwtfile);
 
     %---Open the corresonding qub data file
-    [tracefile tracepath]=uigetfile('*.txt','Choose qub data file:');
+    [tracefile tracepath]=uigetfile('*.traces','Choose data file:');
     if tracefile==0, return;  end
     
     tracefilename=strcat(tracepath,tracefile);
 end
 
 
-% --- Histogram axes
-if nargin<4,
-    options = struct();
+% --- Set default parameter values if none provided.
+if nargin<3,
+    constants = cascadeConstants;
+    options = constants.defaultMakeplotsOptions;
 end
 
-% FIXME: this should be in cascadeConstants.
-if  ~isfield(options,'fret_axis'),
-    BIN=0.030;
-    fret_axis = -0.2:BIN:1.2;
-else
-    fret_axis = options.fret_axis;
-end
+
 
 
 % --- Open the corresonding qub data file
@@ -65,25 +60,30 @@ nStates = numel(model)/2;
 
 
 % --- Truncate traces so they match the display length in makeplots
-if isfield(options,'pophist_sumlen'),
-    traceLen = options.pophist_sumlen;
+if isfield(options,'contour_length') && isfield(options,'truncate_statehist') && options.truncate_statehist,
+    traceLen = options.contour_length;
     idl  = idl(:,1:traceLen);
     fret = fret(:,1:traceLen);
 end
 
+disp(options);
+
 
 % --- Create normalized histograms for each state.
+fret_axis = options.fret_axis;
 shist = zeros( numel(fret_axis), nStates+1 );
 shist(:,1) = fret_axis;
 
 for j=1:nStates,
     newdata = hist( fret(idl==j), fret_axis ) /numel(fret);
-    shist(:,j+1) = reshape(newdata, numel(fret_axis), 1);
+    shist(:,j+1) = newdata;
 end
 
 % --- Save resulting histograms.
-outfile=strrep(dwtfilename,'.dwt','_shist.txt');
-dlmwrite(outfile,shist,' ');
+if nargout==0,
+    outfile=strrep(dwtfilename,'.dwt','_shist.txt');
+    dlmwrite(outfile,shist,' ');
+end
 
 
 % NOTE: the t here is all transitions, including to 0-FRET

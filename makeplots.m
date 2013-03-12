@@ -28,49 +28,14 @@ function [h1,baseFilenames] = makeplots(varargin)
 
 
 
-%------- DEFAULT PARAMETERS VALUES -------
+%------- MAKEPLOTS OPTION/PARAMETER VALUES -------
 
 constants = cascadeConstants();
+options = constants.defaultMakeplotsOptions;
 
-% Range of FRET values to display in countor and TD plots.
-options.fretRange = [-0.1 1.0];
-
-% Length (in frames) of population histograms
-options.pophist_sumlen = 100;%constants.contour_length;
-
-% Remove X frames from beginning of movies to avoid effect of gain drift.
-options.pophist_offset = 0;
-
-% axis bounds for contour plot and 1D population histogram
-options.contour_bin_size = 0.03;
-options.fret_axis = options.fretRange(1):options.contour_bin_size:options.fretRange(2);
-
-% colors for statehist, in order
-options.colors = [ 0 0 0 ; 0 0.5 0   ; 1 0 0 ; ...
-               0    0.7500    0.7500 ; ...
-          0.7500         0    0.7500 ; ...
-          0.7500    0.7500         0 ; ...
-          0.2500    0.2500    0.2500 ];
-
-% OPTIONS
-options.force_remake_tdplot = true;  %regenerate statehist and tdplots
-options.no_statehist = false;  % do not use state occupancy histograms
-options.no_tdp       = false;  % do not use TD plots
-options.ignoreState0 = true;   % do not include the first (lowest FRET) state in
-                               %    state occupancy histograms
-options.hideText     = false;  % don't display N=, t/s, etc on plots
-
-options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
-
-if options.ignoreState0,
-   options.colors = options.colors(2:end,:); 
-end
+% Make any changes to the defaults here...
 
 %---------------------------------
-
-
-
-
 
 
 
@@ -119,7 +84,7 @@ if nargin>2,
     end
 end
 
-options.contour_bounds = [1 options.pophist_sumlen options.fretRange];
+options.contour_bounds = [1 options.contour_length options.fretRange];
 
 
 %% Process data to produce plots
@@ -138,10 +103,6 @@ dataFilenames = baseFilenames;
 
 baseFilenames = strrep( baseFilenames, '.txt', '' );
 baseFilenames = strrep( baseFilenames, '.traces', '' );
-baseFilenames = strrep( baseFilenames, '_tdp', '' );
-baseFilenames = strrep( baseFilenames, '.qub', '' );
-baseFilenames = strrep( baseFilenames, '_hist', '' );
-
 
 % Generate plot titles 
 if ~exist('titles','var'),
@@ -159,11 +120,9 @@ end
 
 % EXTENSIONS for files used:
 dwt_ext  = '.qub.dwt';       % QuB Idealization file
-% data_ext = '.qub.txt';       % forQuB raw data (not used)
-data_ext  = '.txt';           % raw traces data
 hist_ext = '_hist.txt';      % 1D population histogram
 tdp_ext  = '.qub_tdp.txt';   % TD plot
-shist_ext= '_shist.txt';     % state occupancy histogram
+shist_ext= '.qub_shist.txt';     % state occupancy histogram
 
 
 
@@ -177,11 +136,8 @@ any_tdps = false;  % will we be drawing any TD plots?
 
 for i=1:nSamples,
     
-    %data_fname  = [baseFilenames{i} data_ext];
-    data_fname = dataFilenames{i};
+    data_fname  = dataFilenames{i};
     dwt_fname   = [baseFilenames{i} dwt_ext];
-    tdp_fname   = [baseFilenames{i} tdp_ext];
-    shist_fname = [baseFilenames{i} shist_ext];
     
     % Make sure files exist
     any_tdps = 0;
@@ -194,36 +150,15 @@ for i=1:nSamples,
         any_tdps = true;
     end
     
-    % Check the creation time of relevant data files to see if either of
-    % the following steps has to be performed.
-    datadir = dir(data_fname);
-    dwtdir  = dir(dwt_fname);
-    tdpdir =  dir(tdp_fname);
-
-    data_date = max( datadir.datenum, dwtdir.datenum );
-    
     %---- GENERATE TD PLOT HISTOGRAMS
     if ~options.no_tdp,
-        % Speed: create TD plot hist only if new or if data files have changed
-        if numel(tdpdir)==0 || data_date>tdpdir.datenum || options.force_remake_tdplot
-            options.tdp_fret_axis = constants.tdp_fret_axis;
-            disp('New data detected: generating TD plot hist...');
-            tdplot(dwt_fname,data_fname,options);  % save file: '_tdp.txt' extension
-        end
+        tdplot(dwt_fname,data_fname,options);  % save file: '_tdp.txt' extension
     end
     
     
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
     if ~options.no_statehist,
-        shdir = dir(shist_fname);
-
-        if numel(shdir)==0 || data_date>shdir.datenum || options.force_remake_tdplot
-            fretaxis = options.contour_bounds(3):options.contour_bin_size:options.contour_bounds(4);
-
-            disp('New data detected: generating state hist...');
-            shist = statehist( dwt_fname, data_fname, options );
-            save( shist_fname, 'shist', '-ASCII' );
-        end
+        statehist( dwt_fname, data_fname, options );
     end
 end
 
@@ -239,6 +174,7 @@ end
 %% =================== DRAW POPULATION HISTOGRAMS =================== 
 
 histmax = 0.05;
+histx = zeros(nSamples,1);
 
 
 if ~isfield(options,'targetAxes')
@@ -247,11 +183,12 @@ end
     
 % set(gcf,'DefaultAxesColorOrder',colors);
 
-N = zeros(1,nSamples); %number of molecules, each sample
+N = zeros(nSamples,1); %number of molecules, each sample
 
 for i=1:numel(baseFilenames),  %for each sample
     
-    hist_filename = [baseFilenames{i} hist_ext];
+    hist_fname = [baseFilenames{i} hist_ext];
+    displayhist_fname = [baseFilenames{i} '_displayhist.txt'];
     shist_fname   = [baseFilenames{i} shist_ext];
     data_fname = dataFilenames{i};
     
@@ -259,9 +196,10 @@ for i=1:numel(baseFilenames),  %for each sample
     
     if exist('cplotDataArray','var')
         cplotdata = cplotDataArray{i};
+        % FIXME: we don't know N here!!
     
     % Generate the contour plot if not available
-    elseif ~exist(hist_filename,'file') || fileIsNewer(data_fname,hist_filename)
+    else
         % Make sure FRET data exists
         if ~exist(data_fname,'file')
             disp('Traces file missing, skipping');
@@ -269,13 +207,13 @@ for i=1:numel(baseFilenames),  %for each sample
         end
         
         disp('Generating colorplot...');
-        cplotdata = makecplot( data_fname, options );
-    else
-        cplotdata = load(hist_filename);
+        
+        data = loadTraces(data_fname);
+        N(i) = size(data.donor,1);
+        
+        cplotdata = makecplot( data.fret, options );
+        dlmwrite(hist_fname,cplotdata,' ');
     end
-    
-    N(i) = sum( cplotdata(2:end,2) );  %number of traces
-    
     
     
     %---- DRAW FRET CONTOUR PLOT ----
@@ -289,20 +227,18 @@ for i=1:numel(baseFilenames),  %for each sample
     
     % Draw the contour plot (which may be time-binned)
     cpdata = cplot( ax, cplotdata, options.contour_bounds, constants );
-    cpdata(2:end,2:end) = cpdata(2:end,2:end)/N(i); %normalize
     
+    % Save display-format (time-binned) histogram.
     if exist(data_fname,'file'),
-        [p,n]  = fileparts(data_fname);
-        histfile = [p filesep n '_binnednormhist.txt'];
-        dlmwrite(histfile,cpdata,' ');
+        dlmwrite(displayhist_fname,cpdata,' ');
     end
     
     % Formatting
     title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
     
-    if ~options.hideText,
+    if ~options.hideText && N(i)>0,
         axes(ax);
-        text( 0.93*options.pophist_sumlen, 0.9*options.contour_bounds(4), ...
+        text( 0.93*options.contour_length, 0.9*options.contour_bounds(4), ...
               sprintf('N=%d', N(i)), ...
               'FontWeight','bold', 'FontSize',14, ...
               'HorizontalAlignment','right', 'Parent',ax );
@@ -331,7 +267,7 @@ for i=1:numel(baseFilenames),  %for each sample
         ax = options.targetAxes{i,2};
         axes(ax);
     else
-        continue
+        continue;
     end
     histx(i) = ax;
     cla(ax);  hold(ax,'on');
@@ -339,9 +275,9 @@ for i=1:numel(baseFilenames),  %for each sample
     
     % If idealization data missing, plot 1D population histogram
     if ~exist(shist_fname,'file') || options.no_statehist
-        fretaxis  = cplotdata(2:end,1);      
-        histdata = cplotdata(2:end,2:options.pophist_sumlen+1)*100;
-        pophist = sum(histdata,2)/N(i)/options.pophist_sumlen;   %normalization
+        fretaxis = cplotdata(2:end,1);      
+        histdata = cplotdata(2:end,2:options.contour_length+1)*100;
+        pophist = sum(histdata,2)/options.contour_length;   %normalization
         
         max_bar = max(max( pophist(fretaxis>0.05) ));
         
@@ -349,8 +285,6 @@ for i=1:numel(baseFilenames),  %for each sample
 
 
     % Otherwise, plot state occupancy histogram
-    % FIXME: remove dark state (0) from curve -- at least as an option
-    % -- and renormalize without it.
     else
         shist = load( shist_fname );
         bins = shist(:,1);
@@ -364,10 +298,6 @@ for i=1:numel(baseFilenames),  %for each sample
             histdata = histdata(:,2:end);
             histdata = 100*histdata ./ sum(histdata(:));
         end
-        
-        minBin = find( bins>0.125, 1, 'first' );
-        combined = max(histdata');
-        max_bar = max(combined(minBin:end));
 
         % Draw translucent, filled area underneath curves
         for j=1:nStates
@@ -382,12 +312,7 @@ for i=1:numel(baseFilenames),  %for each sample
         totalHist = sum( histdata, 2 );
         plot( ax, bins, totalHist, 'k-', 'LineWidth',1.5 );
         
-        % Calculate percent time spent in each non-zero FRET state
-%         occupancy = sum( histdata(:,2:end) ); %ignore zero-FRET state
-%         occupancy = occupancy/sum(occupancy); %normalize
-        
-        % Draw the percent times
-        
+        max_bar = max( totalHist(bins>0.05) );
     end
     
     
@@ -404,7 +329,7 @@ for i=1:numel(baseFilenames),  %for each sample
        set(ax,'yticklabel',[]);
     end
     set(ax,'YGrid','on');
-    ylim( ax,options.fretRange );
+    xlim( ax,options.fretRange );
     box(ax,'on');
     
 end
@@ -412,8 +337,8 @@ end
 
 % Scale histograms to match
 if exist('histx','var')
-    axis( histx, [options.contour_bounds(3:4) 0 histmax] );
     linkaxes( histx, 'xy' );
+    ylim( histx(1), [0 histmax] );
 end
 
 drawnow;
@@ -424,7 +349,7 @@ drawnow;
 %% =================== DRAW TD PLOTS =================== 
 
 if nrows < 3,  return;  end
-tdx = [];
+tdx = zeros(nSamples,1);
 
 for i=1:nSamples,  %for each sample
     
@@ -489,6 +414,7 @@ for i=1:nSamples,  %for each sample
         set(tdx(i),'yticklabel',[]);
     end
     ylim(tdx(i), options.fretRange );
+    xlim(tdx(i), options.fretRange );
 end
 
 if numel(tdx>1) && all(tdx~=0),
@@ -501,9 +427,7 @@ end %function makeplots
 
 
 
-%% =============== FCN TO MAKE CONTOUR PLOTS =============== 
-
-
+%% =============== OTHER FUNCTIONS =============== 
 
 
 function output = strip_path( filename )
@@ -512,24 +436,6 @@ pos = find( filename==filesep );
 output = filename(pos(end)+1:end);
 
 end
-
-
-
-function answer = fileIsNewer( filename1, filename2 )
-% FILEISNEWER  compare two file modification dates
-% 
-%   BOOL = FILEISNEWER( FILE1, FILE2 )
-%   Full path must be provided and files must exist.
-
-dir1 = dir(filename1);
-dir2 = dir(filename2);
-
-answer = (dir1.datenum > dir2.datenum);
-
-end
-
-
-
 
 
 
