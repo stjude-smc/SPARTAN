@@ -36,7 +36,7 @@ for i=1:numel(filenames),
     data.traceMetadata = data.traceMetadata(ind);
     
     [p f] = fileparts(filenames{i});
-    saveTraces( [p filesep f '_sel.txt'], 'traces', data );
+    saveTraces( [p filesep f '_sel.traces'], 'traces', data );
 end
 
 

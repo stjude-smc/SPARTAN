@@ -17,7 +17,7 @@ if nargin<1,
 end
 
 if nargin<2,
-    [f,p] = uiputfile('*.traces','Select output filename');
+    [f,p] = uiputfile('*.traces','Select output filename','combined.traces');
     if f==0, return; end
     outFilename = [p f];
 end
@@ -49,7 +49,7 @@ for i=1:nFiles,
     % Look for an idealization. These will be combined if every dataset has one.
     [path,file] = fileparts( filenames{i} );
     dwt_fname = [path filesep file '.qub.dwt'];
-    if exist(dwt_fname,'file'),
+    if exist(dwt_fname,'file'), 
         [dwt{i},sampling(i),offsets{i},model{i}] = loadDWT( dwt_fname );
     end
     
@@ -61,7 +61,7 @@ for i=1:nFiles,
     % Merge metadata fields into the final structure.
     assert( isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
     if i==1,
-        metadataAll = data.traceMetadata(indexes);
+        metadataAll = data.traceMetadata;
     else
         % Remove metadata fields that are not present in all datasets.
         % Otherwise, concatinating the two will give an error.
@@ -85,17 +85,21 @@ end
 
 
 %% Resize traces so they are all the same length
+newTraceLength = traceLen(1);
+
 if min( traceLen )~=max( traceLen ),
     
     choice = questdlg('Traces are different lengths. How do you want to modify the traces so they are all the same length?', ...
                       'Resize traces', 'Truncate','Extend','Cancel', 'Cancel');
 
+    % ---- User hit cancel, do nothing.
     if strcmp(choice,'Cancel'),
         close(h);
         return;
-
+        
+    % ---- Truncate traces to the same length
     elseif strcmp(choice,'Truncate'),
-        % Shorten traces to the same length
+        
         newTraceLength = min( traceLen );
 
         for i=1:nFiles,
@@ -103,10 +107,18 @@ if min( traceLen )~=max( traceLen ),
             d{i} = d{i}(:,1:newTraceLength);
             a{i} = a{i}(:,1:newTraceLength);
             f{i} = f{i}(:,1:newTraceLength);
-        end
+            
+            % Convert dwell-times to an idealization, which are easy to
+            % truncate, and convert back for saving later.
+            idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
+            idl = idl(:,1:newTraceLength);
+            [dwt{i},offsets{i}] = idlToDwt(idl);
+        end %end for each file.
         
         time = time(1:newTraceLength);
 
+        
+    % ---- Extend traces to the same length
     else
         % Extend the traces so they are the same length by duplicating
         % the values in the last frame to pad the end. This can create 
@@ -120,6 +132,14 @@ if min( traceLen )~=max( traceLen ),
             d{i} = [d{i} repmat( d{i}(:,end), 1, delta )];
             a{i} = [a{i} repmat( a{i}(:,end), 1, delta )];
             f{i} = [f{i} zeros( size(d{i},1), delta )];
+        
+            % To "extend" the dwell-times, we just have to change the
+            % offsets. But this is very easy to do by converting it to an
+            % idealization and adding zeros (a marker for regions that are not
+            % idealized) to the ends.
+            idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
+            idl = [ idl  zeros( size(idl,1), delta )  ];
+            [dwt{i},offsets{i}] = idlToDwt(idl);
         end
     end
     
@@ -148,38 +168,34 @@ elseif ~isempty(strfind(e,'txt')),
 end
 
 
-% Merge dwt files if present and consistent.
-% This is only attempt if not resizing. FIXME.
-if all( ~cellfun(@isempty,dwt) ) && min(traceLen)==max(traceLen),
-    
-    n = cellfun( @numel, model ); %count number of states in each model.
-    if ~all( n(1)==n ),
-        warning('.dwt files found for all files, but models have different numbers of states!');
-        
-    elseif ~all( sampling(1)==sampling ),
-        warning('.dwt files found for all files, but they are not the same time resolution and cannot be combined.');
-        
-    else
-        disp('Combining dwt files. I hope you used the same models for these!');
-        
-        offsetsAll = [];
-        dwtAll     = {};
-        modelAll   = zeros( size(model{1}) );
-        
-        % Merge all the idealizations, adjusting the offsets.
-        fileOffsets = cumsum( [0 nTraces.*traceLen] );
-        for i=1:numel(offsets),
-            offsetsAll = [offsetsAll offsets{i}+fileOffsets(i) ];
-            dwtAll     = [dwtAll dwt{i}];
-            modelAll   = modelAll + model{i};
-        end
-        modelAll = modelAll./numel(offsets); %this gives us an "average" model.
-        
-        % Save the dwt file.
-        if isempty(p), p=pwd; end
-        dwtFilename = [p filesep f '.qub.dwt'];
-        saveDWT( dwtFilename, dwtAll, offsetsAll, modelAll, sampling(1) );
+% Merge dwt files if present and consistent.    
+n = cellfun( @numel, model ); %count number of states in each model.
+if ~all( n(1)==n ),
+    warning('.dwt files found for all files, but models have different numbers of states!');
+
+elseif ~all( sampling(1)==sampling ),
+    warning('.dwt files found for all files, but they are not the same time resolution and cannot be combined.');
+
+else
+    disp('Combining dwt files. I hope you used the same models for these!');
+
+    offsetsAll = [];
+    dwtAll     = {};
+    modelAll   = zeros( size(model{1}) );
+
+    % Merge all the idealizations, adjusting the offsets.
+    fileOffsets = cumsum( [0 nTraces.*newTraceLength] );
+    for i=1:numel(offsets),
+        offsetsAll = [offsetsAll offsets{i}+fileOffsets(i) ];
+        dwtAll     = [dwtAll dwt{i}];
+        modelAll   = modelAll + model{i};
     end
+    modelAll = modelAll./numel(offsets); %this gives us an "average" model.
+
+    % Save the dwt file.
+    if isempty(p), p=pwd; end
+    dwtFilename = [p filesep f '.qub.dwt'];
+    saveDWT( dwtFilename, dwtAll, offsetsAll, modelAll, sampling(1) );
 end
 
 

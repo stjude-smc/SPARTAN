@@ -257,6 +257,7 @@ if ~isfield(data,'traceMetadata');
 end
 
 if ~isfield(data.traceMetadata,'ids'),
+    disp('saveTraces: no ids detected. Recreating them.');
     for i=1:nTraces;
         data.traceMetadata(i).ids = sprintf('%s#%d', filename, i);
     end

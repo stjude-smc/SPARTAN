@@ -126,7 +126,9 @@ for i=1:nTraces
         states = states(indsToSave);
         times  = times(indsToSave);
         
-        % Combine dwells that are now in the same state by converting into%
+        if isempty(indsToSave), continue; end
+        
+        % Combine dwells that are now in the same state by converting into
         % an idealization and then back to a dwell-time sequence.
         idl = dwtToIdl( {[states times]}, sum(times), 0 );
         dwells = RLEncode(idl);

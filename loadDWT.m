@@ -38,13 +38,13 @@ while 1,
     segid = data{1};
     if numel(segid) == 0, break; end
     
-    ndwells   = data{2};
+    %ndwells   = data{2};
     sampling  = data{3};
     startTime = data{4};
-    nClasses  = data{5};
+    %nClasses  = data{5};
     
     % Reshape model to expected dimensions (FRET first column, std second).
-    m = str2num(data{6}{1});
+    m = sscanf(data{6}{1},'%f');
     modelOut = zeros( numel(m)/2, 2 );
     modelOut(:,1) = m(1:2:end); %FRET values
     modelOut(:,2) = m(2:2:end); %standard deviations
@@ -54,7 +54,7 @@ while 1,
     offsets(segid) = startTime/sampling;  %segment start time (frames)
     
     % Load data within segment
-    data = textscan(fid, '%d%d');
+    data = textscan(fid, '%f%f');
     
     % Save dwells in segment
     dwells{segid} = [data{1}+1 data{2}/sampling];

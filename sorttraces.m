@@ -1,31 +1,23 @@
 function varargout = sorttraces(varargin)
-
-% SORTTRACES M-file for sorttraces.fig
-%      SORTTRACES takes *.traces files as input, and allows the user to
-%      correct the background and crosstalk, and to place each trace into
-%      different bins. Three text files are outputed: "_all_fret",
-%      "_no_fret", and "_best_fret", all with extension .txt, and all space
-%      delimited.
+% SORTTRACES   GUI to manually select traces and make corrections.
 %
-%      The figure window was created using GUIDE. Sorttraces.fig must be
-%      present in the same directory as the m-file. 3/2006 -JBM.
+%    sorttraces can be used to load a traces file; select individual
+%    traces; make corrections to crosstalk, background subtraction, and
+%    FRET calculation; and save these "binned" traces into new traces
+%    files. By default, these are No, All, and Best FRET. "No" could be
+%    unusable molecules with serious artifacts or no acceptor. "All" could
+%    be all usable molecules. "Best" could be a few very high-quality,
+%    repressentative traces used for publication.
 %
-%      Total fluorescence axis, threshold, and correlation coefficient
-%      calculator added. Correlation coefficient is printed to the
-%      same file as lifetime and SNR. 7/2006 -JBM.
-%
-%      Ability to open files from gettraces, and text files from autotrace 
-%      with unique identifiers was added. A bug in the background
-%      correction was fixed too. 12/2006 -JBM.
 
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 20-Aug-2012 16:10:29
+% Last Modified by GUIDE v2.5 17-Mar-2013 16:32:30
 
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
     'gui_Singleton',  gui_Singleton, ...
     'gui_OpeningFcn', @sorttraces_OpeningFcn, ...
@@ -50,17 +42,11 @@ end
 
 % --- Executes just before sorttraces is made visible.
 function sorttraces_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to sorttraces (see VARARGIN)
+% Setup GUI controls in their default state (no file loaded).
 
-firstRun = 0;
 
 % Initialize GUI if sorrtraces is being launched for the first time.
 if ~isfield(handles,'constants')
-    firstRun = 1;
     
     % Choose default command line output for sorttraces
     handles.output = hObject;
@@ -68,16 +54,33 @@ if ~isfield(handles,'constants')
 
     % Initialize some variables, utilizing the handles structure
     handles.constants = cascadeConstants();
-    handles.defaultFretThreshold=100;
-    handles.default_crosstalk=0;
-    set(handles.sldCrosstalk, 'Value',  handles.default_crosstalk);
-    set(handles.sldThreshold, 'Value',  handles.defaultFretThreshold);
+    set(handles.sldCrosstalk, 'Value',  0);
+    set(handles.sldThreshold, 'Value',  100);
     set(handles.edCrosstalk,  'String', '0');
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
     linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');
+    %linkaxes([handles.axFluor handles.axTotal],'y');
+    
+    % SETUP AXES labels and settings.
+    % Hold is needed so we don't lose the grid/zoom/etc settings, which are
+    % lost when a new plot is generated on the axes...
+    ylabel( handles.axFluor, 'Fluorescence' );
+    grid( handles.axFluor, 'on' );
+    zoom( handles.axFluor, 'on' );
+    hold( handles.axFluor, 'on' );
 
-    warning off MATLAB:divideByZero;
+    xlabel( handles.axFret, 'Frame Number' );
+    ylabel( handles.axFret, 'FRET Efficiency' );
+    ylim( handles.axFret, [-0.1 1] );
+    grid( handles.axFret, 'on' );
+    zoom( handles.axFret, 'on' );
+    hold( handles.axFret, 'on' );
+    
+    ylabel( handles.axTotal, 'Total Fluorescence' );
+    grid( handles.axTotal, 'on' );
+    zoom( handles.axTotal, 'on' );
+    hold( handles.axTotal, 'on' );
 end
 
 % Update handles structure
@@ -96,9 +99,6 @@ if numel(varargin) > 1
         set( handles.editGoTo, 'String',num2str(varargin{3}) );
         editGoTo_Callback(handles.editGoTo, [], handles);
     end
-    
-elseif ~firstRun
-    disp('Sorttraces is already running!');
 end
 
 
@@ -125,14 +125,12 @@ varargout{1} = handles.output;
 
 
 %=========================================================================%
-%======================   LOAD TRACES FILES   ======================%
+%=========================   LOAD TRACES FILES   =========================%
 
 
 %----------"OPEN TRACES FILE" Button----------%
 function btnOpen_Callback(hObject, eventdata, handles)
-% hObject    handle to btnOpen (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Open a user-selected traces file.
 
 % Get traces filename by menu driven input
 filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces,*.rawtraces)'; ...
@@ -144,7 +142,7 @@ filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces,*.rawtraces)'; .
 if handles.datafile==0, return; end
 handles.filename = [handles.datapath handles.datafile];
 
-% Load the file and initialize sorttraces
+% Load the file and fully initialize sorttraces.
 handles = OpenTracesFile( handles.filename, handles );
 
 
@@ -155,9 +153,10 @@ guidata(hObject, handles);
 
 
 %----------OPEN TRACES FROM FILE----------%
+function handles = OpenTracesFile( filename, handles )
+% Load a traces file, initialize GUI controls, and plot first trace.
 % Called from btnOpen_Callback and sorttraces_OpeningFcn.
 % Setting guidata is done there.
-function handles = OpenTracesFile( filename, handles )
 
 handles.filename = filename;
 
@@ -195,9 +194,9 @@ if exist(inds_fname,'file'),
     if strcmp(answer,'Yes'),
         fid = fopen(inds_fname,'r');
         
-        handles.NoFRETs_indexes = str2num( fgetl(fid) );
-        handles.FRETs_indexes   = str2num( fgetl(fid) );
-        handles.Best_indexes    = str2num( fgetl(fid) );
+        handles.NoFRETs_indexes = sscanf( fgetl(fid), '%f' )';
+        handles.FRETs_indexes   = sscanf( fgetl(fid), '%f' )';
+        handles.Best_indexes    = sscanf( fgetl(fid), '%f' )';
         
         set(handles.btnSave,'Enable','on');
     end
@@ -214,56 +213,36 @@ set(handles.btnSelAll1,'Enable','on');
 set(handles.btnSelAll2,'Enable','on');
 set(handles.btnSelAll3,'Enable','on');
 
+% Turn on other controls that can now be used now that a file is loaded.
+set(handles.edThreshold, 'Enable','on' );
+set(handles.sldThreshold,'Enable','on' );
+set(handles.edCrosstalk, 'Enable','on' );
+set(handles.sldCrosstalk,'Enable','on' );
+set(handles.btnPrint,    'Enable','on' );
+set(handles.btnLoadDWT,  'Enable','on' );
 
-% Initialize arrays for background subtraction.
-handles.backgrounds = zeros( 1,data.nChannels-1 ); %need background for all channels but FRET.
 
-% Load trace properties for display.
-% This slows down loading sorttraces. Consider loading each trace
-% seperately. FIXME.
-handles.stats = traceStat( data );
+% Initialize array for tracking FRET donor-blinking threshold value.
+% The default value of zero is a marker that the value hasn't been
+% calculated yet (but should be using traceStat).
+handles.fretThreshold = zeros( handles.Ntraces, 1  );
+set( handles.sldThreshold, 'min', 0, 'max', 100, 'sliderstep', [0.01 0.1] );
 
-% Initialize arrays for tracking FRET donor-blinking threshold value.
-handles.fretThreshold = repmat( handles.defaultFretThreshold, handles.Ntraces,1  );
+% Set data correction starting values.
+% The crosstalk value here reflects *the correction that has already been
+% made* -- the actual data are modified each time
+handles.crosstalk = zeros( handles.Ntraces, 1  );
 
-total = data.donor+data.acceptor;
-constants = cascadeConstants;
 
-for m=1:handles.Ntraces,
-    s = handles.stats(m).lifetime +5;
-    range = s:min(s+constants.NBK,handles.len);
-    if numel(range)<10, continue; end
-    
-    stdbg = std( total(m,range) );
-    handles.fretThreshold(m) = round(100*constants.blink_nstd*stdbg)/100;
+% Reset x-axis label to reflect time or frame-based.
+time = handles.data.time;
+if (time(1)==1),
+    xlabel( handles.axFret, 'Frame Number' );
+else
+    time = time/1000; %convert from ms to seconds
+    xlabel( handles.axFret, 'Time (s)' );
 end
-
-% Set data correction starting values and re-initialize figure objects
-handles.crosstalk = handles.default_crosstalk;
-
-handles.molecule_no = 1;
-set(handles.editGoTo,'Enable','on','String',num2str(handles.molecule_no));
-
-sliderMax = round(3*median([handles.stats.t]));
-set( handles.sldThreshold, 'min', 0, 'max', sliderMax, 'sliderstep', [0.01 0.1] );
-
-set(handles.edThreshold, 'Enable','on', 'String',num2str(handles.fretThreshold(1)));
-set(handles.sldThreshold,'Enable','on', 'Value', handles.fretThreshold(1));
-
-set(handles.edCrosstalk, 'Enable','on', 'String',num2str(handles.crosstalk));
-set(handles.sldCrosstalk,'Enable','on', 'Value', handles.crosstalk);
-
-
-set(handles.btnNextTop,'Enable','on');
-set(handles.btnSubDonor,'Enable','on');
-set(handles.btnSubBoth,'Enable','on');
-set(handles.btnSubAcceptor,'Enable','on');
-set(handles.btnPrevTop,'Enable','off');
-set(handles.btnNextBottom,'Enable','on');
-set(handles.btnPrevBottom,'Enable','off');
-set(handles.btnPrint, 'Enable','on');
-set(handles.btnLoadDWT, 'Enable','on');
-
+xlim( handles.axFret, [time(1) time(end)] );
 
 % Look for an corresponding idealization file and load it if found.
 dwt_fname = [p filesep fname '.qub.dwt'];
@@ -277,7 +256,12 @@ else
     handles.idl = [];
 end
 
-plotter(handles);
+
+% Got to and plot first molecule.
+handles.molecule_no = 1;
+set(handles.editGoTo,'Enable','on','String','1');
+editGoTo_Callback(handles.editGoTo, [], handles);
+
 
 % END FUNCTION OpenTracesFile
 
@@ -285,17 +269,16 @@ plotter(handles);
 
 
 %=========================================================================%
-%======================   NAVIGATION   ======================%
+%============================   NAVIGATION   =============================%
 
 
 %----------GO TO MOLECULE----------%
 function handles = editGoTo_Callback(hObject, eventdata, handles)
-% hObject    handle to editGoTo (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Called when user changes the molecule number textbox. Jump to and plot
+% the indicated trace.
 
 % Get trace ID from GUI
-mol=str2double(get(hObject,'String'));
+mol=str2double( get(handles.editGoTo,'String') );
 
 % If trace ID is invalid, reset it to what it was before.
 if isnan(mol) || mol>handles.Ntraces || mol<1,
@@ -307,14 +290,14 @@ else
 end
 
 % Make sure that the molecule selected actually exists.
-if handles.molecule_no+1>handles.Ntraces
+if mol+1>handles.Ntraces
     set(handles.btnNextTop,'Enable','off');
     set(handles.btnNextBottom,'Enable','off');
 else
     set(handles.btnNextTop,'Enable','on');
     set(handles.btnNextBottom,'Enable','on');
 end
-if handles.molecule_no-1>=1
+if mol-1>=1
     set(handles.btnPrevTop,'Enable','on');
     set(handles.btnPrevBottom,'Enable','on');
 else
@@ -323,9 +306,31 @@ else
 end
 
 % Reset these values for the new trace.
-handles.crosstalk = handles.default_crosstalk;
-
 handles.backgrounds = zeros( 1,handles.data.nChannels-1 );
+
+% If no value has been calculated for FRET threshold, do it now.
+if handles.fretThreshold(mol) == 0,    
+    d = handles.data.donor(mol,:);
+    a = handles.data.acceptor(mol,:);
+    f = handles.data.fret(mol,:);
+    t = d+a;
+    handles.stats = traceStat(d,a,f);
+    constants = cascadeConstants;
+
+    s = handles.stats.lifetime + 5;
+    range = s:min(s+constants.NBK,handles.len);
+    
+    if numel(range)<10,
+        handles.fretThreshold(mol) = 100; %arbitrary
+    else
+        handles.fretThreshold(mol) = constants.blink_nstd * std(t(range));
+    end
+    
+    % Adjust scroll bar range if the new value falls outside of it.
+    sldMax = get( handles.sldThreshold, 'max' );
+    sldMax = max( sldMax, 1.5*handles.fretThreshold(mol) );
+    set( handles.sldThreshold, 'max', sldMax );
+end
 
 % Set bin checkboxes
 set(handles.chkBin1,'Value', any(handles.NoFRETs_indexes==mol) );
@@ -333,11 +338,11 @@ set(handles.chkBin2,'Value', any(handles.FRETs_indexes==mol) );
 set(handles.chkBin3,'Value', any(handles.Best_indexes==mol) );
 
 % Re-initialize figure objects.
-set(handles.edCrosstalk,'String',num2str(handles.crosstalk));
-set(handles.sldCrosstalk,'Value',handles.crosstalk);
+set( handles.edCrosstalk,  'String', sprintf('%.2f',handles.crosstalk(mol)) );
+set( handles.sldCrosstalk, 'Value',  handles.crosstalk(mol) );
 
-set(handles.edThreshold,'String',num2str(handles.fretThreshold(mol)));
-set(handles.sldThreshold,'Value',handles.fretThreshold(mol));
+set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
+set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
 
 set(handles.btnSubDonor,'Enable','on');
 set(handles.btnSubBoth,'Enable','on');
@@ -348,13 +353,11 @@ guidata(hObject,handles);
 plotter(handles);
 
 
+
 %----------GO BACK TO PREVIOUS MOLECULE----------%
 % --- Executes on button press in btnPrevTop.
 function btnPrevTop_Callback(hObject, eventdata, handles)
-% hObject    handle to btnPrevTop (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
+% User clicked "previous molecule" button.
 set( handles.editGoTo,'String',num2str(handles.molecule_no-1) );
 editGoTo_Callback( handles.editGoTo, [], handles );
 
@@ -363,10 +366,7 @@ editGoTo_Callback( handles.editGoTo, [], handles );
 %----------GO TO NEXT MOLECULE----------%
 % --- Executes on button press in btnNextTop - 'Next Molecule'.
 function btnNextTop_Callback(hObject, eventdata, handles)
-% hObject    handle to btnNextTop (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
+% User clicked "next molecule" button.
 set( handles.editGoTo,'String',num2str(handles.molecule_no+1) );
 editGoTo_Callback( handles.editGoTo, [], handles );
 
@@ -374,13 +374,12 @@ editGoTo_Callback( handles.editGoTo, [], handles );
 
 
 %=========================================================================%
-%======================   MOLECULE BINNING   ======================%
+%=========================   MOLECULE BINNING   ==========================%
 
 % --- Executes on button press in chkBin1.
 function addToBin_Callback(hObject, eventdata, handles, index)
-% hObject    handle to chkBin1 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% User clicked on one of the check boxes associated with each bin.
+% The last parameter determines which bin was indicated.
 
 mol = handles.molecule_no;
 val = get(hObject,'Value');
@@ -425,9 +424,8 @@ guidata(hObject,handles);
 %----------SAVE TRACES----------%
 % --- Executes on button press in btnSave.
 function btnSave_Callback(hObject, eventdata, handles)
-% hObject    handle to btnSave (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% User clicked "Save Traces".
+% Traces files are saved for each bin in which there are picked molecules.
 
 
 %--- Save indexes of picked molecules to file
@@ -466,6 +464,11 @@ set(hObject,'Enable','off');
 function savePickedTraces( handles, filename, indexes )
 % Save picked traces and idealizations to file.
 
+% Sort indexes so they are in the same order as in the file, rather than in
+% the order selected.
+indexes = sort(indexes);
+
+% Put together the subset of selected traces for saving.
 data.channelNames = handles.data.channelNames;
 data.time         = handles.data.time;
 
@@ -474,13 +477,13 @@ for i=1:numel(data.channelNames),
     data.(c) = handles.data.(c)(indexes,:);
 end
 
-if isfield(data,'traceMetadata')
+if isfield(handles.data,'traceMetadata')
     data.traceMetadata = handles.data.traceMetadata(indexes);
 end
 
 [p,f,e] = fileparts(filename);
 if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
-    saveTraces( filename, 'traces', data );
+    saveTraces( filename, data );
 elseif strcmp(e,'.txt'),
     saveTraces( filename, 'txt', data );
 else
@@ -505,7 +508,7 @@ end
 
 
 %=========================================================================%
-%======================   TRACE CORRECTIONS   ======================%
+%========================   TRACE CORRECTIONS   ==========================%
 
 
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
@@ -529,31 +532,38 @@ if xlim(2)>handles.len, xlim(2)=handles.len; end
 
 % Subtract donor background
 % mode specifies which channels to substrate (3 means ALL, 3 means undo).
+d = handles.data.donor(m,:);
+a = handles.data.acceptor(m,:);
+
 if mode==1 || mode==3
-    handles.backgrounds(1) = mean(handles.data.donor(m,xlim(1):xlim(2)));
-    handles.data.donor(m,:) = handles.data.donor(m,:) - handles.backgrounds(1);
+    handles.backgrounds(1) = mean( d(xlim(1):xlim(2)) );
+    d = d - handles.backgrounds(1);
 end
 
 % Subtract acceptor background
 if mode==2 || mode==3
-    handles.backgrounds(2) = mean(handles.data.acceptor(m,xlim(1):xlim(2)));
-    handles.data.acceptor(m,:) = handles.data.acceptor(m,:) - handles.backgrounds(2);
+    handles.backgrounds(2) = mean( a(xlim(1):xlim(2)) );
+    a = a - handles.backgrounds(2);
 end
 
 % Substrate factor background, if 3-color.
-if mode==3 && numel(handles.backgrounds)>2,
+if mode==3 && numel(handles.backgrounds)>2 && isfield(handles.data,'factor'),
     handles.backgrounds(3) = mean(handles.data.factor(m,xlim(1):xlim(2)));
     handles.data.factor(m,:) = handles.data.factor(m,:) - handles.backgrounds(3);
 end
 
 % Undo background subtraction
 if mode==4
-    handles.data.donor(m,:)      = handles.data.donor(m,:)    + handles.backgrounds(1);
-    handles.data.acceptor(m,:)   = handles.data.acceptor(m,:) + handles.backgrounds(2);
-    if numel(handles.backgrounds)>2,
-        handles.data.factor(m,:) = handles.data.factor(m,:)   + handles.backgrounds(3);
+    d = d + handles.backgrounds(1);
+    a = a + handles.backgrounds(2);
+    if numel(handles.backgrounds)>2 && isfield(handles.data,'factor'),
+        handles.data.factor(m,:) = handles.data.factor(m,:) + handles.backgrounds(3);
     end
 end
+
+% Save the modified traces.
+handles.data.donor(m,:) = d;
+handles.data.acceptor(m,:) = a;
 
 if mode<4
     set(handles.btnSubUndo,'Enable','on');    %undo
@@ -571,28 +581,45 @@ plotter(handles);
 %----------ADJUST CROSSTALK WITH SLIDER----------%
 % --- Executes on slider movement.
 function sldCrosstalk_Callback(hObject, eventdata, handles)
-% hObject    handle to sldCrosstalk (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Called when user changes the scroll bar for specifying FRET threshold.
+%
 
 mol = handles.molecule_no;
 
-% First, restore trace to it's original state w/ no crosstalk correction
-oldCrosstalk = handles.crosstalk;
+oldCrosstalk = handles.crosstalk(mol);
+handles.crosstalk(mol) = get(hObject,'Value');
+
+% Adjust the acceptor fluorescence to subtract donor->acceptor crosstalk
+% according to the new value. The trace has already been adjusted according
+% to the old value, so that has to be "undone" first.
 handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:) + ...
-                                oldCrosstalk*handles.data.donor(mol,:);
-
-% Second, make crosstalk correction again using new value
-handles.crosstalk = get(hObject,'Value');
-set(handles.edCrosstalk,'String',num2str(handles.crosstalk));
-
-handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:) - ...
-                                handles.crosstalk*handles.data.donor(mol,:);
-
+        ( oldCrosstalk-handles.crosstalk(mol) )*handles.data.donor(mol,:);
+                         
 % Save and display the result
+set( handles.edCrosstalk, 'String',sprintf('%.2f',handles.crosstalk(mol)) );
 handles = updateTraceData( handles );
 guidata(hObject,handles);
 plotter(handles);
+
+
+
+function edCrosstalk_Callback(hObject, eventdata, handles)
+% Called when user changes the text box for specifying FRET threshold.
+%
+
+crosstalk = sscaf( '%f', get(hObject,'String') );
+
+% Restrict value to the range of the slider to prevent errors.
+sldMax = get( handles.sldCrosstalk, 'max' );
+sldMin = get( handles.sldCrosstalk, 'min' );
+crosstalk = max(crosstalk,sldMin);
+crosstalk = min(crosstalk,sldMax);
+
+set( handles.sldCrosstalk, 'Value',crosstalk );
+
+% Make the corrections and update plots.
+sldCrosstalk_Callback( handles.sldCrosstalk, evendata, handles );
+
 
 
 
@@ -600,15 +627,14 @@ plotter(handles);
 
 % --- Executes on slider movement.
 function sldThreshold_Callback(hObject, eventdata, handles)
-% hObject    handle to sldThreshold (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Called when user changes the scroll bar for specifying FRET threshold.
+%
 
 mol = handles.molecule_no;
 
 % Update edit box with new value
 handles.fretThreshold(mol) = get(hObject,'Value');
-set(handles.edThreshold,'String', num2str(handles.fretThreshold(mol)) );
+set(handles.edThreshold,'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 
 % Plot data with new threshold value
 handles = updateTraceData( handles );
@@ -618,17 +644,19 @@ plotter(handles);
 
 
 function edThreshold_Callback(hObject, eventdata, handles)
-% hObject    handle to edThreshold (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of edThreshold as text
-%        str2double(get(hObject,'String')) returns contents of edThreshold as a double
+% Called when user changes the text box for specifying FRET threshold.
+%
 
 mol = handles.molecule_no;
+handles.fretThreshold(mol) = str2double( get(hObject,'String') );
+
+% Verify the value is within the range of the slider bar. If not, it should
+% be expanded to accomodate the new value or this will give an error.
+sldMax = get( handles.sldThreshold,'max' );
+sldMax = max( sldMax, 1.5*handles.fretThreshold(mol) );
+set( handles.sldThreshold, 'max', sldMax );
 
 % Update slider with new value
-handles.fretThreshold = str2double( get(hObject,'String') );
 set( handles.sldThreshold, 'Value', handles.fretThreshold(mol) );
 
 % Plot data with new threshold value
@@ -641,7 +669,9 @@ plotter(handles);
 
 
 function handles = updateTraceData( handles )
-% Recalculate FRET.
+% Recalculate FRET and stats. This is called following any changes made to
+% the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
+% threshold.
 
 % Create a new FRET thresholded FRET signal
 m        = handles.molecule_no;
@@ -668,22 +698,21 @@ handles.data.fret(m,:) = fret;
 
 
 %=========================================================================%
-%======================   PLOT & PRINT   ======================%
+%===========================   PLOT & PRINT   ============================%
 
 
 %----------PRINT TRACE----------%
 % --- Executes on button press in btnPrint.
 function btnPrint_Callback(hObject, eventdata, handles)
-% hObject    handle to btnPrint (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
+% Opens the print system dialog to print the current trace.
 printdlg(handles.figure1);
 
 
 
 %----------PLOT TRACES----------%
 function plotter(handles)
+% Draw traces for current molecule and update displayed stats.
+%
 
 constants = handles.constants;
 % gamma = constants.gamma;
@@ -700,8 +729,7 @@ if isfield(handles.data,'factor'),
 end
 
 % Get trace properties
-stats = handles.stats(m);
-%handles.minlt = minlt;
+stats = traceStat( donor,acceptor,fret,constants );
 lt = stats.lifetime;
 FRETlifetime = stats.acclife;
 snr = stats.snr;
@@ -725,31 +753,21 @@ if ~inFrames
     time = time/1000; %in seconds
 end
 
-axes(handles.axFluor);
-cla;
-hold off;
-plot( time,gamma*donor,'g', time,acceptor,'r' );
+zoom( handles.axFluor, 'out' );
+cla( handles.axFluor );
+plot( handles.axFluor, time,gamma*donor,'g', time,acceptor,'r' );
 if isfield(handles.data,'factor'),
-    hold on; plot( time, handles.data.factor(m,:),'b' );
+    plot( handles.axFluor, time, handles.data.factor(m,:),'b' );
 end
-title(['Molecule ' num2str(m) ' of '...
-    num2str(handles.Ntraces) ' of ' data_fname]);
-ylabel('Fluorescence');
-grid on;
-zoom on;
-hold on;
+title( handles.axFluor, ['Molecule ' num2str(m) ' of '...
+    num2str(handles.Ntraces) ' of ' data_fname] );
 
 
 % Plot total fluorescence
-axes(handles.axTotal);
-hold off;
-cla;
-plot( time,total,'k',...
-    time,handles.fretThreshold(m)*ones(1,handles.len),'m');
-ylabel('Total Fluorescence');
-grid on;
-zoom on;
-hold on;
+zoom( handles.axFret, 'out' );
+cla( handles.axTotal );
+plot( handles.axTotal, time,total,'k',...
+    time, repmat(handles.fretThreshold(m),1,handles.len),'b');
 
 
 % Draw lines representing Cy3 (green) and Cy5 (red) alive times
@@ -761,32 +779,21 @@ simplified_cy3=[mean_on_signal*ones(1,lt)...
 simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
         mean_off_signal*ones(1,handles.len-FRETlifetime)];
 
-axes(handles.axTotal);
-plot(time,simplified_cy5,'r');
-plot(time,simplified_cy3,'g');
-zoom on;
+plot( handles.axTotal, time,simplified_cy5,'r' );
+plot( handles.axTotal, time,simplified_cy3,'g' );
 
 
 % Plot FRET efficiency
-axes(handles.axFret);
-cla;
-plot(time,fret,'b');  hold on;
+zoom( handles.axFret, 'out' );
+cla( handles.axFret );
+plot( handles.axFret, time,fret,'b' );  
 if isfield(handles,'idl') && ~isempty(handles.idl),
-    stairs( time, handles.idl(m,:), 'r-', 'LineWidth',1 );
+    stairs( handles.axFret, time, handles.idl(m,:), 'r-', 'LineWidth',1 );
 end
 
-xlabel('Frame Number');
-ylabel('FRET Efficiency');
-ylim([-0.1 1]);
-grid on;
-zoom on;
-hold off;
 
-if inFrames,
-    xlabel('Frame Number');
-else
-    xlabel('Time (s)');
-end
+
+% end function plotter.
 
 
 
@@ -868,6 +875,15 @@ end %if errors
 
 % --- Executes on button press in btnSelAll3.
 function btnSelAll_Callback(hObject, eventdata, handles, index)
+% User clicked the "select all" button above one of the bins.
+% This is dangerous because all existing selections in that bin could be
+% lost if this was accidental, so a warning dialog was added.
+
+result = questdlg('Are you sure? All existing selections in this bin will be lost', ...
+                            'Select all traces','OK','Cancel','Cancel');
+if ~strcmp(result,'OK'),
+    return;
+end
 
 if index==1,
     handles.NoFRETs_indexes = 1:handles.Ntraces;
@@ -879,16 +895,6 @@ elseif index==3,
     handles.Best_indexes = 1:handles.Ntraces;
     set(handles.chkBin3,'Value',1);
 end
-    
-%unchecking
-% if index==1,
-%     handles.NoFRETs_indexes = [];
-% elseif index==2,
-%     handles.FRETs_indexes = [];       
-% elseif index==3,
-%     handles.Best_indexes = [];
-% end
-
 
 NoFRET_no = numel( handles.NoFRETs_indexes );
 FRET_no = numel( handles.FRETs_indexes );
