@@ -1,26 +1,24 @@
 function output = medianfilter(input,n)
-%MEDFILT1D  One dimensional median filter.
+%MEDIANFILTER  One dimensional median filter.
 %
-% Inputs:
-%   x     - row vector
-%   n     - order of the filter
+%    OUTPUT = MEDIANFILTER( INPUT, TAU )
+%    Median filters the INPUT data over rows with the window size TAU.
+%    This type of filter is good at smoothing noise while maintaining sharp
+%    edges when there are large changes in the values. This is primarily
+%    used in calcLifetime/traceStat for detecting photobleaching events.
+%
+%    NOTE: this is fairly slow, so I made a compiled C (MEX) version with
+%    the same name. If binary folder is first in the path (it should be),
+%    the faster version will take precedence.
+%
 
-% Use fast compiled version if available.
-% NOTE: this doesn't recognize the TAU argument and pads with zeros instead
-% of data: FIXME.
-% if exist('medianfilterx','file') == 3
-%     output = medianfilterx(input')';
-%     return;
-% end
-    
-nx = size(input,2);
 
-% if rem(n,2)~=1    % n even
-%     m = n/2;
-% else
-    m = (n-1)/2;
-% end
-assert(rem(n,2)==1, 'n must be odd!!');
+% Verify input arguments.
+assert( nargin==2, 'Invalid input arguments' );
+assert( rem(n,2)==1, 'Window size must be odd!!' );
+
+nx = size(input,2);  %trace length
+m = (n-1)/2;         %half the window size (padding size)
 
 output = zeros( size(input) );
 
@@ -36,19 +34,14 @@ ind = repmat( 1:nx, n,1 ) + repmat( (0:n-1)', 1,nx );
 
 
 for row=1:size(input,1)
-    
     % Pad array with data so edges are defined
     X = [repmat(input(row,1),m,1); input(row,:)'; repmat(input(row,end),m,1)];
 
-    % Do the median filtering
-%     output(row,:) = median( X(ind), 1 );
-
+    % For each window, sort the values and pick the middle (median) one.
     vals = sort( X(ind), 1 );
     output(row,:) = vals( floor(n/2)+1, 1:nx );
-    %xx = X(ind);
-%     output(row,:) = fastmedian( X, 9 );
 end
 
-% end function MEDFILT1D
+% end function MEDIANFILTER
 
 

@@ -4,7 +4,7 @@ MEDIANFILTER
 DESCRIPTION  Linear median filter (operates on rows)
 AUTHOR       Daniel Terry
 COPYRIGHT    2008, Scott Blanchard
-*/
+*/ 
 
 using namespace std;
 
@@ -19,7 +19,7 @@ using namespace std;
 
 
 //forward function declarations (see mfilt.cpp)
-double* medianfilter( double* data, const int Npoints );
+double* medianfilter( double* data, const int Npoints, const int TAU );
 
 
 //Matlab entry point
@@ -28,35 +28,36 @@ double* medianfilter( double* data, const int Npoints );
 void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
 {
     //Check input arguments
-    if (nlhs!=1 || nrhs!=1)
+    if (nlhs!=1 || nrhs!=2)
         mexErrMsgTxt( "Invalid arguments" );
-    
+
+	//Transpose column-major (MATLAB-style) input tino row-major for easier
+    //access within C.
+	mxArray* RHS[1] = { (mxArray*)prhs[0] };
+	mxArray* LHS[1];
+	mexCallMATLAB( 1,LHS, 1,RHS, "transpose" );
     
     //Load input matrix
-    const mxArray* input = prhs[0];  //MxN matrix of doubles
+	const int TAU = mxGetScalar(prhs[1]);
+    const mxArray* input = LHS[0];  //MxN matrix of doubles
 
     mwSize Npoints = mxGetM(input);  //num rows
     mwSize Ntraces = mxGetN(input);  //num columns
-    
-    //if (Ntraces != 1)
-    //    mexErrMsgTxt( "Only one trace at a time!!");
-    
+
+	if (Npoints<TAU*2)
+		mexErrMsgTxt( "Traces are too small to filter!" );
     
     //Create output matrix
-    mxArray* output = mxDuplicateArray(input);
+    mxArray* output = LHS[0];//mxDuplicateArray(input);
     double*  p_output = mxGetPr( output );
     
     for( int i=0; i<Ntraces; ++i)
-        medianfilter( p_output+(i*Npoints), Npoints );
+        medianfilter( p_output+(i*Npoints), Npoints, TAU );
     
-    plhs[0] = output;
+	//Transpose to convert output back to column-major.
+	RHS[0] = output;
+	mexCallMATLAB( 1,LHS, 1,RHS, "transpose" );
+
+    plhs[0] = LHS[0];
     return;
 }
-
-
-
-
-
-
-
-
