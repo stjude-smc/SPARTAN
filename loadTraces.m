@@ -170,6 +170,10 @@ c = textscan(fid, '%[^-]', Ntraces/2, 'Delimiter','-');
 ids = c{1}';
 assert( length(ids) == Ntraces/2, 'LoadTracesBinary: data mismatch' );
 
+if ~isempty(indexes),
+    ids = ids(indexes);
+end
+
 % Read in the data:
 Input = fread( fid, [Ntraces len], 'int16' );
 data.time = fread( fid,  len, 'int32' );
@@ -190,7 +194,8 @@ acceptor = acceptor - constants.crosstalk*donor;
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces( ...
                                 donor,acceptor,constants,indexes);
-data.traceMetadata = struct( 'ids', ids(indexes) );
+data.traceMetadata = struct( 'ids', ids );
+
 
 % Clean up
 clear Data;

@@ -183,7 +183,9 @@ elseif strfind(filename,'.movie'),
 %     time = 1:nFrames;
 end
 
-if strfind(filename,'.stk') || strfind(filename,'.tif') || strfind(filename,'.lsm'),
+[p,f,ext] = fileparts(filename);
+
+if strfind(ext,'.stk') || strfind(ext,'.tif') || strfind(ext,'.lsm'),
     % Load stk movie -- stk(X,Y,frame number)
     movie = Movie_TIFF( filename );
     time = movie.timeAxis;
@@ -236,6 +238,8 @@ background=imresize(temp,[stkY stkX],'bilinear');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
+% FIXME: this causes problems in experiments where the background at the
+% end of the movies is higher than at the beginning: tRNA selection.
 endBackground = movie.readFrames(nFrames-11:nFrames-1);
 
 if params.geometry==1,
@@ -532,7 +536,7 @@ if params.geometry>1,
     % Using rem() deals with the offsets for each channel in the field-of-view.
     refinedPicks = refinePeaks( image_t, picks );
     
-    r_mod = [ mod(refinedPicks(:,1),ncol/2) mod(refinedPicks(:,1),nrow/2) ];
+    r_mod = [ mod(refinedPicks(:,1),ncol/2) mod(refinedPicks(:,2),nrow/2) ];
     x_diff = r_mod(indA:nCh:end,1)-r_mod(indD:nCh:end,1);
     y_diff = r_mod(indA:nCh:end,2)-r_mod(indD:nCh:end,2);
     

@@ -122,7 +122,7 @@ for i=1:nTraces
         fretData = fretData( idl>1 );
         
         % Remove dwells in lowest FRET state (assuming it is the dark state)
-        indsToSave = states>0;
+        indsToSave = find( states>0 );
         states = states(indsToSave);
         times  = times(indsToSave);
         

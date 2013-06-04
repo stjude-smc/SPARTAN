@@ -79,7 +79,7 @@ if isfield(criteria,'maxTotalSigma')
     t = [stats.t];
     
     % Fit distribution to a Gaussian function
-    bins = 0:500:30000;
+    bins = 0:(max(t)/50):max(t);
     [histdata] = hist( t(t>0), bins );
     histdata = histdata / sum(histdata);
     

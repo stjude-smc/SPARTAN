@@ -88,11 +88,12 @@ double mfilt(double datum)
     struct node *prev;          //previous value of scan
 
 
-    //No stoppers allowed.
+    //The special STOPPER value is used as a marker. Data having that value
+    //(or lower) is illegal. Replace it with something else.
     if(datum <= STOPPER) datum = STOPPER + 1;
     
     //Add new datum into buffer 
-    if( (++oldest - buffer) >= TAU) oldest=buffer;
+    if( (++oldest - buffer) >= TAU) oldest=buffer;  //wrap around
     oldest->value = datum;
     
     //save pointer to old value's successor          

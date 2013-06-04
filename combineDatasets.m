@@ -176,7 +176,7 @@ if ~all( n(1)==n ),
 elseif ~all( sampling(1)==sampling ),
     warning('.dwt files found for all files, but they are not the same time resolution and cannot be combined.');
 
-else
+elseif ~all( cellfun(@isempty,dwt) )
     disp('Combining dwt files. I hope you used the same models for these!');
 
     offsetsAll = [];

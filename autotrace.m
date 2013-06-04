@@ -44,7 +44,7 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 26-Mar-2010 16:16:17
+% Last Modified by GUIDE v2.5 17-May-2013 19:31:58
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -109,17 +109,17 @@ handles.sync='n';
 
 %---- Initialize input fields with values defined above.
 if isfield(criteria,'eq_overlap') && criteria.eq_overlap==0,
-    set(handles.chkOverlap,'Value',1);
+    set(handles.chk_overlap,'Value',1);
 else
-    set(handles.chkOverlap,'Value',0);
+    set(handles.chk_overlap,'Value',0);
 end
 
-set(handles.lowThresh,'String',num2str(criteria.min_corr));
-set(handles.highThresh,'String',num2str(criteria.max_corr));
-set(handles.SignalNoiseThresh,'String',num2str(criteria.min_snr));
-set(handles.BackgroundNoiseThresh,'String',num2str(criteria.max_bg));
-set(handles.editNCross,'String',num2str(criteria.max_ncross));
-set(handles.editAccLife,'String',num2str(criteria.min_acclife));
+set(handles.ed_min_corr,'String',num2str(criteria.min_corr));
+set(handles.ed_max_corr,'String',num2str(criteria.max_corr));
+set(handles.ed_snr,'String',num2str(criteria.min_snr));
+set(handles.ed_bg,'String',num2str(criteria.max_bg));
+set(handles.ed_ncross,'String',num2str(criteria.max_ncross));
+set(handles.ed_acclife,'String',num2str(criteria.min_acclife));
 
 set(handles.FRETBinSize,'String',num2str(handles.contour_bin_size));
 
@@ -249,7 +249,10 @@ handles.inputdir = datapath;
 handles.inputfiles = filename;
 
 %--- Update GUI listing of number of files and file types
-handles.inputfiles{:}
+disp('Loading files...');
+for i=1:numel(handles.inputfiles),
+    disp( handles.inputfiles{i} );
+end
 
 if numel(filename) == 1,
     fileDisplayText = handles.inputfiles{1};
@@ -505,7 +508,8 @@ data = squeeze(data);
 names = fieldnames(stats);
 
 % Write column headers
-filename = strrep( handles.outfile, '.txt', '_prop.txt' );
+[p,f] = fileparts( handles.outfile );
+filename = [p filesep f '_prop.txt'];
 fid = fopen( filename, 'w' );
 fprintf( fid, '%s\t', names{:} );
 fprintf( fid, '\n' );
@@ -554,13 +558,15 @@ sorttraces(0, handles.outfile);
 
 
 
-function criteria = getSpecialCriteria( handles )
-% Generate a selection criteria structure (see pickTraces.m) using the
-% "Specialized Selection Criteria" drop-down boxes.
 
-criteria = handles.criteria;
+%----------APPLIES PICKING CRITERIA TO TRACES----------
+% --- Executes on button press in PickTraces.
+function PickTraces_Callback(hObject, handles)
+%
 
-% Update criteria for combo-box selections
+criteria = struct();
+
+% Get criteria associated with the "free-form" drop-down boxes.
 shortNames = fieldnames(handles.statLongNames);
 equalityText = {'min_','max_','eq_'};
 
@@ -580,13 +586,26 @@ for id=1:handles.nCriteriaBoxes
 end
 
 
+% Get criteria values for all the fixed GUI elements.
+% chk_corr is listed twice because it applies to two distinct criteria.
+% Overlap must be handled seperately since it doesn't have an associated textbox.
+chkNames = {'chk_acclife','chk_corr','chk_corr','chk_snr','chk_bg','chk_ncross','chk_maxTotalSigma'};
+txtNames = {'ed_acclife','ed_min_corr','ed_max_corr','ed_snr','ed_bg','ed_ncross','ed_maxTotalSigma'};
+criteriaNames = {'min_acclife','min_corr','max_corr','min_snr','max_bg','max_ncross','maxTotalSigma'};
 
-%----------APPLIES PICKING CRITERIA TO TRACES----------
-% --- Executes on button press in PickTraces.
-function PickTraces_Callback(hObject, handles)
+for i=1:numel(chkNames),
+    if get(handles.(chkNames{i}),'Value'),
+        criteria.(criteriaNames{i}) = str2double( get(handles.(txtNames{i}),'String') );
+    end
+end
 
-criteria = getSpecialCriteria( handles );
+% Handle overlap checkbox special case.
+if get(handles.chk_overlap,'Value'),
+    criteria.eq_overlap = 0;  %zero means remove overlapped traces.
+end
+
 handles.criteria = criteria;
+
 
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
@@ -697,66 +716,6 @@ guidata(hObject,handles);
 function FRETBinSize_Callback(hObject, eventdata, handles)
 handles.contour_bin_size=str2double(get(hObject,'String'));
 guidata(hObject,handles);
-
-
-% --- Executes on button press in CorrelationCoefficientBox.
-function CorrelationCoefficientBox_Callback(hObject, eventdata, handles)
-% Same as above...
-if (get(hObject,'Value')==get(hObject,'Max'))
-    handles.criteria.min_corr=str2double(get(handles.lowThresh,'String'));
-    handles.criteria.max_corr=str2double(get(handles.highThresh,'String'));
-    set(handles.lowThresh,'Enable','on');
-    set(handles.highThresh,'Enable','on');
-else
-    handles.criteria.min_corr=[];
-    handles.criteria.max_corr=[];
-    set(handles.lowThresh,'Enable','off');
-    set(handles.highThresh,'Enable','off');
-end
-guidata(hObject,handles);
-PickTraces_Callback(hObject,handles);
-
-
-% --- CALLED when "Remove overlapping traces" checkbox setting is changed.
-% Updates the selection criteria automatically, w/o running PickTraces().
-function chkOverlap_Callback(hObject, eventdata, handles)
-
-if get(hObject,'Value'),
-    handles.criteria.eq_overlap = 0; %remove contaminated traces.
-else
-    handles.criteria = rmfield( handles.criteria, 'eq_overlap' );
-end
-
-% guidata(hObject,handles);
-PickTraces_Callback(hObject,handles);
-
-
-% --- CALLED when any of the primary criteria textboxes is changed.
-% Updates the selection criteria automatically, w/o running PickTraces().
-function updateCriteria_Callback( hObject, handles, criteriaName )
-handles.criteria.(criteriaName) = str2double(get(hObject,'String'));
-% guidata(hObject,handles);
-PickTraces_Callback(hObject,handles);
-
-
-
-% --- CALLED when any of the primary selection criteria checkbox setting is
-% changed. Updates the selection criteria automatically,
-% w/o running PickTraces().
-function criteriaCheckbox_Callback(hObject, handles, criteriaName, textboxName)
-textbox = handles.(textboxName);
-
-if get(hObject,'Value')==get(hObject,'Max')
-    handles.criteria.(criteriaName) = str2double(get(textbox,'String'));
-    set(textbox,'Enable','on');
-else
-    handles.criteria.(criteriaName)=[];
-    set(textbox,'Enable','off');
-end
-
-% guidata(hObject,handles);
-PickTraces_Callback(hObject,handles);
-
 
 
 
