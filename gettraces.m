@@ -128,7 +128,7 @@ else
 end
 
 % Find peak locations from total intensity
-[peaks,stkData.stkData.total_t,stkData.alignStatus] = getPeaks( image_t, params );
+[peaks,stkData.total_t,stkData.alignStatus] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
@@ -170,22 +170,20 @@ if strfind(filename,'.bz2'),
     
     % Delete the compressed movie -- we no longer need it!
     delete( z_fname );
-
-elseif strfind(filename,'.movie'),
-    error('No simulated movie support (for now)');
-%     fid = fopen( filename, 'r' );
-%     stkSize = fread( fid, 3, 'int16' );
-%     stkY = stkSize(1); stkX = stkSize(2); nFrames = stkSize(3);
-% %     time = fread( fid, nFrames, 'float' );
-%     stk = fread( fid, stkY*stkX*nFrames, 'int16' );
-%     stk = reshape(stk,stkSize');
-%     fclose(fid);
-%     time = 1:nFrames;
 end
 
 [p,f,ext] = fileparts(filename);
 
-if strfind(ext,'.stk') || strfind(ext,'.tif') || strfind(ext,'.lsm'),
+if ~isempty( strfind(ext,'.stk') ),
+    % Load stk movie -- stk(X,Y,frame number)
+    movie = Movie_STK( filename );
+    time = movie.timeAxis;
+    stkX = movie.nX;
+    stkY = movie.nY;
+    nFrames = movie.nFrames;
+end
+
+if ~isempty( strfind(ext,'.tif') ),
     % Load stk movie -- stk(X,Y,frame number)
     movie = Movie_TIFF( filename );
     time = movie.timeAxis;
@@ -206,16 +204,7 @@ stk_top = mean(stk_top,3);
 % 1. Divide the image into den*den squares
 % 2. For each square, find the fifth lowest number
 % 3. Rescaling these values back to the original image size
-if stkX <= 128
-    den=4;  %not optimized
-elseif stkX <= 170
-    den=5;
-elseif stkX <= 256
-    den=8;
-elseif stkX <= 512
-    den=16;
-end
-
+den = floor(stkX/32);
 params.bgBlurSize = den;
 
 
@@ -569,25 +558,25 @@ if params.geometry>1,
     % Sum the donor and acceptor fields, after translating the acceptor size to
     % deal with the misalignment.
     align_t = zeros( size(donor_t) );
-    align_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) ) = ...
-        acceptor_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) );
+    align_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol/2,ncol/2-dx) ) = ...
+        acceptor_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol/2,ncol/2+dx) );
 
     %total_t_old = total_t;
     total_t = align_t + donor_t; %sum the two fluorescence channels.
 
     % Pick peaks from the aligned image.
-    [don_x,don_y] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-    nPicked = numel(don_x);
+    donor_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+    nPicked = numel(donor_picks)/2;
 
     % Since the alignment image has been shifted to compensate for misalignment
     % already (above), adjust the output coordinates so they are relative to
     % the actual fields, not the adjusted fields.
     picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
 
-    picks(1:2:end,1) = don_x;            %donor
-    picks(2:2:end,1) = don_x + ncol -dx; %acceptor
-    picks(1:2:end,2) = don_y;     %donor
-    picks(2:2:end,2) = don_y -dy; %acceptor
+    picks(1:2:end,1) = donor_picks(:,1);              %donor x
+    picks(2:2:end,1) = donor_picks(:,1) + ncol/2 -dx; %acceptor x
+    picks(1:2:end,2) = donor_picks(:,2);     %donor y
+    picks(2:2:end,2) = donor_picks(:,2) -dy; %acceptor y
 
 
     %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
@@ -599,10 +588,10 @@ if params.geometry>1,
     end
 
     % Verify the alignment
-    x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol );
-    y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      );
-    x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-ncol )); %this will detect rotation as well
-    y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)      ));
+    x_align = mean( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-(ncol/2)+dx );
+    y_align = mean( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)+dy      );
+    x_align_abs = mean(abs( refinedPicks(2:2:end,1)-refinedPicks(1:2:end,1)-(ncol/2)+dx )); %this will detect rotation as well
+    y_align_abs = mean(abs( refinedPicks(2:2:end,2)-refinedPicks(1:2:end,2)+dy      ));
     align = [x_align y_align x_align_abs y_align_abs];
 
     if x_align_abs>0.5 || y_align_abs>0.5,
@@ -633,6 +622,8 @@ function [clean_picks,all_picks] = pickPeaks( image_t, threshold, overlap_thresh
 % Localizes the peaks of fluorescence, removing any too close together.
 
 [nrow ncol] = size(image_t);
+
+disp(threshold);
 
 
 % 1. For each pixel (excluding edges), pick those above threshold that have

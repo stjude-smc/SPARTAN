@@ -42,18 +42,33 @@ methods
         
         % Read the TIFF file and get all useful header information. The data
         % sections are ignored. Data-access offsets are stored in tiffData.
-        [obj.stkHeader,obj.dataOffsets] = readTiffHeader( filename );
+        obj.stkHeader = imfinfo( filename );
+        obj.dataOffsets = [obj.stkHeader.Offset];
         
         % Extract basic image metadata
-        obj.nX = obj.stkHeader(1).width;
-        obj.nY = obj.stkHeader(1).height;
+        obj.nX = obj.stkHeader(1).Width;
+        obj.nY = obj.stkHeader(1).Height;
         obj.nFrames = numel( obj.dataOffsets );
-        
+                
         % Generate an approximate time axis. The actual timestamps are in the
         % MM_private1 (UIC1, 33628) field untag tag #16 (CreateTime). The LONG
         % data element is a pointer to a LONG [date,time]. FIXME
-        x = repmat( obj.stkHeader(1).MM.Exposure, [1 obj.nFrames] );
-        obj.timeAxis = [0 cumsum(x(1:end-1))];
+        % If this is a MM TIFF stack, then we can get lots of metadata from
+        % the description field. It's possibly the case also for MM TIFFs
+        % and other TIFFs...
+        
+        % If this is a MM stack...
+        if numel(obj.stkHeader)==1 && isfield(obj.stkHeader,'UnknownTags') && ...
+                                      any( [obj.stkHeader.UnknownTags.ID]==33628 ),
+                                  
+            obj.stkHeader.MM = parseMetamorphInfo( obj.stkHeader.ImageDescription, 1);
+            
+            x = repmat( obj.stkHeader.MM.Exposure, [1 obj.nFrames] );
+            obj.timeAxis = [0 cumsum(x(1:end-1))];
+            
+        else
+            obj.timeAxis = 1:obj.nFrames; %FIXME
+        end
         
     end %constructor
     
@@ -73,29 +88,16 @@ methods
         % Preallocate space for the output data.
         data = zeros( obj.nY,obj.nX,numel(idx), 'uint16' );
         
-        
-        fid = fopen( obj.filename );
-        
         framesRead=0;
         for i=idx,
-            % Move to the start of the data section
-            fseek( fid, obj.dataOffsets(i), 'bof' );
-            
-            % FIXME: supports only uint16!!
-            frame = fread( fid, [obj.nX obj.nY], '*uint16' );
-            data(:,:,framesRead+1) = frame';
-            
+            data(:,:,framesRead+1) = imread( obj.filename, 'Info',obj.stkHeader, 'Index',i );
             framesRead=framesRead+1;
         end
-        
-        fclose(fid);
     end
     
     function data = readFrame( obj, idx )
-        fid = fopen( obj.filename );
-        fseek( fid, obj.dataOffsets(idx), 'bof' );
-        data = fread( fid, [obj.nX obj.nY], '*uint16' )';
-        fclose(fid);
+%         data = imread( obj.filename, obj.stkHeader, idx );
+        data = imread( obj.filename, 'Info',obj.stkHeader, 'Index',idx );
     end
     
     
@@ -104,3 +106,71 @@ end %public methods
 
 
 end %class Movie_TIFF
+
+
+
+
+
+%% %%  Parse the Metamorph camera info tag into respective fields
+% EVBR 2/7/2005, FJN Dec. 2007
+function mm = parseMetamorphInfo(info, cnt)
+
+% info   = regexprep(info, '\r\n|\o0', '\n');
+info( info==char(0)  ) =char(10);
+info( info==char(13) ) =char(10);
+
+parse  = textscan(info, '%s %s', 'Delimiter', ':');
+tokens = parse{1};
+values = parse{2};
+
+first = char(tokens(1,1));
+
+k = 0;
+mm = struct('Exposure', zeros(cnt,1));
+for i=1:size(tokens,1)
+    tok = char(tokens(i,1));
+    val = char(values(i,1));
+    %fprintf( '"%s" : "%s"\n', tok, val);
+    if strcmp(tok, first)
+        k = k + 1;
+        if k>cnt, return; end
+    end
+    if strcmp(tok, 'Exposure')
+        [v, c, e, pos] = sscanf(val, '%i');
+        unit = val(pos:length(val));
+        %return the exposure in milli-seconds
+        switch( unit )
+            case 'ms'
+                mm(k).Exposure = v;
+            case 'msec'
+                mm(k).Exposure = v;
+            case 's'
+                mm(k).Exposure = v * 1000;
+            otherwise
+                warning('tiffread2:Unit', ['Exposure unit "',unit,'" not recognized']);
+                mm(k).Exposure = v;
+        end
+    else
+        switch tok
+            case 'Binning'
+                % Binning: 1 x 1 -> [1 1]
+                mm(k).Binning = sscanf(val, '%d %*s %d')';
+            case 'Region'
+                mm(k).Region = sscanf(val, '%d %*s %d, offset at (%d, %d)')';
+            otherwise
+                field = strrep(tok,' ','_');
+                
+                if strcmp(val, 'Off')
+                    mm(k).(field)=0;
+                elseif strcmp(val, 'On')
+                    mm(k).(field)=1;
+                elseif isstrprop(val,'digit')
+                    mm(k).(field)=str2double(val);
+                else
+                    mm(k).(field)=val;
+                end
+        end
+    end
+end
+
+end

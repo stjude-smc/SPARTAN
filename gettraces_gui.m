@@ -62,6 +62,14 @@ function gettraces_OpeningFcn(hObject, eventdata, handles, varargin)
 % varargin   command line arguments to gettraces (see VARARGIN)
 
 
+
+% Load colormap for image viewer
+fid=fopen('colortable.txt','r');
+colortable = fscanf(fid,'%d',[3 256]);
+handles.colortable = colortable'/255;
+fclose(fid);
+
+
 % Initialize GUI if gettraces is being launched for the first time.
 if ~isfield(handles,'params')
     % Choose default command line output for gettraces
@@ -205,12 +213,6 @@ if isappdata(handles.figure1,'stkData')
     rmappdata(handles.figure1,'stkData');
 end
 
-% Load colormap for image viewer
-fid=fopen('colortable.txt','r');
-colortable=fscanf(fid,'%d',[3 256]);
-colortable=colortable'/255;
-fclose(fid);
-
 % Load movie data
 [stkData] = gettraces( filename );
 handles.stk_top = stkData.stk_top;
@@ -242,10 +244,12 @@ if handles.params.geometry==1,
     handles.params.chNames = constants.gettraces_chNames2;
     handles.params.chDesc  = constants.gettraces_chDesc2;
     
+    handles.total_t = image_t;
+    
     % Show full field of view.
     handles.axTotal = subplot( 1,1,1, 'Parent',handles.panView, 'Position',[0.2 0 0.6 0.95] );
     imshow( image_t, [low (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     title('Single-Channel');
     
 %---- Show fields for Dual-Channel (half-chip, L/R) recordings.
@@ -256,25 +260,26 @@ elseif handles.params.geometry==2,
     donor_t    = image_t(:,1:ncol/2);
     acceptor_t = image_t(:,(ncol/2)+1:end);
     total_t    = donor_t+acceptor_t;
+    handles.total_t = total_t;
     
     chNames = upperFirst( handles.params.chNames );
 
     % Show donor image
     handles.axDonor = subplot( 1,3,1, 'Parent',handles.panView, 'Position',[0.025 0 0.3 0.95] );
     imshow( donor_t, [low (high+low)/2] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     title( [chNames{1} ' (' handles.params.chDesc{1} ')'] );
 
     % Show acceptor image
     handles.axAcceptor = subplot( 1,3,2, 'Parent',handles.panView, 'Position',[0.350 0 0.3 0.95] );
     imshow( acceptor_t, [low (high+low)/2] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     title( [chNames{2} ' (' handles.params.chDesc{2} ')'] );
 
     % Show total intensity image
     handles.axTotal = subplot( 1,3,3, 'Parent',handles.panView, 'Position',[0.675 0 0.3 0.95] );
     imshow( total_t, [low*2 (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     title('Total');
 
     linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
@@ -288,6 +293,8 @@ elseif handles.params.geometry>2,
     lowerRight = image_t( (nrow/2)+1:end, (ncol/2)+1:end );
     total_t = upperLeft + upperRight + lowerLeft + lowerRight;
     
+    handles.total_t = total_t;
+    
     % Get channel names and make them easier to read.
     handles.params.chNames = constants.gettraces_chNames4;
     handles.params.chDesc  = constants.gettraces_chDesc4;
@@ -297,35 +304,35 @@ elseif handles.params.geometry>2,
     % Create axes for each of the fluorescence channels.
     handles.axUL    = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5 0.25 0.5] );
     imshow( upperLeft, [low*2 (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     if ~isempty(chNames{1})
         title( [chNames{1} ' (' handles.params.chDesc{1} ')'] );
     end
     
     handles.axUR    = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35 0.5 0.25 0.5] );
     imshow( upperRight, [low*2 (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     if ~isempty(chNames{4})
         title( [chNames{4} ' (' handles.params.chDesc{4} ')'] );
     end
     
     handles.axLR    = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35 0.025 0.25 0.5] );
     imshow( lowerRight, [low*2 (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     if ~isempty(chNames{3})
         title( [chNames{3} ' (' handles.params.chDesc{3} ')'] );
     end
     
     handles.axLL    = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.25 0.5] );
     imshow( lowerLeft, [low*2 (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     if ~isempty(chNames{2})
         title( [chNames{2} ' (' handles.params.chDesc{2} ')'] );
     end
     
     handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.65 0.25 0.25 0.5] );
     imshow( total_t, [low*2 (high+low)] );
-    colormap(colortable);  zoom on;
+    colormap(handles.colortable);  zoom on;
     title('Total');
     
     linkaxes( [handles.axUL handles.axUR handles.axLL handles.axLR handles.axTotal] );
@@ -495,6 +502,17 @@ end
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
 [stkData,peaks] = gettraces( stkData, handles.params );
+
+% The alignment may involve shifting (or distorting) the fields to get a
+% registered donor+acceptor field. Show this distorted imaged so the user
+% can see what the algorithm is doing.
+% axes(handles.axTotal);
+val = get(handles.scaleSlider,'value');
+minimum = get(handles.scaleSlider,'min');
+val = max(val,minimum+1);
+
+imshow( stkData.total_t, [minimum*2 val*2], 'Parent',handles.axTotal );
+colormap(handles.colortable);  zoom on;  title('Total');
 
 
 % If no alignment data given (for example in single-channel recordings),
