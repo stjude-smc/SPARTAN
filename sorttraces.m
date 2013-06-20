@@ -865,9 +865,7 @@ else
     
     % If the last few traces are not idealized, idl will be short.
     % Extend with NaN (no idealization marker) to avoid errors.
-    % FIXME: dwtIDs is also short!
     handles.idl = [idl ; NaN(nTraces-size(idl,1), traceLen) ];
-    %handles.dwtIDs = [dwtIDs zeros(...) ];
     
 end %if errors
 
