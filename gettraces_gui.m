@@ -176,7 +176,7 @@ function openstk_Callback(hObject, eventdata, handles)
 
 % Get filename of input data from user
 [datafile,datapath]=uigetfile( ...
-    '*.stk;*.stk.bz2;*.movie','Choose a stk file');
+    '*.stk;*.stk.bz2;*.tif*','Choose a movie file');
 if datafile==0, return; end
 
 handles.stkfile = strcat(datapath,datafile);
@@ -206,7 +206,8 @@ set( handles.txtFilename,          'String',fnameText);
 set( handles.txtOverlapStatus,     'String', '' );
 set( handles.txtIntegrationStatus, 'String', '' );
 set( handles.txtPSFWidth,          'String', '' );
-set(  handles.txtAlignStatus,      'String', '' );
+set( handles.txtAlignStatus,      'String', '' );
+set( handles.txtAlignWarning, 'Visible','off' );
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -517,13 +518,15 @@ colormap(handles.colortable);  zoom on;  title('Total');
 
 % If no alignment data given (for example in single-channel recordings),
 % don't display any status messages.
+set( handles.txtAlignWarning, 'Visible','off' );
+
 if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
     set( handles.txtAlignStatus, 'String', '' );
     
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
 else
-    absDev = mean(stkData.alignStatus(3:4));
+    absDev = stkData.alignStatus(3);
     set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
             [stkData.alignStatus(1:2) absDev] ) );
 
@@ -531,6 +534,15 @@ else
         set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
     else
         set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+    end
+    
+    % Total misalignment (no corresponding peaks) can give a relatively low
+    % alignment since the algorithm can only search a 1px neighborhood. So
+    % when things get close to 1, we need a big warning. 
+    if absDev>=0.7,
+        % Put up some big red text that's hard to ignore in the total
+        % fluorescence image.
+        set( handles.txtAlignWarning, 'Visible','on' );
     end
 end
 

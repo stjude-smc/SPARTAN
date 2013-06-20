@@ -48,7 +48,7 @@ else
     data.donor    = varargin{1};
     data.acceptor = varargin{2};
     data.time = 1:size(data.donor,2);
-    
+    0
     bgMovieFilenames = varargin{3};
     params = varargin{4};
 end
@@ -74,7 +74,7 @@ if ~isfield(params,'density') || isempty(params.density),
 end
 
 if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
-    params.edgeBuffer = ceil(sigmaPSF*4);
+    params.edgeBuffer = 4+ceil(sigmaPSF*4);
 end
 
 if ~isfield(params,'useAllMovies') || isempty(params.useAllMovies),
@@ -107,12 +107,13 @@ h = waitbar(0,'Distributing fluorescence information...'); tic;
 for n=1:numel(bgMovieFilenames)
 
     % --- 1. Load background movie as initial image to which peaks are added.
-    stk = tiffread( bgMovieFilenames{n} );
-    [stkY,stkX,stkNFrames] = size(stk);
-    assert( mod(stkX,2)==0, 'Movie widths must be even!' );
-    assert( traceLen<=stkNFrames, 'Background movie is too short!' );
+    movie = Movie_STK( bgMovieFilenames{n} );
+    assert( traceLen<=movie.nFrames, 'Background movie is too short!' );
+    stk = movie.readFrames(1,traceLen);
     
-    stkOutput = double( stk(:,:,1:traceLen) );  %use background movies
+    stkOutput = double( stk );  %use background movies
+    [stkY,stkX,stkNFrames] = size(stkOutput);
+    assert( mod(stkX,2)==0, 'Movie widths must be even!' );
 
     
     % --- 2. Select fluorophore centroid positions randomly.
@@ -156,14 +157,38 @@ for n=1:numel(bgMovieFilenames)
         break;
     end
     
+    
+    % Construct a transformation to mimic field misalignment.
+    dx = 0; dy = 0; %translation factors
+    sx = 1; sy = 1; %scaling (magnification) factors
+    theta = 0*pi/180; %5 degree rotation from center.
+    T = [ sx*cos(theta)     sin(theta)  0 ; ...
+            -sin(theta)  sy*cos(theta)  0 ; ...
+                   dx             dy    1 ];
+    tform = maketform('affine',T);
+    
+    % Tranform acceptor side positions accordingly.
+    % Assumes the field image is symmetric. The image is shifted so the
+    % center is 0 so that the rotation happens about the origin.
+    acceptorPos(:,[2,1]) = tformfwd( tform, donorPos(:,[2,1])-(stkY/2) ) + (stkY/2);
+    
+    
     % Save peak locations for later comparison (Dy,Dx,Ay,Ax).
-    peakLocations{n} = [donorPos donorPos+stkX/2];
+    peakLocations = [donorPos acceptorPos];
+    figure;
+    scatter( donorPos(:,2), donorPos(:,1), 'bo' ); hold on;
+    scatter( acceptorPos(:,2), acceptorPos(:,1), 'ro' );
+    title('Simulated molecule locations');
     
 
     % --- 3. Distribute fluorescence intensities into a point-spread function
-    %        around each centroid.
-    A = 1/(2*pi* sigmaPSF^2); % 2D Gaussian normalization factor
+    %        around each centroid.            
     
+    % 2D Gaussian normalization factor
+    A = 1/(2*pi* sigmaPSF^2);
+    limit = ceil(4*sigmaPSF);
+    
+    % Iterate over peaks.
     for i=1:nPeaks,
         traceID = mod(i+nTracesUsed-1,nTracesTotal)+1;
         d = data.donor(traceID,:);
@@ -171,18 +196,22 @@ for n=1:numel(bgMovieFilenames)
         
         cy = donorPos(i,1);
         cx = donorPos(i,2);
-        limit = ceil(4*sigmaPSF);
-
+        cya = acceptorPos(i,1);
+        cxa = acceptorPos(i,2);
+        
         % Define point-spread function
         for x=max(1,floor(cx)-limit):min(stkX/2,ceil(cx)+limit)
             for y=max(1,floor(cy)-limit):min(stkY,ceil(cy)+limit)
                 % Donor fluorophore
                 pixelDonor    = A.*exp(-0.5* ((x-cx)^2+(y-cy)^2)/(sigmaPSF^2)  ).*d;
                 stkOutput(y,x,:) = stkOutput(y,x,:) + reshape(pixelDonor,[1 size(pixelDonor)]);
+            end
+        end
                 
+        for x=max(1,floor(cxa)-limit):min(stkX/2,ceil(cxa)+limit)
+            for y=max(1,floor(cya)-limit):min(stkY,ceil(cya)+limit)
                 % Acceptor fluorophore
-                % TODO: introduce optional misalignment error here.
-                pixelAcceptor = A.*exp(-0.5* ((x-cx)^2+(y-cy)^2)/(sigmaPSF^2)  ).*a;
+                pixelAcceptor = A.*exp(-0.5* ((x-cxa)^2+(y-cya)^2)/(sigmaPSF^2)  ).*a;
                 stkOutput(y,x+stkX/2,:) = stkOutput(y,x+stkX/2,:) + reshape(pixelAcceptor,[1 size(pixelAcceptor)]);
             end
         end
@@ -196,15 +225,17 @@ for n=1:numel(bgMovieFilenames)
 
     % --- 4. Save newly generated movie to file
     [p,name] = fileparts(tracesFilename);
-    stkFilename = strrep(name,'.traces','');
-    stkFilename = [stkFilename num2str(n) '.movie'];
+    stkFilename = [p filesep strrep(name,'.traces','') num2str(n) '.tiff'];
     
-    fid = fopen( stkFilename, 'w' );
-    fwrite( fid, [stkX stkY traceLen], 'int16' );
-    % fwrite( fid, time, 'float' );
-    fwrite( fid, stkOutput, 'int16' );
-    fclose(fid);
+    imwrite( uint16(stkOutput(:,:,1)), stkFilename, 'Compression','none'); %overwrite existing
+    for k=2:stkNFrames,
+        imwrite( uint16(stkOutput(:,:,k)), stkFilename, 'WriteMode','append',  'Compression','none');
+    end
     
+    % Also save the peak locations for later comparison
+    save( strrep(stkFilename,'.tiff','.loc'), 'peakLocations', '-ASCII' );
+    
+    %
     if ~params.useAllMovies
         waitbar( (i+nTracesUsed)/nTracesTotal, h );
     else

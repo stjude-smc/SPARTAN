@@ -120,7 +120,7 @@ kBleachAcceptor = kBleach - kBleachDonor;
 %%
 
 simFramerate = 1000; %1000/sec = 1ms frames
-binFactor = simFramerate/framerate;
+binFactor = round(simFramerate/framerate);
 
 tic;
 
