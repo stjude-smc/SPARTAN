@@ -65,6 +65,11 @@ end
 [dwt,sampling,offsets,model] = loadDWT(dwtfilename);
 idl = dwtToIdl(dwt,traceLen,offsets);
 
+% If the last few traces are not idealized, idl will be short.
+% Extend with NaN (no idealization marker) to avoid errors.
+idl = [idl ;  zeros( nTraces-size(idl,1), traceLen )  ];
+
+
 if iscell(model),  model = model{1};  end
 nStates = numel(model)/2;
 

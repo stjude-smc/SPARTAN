@@ -91,16 +91,20 @@ max_mol = sum( hist2d(2:end,2) )/scale;     %red=?% of total
 nl = size(cmap,1)-1;                        %number of contour levels
 con = 0:(max_mol/nl):max_mol;               %contour levels
 
+
+% Truncate the plot to the display window.
+hist2d = hist2d(:,[1 lims+1]);
+
 % If the top contour levels are not filled, the levels get distorted.
 % Adds a permanent, very high peak in the corner to prevent this.
 hist2d_n = hist2d;
-hist2d_n(end,lims(end)) = max_mol*2;
+hist2d_n(end,end) = max_mol*2;
 
 
 % Draw the filled contour plot in current axis
 [C,hand] = contourf( cax, ...
         time_axis(lims), fret_axis, ...
-        hist2d_n( 2:end, lims+1 ), con );
+        hist2d_n( 2:end, 2:end ), con );
 
 colormap(cax,cmap);
 set(hand, 'LineColor', 'none');

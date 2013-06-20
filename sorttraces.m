@@ -491,13 +491,15 @@ else
 end
 
 % Save idealizations of selected traces, if available.
+% FIXME: dwt indexes may not match idl indexes if not all traces are
+% idealized!!
 if isfield(handles,'idl') && ~isempty(handles.idl),
     traceLen = numel(data.time);
     
     [p,f] = fileparts(filename);
     dwtFilename = [p filesep f '.qub.dwt'];
     
-    saveDWT( dwtFilename, handles.dwt(indexes), ...
+    saveDWT( dwtFilename, handles.dwt( handles.dwtIDs(indexes) ), ...
              (0:numel(indexes)-1)*traceLen, handles.dwtModel, handles.dwtSampling );
 end
 
@@ -847,8 +849,8 @@ elseif offsets(end)>(nTraces*traceLen)
 
 else
     % Convert DWT to idealization (state sequence).
-    idl = dwtToIdl( dwt, traceLen, offsets );
-
+    [idl,handles.dwtIDs] = dwtToIdl( dwt, traceLen, offsets );
+    
     % Convert state sequence to idealized FRET trace.
     for i=1:size(idl,1),
         if iscell(model),
@@ -861,8 +863,11 @@ else
         idl(i,:) = fretValues( idl(i,:)+1 );
     end
     
-%     handles.idl = reshape( idl, size(handles.fret) );
-    handles.idl = idl;
+    % If the last few traces are not idealized, idl will be short.
+    % Extend with NaN (no idealization marker) to avoid errors.
+    % FIXME: dwtIDs is also short!
+    handles.idl = [idl ; NaN(nTraces-size(idl,1), traceLen) ];
+    %handles.dwtIDs = [dwtIDs zeros(...) ];
     
 end %if errors
 
