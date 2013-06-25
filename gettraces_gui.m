@@ -91,7 +91,6 @@ if ~isfield(handles,'params')
     
     set( handles.chkAlignTranslate, 'Value', params.alignTranslate );
     set( handles.chkAlignRotate,    'Value', params.alignRotate    );
-    set( handles.chkRefineAlign,    'Value', params.refineAlign    );
     
     set( handles.chkRecursive, 'Value', params.recursive    );
     set( handles.chkOverwrite, 'Value', params.skipExisting );
@@ -385,13 +384,11 @@ disp(direct);
 
 % Get list of files in current directory (option: and all subdirectories)
 if recursive
-    movieFilenames  = rdir([direct filesep '**' filesep '*.stk']);
-    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.stk.bz2'])];
-    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.movie'])];
+    movieFilenames  = rdir( [direct filesep '**' filesep '*.stk*'] );
+    movieFilenames  = [ movieFilenames ; rdir([direct filesep '**' filesep '*.tif*']) ];
 else
-    movieFilenames  = rdir([direct filesep '*.stk']);
-    movieFilenames  = [movieFilenames; rdir([direct filesep '*.stk.bz2'])];
-    movieFilenames  = [movieFilenames; rdir([direct filesep '*.movie'])];
+    movieFilenames  = rdir( [direct filesep '*.stk*'] );
+    movieFilenames  = [ movieFilenames ; rdir([direct filesep '*.tif*']) ];
 end
 
 nFiles = length(movieFilenames);
@@ -526,12 +523,21 @@ if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
 else
-    absDev = stkData.alignStatus(3);
-    set( handles.txtAlignStatus, 'String', sprintf('Alignment deviation:\n%0.1f (x), %0.1f (y), %0.1f (abs)', ...
-            [stkData.alignStatus(1:2) absDev] ) );
+    a = stkData.alignStatus;
+    
+    if isfield(a,'quality'),
+        text = 'Alignment applied';
+    else
+        text = 'Alignment deviation';
+    end
+    
+    text = sprintf('%s:\n%0.1f (x), %0.1f (y), %0.1f° (rot),\n%0.1f (abs)', ...
+                    text, [a.dx a.dy a.theta a.abs_dev] );
+    
+    set( handles.txtAlignStatus, 'String', text );
 
-    if any(stkData.alignStatus>0.5) || absDev>0.25,
-        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,absDev) 0 0] );
+    if a.abs_dev>0.25,
+        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,a.abs_dev) 0 0] );
     else
         set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
     end
@@ -539,15 +545,16 @@ else
     % Total misalignment (no corresponding peaks) can give a relatively low
     % alignment since the algorithm can only search a 1px neighborhood. So
     % when things get close to 1, we need a big warning. 
-    if absDev>=0.7,
+    if a.abs_dev>=0.7,
         % Put up some big red text that's hard to ignore in the total
-        % fluorescence image.
+        % fluorescence image. FIXME: the warning should be different if the
+        % software alignment was applied and the residual is low.
         set( handles.txtAlignWarning, 'Visible','on' );
     end
 end
 
 
-% Get locations also without overlap rejection to estimate the number of%default 3-color channel assignments.
+% Get locations also without overlap rejection to estimate the number of
 % molecules that are overlapping. This can be used to give the user a
 % warning if the density is too high (here by showing it in red).
 % FIXME: This is kinda ugly. percentOverlap should be calculating within
@@ -603,6 +610,8 @@ end
 %----- Graphically show peak centers
 handles.x = peaks(:,1);
 handles.y = peaks(:,2);
+handles.total_x = stkData.total_peaks(:,1);
+handles.total_y = stkData.total_peaks(:,2);
 highlightPeaks( handles );
 
 % Update GUI controls
@@ -622,58 +631,61 @@ function highlightPeaks(handles)
 % and handles.y
 %
 
+    
+% Parameters for drawing circles around each detected molecule.
+args1 = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
+args2 = {'LineStyle','none','marker','o','color','y','EraseMode','background'};
+    
+
 [nrow,ncol] = size(handles.stk_top);
 
-% Clear selection markers
+% Clear any existing selection markers from previous calls.
 delete(findobj(gcf,'type','line'));
+
 
 if handles.params.geometry==1, %single-channel
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
-    line(handles.x,handles.y,'LineStyle','none','marker','o','color','y','EraseMode','background');
+    line(handles.x,handles.y, args2{:});
     
 elseif handles.params.geometry==2, %dual-channel
     indD = 1:2:numel(handles.x);
     indA = 2:2:numel(handles.x);
-    
+        
     % Draw markers on selection points (donor side)
     axes(handles.axDonor);
-    line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','w','EraseMode','background');
+    line(handles.x(indD),handles.y(indD), args1{:});
 
     % Draw markers on selection points (acceptor side)
     axes(handles.axAcceptor);%default 3-color channel assignments.
-    line(handles.x(indA)-(ncol/2),handles.y(indA),'LineStyle','none','marker','o','color','w','EraseMode','background');
+    line(handles.x(indA)-(ncol/2),handles.y(indA), args1{:});
 
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
-    line(handles.x(indD),handles.y(indD),'LineStyle','none','marker','o','color','y','EraseMode','background');
+    line(handles.total_x,handles.total_y, args2{:});
     
-elseif handles.params.geometry==3, %quad-channel
+elseif handles.params.geometry>2, %quad-channel
     % Assign each spot to a quadrant.
     indUL = find( handles.x<=(ncol/2) & handles.y<=(nrow/2) );
     indLL = find( handles.x<=(ncol/2) & handles.y> (nrow/2) );
     indLR = find( handles.x> (ncol/2) & handles.y> (nrow/2) );
     indUR = find( handles.x> (ncol/2) & handles.y<=(nrow/2) );
     
-    % Draw markers on selection points (donor side)
-    args = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
-    
     axes(handles.axUL);
-    line(handles.x(indUL),handles.y(indUL), args{:});
+    line(handles.x(indUL),handles.y(indUL), args1{:});
     
     axes(handles.axLL);
-    line(handles.x(indLL),handles.y(indLL)-(nrow/2), args{:});
+    line(handles.x(indLL),handles.y(indLL)-(nrow/2), args1{:});
     
     axes(handles.axLR);
-    line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), args{:});
+    line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), args1{:});
     
     axes(handles.axUR);
-    line(handles.x(indUR)-(ncol/2),handles.y(indUR), args{:});
+    line(handles.x(indUR)-(ncol/2),handles.y(indUR), args1{:});
     
     % Draw markers on selection points (total intensity composite image).
-    % FIXME: this assumes that ...
     axes(handles.axTotal);
-    line(handles.x(indUL),handles.y(indUL),'LineStyle','none','marker','o','color','y','EraseMode','background');
+    line(handles.total_x,handles.total_y, args2{:});
 end
 
 
@@ -746,11 +758,11 @@ guidata(hObject,handles);
 % --- Overlap rejection threshold specification
 function txtOverlap_Callback(hObject, eventdata, handles)
 % Update gettraces parameters using specified values
+handles.params.overlap_thresh = 0;
+
 text = get(hObject,'String');
 if ~isempty( text )
     handles.params.overlap_thresh = str2double(text);
-elseif isfield(handles.params,'overlap_thresh');
-    handles.params = rmfield( handles.params,'overlap_thresh' );
 end
 
 % Re-pick molecules with new settings.
@@ -836,20 +848,17 @@ end
 if handles.params.geometry==1, %Single-channel recordings
     set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
     set( handles.chkAlignTranslate, 'Enable','off', 'Value',0   );
-    %set( handles.chkAlignRotate,   'Enable','off', 'Value',0   );
-    set( handles.chkRefineAlign,    'Enable','off', 'Value',0   );
+    set( handles.chkAlignRotate,    'Enable','off', 'Value',0   );
     
 elseif handles.params.geometry==2, %Dual-channel recordings
     set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
-    %set( handles.chkAlignRotate,   'Enable','on', 'Value',handles.params.alignRotate  );
-    set( handles.chkRefineAlign,    'Enable','on', 'Value',handles.params.refineAlign  );
+    set( handles.chkAlignRotate,    'Enable','on', 'Value',handles.params.alignRotate  );
     
 elseif handles.params.geometry>2, %Three-color recordings
     set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','off', 'Value',0  );
-    %set( handles.chkAlignRotate,   'Enable','off', 'Value',0  );
-    set( handles.chkRefineAlign,    'Enable','off', 'Value',0  );
+    set( handles.chkAlignRotate,    'Enable','off', 'Value',0  );
 end
 
 
@@ -891,17 +900,6 @@ guidata(hObject,handles);
 function chkAlignRotate_Callback(hObject, eventdata, handles)
 %
 handles.params.alignRotate = get(hObject,'Value');
-
-% Re-pick molecules with new settings.
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
-
-
-
-% --- Executes on button press in chkRefineAlign.
-function chkRefineAlign_Callback(hObject, eventdata, handles)
-%
-handles.params.refineAlign = get(hObject,'Value');
 
 % Re-pick molecules with new settings.
 handles = getTraces_Callback( hObject, [], handles);

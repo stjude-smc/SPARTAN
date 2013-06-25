@@ -15,7 +15,7 @@ function avg_val = avgfret(filename)
 % If not files specified, prompt user for them.
 if ~exist('filename','var'),
     
-    [datafile,datapath] = uigetfile({'*.txt'},'Choose a traces file:');
+    [datafile,datapath] = uigetfile({'*.traces'},'Choose a traces file:');
     if datafile==0, return; end  %user hit "cancel"
 
     filename = [datapath filesep datafile];
@@ -23,7 +23,7 @@ end
 
 % Strip extensions from files to get the "base name" from which all other
 % filenames can be generated (_tdp.txt _hist.txt, etc)
-filename = strrep( filename, '.txt', '' );
+filename = strrep( filename, '.traces', '' );
 filename = strrep( filename, '_tdp', '' );
 filename = strrep( filename, '.qub', '' );
 filename = strrep( filename, '_hist', '' );

@@ -128,7 +128,7 @@ else
 end
 
 % Find peak locations from total intensity
-[peaks,stkData.total_t,stkData.alignStatus] = getPeaks( image_t, params );
+[peaks,stkData.total_t,stkData.alignStatus,stkData.total_peaks] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
@@ -204,6 +204,10 @@ stk_top = mean(stk_top,3);
 % 1. Divide the image into den*den squares
 % 2. For each square, find the fifth lowest number
 % 3. Rescaling these values back to the original image size
+% FIXME: this algorithm fails when there are abrupt changes to zero
+% background (aperature blades cutting into the field of view). The zero
+% areas dominate, so less background is subtracted along the border,
+% yielding a very bright band near the dark area.
 den = min( floor(stkX/32), 32 );
 params.bgBlurSize = den;
 
@@ -214,16 +218,14 @@ temp = zeros( floor(stkY/den), floor(stkX/den) );
 for i=1:size(temp,1),
     for j=1:size(temp,2),
         sort_temp = background(den*(i-1)+1:den*i,den*(j-1)+1:den*j);
-        sort_temp = reshape(sort_temp,1,den*den);  % make into a vector
-        sort_temp = sort(sort_temp);
+        sort_temp = sort( sort_temp(:) );
 
-        temp(i,j) = sort_temp(den);  % get the 1/den % smallest value
+        temp(i,j) = sort_temp( den );  % get the 1/den % smallest value
     end
 end
 
 % Rescale the image back to the actual size
-background=imresize(temp,[stkY stkX],'bilinear');
-% handles.background = mean( stk(:,:,end-4:end), 3 );
+background=imresize(temp,[stkY stkX],'bicubic');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
@@ -416,26 +418,22 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick single molecule spots ----------------- 
-function [picks,total_t, align] = getPeaks( image_t, params )
+function [picks,total_t,align,total_picks] = getPeaks( image_t, params, lastAlign )
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments). The selection is made on the total fluorescence
 % intensity image (summing all channels into a single image) to minimize
 % bias (e.g., molecules with a dim donor and bright acceptor would be
-% missed if we selected just on the donor side). This inital selection is
-% refined by looking in the immediate neighborhood of each spot for the
+% missed if we selected just on the donor side). The error in alignment is
+% estimated by looking in the immediate neighborhood of each spot for the
 % actual intensity maximum, which could be different on each side if the
 % two fields are not aligned or if there are optical distortions.
-% 
-% If translation is detected, the acceptor channel image is translated, and
-% the channels are summed again for molecule selection. When the molecules
-% are selected a final time, the deviations are used once again to create a
-% transformation describing any deviations. This map is then used to choose
-% the final acceptor-side locations (optional -- "refine align"). "Refine
-% align" may not work very well since it uses a transformation of donor to
-% acceptor side, when what we want is total->donor and total->acceptor and
-% move BOTH sets of selections... FIXME
-% 
 %
+% (If params.alignTranslate and alignRotate are set:) If the fields are not
+% closely aligned, alignSearch() will try many possible alignments over a
+% range of values, returning the best one. This process is pretty slow and
+% the rotation adds noise to peak locations (picks), so rotation is turned
+% off by default.
+% 
 % picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
 % picksY - Y-coords ...
 % For quad-color, UL,LL,LR,UR is the order.
@@ -555,91 +553,108 @@ if params.geometry>1,
     % (including translation, rotation, and scaling) from donor to acceptor.
     tform = cp2tform( r_mod(indD:nCh:end,:), r_mod(indA:nCh:end,:), ...
                       'nonreflective similarity');
-    
     T = tform.tdata.T;
     dx = T(3,1);  dy = T(3,2);  sx = T(1,1);  sy = T(2,2);
-    rot = asin(T(1,2)) *180/pi;
+    theta = asin(T(1,2)) *180/pi;
+    mag = mean([sx sy]);
     
-    align_abs = mean( sqrt( x_diff.^2 + y_diff.^2 )  );    
-    align = [dx dy align_abs rot mean([sx,sy])]
-    
-    
-    save('images.mat','donor_t','acceptor_t','total_t','tform');
+    abs_dev = mean( sqrt( x_diff.^2 + y_diff.^2 )  );
+    align = struct('dx',dx,'dy',dy,'theta',theta,'mag',mag,'abs_dev',abs_dev);
     
 
-    % If the alignment is close (by translation), we're done.
-    if all( abs(align(1:2))<=0.5 ),  return;  end
-
-    warning('gettraces:badAlignment','Fluorescence fields may be out of alignment.');
-    fprintf( 'Alignment deviation: %.1f (X), %0.1f (Y), %.1f (absolute)\n', [dx dy align_abs] );
-   
-    
-    % If specified, use the refined peak positions to handle slight misalignment.
-    % This generally causes more harm than good and is not recommended!!
-    if params.refineAlign,
-       picks = refinedPicks;
-    end
+    % If the alignment is close, no need to adjust.
+    if abs_dev<=0.5,  return;  end
     
     
     % Just give a warning unless asked to do software alignment in settings.
     % FIXME: code below only works for two-channel FRET.
-    if ~params.alignTranslate || params.geometry>2,  return;  end 
+    if (~params.alignTranslate && ~params.alignRotate) || params.geometry>2,
+        return;
+    end 
          
 
     %---- 2. Transform acceptor side so that the two channels align properly.
-    % If the alignment is off by a significant margin, the fields are
-    % realigned in software. This will only handle translation by 1 pixel.
-    % Rotation and other complex distortions are harder. FIXME.
     
-    dx = round(dx); dy = round(dy); %can only shift fields by integer amounts.
+    % Try out all possible alignments within a range and find the one with
+    % the best donor-acceptor intensity overlap. The quality score is the
+    % mean aligned peak magnitude vs random alignment. If the score is low,
+    % reject it and just say "we don't know".
+    [align_reg,total_reg,quality] = alignSearch( image_t, params );
     
-    % Sum the donor and acceptor fields, after translating the acceptor size to
-    % deal with the misalignment.
-    align_t = zeros( size(donor_t) );
-    align_t( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol/2,ncol/2-dx) ) = ...
-        acceptor_t( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol/2,ncol/2+dx) );
+    if align_reg.dx==0 && align_reg.dy==0 && align_reg.theta==0,
+        % Best alignment was no different, so don't bother with further
+        % computation. Also, preserve the initial error estimates,
+        % which are more useful.
+        return;
+    end
+    
+    if quality<1.12,
+        warning('Low confidence alignment. Parameters are out of range or data quality is poor.');
+    end
+    
+    align = align_reg;
+    total_t = total_reg;
+    align.quality=quality;
 
-    total_t = align_t + donor_t; %sum the two fluorescence channels.
-
+    
     % Pick peaks from the aligned image.
     total_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
     nPicked = numel(total_picks)/2;
+    
+    
+    % Transforming peak location in the total intensity image to where
+    % they fall in the original images.
+    T = [ sx*cos(align.theta*pi/180)     sin(align.theta*pi/180)  0 ; ...
+            -sin(align.theta*pi/180)  sy*cos(align.theta*pi/180)  0 ; ...
+                 align.dx                      align.dy               1 ];
+    tform_a = maketform('affine',T);
+    
+    % The transformation is done around the center of image, which requires
+    % shifting the coordinates. The final coordinates are rounded to put
+    % them into integer pixel locations.
+    donor_picks = total_picks;
+    acceptor_picks = tformfwd(  tform_a,  [total_picks(:,1)-(ncol/4) total_picks(:,2)-(nrow/2) ]  );
+    acceptor_picks = round( [acceptor_picks(:,1)+(ncol/4) acceptor_picks(:,2)+(nrow/2) ] ); 
+    
+    
+    % Some of the acceptor peaks fall outside the imaging area (where the
+    % donor was detected, but the acceptor is actually off-screen). This
+    % must be removed.
+    remove = sum( acceptor_picks<2 | donor_picks<2, 2 ) | ...
+             acceptor_picks(:,1) > (ncol/2)-1 | acceptor_picks(:,2) > nrow-1 | ...
+             donor_picks(:,1)    > (ncol/2)-1 | donor_picks(:,2)    > nrow-1 ;
+    remove = logical( remove );
+        
+    total_picks    = total_picks(~remove,:);
+    donor_picks    = donor_picks(~remove,:);
+    acceptor_picks = acceptor_picks(~remove,:);
+    nPicked = nPicked-sum(remove);
+    
     
     % Since the alignment image has been shifted to compensate for misalignment
     % already (above), adjust the output coordinates so they are relative to
     % the actual fields, not the adjusted fields.
     picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
 
-    picks(1:2:end,1) = total_picks(:,1);              %donor x
-    picks(2:2:end,1) = total_picks(:,1) + ncol/2 +dx; %acceptor x
-    picks(1:2:end,2) = total_picks(:,2);     %donor y
-    picks(2:2:end,2) = total_picks(:,2) +dy; %acceptor y
-
+    picks(1:2:end,1) = donor_picks(:,1);              %donor x
+    picks(2:2:end,1) = acceptor_picks(:,1) + ncol/2;  %acceptor x
+    picks(1:2:end,2) = donor_picks(:,2);     %donor y
+    picks(2:2:end,2) = acceptor_picks(:,2);  %acceptor y
+    
 
     %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
     refinedPicks = refinePeaks( image_t, picks );
-
-    % Use the picked peak locations to create a simple transformation
-    % (including translation, rotation, and scaling) from donor to acceptor.
+    
     r_mod = [ mod(refinedPicks(:,1),ncol/2) refinedPicks(:,2) ]; %2-color
-    tform = cp2tform( r_mod(indD:nCh:end,:), r_mod(indA:nCh:end,:), ...
-                      'nonreflective similarity');
 
-    T = tform.tdata.T;
-    dx = T(3,1);  dy = T(3,2);  sx = T(1,1);  sy = T(2,2);
-    rot = asin(T(1,2)) *180/pi;
-
-    % Verify the alignment
     x_diff = r_mod(indA:nCh:end,1)-r_mod(indD:nCh:end,1);
     y_diff = r_mod(indA:nCh:end,2)-r_mod(indD:nCh:end,2);
-    align_abs = mean(  sqrt( x_diff.^2 + y_diff.^2 )  );
-    align = [dx dy align_abs rot mean([sx sy])]
+    align.abs_dev = mean(  sqrt( x_diff.^2 + y_diff.^2 )  );
     
-
-    % Use actual peak locations if option is specified.
-    if params.refineAlign,
-       picks = refinedPicks;
-    end
+    % Also calculate the residual deviation, which indicates how good the
+    % alignment is.
+%     residuals = picks-refinedPicks;
+%     align.residual_dev = mean(  2*sqrt( residuals(:,1).^2 + residuals(:,2).^2 )  );
 
 end
 
@@ -664,15 +679,16 @@ function [clean_picks,all_picks] = pickPeaks( image_t, threshold, overlap_thresh
 
 [nrow ncol] = size(image_t);
 
-disp(threshold);
-
 
 % 1. For each pixel (excluding edges), pick those above threshold that have
 % greater intensity than their neighbors (3x3,local maxima).
 % tempxy is peak position, centroidxy is estimated true molecule position.
-[rows,cols] = find( image_t(1+3:nrow-3,1+3:ncol-3)>threshold );
-rows = rows+3;
-cols = cols+3;
+bf = 3; %pixels around the edges to ignore.
+
+[rows,cols] = find( image_t(1+bf:nrow-bf,1+bf:ncol-bf)>threshold );
+rows = rows+bf;
+cols = cols+bf;
+off_x = 0; off_y = 0;
 
 nMols=0;
 for n=1:numel(rows),
@@ -686,8 +702,10 @@ for n=1:numel(rows),
         % Calc centroid position using intensity-weighted average of
         % position. This gives some additional information that is useful
         % for alignment...I think.
-        off_x = WeightedAvg( 1:3, sum(block,1)  ) -1.5;
-        off_y = WeightedAvg( 1:3, sum(block,2)' ) -1.5;
+        if overlap_thresh~=0,
+            off_x = WeightedAvg( 1:3, sum(block,1)  ) -2;
+            off_y = WeightedAvg( 1:3, sum(block,2)' ) -2;
+        end
 
         % Save the position of this molecule
         nMols=nMols+1;
@@ -713,18 +731,20 @@ end
 % molecule.
 overlap=zeros(1,nMols);
 
-for i=1:nMols,
-    for j=i+1:nMols,
-        % quickly ignore molecules way beyond the threshold
-        if abs(centroidx(j)-centroidx(i)) > 1+ceil(overlap_thresh),
-            break;
-        end
-        
-        % otherwise, we have to check more precisely
-        if (centroidx(i)-centroidx(j))^2 + (centroidy(i)-centroidy(j))^2 ...
-           < overlap_thresh^2
-            overlap(i)=1;
-            overlap(j)=1;
+if overlap_thresh~=0,
+    for i=1:nMols,
+        for j=i+1:nMols,
+            % quickly ignore molecules way beyond the threshold
+            if abs(centroidx(j)-centroidx(i)) > 1+ceil(overlap_thresh),
+                break;
+            end
+
+            % otherwise, we have to check more precisely
+            if (centroidx(i)-centroidx(j))^2 + (centroidy(i)-centroidy(j))^2 ...
+               < overlap_thresh^2
+                overlap(i)=1;
+                overlap(j)=1;
+            end
         end
     end
 end
@@ -759,6 +779,137 @@ for j=1:size(peaks,1),
 end
 
 % END FUNCTION refinePeaks
+
+
+
+
+function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
+% ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
+%
+%    [bestAlign,bestReg] = alignSearch( image_t, params )
+%
+% Full serach for a transformation (rotation+translation) of the acceptor
+% side relative to the donor. For each combination of dx, dy, and dtheta
+% (across a range in each), transform the acceptor side image, sum the
+% donor and acceptor images, and calculate peak intensities (above a
+% threshold). Find the one with maximum intensity, which should correspond
+% to the well-aligned image.
+%
+% This method is slow and should only be used when the fields are far out
+% of alignment. The optimal alignment parameters should be reused for each
+% movie in a series. gettraces will first try no transform, then the last
+% transform, before doing the full search.
+%
+% Note that this method is biased toward zero rotation because the imrotate
+% method blurs out the acceptor image, so the peak intensities are
+% necessarily lower. The method may also be biased toward low-FRET:
+% The imrotate method blurs the acceptor field, so that high-FRET molecules
+% are somewhat less likely to be picked at a set threshold. If the
+% threshold is way below all the molecules, it will have no biasing effect,
+% but if it is close and some molecules are not discovered, it will cause
+% problems.
+%
+% WARNING: This method does not handle difference in magnification across
+% the fields. FIXME.
+%
+
+% TODO: displacement ranges should be stored in params/cascadeConstants.
+% 
+
+
+% Seperate fluorescence channels
+[nrow,ncol] = size(image_t);
+donor_t    = image_t( 1:nrow, 1:ncol/2 );
+acceptor_t = image_t( 1:nrow, ((ncol/2)+1):end );
+
+[nrow,ncol] = size(donor_t);
+
+
+% Determine search range based on parameters.
+if isfield(params,'alignRotate') && params.alignRotate,
+    theta_range = -4:0.25:4;
+else
+    theta_range = 0;
+end
+
+if isfield(params,'alignTranslate') && params.alignTranslate,
+    trans_range = -5:1:5;
+else
+    trans_range = 0;
+end
+
+ntheta = numel(theta_range);
+ntrans = numel(trans_range);
+
+
+if ~params.quiet && ntheta>1,
+    h = waitbar(0,'Searching for the optimal alignment');
+    i=1;
+end
+
+
+bestScore = 0; %best intensity score so far.
+% scores = zeros(1,ntrans);
+avgScore = 0;
+
+
+for theta=theta_range,
+    % Rotate the image, removing excess around the edges ('crop').
+    % Rotation is done first for speed since imrotate is pretty slow and
+    % the rotated image can be reused for the translations.
+    % imrotate blurs out the image, which makes detecting peaks harder at a
+    % set threshold. Rotating only the acceptor field, as we do here, may
+    % introduce some bias, but in practice it is small. Rotating both
+    % fields improves the bias, but the method doens't work very well.
+    rot_a = imrotate( acceptor_t, theta, 'bicubic', 'crop' );
+            
+    for dx=trans_range,
+        for dy=trans_range,
+            % Translate the image, also removing the excess.
+            registered = zeros( size(acceptor_t) );
+
+            registered( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) ) = ...
+                rot_a( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) );
+
+            % Calculate the median intensity of pixels above the picking
+            % threshold in the (aligned) total intensity image.
+            % This will be higher when intensity is gathered from both
+            % donor and acceptor side and low when they are seperated.
+            total = donor_t+registered;
+            picks = total>params.don_thresh;
+            I = ( mean( total(picks) )-mean( total(~picks) ) ) / std(total(~picks));
+            
+            %scores(dx==trans_range) = I;
+            avgScore = avgScore+I;
+            
+            % If this is the best alignment so far, save it.
+            if I>bestScore,
+                bestScore = I;
+                bestAlign = struct('dx',dx,'dy',dy,'theta',theta);
+                bestReg = total;
+            end
+        end
+    end
+     
+    if ~params.quiet && ntheta>1,
+        waitbar( i/ntheta, h );
+        i=i+1;
+    end
+end
+
+
+% If the correct alignment is out of range or the data are just random, we
+% will always get a result, but it will be meaningless. To indicate the
+% quality of (or confidence in) the optimal alignment, pass along the score
+% magnitude relative to other choices. Ideally, this should be more than
+% 1.1-1.15 (10-15% higher intensity than a random alignment).
+quality = bestScore / (avgScore/(ntrans*ntrans*ntheta))
+
+
+if ~params.quiet && ntheta>1,
+    close(h);
+end
+
 
 
 

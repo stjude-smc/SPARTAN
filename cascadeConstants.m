@@ -51,10 +51,10 @@ constants.crosstalk = 0.07;
 
 % ADU (arbitrary camera intensity units) to photon conversion factor in
 % units of ADU/photon. See camera calibration data sheet. This may depend
-% on which digitizer is selected!
-% If no information is available, leave this blank.
-constants.photonConversionFactor = 100/3.1;   % 10MHz
-%constants.photonConversionFactor = 100/2.6;   % 5MHz 
+% on which digitizer is selected! Check camera documentation.
+% If no information is available, comment this line out.
+constants.photonConversionFactor = 100/3.1;   % 10MHz Evolve 512
+%constants.photonConversionFactor = 100/2.6;   % 5MHz Evolve 512
 
 
 
@@ -69,9 +69,8 @@ params.photonConversion = constants.photonConversionFactor;
 params.geometry = 2; %dual-channel by default.
 
 % Options for alignment, etc:
-params.alignTranslate = 0;
-params.alignRotate = 0;
-params.refineAlign = 0;
+params.alignTranslate = 1;  % no problems other than being slow.
+params.alignRotate = 0;     % allow field rotation for alignment. not perfect yet.
 params.skipExisting = 0;
 params.recursive = 0;
 params.quiet = 0;
