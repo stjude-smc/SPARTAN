@@ -204,11 +204,11 @@ stk_top = mean(stk_top,3);
 % 1. Divide the image into den*den squares
 % 2. For each square, find the fifth lowest number
 % 3. Rescaling these values back to the original image size
-% FIXME: this algorithm fails when there are abrupt changes to zero
-% background (aperature blades cutting into the field of view). The zero
-% areas dominate, so less background is subtracted along the border,
-% yielding a very bright band near the dark area.
-den = min( floor(stkX/32), 32 );
+% 
+% *** den should be much larger than the PSF size. A good rule of thumb is
+% at least 3x the size of the width (not std) of the PSF. This is difficult
+% to generalize just from the size of the frame.
+den = 6;
 params.bgBlurSize = den;
 
 
