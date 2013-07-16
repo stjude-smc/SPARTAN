@@ -19,10 +19,12 @@ function peakLocations = simulateMovie(varargin)
 %    - density: number of molecules placed per field.
 %    - grid: place fluorophores on a regular grid if =1.
 %    - randomSeed: seed for pseudorandom number generator.
+%    - edAlignX,edAlignY,edAlignTheta: displacement of the acceptor
+%                relative to donor (in pixels) to simulate misalingment.
+%
 
-% TODO: provide options for simulating misalignment, choose parameter values
-%  like buffer size and the region over which Gaussians are distributed
-%  based on the size of the point-spread function.
+% TODO: choose parameter values like buffer size and the region over which
+% Gaussians are distributed based on the size of the point-spread function.
 
 
 %% Parse input parameters
@@ -48,7 +50,7 @@ else
     data.donor    = varargin{1};
     data.acceptor = varargin{2};
     data.time = 1:size(data.donor,2);
-    0
+    
     bgMovieFilenames = varargin{3};
     params = varargin{4};
 end
@@ -60,26 +62,22 @@ end
 
 
 %% Assign default values to parameters not specified.
-if ~isfield(params,'sigmaPSF') || isempty(params.sigmaPSF)
-    params.sigmaPSF = 0.8;
-end
+defaultParams.sigmaPSF = 0.8;
+defaultParams.randomSeed = 0;
+defaultParams.density = 300;
+defaultParams.useAllMovies = 0;
+defaultParams.alignX = 0;
+defaultParams.alignY = 0;
+defaultParams.alignTheta = 0;
+
+% Parameters actually specified (second argument) take precedence
+params = catstruct( defaultParams, params );
+
 sigmaPSF = params.sigmaPSF;
-
-if ~isfield(params,'randomSeed') || isempty(params.randomSeed),
-    params.randomSeed = 0;
-end
-
-if ~isfield(params,'density') || isempty(params.density),
-    params.density = 300;
-end
-
 if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
     params.edgeBuffer = 4+ceil(sigmaPSF*4);
 end
 
-if ~isfield(params,'useAllMovies') || isempty(params.useAllMovies),
-    params.useAllMovies = 0;
-end
 
  
 % Initialize random number generator. Insure values are not correlated
@@ -159,9 +157,9 @@ for n=1:numel(bgMovieFilenames)
     
     
     % Construct a transformation to mimic field misalignment.
-    dx = 0; dy = 0; %translation factors
-    sx = 1; sy = 1; %scaling (magnification) factors
-    theta = 0*pi/180; %5 degree rotation from center.
+    dx = params.alignX; dy = params.alignY; % translation factors
+    sx = 1; sy = 1; % scaling (magnification) factors
+    theta = params.alignTheta*pi/180; % degrees of rotation about center.
     T = [ sx*cos(theta)     sin(theta)  0 ; ...
             -sin(theta)  sy*cos(theta)  0 ; ...
                    dx             dy    1 ];

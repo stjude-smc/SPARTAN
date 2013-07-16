@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 24-Nov-2009 17:03:14
+% Last Modified by GUIDE v2.5 15-Jul-2013 18:04:07
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -104,7 +104,7 @@ simMovies   = get(handles.chkSimulateMovies,'Value');
 
 if simMovies
     % Get movie location from user.
-    bgMovieDir = uigetdir;
+    bgMovieDir = uigetdir(pwd,'Select directory where background movies are stored');
     if ~ischar(bgMovieDir), return; end
 
     % Verify there are background movies to use.
@@ -241,7 +241,7 @@ guidata(hObject, handles);
 
 % --- Executes on button press in chkSimulateMovies.
 function chkSimulateMovies_Callback(hObject, eventdata, handles)
-controls = {'edDensity','edSigmaPSF','chkGrid'};
+controls = {'edDensity','edSigmaPSF','chkGrid','edAlignX','edAlignY','edAlignTheta'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
 
 % Update handles structure

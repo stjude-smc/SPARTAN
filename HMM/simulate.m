@@ -23,10 +23,9 @@
 %
 %      'randomSeed'     ->  for reproducable results
 %      'kBleach'        ->  rate of acceptor photobleaching (0)
-
+%  
 %  TODO:
 %   - Simulate anisotropy noise
-%   - Simulate effect of background photobleaching (either channel)
 %   - Simulate effect of gamma~=1
 %   - Simulate distribution of gamma across traces (stdGamma)
 %   - Simulate effect of varying quantum yield in each state... 
