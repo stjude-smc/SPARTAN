@@ -557,12 +557,7 @@ end
 % Get locations also without overlap rejection to estimate the number of
 % molecules that are overlapping. This can be used to give the user a
 % warning if the density is too high (here by showing it in red).
-% FIXME: This is kinda ugly. percentOverlap should be calculating within
-% gettraces() and then saved in stkData to be retrieved here.
-p = handles.params;
-p.overlap_thresh = 0;
-[~,peaksZ] = gettraces( stkData, p );
-percentOverlap = 100*( size(peaksZ,1)-size(peaks,1) )/size(peaksZ,1);
+percentOverlap = stkData.fractionOverlapped*100;
 
 set(  handles.txtOverlapStatus, 'String', ...
       sprintf('%0.0f%% molecules overlapped', percentOverlap)  );

@@ -128,7 +128,8 @@ else
 end
 
 % Find peak locations from total intensity
-[peaks,stkData.total_t,stkData.alignStatus,stkData.total_peaks] = getPeaks( image_t, params );
+[peaks,stkData.total_t,stkData.alignStatus,stkData.total_peaks,...
+                stkData.fractionOverlapped] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
@@ -418,7 +419,7 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick single molecule spots ----------------- 
-function [picks,total_t,align,total_picks] = getPeaks( image_t, params, lastAlign )
+function [picks,total_t,align,total_picks,fractionOverlapped] = getPeaks( image_t, params, lastAlign )
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments). The selection is made on the total fluorescence
 % intensity image (summing all channels into a single image) to minimize
@@ -445,8 +446,10 @@ align = [];
 % since we don't have to worry about alignment, etc.
 if params.geometry==1,
     total_t = image_t;
-    picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+    [picks,allPicks] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
     assert( size(picks,2)==2 ); %x and y columns, molecules in rows.
+    
+    fractionOverlapped = (size(allPicks,1)-size(picks,1)) /size(allPicks,1);
     return;
 end
 % Otherwise, assume dual-channel. FIXME
@@ -475,8 +478,9 @@ end
 
 
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
-total_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+[total_picks,allPicks] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 nPicked = size(total_picks,1);
+fractionOverlapped = (size(allPicks,1)-size(total_picks,1)) /size(allPicks,1);
 
 assert( all(total_picks(:))>0, 'bad peak locations' );
 
@@ -598,8 +602,9 @@ if params.geometry>1,
 
     
     % Pick peaks from the aligned image.
-    total_picks = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-    nPicked = numel(total_picks)/2;
+    [total_picks,allPicks] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+    nPicked = numel(total_picks)/2;    
+    fractionOverlapped = (size(allPicks,1)-size(total_picks,1)) /size(allPicks,1);
     
     
     % Transforming peak location in the total intensity image to where
