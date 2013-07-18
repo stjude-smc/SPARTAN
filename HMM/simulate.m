@@ -1,5 +1,5 @@
  function [dwt,fret,donor,acceptor] =  simulate( ...
-                                dataSize, sampling, model, Q, varargin )
+                                dataSize, sampling, model, varargin )
 % SIMULATE   Simulate smFRET data
 %
 %    [IDL,FRET,DONOR,ACCEPTOR] = SIMULATE( SIZE, FRAMERATE, MODEL, Q )
@@ -50,9 +50,10 @@ nTraces  = dataSize(1);
 traceLen = dataSize(2);
 framerate = 1/sampling;
 
-mu    = model(:,1);
-sigma = model(:,2);
-nStates = length(mu);
+mu    = model.mu;
+Q = model.rates;
+p0 = model.p0;
+p0 = p0/sum(p0);
  
 
 % PARSE OPTIONAL PARAMETER VALUES: initial kinetic parameter values
@@ -124,26 +125,8 @@ binFactor = round(simFramerate/framerate);
 tic;
 
 
-% Predict steady-state probabilities for use as initial probabilities.
-if isfield(optargs,'startProb') && ~isempty(optargs.startProb)
-    p0 = optargs.startProb;
-    assert( abs(sum(p0)-1)<=1e-4, 'p0 is not normalized' );
-    assert( numel(p0)==nStates, 'p0 is the wrong size' );
-else
-    % Calculate A matrix from rates using the matrix exponential method.
-    Qorig = Q;
-    Q( logical(eye(size(Q))) ) = 0;
-    Q( logical(eye(size(Q))) ) = -sum( Q,2 );
-    dt = 1/simFramerate;
-    A = expm( Q.*dt );
-    Q = Qorig;
-    
-    % If not specified, estimate the equilibrium probabilities.
-    p0 = A^10000;
-    p0 = p0(1,:);
-    p0 = p0/sum(p0);
-end
 
+    
 % FRET values are adjusted here so that they match the input values
 % after the introduction of the gamma artifact later.
 mu = mu ./ ( mu + gamma - gamma*mu );
@@ -174,6 +157,7 @@ end
 %--- Generate noiseless state trajectory at 1 ms
 idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
 dwt  = cell(nTraces, 1);
+noiseless_fret = zeros( nTraces, traceLen );
 
 for i=1:nTraces,
     
@@ -187,24 +171,15 @@ for i=1:nTraces,
     states = [];
     times  = [];
     
-    randData = rand(floor(endTime),nStates);
-    itr=1;
-    
     while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
         
-        assert( itr<size(randData,1), 'simulate: N. dwells exceeded RNG buffer size' );
-        
-        % Draw dwell time from exponential distribution
+        % Draw dwell time from exponential distribution.
+        % tau is the time constant for each type of transition from the current state.
         tau = 1000./ Q( curState, : ); %in ms.
-        choices = -tau .* log( randData(itr,:) );
+        t = exprnd( tau ); %random times drawn from each exponential distribution.
         
-        % Choose event that happens first
-        [dwellTime,nextState] = min( choices );
-        if sum(choices == dwellTime) > 1,
-            %if more than one event are chosen, try again (never happens?)
-            itr = itr+1;
-            continue;
-        end
+        % Choose event that happens first.
+        [dwellTime,nextState] = min( t );
         
         % Round to 1ms time resolution
         dwellTime = round(dwellTime);
@@ -213,22 +188,23 @@ for i=1:nTraces,
         times(end+1) = dwellTime;
         
         curState = nextState;
-        itr = itr+1;
     end
     
     % Truncate last dwell to fit into time window
     totalTime = sum(times);
     times(end) = times(end) - (totalTime-endTime);
     
-    dwt{i} = [states' times'];
+    dwt{i} = [model.class(states) times'];
     
     % Sample the series at 1ms to produce "real" trace
-    trace = [];
+    trace = zeros(1,traceLen*binFactor);
     nDwells = numel(states);
+    pos = 0;  %offset within the trace (data filled in so far)
 
     for j=1:nDwells,
         dtime = round( times(j) );
-        trace = [trace repmat( states(j), 1,dtime ) ];
+        trace( pos+(1:dtime) ) = states(j);
+        pos = pos+dtime;
     end
     
     % Truncate idealization from photobleaching times
@@ -237,23 +213,14 @@ for i=1:nTraces,
     % Save results to output data.
     idl(i,:) = trace;
     
-    waitbar(i/(nTraces*2),h);
-end
 
-
-
-%--- Generate and and time-average the noiseless FRET trajectories (slow)
-noiseless_fret = zeros( nTraces, traceLen );
-
-waitbar(0.5,h, 'Time-averaging...');
-
-for i=1:nTraces,
+    %--- Generate and and time-average the noiseless FRET trajectories
+    trace = mu( model.class(trace) );
+    noiseless_fret(i,:) = binFretData( trace, binFactor );
     
-    trace = mu( idl(i,:) );
-    trace = binFretData( trace, binFactor );
-    noiseless_fret(i,:) = trace;
-    
-    waitbar( (i+nTraces)/(2*nTraces), h);
+    if mod(i,25)==0,
+        waitbar( i/nTraces, h );
+    end
 end
 
 
@@ -296,10 +263,9 @@ if stdBackground~=0 || stdPhoton ~=0
     % Rescale fluorescence intensities so that the total intensity
     % (and SNR) are roughly the same as if there was not gamma correction.
     nNonZero = sum( donor(:)>0 );
-    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero
+    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero;
     donor    = donor*    (totalIntensity/obsIntensity);
     acceptor = acceptor* (totalIntensity/obsIntensity);
-    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero
         
     % Simulate the effect of photophysical noise. Here the variance
     % is propotional to the intensity of the signal.
@@ -323,9 +289,9 @@ if stdBackground~=0 || stdPhoton ~=0
 % THIS DOES NOT WORK!
 else
     error('Direct FRET simulation not supported');
-    fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
-    donor    = (1-fret).*totalIntensity;
-    acceptor = totalIntensity-donor;
+    %fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
+    %donor    = (1-fret).*totalIntensity;
+    %acceptor = totalIntensity-donor;
 end
 
 

@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 15-Jul-2013 18:04:07
+% Last Modified by GUIDE v2.5 18-Jul-2013 16:00:13
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -89,6 +89,7 @@ function btnSimulate_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+m = handles.model;
 options = handles.options;
 disp( options );
 
@@ -120,32 +121,10 @@ end
 %----- Gather parameter values from GUI, prepare for calling simulate()
 nTraces  = options.nTraces;
 traceLen = options.traceLen;
-nStates  = options.nStates;
 sampling = options.sampling/1000;
 
 options.stdBackground = options.totalIntensity/(sqrt(2)*options.snr);
 options.kBleach = 1/options.totalTimeOn;
-
-if numel(options.sigma)==1,
-    options.sigma = repmat(options.sigma,nStates);
-elseif isempty(options.sigma),
-    % Use a default value (not used for simulation)
-    options.sigma = repmat(0.1,1,nStates);
-end
-
-% Generate Q matrix from rates specified in GUI
-Q = zeros(nStates,nStates);
-idx = find( ~logical(eye(nStates)) );
-r = options.rates';
-Q(idx) = r(:);
-Q = Q';
-
-
-
-%----- Check parameter values for sanity?
-if numel(options.mu)~=nStates,
-    error('simulate_gui:btnSimulate_Callback','Inconsistent number of states...');
-end
 
 
 %----- Run simulate and save results
@@ -158,9 +137,9 @@ end
 
 % Simulate FRET and fluorescence traces
 dataSize = [nTraces traceLen];
-fretModel = [options.mu' options.sigma'];
+fretModel = [m.mu' m.sigma'];
 
-[dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, fretModel, Q, options );
+[dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, m, options );
 data.time = 1000*sampling*( 0:(traceLen-1) );
 
 % Save resulting raw traces files
@@ -179,8 +158,6 @@ saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
 %----- Simulate wide-field fluroescence movies using simulated trajectories.
 if simMovies
-    % Run simulateMovie.m with user-provided parameter values.
-    % TODO?: Peak locations are saved in simulateMovie for accuracy evaluation.
      simulateMovie( fname_output, bgMovieFilenames, options );
 end
 
@@ -205,6 +182,23 @@ for i=1:numel(names),
         fprintf(fid, '\n  %22s:  %.2f', names{i}, vals{i} );
     elseif numel( vals{i} )>1,
         fprintf(fid, '\n  %22s:  %s', names{i}, mat2str(vals{i}) );
+    end
+end
+
+fprintf(fid, '\n\nMODEL PARAMETERS');
+
+names = fieldnames(  m );
+
+for i=1:numel(names),
+    if isstruct( m.(names{i}) ),
+        fprintf(fid, '\n  %22s:  %s', names{i}, '(struct)' );
+        continue;
+    end
+    
+    if numel( m.(names{i}) )>1
+        fprintf(fid, '\n  %22s:  %s', names{i}, mat2str(m.(names{i})) );
+    else
+        fprintf(fid, '\n  %22s:  %.2f', names{i}, m.(names{i}) );
     end
 end
 
@@ -271,18 +265,61 @@ if val, state='on'; else state='off'; end
  for i=1:numel(controlNames),
     set( handles.(controlNames{i}),'Enable',state );
  end
+
  
 
+% --- Executes on button press in btnLoadModel.
+function btnLoadModel_Callback(hObject, eventdata, handles)
+%
 
-% --- Executes on button press in btnSaveParameters.
-function btnSaveParameters_Callback(hObject, eventdata, handles)
-% hObject    handle to btnSaveParameters (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Try to send the user to the model location which may be far away from
+% data.
+persistent modelLoc;
+
+if isempty(modelLoc),
+    constants = cascadeConstants;
+    modelLoc = constants.modelLocation;
+end
+
+[p] = fileparts(modelLoc);
+
+% Ask the user for a filename
+[fname,p] = uigetfile( [p filesep '*.qmf'], 'Load QuB model file' );
+if fname==0, return; end
+fname = [p fname];
+
+% Load the model
+handles.model = QubModel(fname);
+set( handles.txtModelFilename, 'String',['...' fname(max(1,end-50):end)] );
+
+% Show the model properties in the GUI. The model's properties are
+% automatically updated whenever the model is modified in the GUI.
+handles.model.showModel( handles.axModel );
 
 
-% --- Executes on button press in btnLoadParameters.
-function btnLoadParameters_Callback(hObject, eventdata, handles)
-% hObject    handle to btnLoadParameters (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% Enable saving the model
+set( handles.btnSaveModel, 'Enable','on' );
+
+% Update handles structure
+guidata(hObject, handles);
+
+
+
+
+
+% --- Executes on button press in btnSaveModel.
+function btnSaveModel_Callback(hObject, eventdata, handles)
+%  Save the currently loaded model to file.
+
+if ~isfield(handles,'model') || isempty(handles.model),
+    return;
+end
+
+fname = handles.model.filename;
+[f,p] = uiputfile(fname,'Save model to file');
+
+if f~=0,
+    fname = [p f];
+    handles.model.save( fname );
+    set( handles.txtModelFilename, 'String',['...' fname(max(1,end-50):end)] );
+end
