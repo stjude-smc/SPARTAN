@@ -82,7 +82,7 @@ end
  
 % Initialize random number generator. Insure values are not correlated
 % if traces are generated with the same random seed.
-rand( 'twister', params.randomSeed+1299 );
+% rand( 'twister', params.randomSeed+1299 );
 
 
 

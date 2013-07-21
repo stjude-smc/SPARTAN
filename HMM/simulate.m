@@ -135,9 +135,9 @@ mu = mu ./ ( mu + gamma - gamma*mu );
 
 %%
 
-rand('twister',101+randomSeed);
-savedSeed = rand(); % save a seed for later that is not dependant
-                    % on how many timesrand() is called.
+% rand('twister',101+randomSeed);
+% savedSeed = rand(); % save a seed for later that is not dependant
+%                     % on how many timesrand() is called.
 
 % Generate a set of uniform random numbers for choosing states
 h = waitbar(0,'Simulating...');
@@ -145,19 +145,20 @@ h = waitbar(0,'Simulating...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
-rand('twister',savedSeed);
+% rand('twister',savedSeed);
 
 if kBleach > 0,
-    pbTimes = -log(rand(1,nTraces))./kBleachAcceptor;
-    pbTimes = ceil(pbTimes*simFramerate);
+    pbTimes = exprnd( 1/kBleachAcceptor, 1,nTraces );
+    pbTimes = round(pbTimes*simFramerate);
 end
 
 
 
 %--- Generate noiseless state trajectory at 1 ms
-idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
+% idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
 dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
+dt = 1000*sampling; %integration time (timestep) in ms.
 
 for i=1:nTraces,
     
@@ -181,9 +182,6 @@ for i=1:nTraces,
         % Choose event that happens first.
         [dwellTime,nextState] = min( t );
         
-        % Round to 1ms time resolution
-        dwellTime = round(dwellTime);
-        
         states(end+1) = curState;
         times(end+1) = dwellTime;
         
@@ -192,31 +190,46 @@ for i=1:nTraces,
     
     % Truncate last dwell to fit into time window
     totalTime = sum(times);
-    times(end) = times(end) - (totalTime-endTime);
+    times(end) = times(end) - ( totalTime-min(endTime-1,pbTimes(i)) );
     
-    dwt{i} = [model.class(states) times'];
-    
-    % Sample the series at 1ms to produce "real" trace
-    trace = zeros(1,traceLen*binFactor);
+    % Save the dwell-time information for .dwt file.
+    % Times are rounded to 1ms time resolution. DWT files do not support
+    % continuous time and this is usually enough to see most dwells.
+    dwt{i} = [model.class(states) round(times)'];
     nDwells = numel(states);
-    pos = 0;  %offset within the trace (data filled in so far)
-
+    
+    % Generate noiseless FRET traces with time averaging.
+    e = 1+cumsum(times./dt);    % dwell end times (continuous frames)
+    s = [1 e(1:end-1)+eps];     % dwell start times
+    eh = floor(e);              % discrete frame in which dwell ends
+    sh = floor(s);              % discrete frame in which dwell starts
+    
+    trace = zeros( 1,traceLen );
+    
     for j=1:nDwells,
-        dtime = round( times(j) );
-        trace( pos+(1:dtime) ) = states(j);
-        pos = pos+dtime;
+        dwellFretValue = mu( model.class(states(j)) );
+        
+        % 1. Isolated stretch (shortdwell within one frame).
+        % Add the fret value to the current frame as a fraction of how much
+        % time it takes up, so that the total "probability" (the first
+        % number) sums to one for each frame at the end of the loop.        
+        if sh(j)==eh(j),
+            trace(sh(j)) = trace(sh(j)) + (e(j)-s(j))*dwellFretValue;
+            continue;
+        end
+    
+        % 2. If the dwell covers several frames completely (the most common case),
+        % just fill them in (weight is unity).
+        trace( (sh(j)+1):(eh(j)-1) ) = dwellFretValue;
+
+        % 3. Dwell starts in the middle of a frame.
+        trace(sh(j)) = trace(sh(j)) + ((sh(j)+1)-s(j))*dwellFretValue;
+
+        % 4. Dwell ends in the middle of a frame.
+        trace(eh(j)) = trace(eh(j)) + (e(j)-eh(j))*dwellFretValue;
     end
     
-    % Truncate idealization from photobleaching times
-    trace(pbTimes(i):end) = 1;  % set the state to blinking
-
-    % Save results to output data.
-    idl(i,:) = trace;
-    
-
-    %--- Generate and and time-average the noiseless FRET trajectories
-    trace = mu( model.class(trace) );
-    noiseless_fret(i,:) = binFretData( trace, binFactor );
+    noiseless_fret(i,:) = trace;
     
     if mod(i,25)==0,
         waitbar( i/nTraces, h );
@@ -226,7 +239,7 @@ end
 
 %--- Simulate fluorescence traces, adding gaussian read noise
 
-randn('state',111+randomSeed);
+% randn('state',111+randomSeed);
 
 % Add read/background noise to fluorescence and recalculate FRET
 if stdBackground~=0 || stdPhoton ~=0
@@ -245,18 +258,16 @@ if stdBackground~=0 || stdPhoton ~=0
     % Not that this alters total fluorescence intensities!
     donor = (1/gamma)*donor;
     
-    % Simulate donor photobleaching
+    % Simulate donor photobleaching.
+    % NOTE: this is not correctly time averaged.
     if kBleach > 0,
-        pbTimes = -log(rand(1,nTraces))./kBleachDonor;
-        pbTimes = ceil(pbTimes*simFramerate);
+        pbTimes = exprnd( 1/kBleachDonor, 1,nTraces );
+        pbTimes = round(pbTimes*simFramerate/binFactor);
+        pbTimes = min( max(1,pbTimes), traceLen );
         
         for i=1:nTraces,
-            pbtime = (pbTimes(i)/binFactor);
-            pbtime = round( min(pbtime,traceLen) );
-            pbtime = max(1,pbtime);
-
-            donor(i,pbtime:end) = 0;
-            acceptor(i,pbtime:end) = 0;
+            donor(i,pbTimes(i):end) = 0;
+            acceptor(i,pbTimes(i):end) = 0;
         end
     end
     
@@ -306,20 +317,3 @@ disp(toc);
 end %FUNCTION simulate
 
 
-
-
-function output = binFretData( trace, factor )
-
-assert( factor >= 1 );
-assert( floor(factor)==factor, 'binFretData: only integer values accepted' );
-
-traceLen = numel(trace);
-nFrames2 = floor(traceLen/factor);
-
-% Group each set of frames to be averaged as its own column vector.
-% Then, each group is time averaged by taking the mean of each vector.
-x = reshape(trace,[factor nFrames2]);
-output = mean(x);
-
-
-end %FUNCTION binFretData
