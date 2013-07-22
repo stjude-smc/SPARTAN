@@ -1,7 +1,7 @@
  function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.2.4';  %pipeline release version number
+constants.version = '2.2.5';  %pipeline release version number
 
 
 % ---- Algorithm constants that rarely need to be adjusted.
@@ -152,7 +152,7 @@ options.hideText     = false;  % don't display N=, t/s, etc on plots
 
 options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
 
-options.saveFiles    = false;  % save histogram txt files for plotting in Origin.
+options.saveFiles    = true;  % save histogram txt files for plotting in Origin.
 
 if options.ignoreState0,
    options.colors = options.colors(2:end,:); 
@@ -169,5 +169,6 @@ else
     constants.modelLocation = '/home/dsterry/data/Daniel/models/';
 end
 
+% For MIL (batch kinetics).
 warning off MATLAB:maxNumCompThreads:Deprecated
 constants.nProcessors = maxNumCompThreads;
