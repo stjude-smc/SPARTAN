@@ -89,6 +89,8 @@ fret_axis = options.fret_axis;
 shist = zeros( numel(fret_axis), nStates+1 );
 shist(:,1) = fret_axis;
 
+idl(idl==0&fret~=0) = 1; %otherwise the zero state is just blinks!
+
 for j=1:nStates,
     newdata = hist( fret(idl==j), fret_axis ) /numel(fret);
     shist(:,j+1) = newdata;

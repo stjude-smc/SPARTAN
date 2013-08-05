@@ -300,7 +300,7 @@ methods
         % Display the rate numbers
         % Use some fancy geometry to position the numbers above and below the
         % line regardless of their orientation.
-        t = atan( diff(state_y)/diff(state_x) );
+        t = atan2( diff(state_y), diff(state_x) );
         mx = mean(state_x);  my = mean(state_y);
         r = 0.5*boxsize;
 

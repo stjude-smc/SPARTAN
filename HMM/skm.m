@@ -77,7 +77,6 @@ data(data>10) = 10;
 data(data<-1) = -1;
 
 
-
 %% Run the SKM algorithm
 
 [nTraces,nFrames] = size(data);
@@ -101,7 +100,9 @@ if isfield(params,'seperately') && params.seperately==1,
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
         
-        waitbar(n/nTraces,wbh);
+        if mod(n,25)==0,
+            waitbar(n/nTraces,wbh);
+        end
     end
     close(wbh);
     
@@ -278,13 +279,16 @@ function [A2] = estimateA( idl,nStates )
 % where EVENTS(i,j) is the number of transitions from state i to state j.
 % NOTE: if idealizing very little data, some states may not be occupied.
 % This will lead to a row in A that is all zeros and cause division by 0.
-% TO avoid this, 
+% TO avoid this, use a small value on the diagonal instead of zero, which
+% will get normalized to 1 (can transition to itself) upon normalization.
+%
 
 [nTraces,nFrames] = size(idl);
 
-A = zeros( nStates, nStates );
+A = 0.01*eye( nStates );
 
 for n=1:nTraces
+    
     for t=2:nFrames,
         prev = idl(n,t-1);
         curr = idl(n,t);
@@ -295,9 +299,8 @@ for n=1:nTraces
 end
 
 normFact = repmat(sum(A,2),1,nStates); %sum over rows.
-normFact(normFact==0) = 1; %prevent division by zero
 
 A2 = A./normFact;
-assert(all(A2(:)>=0),'SKM: invalid A-matrix');
+assert( all(A2(:)>=0) & ~all(A2(:)==0), 'SKM: invalid A-matrix' );
 
 end

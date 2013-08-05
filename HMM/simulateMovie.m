@@ -79,12 +79,6 @@ if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
 end
 
 
- 
-% Initialize random number generator. Insure values are not correlated
-% if traces are generated with the same random seed.
-% rand( 'twister', params.randomSeed+1299 );
-
-
 
 %% Alter fluorescence intensities to simulate spectral artifacts.
 
@@ -173,10 +167,10 @@ for n=1:numel(bgMovieFilenames)
     
     % Save peak locations for later comparison (Dy,Dx,Ay,Ax).
     peakLocations = [donorPos acceptorPos];
-    figure;
-    scatter( donorPos(:,2), donorPos(:,1), 'bo' ); hold on;
-    scatter( acceptorPos(:,2), acceptorPos(:,1), 'ro' );
-    title('Simulated molecule locations');
+    %figure;
+    %scatter( donorPos(:,2), donorPos(:,1), 'bo' ); hold on;
+    %scatter( acceptorPos(:,2), acceptorPos(:,1), 'ro' );
+    %title('Simulated molecule locations');
     
 
     % --- 3. Distribute fluorescence intensities into a point-spread function
@@ -214,10 +208,12 @@ for n=1:numel(bgMovieFilenames)
             end
         end
 
-        if ~params.useAllMovies
-            waitbar( (0.95*i+nTracesUsed)/nTracesTotal, h );
-        else
-            waitbar( n/numel(bgMovieFilenames), h );
+        if mod(i,50)==0,
+            if ~params.useAllMovies
+                waitbar( (0.95*i+nTracesUsed)/nTracesTotal, h );
+            else
+                waitbar( n/numel(bgMovieFilenames), h );
+            end
         end
     end
 

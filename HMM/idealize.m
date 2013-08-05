@@ -50,7 +50,7 @@ nStates = numel(mu);
 
 start_p = reshape(start_p,[nStates,1]);
 
-assert( all(trans_p(:)>=0) && all(start_p>=0) );
+assert( ~all(trans_p(:)==0) && ~all(start_p==0) );
 
 
 % Predict the sequence of hidden model states for each trace
