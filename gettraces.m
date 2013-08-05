@@ -820,7 +820,7 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 
 % TODO: displacement ranges should be stored in params/cascadeConstants.
 % 
-
+tic;
 
 % Seperate fluorescence channels
 [nrow,ncol] = size(image_t);
@@ -828,6 +828,8 @@ donor_t    = image_t( 1:nrow, 1:ncol/2 );
 acceptor_t = image_t( 1:nrow, ((ncol/2)+1):end );
 
 [nrow,ncol] = size(donor_t);
+
+don_thresh = params.don_thresh;
 
 
 % Determine search range based on parameters.
@@ -849,16 +851,24 @@ ntrans = numel(trans_range);
 
 if ~params.quiet && ntheta>1,
     h = waitbar(0,'Searching for the optimal alignment');
-    i=1;
 end
 
 
-bestScore = 0; %best intensity score so far.
-% scores = zeros(1,ntrans);
-avgScore = 0;
+% Space to store the best alignment for each possible rotation value.
+% This is required for parfor to work correctly because all threads must be
+% totally independent.
+bestScores = zeros(1,ntheta);
+avgScores = zeros(1,ntheta);
+bestAligns = cell(1,ntheta);
+bestRegs = cell(1,ntheta);
 
 
-for theta=theta_range,
+% for t=1:ntheta,  %use this for single-threaded
+parfor t=1:ntheta,
+    theta = theta_range(t);
+    
+    totalScore = 0;
+    
     % Rotate the image, removing excess around the edges ('crop').
     % Rotation is done first for speed since imrotate is pretty slow and
     % the rotated image can be reused for the translations.
@@ -881,26 +891,34 @@ for theta=theta_range,
             % This will be higher when intensity is gathered from both
             % donor and acceptor side and low when they are seperated.
             total = donor_t+registered;
-            picks = total>params.don_thresh;
+            picks = total>don_thresh;
             I = ( mean( total(picks) )-mean( total(~picks) ) ) / std(total(~picks));
             
             %scores(dx==trans_range) = I;
-            avgScore = avgScore+I;
+            totalScore = totalScore+I;
             
             % If this is the best alignment so far, save it.
-            if I>bestScore,
-                bestScore = I;
-                bestAlign = struct('dx',dx,'dy',dy,'theta',theta);
-                bestReg = total;
+            if I>bestScores(t),
+                bestScores(t) = I;
+                bestAligns{t} = struct('dx',dx,'dy',dy,'theta',theta);
+                bestRegs{t} = total;
             end
         end
     end
+    
+    % Collect averages, etc for this parfor run
+    avgScores(t) = totalScore/(ntrans*ntrans);
      
-    if ~params.quiet && ntheta>1,
-        waitbar( i/ntheta, h );
-        i=i+1;
-    end
+%     if ~params.quiet && ntheta>1,  %breaks parfor
+%         waitbar( t/ntheta, h );
+%     end
 end
+
+
+% Over all possible rotations, find the best one.
+[bestScore,bestIdx] = max(bestScores);
+bestAlign = bestAligns{bestIdx};
+bestReg   = bestRegs{bestIdx};
 
 
 % If the correct alignment is out of range or the data are just random, we
@@ -908,12 +926,14 @@ end
 % quality of (or confidence in) the optimal alignment, pass along the score
 % magnitude relative to other choices. Ideally, this should be more than
 % 1.1-1.15 (10-15% higher intensity than a random alignment).
-quality = bestScore / (avgScore/(ntrans*ntrans*ntheta))
+quality = bestScore / mean(avgScores)
 
 
 if ~params.quiet && ntheta>1,
     close(h);
 end
+
+disp(toc);
 
 
 

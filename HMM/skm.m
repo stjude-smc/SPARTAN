@@ -88,21 +88,27 @@ data(data<-1) = -1;
 %      and a single idealization combining all results.
 
 if isfield(params,'seperately') && params.seperately==1,
+    % Start the matlab thread pool if not already running. perfor below will
+    % run the calculations of the available processors. The speed up is not
+    % that significant (2.5-fold for 4 cores), but useful.
+    if matlabpool('size')==0,  matlabpool;  end
+    
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
     
     % Optimize each trace seperately, using the 
     wbh = waitbar(0,'Idealizing traces seperately,..');
     
-    for n=1:nTraces,
+    parfor n=1:nTraces,
+    %for n=1:nTraces,   %use this line instead of single-thread.
         [newDWT,model(n),newLL] = runSKM( data(n,:), ...
                                      sampling, initialModel, params );
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
         
-        if mod(n,25)==0,
-            waitbar(n/nTraces,wbh);
-        end
+        %if mod(n,25)==0,
+        %    waitbar(n/nTraces,wbh);
+        %end
     end
     close(wbh);
     

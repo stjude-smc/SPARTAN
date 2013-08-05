@@ -1,7 +1,7 @@
  function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.2.5';  %pipeline release version number
+constants.version = '2.3';  %pipeline release version number
 
 
 % ---- Algorithm constants that rarely need to be adjusted.

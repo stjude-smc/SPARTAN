@@ -135,10 +135,6 @@ mu = mu ./ ( mu + gamma - gamma*mu );
 
 %%
 
-% rand('twister',101+randomSeed);
-% savedSeed = rand(); % save a seed for later that is not dependant
-%                     % on how many timesrand() is called.
-
 % Generate a set of uniform random numbers for choosing states
 h = waitbar(0,'Simulating...');
 
@@ -149,9 +145,16 @@ h = waitbar(0,'Simulating...');
 
 if kBleach > 0,
     pbTimes = exprnd( 1/kBleachAcceptor, 1,nTraces );
-    pbTimes = round(pbTimes*simFramerate);
+    pbTimes = pbTimes*simFramerate;
 end
 
+
+
+% Start the matlab thread pool if not already running. perfor below will
+% run the calculations of the available processors.
+% If a random seed is used, the results will no longer be deterministic.
+% Use for (not parfor) to get the predictable behavior.
+if matlabpool('size')==0,  matlabpool;  end
 
 
 %--- Generate noiseless state trajectory at 1 ms
@@ -160,7 +163,8 @@ dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
 
-for i=1:nTraces,
+parfor i=1:nTraces,
+% for i=1:nTraces,   %use this instead to turn off multi-threading
     
     % Choose the initial state
     curState = find( rand <= cumsum(p0), 1, 'first' );
@@ -231,15 +235,15 @@ for i=1:nTraces,
     
     noiseless_fret(i,:) = trace;
     
-    if mod(i,25)==0,
-        waitbar( i/nTraces, h );
-    end
+%     if mod(i,25)==0,
+%         waitbar( 0.9*i/nTraces, h );  %crashes with parfor
+%     end
 end
 
 
 %--- Simulate fluorescence traces, adding gaussian read noise
 
-% randn('state',111+randomSeed);
+waitbar( 0.9, h, 'Adding noise...' );
 
 % Add read/background noise to fluorescence and recalculate FRET
 if stdBackground~=0 || stdPhoton ~=0
