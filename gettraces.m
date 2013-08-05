@@ -346,9 +346,8 @@ for i=1:nFiles,
         
         % Automatically threshold setting based on variance of
         % background intensity at end of movie.
-        endBG = sort( stkData.endBackground(:) );
-        endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
-        don_thresh = thresh_std*std( endBG_lowerHalf );
+        endBG = sort( stkData.background(:) );
+        don_thresh = thresh_std*std( endBG );
     else
         don_thresh = params.don_thresh-mean2(stkData.background);
     end
@@ -594,6 +593,7 @@ if params.geometry>1,
     
     if quality<1.12,
         warning('Low confidence alignment. Parameters are out of range or data quality is poor.');
+        disp(quality);
     end
     
     align = align_reg;
@@ -926,14 +926,13 @@ bestReg   = bestRegs{bestIdx};
 % quality of (or confidence in) the optimal alignment, pass along the score
 % magnitude relative to other choices. Ideally, this should be more than
 % 1.1-1.15 (10-15% higher intensity than a random alignment).
-quality = bestScore / mean(avgScores)
+quality = bestScore / mean(avgScores);
 
 
 if ~params.quiet && ntheta>1,
     close(h);
 end
 
-disp(toc);
 
 
 

@@ -30,7 +30,7 @@ constants.overlap_nstd=5;
 
 % Used to calculated a threshold for detecting peaks of fluorescence in
 % gettraces.m. In standard deviations of background noise.
-constants.gettracesThresholdStd = 6;
+constants.gettracesThresholdStd = 4;
 
 constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 

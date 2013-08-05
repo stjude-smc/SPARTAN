@@ -61,7 +61,10 @@ handles.output = hObject;
 handles.hasModel = 0;
 handles.hasData = 0;
 
-options.sampling = 0.025;
+% FIXME: these should either be SET in the GUI or obtained from the GUI so
+% the .fig file always matches these settings when batchKinetics is first
+% loaded.
+options.sampling = 0.04;
 options.bootstrapN = 1;
 options.deadTime = 0.5;
 options.idealizeMethod = 'Segmental k-means';
