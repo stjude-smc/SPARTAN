@@ -96,15 +96,16 @@ else
 end
 
 %random number generator seed value
-if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
-    randomSeed = optargs.randomSeed;
-else
-    randomSeed  = 1272729;
-end
+% if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
+%     randomSeed = optargs.randomSeed;
+% else
+%     randomSeed  = 1272729;
+% end
 
 % Simulated acceptor photobleaching rate (0 disables).
-% Data will have an *apparent* acceptor bleaching rate of this value.
-% Actual value used in simulation also depends on donor bleaching rate.
+% Data will have a FRET lifetime of 1/kBleach, but the exact donor and
+% acceptor lifetimes will be the values that give that apparent rate with
+% the donor bleaching kBleachDonorFactor as fast as the acceptor.
 if isfield(optargs,'kBleach') && ~isempty(optargs.kBleach)
     kBleach = optargs.kBleach;
     assert(kBleach~=Inf,'kBleach must be finite');
@@ -112,9 +113,8 @@ else
     kBleach = 0;
 end
 
-kBleachDonor    = kBleachDonorFactor*kBleach;
-kBleachAcceptor = kBleach - kBleachDonor;
-
+kBleachAcceptor = kBleach/(1+kBleachDonorFactor);
+kBleachDonor    = kBleach - kBleachAcceptor;
 
 
 %%
@@ -141,8 +141,6 @@ h = waitbar(0,'Simulating...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
-% rand('twister',savedSeed);
-
 if kBleach > 0,
     pbTimes = exprnd( 1/kBleachAcceptor, 1,nTraces );
     pbTimes = pbTimes*simFramerate;
@@ -158,39 +156,45 @@ if matlabpool('size')==0,  matlabpool;  end
 
 
 %--- Generate noiseless state trajectory at 1 ms
-% idl  = zeros( nTraces, traceLen*binFactor );  %state assignment at every time point
 dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
 
-parfor i=1:nTraces,
-% for i=1:nTraces,   %use this instead to turn off multi-threading
+% parfor i=1:nTraces,
+for i=1:nTraces,   %use this instead to turn off multi-threading
     
     % Choose the initial state
     curState = find( rand <= cumsum(p0), 1, 'first' );
     
-    % Draw dwell times from exponential distribution.
-    % This is important so that results change as little as possible
-    % when a single parameter is modified.
+    
     endTime = 1000*(traceLen*sampling); %in ms
     states = [];
     times  = [];
     
+    % Below is essentially the (direct) Gillipse algorithm. Dwell times are
+    % drawn from exponential distributions and the first event to occur
+    % takes the system to a new "current state", continuing until the end
+    % of the trace (acceptor dye photobleaching).
+    % Note that, as with the experiments, this process is biased toward
+    % short dwells when the bleaching time is on the order of the dwell
+    % times in any state (even if the last dwell isn't truncated).
     while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
         
-        % Draw dwell time from exponential distribution.
-        % tau is the time constant for each type of transition from the current state.
-        tau = 1000./ Q( curState, : ); %in ms.
-        t = exprnd( tau ); %random times drawn from each exponential distribution.
+        % Simulate the time until the next transition.
+        l_tot = sum( Q(curState,:) ); %rate for any transition to occur (the sum of all rates)
+        dwellTime = exprnd(1000./l_tot);        %in ms
         
-        % Choose event that happens first.
-        [dwellTime,nextState] = min( t );
+        % Simulate the transition type with probabilities being the
+        % fraction of transition of each type by rate.
+        x = cumsum( Q(curState,:)./l_tot );
+        nextState = find( rand<=x, 1, 'first' );
         
         states(end+1) = curState;
         times(end+1) = dwellTime;
         
         curState = nextState;
     end
+    
     
     % Truncate last dwell to fit into time window
     totalTime = sum(times);
@@ -235,9 +239,9 @@ parfor i=1:nTraces,
     
     noiseless_fret(i,:) = trace;
     
-%     if mod(i,25)==0,
-%         waitbar( 0.9*i/nTraces, h );  %crashes with parfor
-%     end
+    if mod(i,25)==0,
+        waitbar( 0.9*i/nTraces, h );  %crashes with parfor
+    end
 end
 
 

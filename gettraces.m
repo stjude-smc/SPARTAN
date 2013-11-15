@@ -347,7 +347,8 @@ for i=1:nFiles,
         % Automatically threshold setting based on variance of
         % background intensity at end of movie.
         endBG = sort( stkData.background(:) );
-        don_thresh = thresh_std*std( endBG );
+        endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
+        don_thresh = thresh_std*std( endBG_lowerHalf );
     else
         don_thresh = params.don_thresh-mean2(stkData.background);
     end
@@ -1017,13 +1018,15 @@ y = peaks(:,2);
 regions = stkData.regions;  % pixel#, dimension(x,y), peak#
 
 
-% Create a trace for each molecule across the entire movie
+% Create a trace for each molecule across the entire movie.
+% The estimated background image is also subtracted to help with molecules
+% that do not photobleaching during the movie.
 traces = zeros(Npeaks,nFrames);
 
 idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 
 for k=1:nFrames,
-    frame = double( movie.readFrame(k) );
+    frame = double( movie.readFrame(k) )  -stkData.background;
     if params.nPixelsToSum>1
         traces(:,k) = sum( frame(idx) );
     else

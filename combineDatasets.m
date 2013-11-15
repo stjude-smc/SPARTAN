@@ -110,9 +110,11 @@ if min( traceLen )~=max( traceLen ),
             
             % Convert dwell-times to an idealization, which are easy to
             % truncate, and convert back for saving later.
-            idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
-            idl = idl(:,1:newTraceLength);
-            [dwt{i},offsets{i}] = idlToDwt(idl);
+            if ~isempty(dwt{i}),
+                idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
+                idl = idl(:,1:newTraceLength);
+                [dwt{i},offsets{i}] = idlToDwt(idl);
+            end
         end %end for each file.
         
         time = time(1:newTraceLength);
@@ -137,9 +139,11 @@ if min( traceLen )~=max( traceLen ),
             % offsets. But this is very easy to do by converting it to an
             % idealization and adding zeros (a marker for regions that are not
             % idealized) to the ends.
-            idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
-            idl = [ idl  zeros( size(idl,1), delta )  ];
-            [dwt{i},offsets{i}] = idlToDwt(idl);
+            if ~isempty(dwt{i}),
+                idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
+                idl = [ idl  zeros( size(idl,1), delta )  ];
+                [dwt{i},offsets{i}] = idlToDwt(idl);
+            end
         end
     end
     

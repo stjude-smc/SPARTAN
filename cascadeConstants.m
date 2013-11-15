@@ -1,7 +1,7 @@
- function constants = cascadeConstants()
+function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.3';  %pipeline release version number
+constants.version = '2.4';  %pipeline release version number
 
 
 % ---- Algorithm constants that rarely need to be adjusted.
@@ -30,7 +30,7 @@ constants.overlap_nstd=5;
 
 % Used to calculated a threshold for detecting peaks of fluorescence in
 % gettraces.m. In standard deviations of background noise.
-constants.gettracesThresholdStd = 4;
+constants.gettracesThresholdStd = 8;
 
 constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 

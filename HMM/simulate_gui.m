@@ -287,6 +287,7 @@ end
 [fname,p] = uigetfile( [p filesep '*.qmf'], 'Load QuB model file' );
 if fname==0, return; end
 fname = [p fname];
+modelLoc = fname;
 
 % Load the model
 handles.model = QubModel(fname);

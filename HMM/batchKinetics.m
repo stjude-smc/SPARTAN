@@ -328,7 +328,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
             
             % Remove last dwell if in dark state. These dwells result from the
             % photobleached state, which is not considered in kinetic analysis.
-            if states(end)==1,
+            if numel(states)>0 && states(end)==1,
                 states = states(1:end-1);
                 times  = times(1:end-1);
             end

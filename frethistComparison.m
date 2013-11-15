@@ -35,7 +35,7 @@ darkModel = [constants.modelLocation 'darkstate.qmf'];
 sampling = 20; %ms. unused unless time axis is undefined.
 
 % Settings for error bar calculation.
-calcErrorBars = false;  % turn on to get error bars.
+calcErrorBars = false;  % if true, use bootstrapping to display error bars
 
 if calcErrorBars
     nBootstrap = 100;  %number of bootstrap samples to make.

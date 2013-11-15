@@ -146,6 +146,9 @@ handles.filename = [handles.datapath handles.datafile];
 handles = OpenTracesFile( handles.filename, handles );
 
 
+% set(gcf, 'KeyPressFcn', @(x,y)disp(get(f,'CurrentCharacter')))
+
+
 guidata(hObject, handles);
 % END FUNCTION btnOpen_Callback
 
@@ -226,7 +229,7 @@ set(handles.btnLoadDWT,  'Enable','on' );
 % The default value of zero is a marker that the value hasn't been
 % calculated yet (but should be using traceStat).
 handles.fretThreshold = zeros( handles.Ntraces, 1  );
-set( handles.sldThreshold, 'min', 0, 'max', 100, 'sliderstep', [0.01 0.1] );
+set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
 % Set data correction starting values.
 % The crosstalk value here reflects *the correction that has already been
@@ -328,7 +331,7 @@ if handles.fretThreshold(mol) == 0,
     
     % Adjust scroll bar range if the new value falls outside of it.
     sldMax = get( handles.sldThreshold, 'max' );
-    sldMax = max( sldMax, 1.5*handles.fretThreshold(mol) );
+    sldMax = max( sldMax, 2*handles.fretThreshold(mol) );
     set( handles.sldThreshold, 'max', sldMax );
 end
 
@@ -394,6 +397,51 @@ if val==1,  %checking
     end
     
 else  %unchecking
+    if index==1,
+        handles.NoFRETs_indexes = handles.NoFRETs_indexes( ...
+                                  handles.NoFRETs_indexes~=mol );
+    elseif index==2,
+        handles.FRETs_indexes = handles.FRETs_indexes( ...
+                                handles.FRETs_indexes~=mol );       
+    elseif index==3,
+        handles.Best_indexes = handles.Best_indexes( ...
+                               handles.Best_indexes~=mol );
+    end
+end
+
+
+NoFRET_no = numel( handles.NoFRETs_indexes );
+FRET_no = numel( handles.FRETs_indexes );
+Best_no = numel( handles.Best_indexes );
+
+set(handles.editBin1,'String',num2str(NoFRET_no));
+set(handles.editBin2,'String',num2str(FRET_no));  
+set(handles.editBin3,'String',num2str(Best_no));
+
+set(handles.btnSave,'Enable','on');
+guidata(hObject,handles);
+
+
+% --- Executes on button press in chkBin1.
+function toggleBin(hObject, eventdata, handles, index)
+% User clicked on one of the check boxes associated with each bin.
+% The last parameter determines which bin was indicated.
+
+mol = handles.molecule_no;
+chk_name = ['chkBin' num2str(index)];
+val = ~get( handles.(chk_name), 'Value' );
+set( handles.(chk_name), 'Value', val );
+
+if val==1,  %if unchecked, check
+    if index==1,
+        handles.NoFRETs_indexes = [handles.NoFRETs_indexes mol];
+    elseif index==2,
+        handles.FRETs_indexes = [handles.FRETs_indexes mol];
+    elseif index==3,
+        handles.Best_indexes = [handles.Best_indexes mol];
+    end
+    
+else  %if checked, uncheck
     if index==1,
         handles.NoFRETs_indexes = handles.NoFRETs_indexes( ...
                                   handles.NoFRETs_indexes~=mol );
@@ -909,6 +957,38 @@ set(handles.editBin3,'String',num2str(Best_no));
 
 set(handles.btnSave,'Enable','on');
 guidata(hObject,handles);
+
+
+
+
+% --- Executes on button press in btnSelAll3.
+function navKeyPress_Callback(hObject, eventdata, handles)
+% Handles keyboard shortcut commands for moving through traces and putting
+% them into bins. Called when keys are pressed when one of the navigation
+% buttons has active focus.
+% FIXME: not working for top buttons yet.
+
+ch = get(gcf,'CurrentCharacter');
+
+switch ch
+    case 28,
+    btnPrevTop_Callback( hObject, eventdata, handles ); 
+    
+    case 29
+    btnNextTop_Callback( hObject, eventdata, handles );
+    
+    case 'a'
+    toggleBin( hObject, eventdata, handles, 1 );
+    
+    case 's'
+    toggleBin( hObject, eventdata, handles, 2 );
+    
+    case 'd'
+    toggleBin( hObject, eventdata, handles, 3 );
+end
+
+
+%end function navKeyPress_Callback
 
 
 
