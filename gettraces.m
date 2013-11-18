@@ -128,8 +128,8 @@ else
 end
 
 % Find peak locations from total intensity
-[peaks,stkData.total_t,stkData.alignStatus,stkData.total_peaks,...
-                stkData.fractionOverlapped] = getPeaks( image_t, params );
+[peaks,stkData.total_t,stkData.alignStatus,stkData.total_peaks,stkData.fractionOverlapped, ...
+    stkData.rejectedPicks,stkData.rejectedTotalPicks] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
 [stkData.regions,stkData.integrationEfficiency] = ...
@@ -419,7 +419,8 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick single molecule spots ----------------- 
-function [picks,total_t,align,total_picks,fractionOverlapped] = getPeaks( image_t, params, lastAlign )
+function [picks,total_t,align,total_picks,fractionOverlapped,rejectedPicks,rejectedTotalPicks] ...
+             = getPeaks( image_t, params )
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments). The selection is made on the total fluorescence
 % intensity image (summing all channels into a single image) to minimize
@@ -434,25 +435,26 @@ function [picks,total_t,align,total_picks,fractionOverlapped] = getPeaks( image_
 % range of values, returning the best one. This process is pretty slow and
 % the rotation adds noise to peak locations (picks), so rotation is turned
 % off by default.
+%
+%    picks   = peak center positions for each channel listed in order:
+%            For dual-color (FRET), it is Cy3,Cy5,Cy3,Cy5,...
+%            For quad-color, UL,LL,LR,UR is the order.
+%    total_t = total intensity image that was used for selecting peaks.
+%    align   = alignment information as struct(dx,dy,theta,mag,abs_dev).
+%            If software alignment is used, these numbers correspond
+%            to the alignment applied.
+%    total_picks = peak locations in the total intensity "channel" used for
+%            picking in the first place.
+%    fractionOverlapped = fraction of traces removed because they were too
+%            close to a neighboring peak.
+%    rejectedPicks = locations of peaks that will not be considered because
+%            they are too close to a neighbor.
+%    rejectedTotalPicks = rejected peaks in total intensity image.
 % 
-% picksX - X-coords of all molcules, as Cy3,Cy5,Cy3,Cy5 in order
-% picksY - Y-coords ...
-% For quad-color, UL,LL,LR,UR is the order.
 
 nChannels = params.geometry;
 align = [];
-
-% If using a single-channel setup, use a simplified proceedure
-% since we don't have to worry about alignment, etc.
-if params.geometry==1,
-    total_t = image_t;
-    [picks,allPicks] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-    assert( size(picks,2)==2 ); %x and y columns, molecules in rows.
-    
-    fractionOverlapped = (size(allPicks,1)-size(picks,1)) /size(allPicks,1);
-    return;
-end
-% Otherwise, assume dual-channel. FIXME
+abs_dev = 0;
 
 
 % Define each channel's dimensions and sum fields together.
@@ -460,7 +462,10 @@ end
 % For quad-channel, it is UL/LL/LR/UR
 [nrow ncol] = size(image_t);
 
-if params.geometry==2,
+if params.geometry==1,
+    total_t = image_t;
+
+elseif params.geometry==2,
     donor_t    = image_t( :, 1:ncol/2 );
     acceptor_t = image_t( :, (ncol/2+1):end );
 
@@ -478,9 +483,8 @@ end
 
 
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
-[total_picks,allPicks] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+[total_picks,rejected] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 nPicked = size(total_picks,1);
-fractionOverlapped = (size(allPicks,1)-size(total_picks,1)) /size(allPicks,1);
 
 assert( all(total_picks(:))>0, 'bad peak locations' );
 
@@ -489,7 +493,10 @@ assert( all(total_picks(:))>0, 'bad peak locations' );
 % (cell elements) may be empty if that channel isn't used.
 picks = ones(nChannels*nPicked, 2); %donor, acceptor alternating; 2 columns = x,y
 
-if params.geometry==2
+if params.geometry==1,
+    picks = total_picks;
+
+elseif params.geometry==2
     picks(1:2:end,:) = total_picks; % L (donor)
 
     picks(2:2:end,1) = total_picks(:,1) + ncol/2; % R (acceptor) x
@@ -524,8 +531,7 @@ elseif params.geometry>2,
 end
 
 
-align = [];
-
+%%%%% Estimation of misalignment (for dual or multi-color)
 % FIXME: this only works for donor/acceptor (FRET) channels. The factor
 % channel may not have any intensity to do the alignment calculation...
 % There is also no crosstalk that could be used to measure it...
@@ -551,8 +557,7 @@ if params.geometry>1,
     end
     x_diff = r_mod(indA:nCh:end,1)-r_mod(indD:nCh:end,1);
     y_diff = r_mod(indA:nCh:end,2)-r_mod(indD:nCh:end,2);
-
-
+    
     % Use the picked peak locations to create a simple transformation
     % (including translation, rotation, and scaling) from donor to acceptor.
     tform = cp2tform( r_mod(indD:nCh:end,:), r_mod(indA:nCh:end,:), ...
@@ -565,18 +570,15 @@ if params.geometry>1,
     abs_dev = mean( sqrt( x_diff.^2 + y_diff.^2 )  );
     align = struct('dx',dx,'dy',dy,'theta',theta,'mag',mag,'abs_dev',abs_dev);
     
+end
 
-    % If the alignment is close, no need to adjust.
-    if abs_dev<=0.5,  return;  end
-    
-    
-    % Just give a warning unless asked to do software alignment in settings.
-    % FIXME: code below only works for two-channel FRET.
-    if (~params.alignTranslate && ~params.alignRotate) || params.geometry>2,
-        return;
-    end 
-         
 
+%%%%% Optional software alignment algorithm (for dual-color only!)
+% If the alignment is close, no need to adjust.
+% Just give a warning unless asked to do software alignment in settings.
+% FIXME: code below only works for two-channel FRET.
+if params.geometry==2 && abs_dev>0.5 && (params.alignTranslate || params.alignRotate),
+    % 
     %---- 2. Transform acceptor side so that the two channels align properly.
     
     % Try out all possible alignments within a range and find the one with
@@ -585,84 +587,96 @@ if params.geometry>1,
     % reject it and just say "we don't know".
     [align_reg,total_reg,quality] = alignSearch( image_t, params );
     
-    if align_reg.dx==0 && align_reg.dy==0 && align_reg.theta==0,
-        % Best alignment was no different, so don't bother with further
-        % computation. Also, preserve the initial error estimates,
-        % which are more useful.
-        return;
+    if ~( align_reg.dx==0 && align_reg.dy==0 && align_reg.theta==0 ),
+        % The alignment is clearly off, but we may not have high confidence
+        % in the predicted alignment. Just give a warning if it is below
+        % some arbitrary, but carefully chosen, threshold.
+        if quality<1.12,
+            warning('Low confidence alignment. Parameters are out of range or data quality is poor.');
+            disp(quality);
+        end
+
+        align = align_reg;
+        total_t = total_reg;
+        align.quality=quality;
+
+
+        % Pick peaks from the aligned image.
+        [total_picks,rejected] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+        nPicked = numel(total_picks)/2;
+
+
+        % Transform peak location in the total intensity image to where
+        % they fall in the original images.
+        T = [ sx*cos(align.theta*pi/180)     sin(align.theta*pi/180)  0 ; ...
+                -sin(align.theta*pi/180)  sy*cos(align.theta*pi/180)  0 ; ...
+                     align.dx                      align.dy               1 ];
+        tform_a = maketform('affine',T);
+
+        % The transformation is done around the center of image, which requires
+        % shifting the coordinates. The final coordinates are rounded to put
+        % them into integer pixel locations.
+        donor_picks = total_picks;
+        acceptor_picks = tformfwd(  tform_a,  [total_picks(:,1)-(ncol/4) total_picks(:,2)-(nrow/2) ]  );
+        acceptor_picks = round( [acceptor_picks(:,1)+(ncol/4) acceptor_picks(:,2)+(nrow/2) ] ); 
+
+
+        % Some of the acceptor peaks fall outside the imaging area (where the
+        % donor was detected, but the acceptor is actually off-screen). This
+        % must be removed.
+        remove = sum( acceptor_picks<2 | donor_picks<2, 2 ) | ...
+                 acceptor_picks(:,1) > (ncol/2)-1 | acceptor_picks(:,2) > nrow-1 | ...
+                 donor_picks(:,1)    > (ncol/2)-1 | donor_picks(:,2)    > nrow-1 ;
+        remove = logical( remove );
+
+        total_picks    = total_picks(~remove,:);
+        donor_picks    = donor_picks(~remove,:);
+        acceptor_picks = acceptor_picks(~remove,:);
+        nPicked = nPicked-sum(remove);
+        rejected = rejected(~remove);
+
+
+        % Since the alignment image has been shifted to compensate for misalignment
+        % already (above), adjust the output coordinates so they are relative to
+        % the actual fields, not the adjusted fields.
+        picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
+
+        picks(1:2:end,1) = donor_picks(:,1);              %donor x
+        picks(2:2:end,1) = acceptor_picks(:,1) + ncol/2;  %acceptor x
+        picks(1:2:end,2) = donor_picks(:,2);     %donor y
+        picks(2:2:end,2) = acceptor_picks(:,2);  %acceptor y
+
+
+        %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
+        refinedPicks = refinePeaks( image_t, picks );
+
+        r_mod = [ mod(refinedPicks(:,1),ncol/2) refinedPicks(:,2) ]; %2-color
+
+        x_diff = r_mod(indA:nCh:end,1)-r_mod(indD:nCh:end,1);
+        y_diff = r_mod(indA:nCh:end,2)-r_mod(indD:nCh:end,2);
+        align.abs_dev = mean(  sqrt( x_diff.^2 + y_diff.^2 )  );
+
+        % Calculate residual alignment deviation after software alignment.
+        % It is easy to calculate deviation in each peak from where it
+        % should be (assuming they are now aligned), but this is not the
+        % same as the distance between the two peaks (D,A) in the aligned
+        % image.
+        %residuals = picks-refinedPicks;
+        %align.residual_dev = 2*mean(  sqrt( residuals(:,1).^2 + residuals(:,2).^2 )  );
     end
-    
-    if quality<1.12,
-        warning('Low confidence alignment. Parameters are out of range or data quality is poor.');
-        disp(quality);
-    end
-    
-    align = align_reg;
-    total_t = total_reg;
-    align.quality=quality;
-
-    
-    % Pick peaks from the aligned image.
-    [total_picks,allPicks] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
-    nPicked = numel(total_picks)/2;    
-    fractionOverlapped = (size(allPicks,1)-size(total_picks,1)) /size(allPicks,1);
-    
-    
-    % Transforming peak location in the total intensity image to where
-    % they fall in the original images.
-    T = [ sx*cos(align.theta*pi/180)     sin(align.theta*pi/180)  0 ; ...
-            -sin(align.theta*pi/180)  sy*cos(align.theta*pi/180)  0 ; ...
-                 align.dx                      align.dy               1 ];
-    tform_a = maketform('affine',T);
-    
-    % The transformation is done around the center of image, which requires
-    % shifting the coordinates. The final coordinates are rounded to put
-    % them into integer pixel locations.
-    donor_picks = total_picks;
-    acceptor_picks = tformfwd(  tform_a,  [total_picks(:,1)-(ncol/4) total_picks(:,2)-(nrow/2) ]  );
-    acceptor_picks = round( [acceptor_picks(:,1)+(ncol/4) acceptor_picks(:,2)+(nrow/2) ] ); 
-    
-    
-    % Some of the acceptor peaks fall outside the imaging area (where the
-    % donor was detected, but the acceptor is actually off-screen). This
-    % must be removed.
-    remove = sum( acceptor_picks<2 | donor_picks<2, 2 ) | ...
-             acceptor_picks(:,1) > (ncol/2)-1 | acceptor_picks(:,2) > nrow-1 | ...
-             donor_picks(:,1)    > (ncol/2)-1 | donor_picks(:,2)    > nrow-1 ;
-    remove = logical( remove );
-        
-    total_picks    = total_picks(~remove,:);
-    donor_picks    = donor_picks(~remove,:);
-    acceptor_picks = acceptor_picks(~remove,:);
-    nPicked = nPicked-sum(remove);
-    
-    
-    % Since the alignment image has been shifted to compensate for misalignment
-    % already (above), adjust the output coordinates so they are relative to
-    % the actual fields, not the adjusted fields.
-    picks = zeros(nPicked*2,2); %donor, acceptor alternating; 2 columns = x,y
-
-    picks(1:2:end,1) = donor_picks(:,1);              %donor x
-    picks(2:2:end,1) = acceptor_picks(:,1) + ncol/2;  %acceptor x
-    picks(1:2:end,2) = donor_picks(:,2);     %donor y
-    picks(2:2:end,2) = acceptor_picks(:,2);  %acceptor y
-    
-
-    %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
-    refinedPicks = refinePeaks( image_t, picks );
-    
-    r_mod = [ mod(refinedPicks(:,1),ncol/2) refinedPicks(:,2) ]; %2-color
-
-    x_diff = r_mod(indA:nCh:end,1)-r_mod(indD:nCh:end,1);
-    y_diff = r_mod(indA:nCh:end,2)-r_mod(indD:nCh:end,2);
-    align.abs_dev = mean(  sqrt( x_diff.^2 + y_diff.^2 )  );
-    
-    % Also calculate the residual deviation, which indicates how good the
-    % alignment is.
-%     residuals = picks-refinedPicks;
-%     align.residual_dev = mean(  2*sqrt( residuals(:,1).^2 + residuals(:,2).^2 )  );
-
 end
+
+
+% Save output
+fractionOverlapped = sum(rejected) / (size(total_picks,1)+sum(rejected));
+
+rejectedTotalPicks = total_picks(rejected,:);
+total_picks = total_picks(~rejected,:);
+
+good = repmat( ~rejected, [nChannels,1] ); good=logical(good(:));
+rejectedPicks = picks( ~good,: );
+picks = picks( good,: );
+
 
 % end function getTraces
 
@@ -680,9 +694,12 @@ wavg = sum( vals.*weights );
 
 
 
-function [clean_picks,all_picks] = pickPeaks( image_t, threshold, overlap_thresh )
-% Localizes the peaks of fluorescence, removing any too close together.
-
+function [picks,boolRejected] = pickPeaks( image_t, threshold, overlap_thresh )
+% Localizes the peaks of fluorescence.
+%   picks = locations (x,y) of all molecules selected.
+%   rejectedPicks = locations of molecules that are too close to a neighbor
+%                        and should be ignored in analysis.
+%
 [nrow ncol] = size(image_t);
 
 
@@ -724,8 +741,8 @@ for n=1:numel(rows),
 end
 
 if nMols<1,
-    clean_picks = zeros(0,2);
-    all_picks = clean_picks;
+    picks = zeros(0,2);
+    boolRejected = false(0,2);
     return;
 end
 
@@ -756,12 +773,8 @@ if overlap_thresh~=0,
 end
 
 
-indexes = find( overlap==0 ); %find peaks with overlap less than threshold
-don_x = tempx(indexes);
-don_y = tempy(indexes);
-
-clean_picks = [don_x' don_y'];
-all_picks = [tempx' tempy'];
+picks = [tempx' tempy'];
+boolRejected = overlap==1; %find peaks that overlap (are rejected)
 
 
 % END FUNCTION pickPeaks
@@ -794,7 +807,7 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 %
 %    [bestAlign,bestReg] = alignSearch( image_t, params )
 %
-% Full serach for a transformation (rotation+translation) of the acceptor
+% Full search for a transformation (rotation+translation) of the acceptor
 % side relative to the donor. For each combination of dx, dy, and dtheta
 % (across a range in each), transform the acceptor side image, sum the
 % donor and acceptor images, and calculate peak intensities (above a
@@ -802,9 +815,7 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 % to the well-aligned image.
 %
 % This method is slow and should only be used when the fields are far out
-% of alignment. The optimal alignment parameters should be reused for each
-% movie in a series. gettraces will first try no transform, then the last
-% transform, before doing the full search.
+% of alignment.
 %
 % Note that this method is biased toward zero rotation because the imrotate
 % method blurs out the acceptor image, so the peak intensities are
@@ -813,7 +824,7 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 % are somewhat less likely to be picked at a set threshold. If the
 % threshold is way below all the molecules, it will have no biasing effect,
 % but if it is close and some molecules are not discovered, it will cause
-% problems.
+% problems. This might be fixed by rotating BOTH fields...
 %
 % WARNING: This method does not handle difference in magnification across
 % the fields. FIXME.

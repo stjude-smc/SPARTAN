@@ -166,7 +166,7 @@ end
 constants = cascadeConstants;
 
 [p f] = fileparts(fname_output);
-fid = fopen( [p filesep f '.log'], 'w' );
+fid = fopen( [p filesep f '.sim.log'], 'w' );
 
 t = clock;
 fprintf(fid, 'Run time:  %d/%d/%d %d:%d  (v%s)', t(1:5), constants.version);

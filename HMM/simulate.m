@@ -152,7 +152,7 @@ end
 % run the calculations of the available processors.
 % If a random seed is used, the results will no longer be deterministic.
 % Use for (not parfor) to get the predictable behavior.
-if matlabpool('size')==0,  matlabpool;  end
+% if matlabpool('size')==0,  matlabpool;  end
 
 
 %--- Generate noiseless state trajectory at 1 ms

@@ -533,6 +533,10 @@ else
     
     text = sprintf('%s:\n%0.1f (x), %0.1f (y), %0.1f° (rot),\n%0.1f (abs)', ...
                     text, [a.dx a.dy a.theta a.abs_dev] );
+                
+    if isfield(a,'residual_dev')
+        text = [text sprintf(', %0.1f (res)',a.residual_dev)];
+    end
     
     set( handles.txtAlignStatus, 'String', text );
 
@@ -607,6 +611,12 @@ handles.x = peaks(:,1);
 handles.y = peaks(:,2);
 handles.total_x = stkData.total_peaks(:,1);
 handles.total_y = stkData.total_peaks(:,2);
+
+handles.rx = stkData.rejectedPicks(:,1);
+handles.ry = stkData.rejectedPicks(:,2);
+handles.rtotal_x = stkData.rejectedTotalPicks(:,1);
+handles.rtotal_y = stkData.rejectedTotalPicks(:,2);
+
 highlightPeaks( handles );
 
 % Update GUI controls
@@ -628,9 +638,14 @@ function highlightPeaks(handles)
 
     
 % Parameters for drawing circles around each detected molecule.
-args1 = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
-args2 = {'LineStyle','none','marker','o','color','y','EraseMode','background'};
-    
+style1 = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
+style2 = {'LineStyle','none','marker','o','color','y','EraseMode','background'};
+
+% Parameters for overlapped molecules that won't actually be recorded.
+% These are darker to de-emphasize them, but yet still be visible.
+style1b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.4],'EraseMode','background'};
+style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0],'EraseMode','background'};
+
 
 [nrow,ncol] = size(handles.stk_top);
 
@@ -641,7 +656,8 @@ delete(findobj(gcf,'type','line'));
 if handles.params.geometry==1, %single-channel
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
-    line(handles.x,handles.y, args2{:});
+    line(handles.x,handles.y, style2{:});
+    line(handles.rx,handles.ry, style2b{:});
     
 elseif handles.params.geometry==2, %dual-channel
     indD = 1:2:numel(handles.x);
@@ -649,15 +665,18 @@ elseif handles.params.geometry==2, %dual-channel
         
     % Draw markers on selection points (donor side)
     axes(handles.axDonor);
-    line(handles.x(indD),handles.y(indD), args1{:});
+    line(handles.x(indD),handles.y(indD), style1{:});
+    line(handles.rx(1:2:end),handles.ry(1:2:end), style1b{:});
 
     % Draw markers on selection points (acceptor side)
     axes(handles.axAcceptor);%default 3-color channel assignments.
-    line(handles.x(indA)-(ncol/2),handles.y(indA), args1{:});
+    line(handles.x(indA)-(ncol/2),handles.y(indA), style1{:});
+    line(handles.rx(2:2:end)-(ncol/2),handles.ry(2:2:end), style1b{:});
 
     % Draw markers on selection points (total intensity composite image)
     axes(handles.axTotal);
-    line(handles.total_x,handles.total_y, args2{:});
+    line(handles.total_x,handles.total_y, style2{:});
+    line(handles.rtotal_x,handles.rtotal_y, style2b{:});
     
 elseif handles.params.geometry>2, %quad-channel
     % Assign each spot to a quadrant.
@@ -667,20 +686,20 @@ elseif handles.params.geometry>2, %quad-channel
     indUR = find( handles.x> (ncol/2) & handles.y<=(nrow/2) );
     
     axes(handles.axUL);
-    line(handles.x(indUL),handles.y(indUL), args1{:});
+    line(handles.x(indUL),handles.y(indUL), style1{:});
     
     axes(handles.axLL);
-    line(handles.x(indLL),handles.y(indLL)-(nrow/2), args1{:});
+    line(handles.x(indLL),handles.y(indLL)-(nrow/2), style1{:});
     
     axes(handles.axLR);
-    line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), args1{:});
+    line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), style1{:});
     
     axes(handles.axUR);
-    line(handles.x(indUR)-(ncol/2),handles.y(indUR), args1{:});
+    line(handles.x(indUR)-(ncol/2),handles.y(indUR), style1{:});
     
     % Draw markers on selection points (total intensity composite image).
     axes(handles.axTotal);
-    line(handles.total_x,handles.total_y, args2{:});
+    line(handles.total_x,handles.total_y, style2{:});
 end
 
 
