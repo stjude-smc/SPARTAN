@@ -47,7 +47,8 @@ constants.gamma = 1.0;
 
 % Donor->Acceptor channel signal crosstalk (gettraces).
 % This applies to both 2-color and 3-color FRET.
-constants.crosstalk = 0.07;
+constants.crosstalk = 0.12;  %dual-cam (630 longpass filter)
+%constants.crosstalk = 0.26;  %quad-view (Cy3->Cy5/donor-acceptor)
 
 % ADU (arbitrary camera intensity units) to photon conversion factor in
 % units of ADU/photon. See camera calibration data sheet. This may depend
@@ -81,19 +82,25 @@ params.saveLocations = 0;
 % Descriptions are just metadata and can be anything.
 % For now these are just the fluorophores used.
 % Dual-channel. Order is: L, R.
-constants.gettraces_chNames2 = {'donor','acceptor'};
-constants.gettraces_chDesc2  = {'Cy3','Cy5'};
-% Three- or Four-channel. Order is: UL, LL, LR, UR.
-% Use null ('') for unused channels (three-color).
-constants.gettraces_chNames4 = {'donor','factor','acceptor',''};
-constants.gettraces_chDesc4 = {'Cy3','Cy2','Cy5',''};
+constants.gettraces_chNames2  = {'donor','acceptor'};
+constants.gettraces_chDesc2   = {'Cy3','Cy5'};
+constants.gettraces_wavelengths2 = [532 640];
 
+% Three- or Four-channel. Order is: UL, UR, LL, LR.
+% Use null ('') for unused channels (three-color) or 0 for wavelength.
+constants.gettraces_chNames4  = {'acceptor','acceptor2','donor',''};
+constants.gettraces_chDesc4   = {'Cy5','Cy7','Cy3',''};
+constants.gettraces_wavelengths4 = [640 730 532 473];
+
+% Pick channel names, etc for the current geometry.
 if params.geometry==2,
     params.chNames = constants.gettraces_chNames2;
     params.chDesc  = constants.gettraces_chDesc2;
+    params.wavelengths = constants.gettraces_wavelengths2;
 elseif params.geometry>2,
     params.chNames = constants.gettraces_chNames4;
     params.chDesc  = constants.gettraces_chDesc4;
+    params.wavelengths = constants.gettraces_wavelengths4;
 end
 
 constants.gettracesDefaultParams = params;
@@ -152,7 +159,7 @@ options.hideText     = false;  % don't display N=, t/s, etc on plots
 
 options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
 
-options.saveFiles    = true;  % save histogram txt files for plotting in Origin.
+options.saveFiles    = false;  % save histogram txt files for plotting in Origin.
 
 if options.ignoreState0,
    options.colors = options.colors(2:end,:); 

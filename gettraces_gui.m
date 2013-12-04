@@ -14,21 +14,7 @@ function varargout = gettraces_gui(varargin)
 %      directory. All the .stk files in that directory will be converted to
 %      separate .traces files using the established threshold and txtOverlap
 %      rejection. Batch mode is not recursive.
-%
-%               -JBM 12/06
-%
-% Changes:
 % 
-% 0. Much faster run time, less memory usage (AppData), comments
-% 1. txtoverlap distances now calculated for centroid of fluor peak.
-% 2. Full bg correction used for peak picking
-% 3. Peak search uses plus-shaped window instead of 3x3
-% 
-%           -DT 10/22
-
-% Copyright 2002-2003 The MathWorks, Inc.
-
-% Edit the above text to modify the response to help gettraces
 
 % Last Modified by GUIDE v2.5 06-Mar-2013 15:03:19
 
@@ -235,115 +221,104 @@ set(handles.scaleSlider,'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 %
-image_t    = handles.stk_top-stkData.background;
+image_t = handles.stk_top-stkData.background;
 [nrow,ncol] = size(image_t);
+fields = {};  ax = [];
+
+% Get names and descriptions of all channels and make them easier to read.
+if handles.params.geometry<=2,
+    handles.params.chNames   = constants.gettraces_chNames2;
+    handles.params.chDesc    = constants.gettraces_chDesc2;
+    handles.params.wavelengths = constants.gettraces_wavelengths2;
+else
+    handles.params.chNames   = constants.gettraces_chNames4;
+    handles.params.chDesc    = constants.gettraces_chDesc4;
+    handles.params.wavelengths = constants.gettraces_wavelengths4;
+end
+
+chNames = upperFirst( handles.params.chNames );
+chNames = strrep(chNames, 'Factor','Factor Binding'); %for display only!
 
 
 %---- Show fields for Single-Channel (full-chip) recordings.
 if handles.params.geometry==1,
-    handles.params.chNames = constants.gettraces_chNames2;
-    handles.params.chDesc  = constants.gettraces_chDesc2;
-    
     handles.total_t = image_t;
     
     % Show full field of view.
     handles.axTotal = subplot( 1,1,1, 'Parent',handles.panView, 'Position',[0.2 0 0.6 0.95] );
-    imshow( image_t, [low (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    title('Single-Channel');
+    
     
 %---- Show fields for Dual-Channel (half-chip, L/R) recordings.
-elseif handles.params.geometry==2,
-    handles.params.chNames = constants.gettraces_chNames2;
-    handles.params.chDesc  = constants.gettraces_chDesc2;
-    
-    donor_t    = image_t(:,1:ncol/2);
-    acceptor_t = image_t(:,(ncol/2)+1:end);
-    total_t    = donor_t+acceptor_t;
-    handles.total_t = total_t;
-    
-    chNames = upperFirst( handles.params.chNames );
+elseif handles.params.geometry==2,    
+    fields{1} = image_t(:,1:ncol/2);  %left, donor
+    fields{2} = image_t(:,(ncol/2)+1:end);  %right, acceptor
+    handles.total_t = fields{1}+fields{2};
 
-    % Show donor image
-    handles.axDonor = subplot( 1,3,1, 'Parent',handles.panView, 'Position',[0.025 0 0.3 0.95] );
-    imshow( donor_t, [low (high+low)/2] );
-    colormap(handles.colortable);  zoom on;
-    title( [chNames{1} ' (' handles.params.chDesc{1} ')'] );
-
-    % Show acceptor image
+    % Setup axes
+    handles.axDonor    = subplot( 1,3,1, 'Parent',handles.panView, 'Position',[0.025 0 0.3 0.95] );
     handles.axAcceptor = subplot( 1,3,2, 'Parent',handles.panView, 'Position',[0.350 0 0.3 0.95] );
-    imshow( acceptor_t, [low (high+low)/2] );
-    colormap(handles.colortable);  zoom on;
-    title( [chNames{2} ' (' handles.params.chDesc{2} ')'] );
-
+    ax = [handles.axDonor,handles.axAcceptor];
+        
     % Show total intensity image
     handles.axTotal = subplot( 1,3,3, 'Parent',handles.panView, 'Position',[0.675 0 0.3 0.95] );
-    imshow( total_t, [low*2 (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    title('Total');
-
-    linkaxes( [handles.axDonor handles.axAcceptor handles.axTotal] );
+    
     
 %---- Show fields for Quad-Channel (quarter-chip, L/R/U/D) recordings.
 elseif handles.params.geometry>2,
     % Split up channels and combine, assuming perfect alignment.
-    upperLeft  = image_t( 1:nrow/2, 1:ncol/2 );
-    upperRight = image_t( 1:nrow/2, (ncol/2)+1:end );
-    lowerLeft  = image_t( (nrow/2)+1:end, 1:ncol/2 );
-    lowerRight = image_t( (nrow/2)+1:end, (ncol/2)+1:end );
-    total_t = upperLeft + upperRight + lowerLeft + lowerRight;
+    fields{1} = image_t( 1:nrow/2, 1:ncol/2 );              %upperLeft
+    fields{2} = image_t( 1:nrow/2, (ncol/2)+1:end );        %upperRight
+    fields{3} = image_t( (nrow/2)+1:end, 1:ncol/2 );        %lowerLeft
+    fields{4} = image_t( (nrow/2)+1:end, (ncol/2)+1:end );  %lowerRight
+    handles.total_t = fields{1} + fields{2} + fields{3} + fields{4};
     
-    handles.total_t = total_t;
-    
-    % Get channel names and make them easier to read.
-    handles.params.chNames = constants.gettraces_chNames4;
-    handles.params.chDesc  = constants.gettraces_chDesc4;
-    chNames = upperFirst( handles.params.chNames );
-    %chNames = strrep(chNames, 'Factor','Factor Binding');
-    
-    % Create axes for each of the fluorescence channels.
-    handles.axUL    = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5 0.25 0.5] );
-    imshow( upperLeft, [low*2 (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    if ~isempty(chNames{1})
-        title( [chNames{1} ' (' handles.params.chDesc{1} ')'] );
-    end
-    
-    handles.axUR    = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35 0.5 0.25 0.5] );
-    imshow( upperRight, [low*2 (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    if ~isempty(chNames{4})
-        title( [chNames{4} ' (' handles.params.chDesc{4} ')'] );
-    end
-    
-    handles.axLR    = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35 0.025 0.25 0.5] );
-    imshow( lowerRight, [low*2 (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    if ~isempty(chNames{3})
-        title( [chNames{3} ' (' handles.params.chDesc{3} ')'] );
-    end
-    
-    handles.axLL    = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.25 0.5] );
-    imshow( lowerLeft, [low*2 (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    if ~isempty(chNames{2})
-        title( [chNames{2} ' (' handles.params.chDesc{2} ')'] );
-    end
-    
+    % Setup axes
+    handles.axUL = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5   0.25 0.5] );
+    handles.axUR = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35  0.5   0.25 0.5] );
+    handles.axLL = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.25 0.5] );
+    handles.axLR = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35  0.025 0.25 0.5] );
+    ax = [handles.axUL handles.axUR handles.axLL handles.axLR];
+
+    % Also plot the total intensity image.
     handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.65 0.25 0.25 0.5] );
-    imshow( total_t, [low*2 (high+low)] );
-    colormap(handles.colortable);  zoom on;
-    title('Total');
-    
-    linkaxes( [handles.axUL handles.axUR handles.axLL handles.axLR handles.axTotal] );
 end
 
+
+% Show fluorescence fields for all channels
+chColors = Wavelength_to_RGB(handles.params.wavelengths);
+
+for i=1:numel(fields),
+    imshow( fields{i}, [low*2 (high+low)], 'Parent',ax(i) );
+    colormap(handles.colortable);  zoom on;
+
+    if ~isempty(chNames{i})
+        % Give each field a title with the background color matching the
+        % wavelength of that channel.
+        h = title(ax(i), [chNames{i} ' (' handles.params.chDesc{i} ')'], ...
+                                 'BackgroundColor',chColors(i,:) );
+
+        % Use white text for very dark background colors.
+        if sum(chColors(i,:)) < 1,
+            set(h,'Color',[1 1 1]);
+        end
+    end
+end
+
+% Link axes so zooming one zooms all.
+linkaxes( [ax handles.axTotal] );
+
+% Show total fluorescence channel
+imshow( handles.total_t, [low*2 (high+low)], 'Parent',handles.axTotal );
+colormap(handles.colortable);  zoom on;
+title(handles.axTotal,'Total Intensity');
 
 % Finish up
 set(handles.getTraces,'Enable','on');
 set(handles.btnMetadata,'Enable','on');
 guidata(hObject,handles);
 
+
+%end function OpenStk
 
 
 function names = upperFirst(names)
@@ -360,8 +335,6 @@ for i=1:numel(names),
 end
     
 % end
-
-
 
 
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
@@ -620,8 +593,9 @@ handles.rtotal_y = stkData.rejectedTotalPicks(:,2);
 highlightPeaks( handles );
 
 % Update GUI controls
-handles.num = numel(handles.x)/handles.params.geometry;
-set(handles.nummoles,'String',num2str(handles.num));
+handles.num = numel(handles.total_x);
+set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
+                                    numel(handles.rtotal_x)+handles.num) );
 
 set(handles.saveTraces,'Enable','on');
 
@@ -685,21 +659,31 @@ elseif handles.params.geometry>2, %quad-channel
     indLR = find( handles.x> (ncol/2) & handles.y> (nrow/2) );
     indUR = find( handles.x> (ncol/2) & handles.y<=(nrow/2) );
     
+    rindUL = find( handles.rx<=(ncol/2) & handles.ry<=(nrow/2) );
+    rindLL = find( handles.rx<=(ncol/2) & handles.ry> (nrow/2) );
+    rindLR = find( handles.rx> (ncol/2) & handles.ry> (nrow/2) );
+    rindUR = find( handles.rx> (ncol/2) & handles.ry<=(nrow/2) );
+    
     axes(handles.axUL);
     line(handles.x(indUL),handles.y(indUL), style1{:});
+    line(handles.rx(rindUL),handles.ry(rindUL), style1b{:});
     
     axes(handles.axLL);
     line(handles.x(indLL),handles.y(indLL)-(nrow/2), style1{:});
+    line(handles.rx(rindLL),handles.ry(rindLL)-(nrow/2), style1b{:});
     
     axes(handles.axLR);
     line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), style1{:});
+    line(handles.rx(rindLR)-(ncol/2),handles.ry(rindLR)-(nrow/2), style1b{:});
     
     axes(handles.axUR);
     line(handles.x(indUR)-(ncol/2),handles.y(indUR), style1{:});
+    line(handles.rx(rindUR)-(ncol/2),handles.ry(rindUR), style1b{:});
     
     % Draw markers on selection points (total intensity composite image).
     axes(handles.axTotal);
     line(handles.total_x,handles.total_y, style2{:});
+    line(handles.rtotal_x,handles.rtotal_y, style2b{:});
 end
 
 
@@ -864,15 +848,17 @@ if handles.params.geometry==1, %Single-channel recordings
     set( handles.chkAlignTranslate, 'Enable','off', 'Value',0   );
     set( handles.chkAlignRotate,    'Enable','off', 'Value',0   );
     
-elseif handles.params.geometry==2, %Dual-channel recordings
+elseif handles.params.geometry>1, %Dual-channel recordings
     set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
     set( handles.chkAlignRotate,    'Enable','on', 'Value',handles.params.alignRotate  );
-    
-elseif handles.params.geometry>2, %Three-color recordings
-    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
-    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0  );
-    set( handles.chkAlignRotate,    'Enable','off', 'Value',0  );
+end
+
+if handles.params.geometry>2, %Three-color recordings
+    handles.params.alignTranslate = 0;
+    handles.params.alignRotate    = 0;
+    set( handles.chkAlignTranslate, 'Enable','on', 'Value',0  );
+    set( handles.chkAlignRotate,    'Enable','on', 'Value',0  );
 end
 
 

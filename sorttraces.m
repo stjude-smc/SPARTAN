@@ -528,6 +528,9 @@ end
 if isfield(handles.data,'traceMetadata')
     data.traceMetadata = handles.data.traceMetadata(indexes);
 end
+if isfield(handles.data,'fileMetadata')
+    data.fileMetadata = handles.data.fileMetadata;
+end
 
 [p,f,e] = fileparts(filename);
 if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
@@ -564,7 +567,8 @@ end
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
 % --- Executes on button press in btnSubBoth, etc.
 function btnSubBoth_Callback(hObject, eventdata, handles, mode)
-% 
+% FIXME: subtract all should do all fluorescence channels!
+
 m = handles.molecule_no;
 time = handles.data.time;
 
@@ -657,7 +661,7 @@ function edCrosstalk_Callback(hObject, eventdata, handles)
 % Called when user changes the text box for specifying FRET threshold.
 %
 
-crosstalk = sscaf( '%f', get(hObject,'String') );
+crosstalk = sscanf( '%f', get(hObject,'String') );
 
 % Restrict value to the range of the slider to prevent errors.
 sldMax = get( handles.sldCrosstalk, 'max' );
@@ -762,21 +766,30 @@ printdlg(handles.figure1);
 %----------PLOT TRACES----------%
 function plotter(handles)
 % Draw traces for current molecule and update displayed stats.
-%
+% FIXME: many things that happen here should really happen when loading the
+% file, including legends.
 
 constants = handles.constants;
-% gamma = constants.gamma;
-gamma = 1;
 
 m        = handles.molecule_no;
 donor    = handles.data.donor(m,:);
 acceptor = handles.data.acceptor(m,:);
 fret     = handles.data.fret(m,:);
-total    = gamma*donor+acceptor;
 
-if isfield(handles.data,'factor'),
-    total = total+handles.data.factor(m,:);
+if isfield(handles.data,'channelNames'),
+    chNames  = handles.data.channelNames;
+else
+    chNames = {'donor','acceptor','fret'};
 end
+
+% Get file-specific display settings, if available.
+if isfield(handles.data,'fileMetadata') && isfield(handles.data.fileMetadata,'wavelengths'),
+    wavelengths = handles.data.fileMetadata.wavelengths;
+else
+    %warning('There''s a lack of color here. Using defaults.');
+    wavelengths = [532 640];
+end
+chColors = Wavelength_to_RGB(wavelengths);
 
 % Get trace properties
 stats = traceStat( donor,acceptor,fret,constants );
@@ -791,38 +804,44 @@ set(handles.editLifetime,'String',  sprintf('%d, %d', [FRETlifetime lt]));
 set(handles.editSNR,'String', sprintf('%.2f',snr) );
 
 
-[p,name] = fileparts( handles.filename );
-data_fname = strrep(name, '_', '\_');
+[p,name,ext] = fileparts( handles.filename );
+data_fname = strrep([name ext], '_', '\_');
 
 % Plot fluorophore traces
-signal = donor+acceptor;
-
 time = handles.data.time;
-inFrames = (time(1)==1);
-if ~inFrames
+if time(1)~=1, %first time is 1 if in frame number (not ms)
     time = time/1000; %in seconds
 end
 
 zoom( handles.axFluor, 'out' );
 cla( handles.axFluor );
-plot( handles.axFluor, time,gamma*donor,'g', time,acceptor,'r' );
-if isfield(handles.data,'factor'),
-    plot( handles.axFluor, time, handles.data.factor(m,:),'b' );
+
+total = zeros( size(donor) );
+
+for c=1:size(chColors,1),
+    trace = handles.data.(chNames{c})(m,:);
+    plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
+    
+    total = total + trace;
 end
-title( handles.axFluor, ['Molecule ' num2str(m) ' of '...
-    num2str(handles.Ntraces) ' of ' data_fname] );
+
+legend( chNames{1:size(chColors,1)} );
+title( handles.axFluor, [ 'Molecule ' num2str(m) ' of ' ...
+                        num2str(handles.Ntraces) ' of "' data_fname '"'] );
+                       
+xlim( handles.axFluor, [time(1) time(end)] );
 
 
 % Plot total fluorescence
-zoom( handles.axFret, 'out' );
+zoom( handles.axTotal, 'out' );
 cla( handles.axTotal );
-plot( handles.axTotal, time,total,'k',...
-    time, repmat(handles.fretThreshold(m),1,handles.len),'b');
+plot( handles.axTotal, time,total,'k' );
+plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,handles.len), 'b-');
 
 
 % Draw lines representing Cy3 (green) and Cy5 (red) alive times
-mean_on_signal  = mean( signal(1:lt) );
-mean_off_signal = mean( signal(lt+5:end) );
+mean_on_signal  = mean( total(1:lt) );
+mean_off_signal = mean( total(lt+5:end) );
 
 simplified_cy3=[mean_on_signal*ones(1,lt)...
         mean_off_signal*ones(1,handles.len-lt)];
@@ -832,14 +851,25 @@ simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
 plot( handles.axTotal, time,simplified_cy5,'r' );
 plot( handles.axTotal, time,simplified_cy3,'g' );
 
+xlim( handles.axTotal, [time(1) time(end)] );
+
 
 % Plot FRET efficiency
 zoom( handles.axFret, 'out' );
 cla( handles.axFret );
-plot( handles.axFret, time,fret,'b' );  
+
+plot( handles.axFret, time,fret, 'b-');
+
+if isfield( handles.data, 'fret2' ),
+    plot( handles.axFret, time,handles.data.fret2(m,:), 'm-');
+    legend( {'fret1','fret2'} );
+end
+
 if isfield(handles,'idl') && ~isempty(handles.idl),
     stairs( handles.axFret, time, handles.idl(m,:), 'r-', 'LineWidth',1 );
 end
+
+xlim( handles.axFret, [time(1) time(end)] );
 
 
 
@@ -971,19 +1001,19 @@ function navKeyPress_Callback(hObject, eventdata, handles)
 ch = get(gcf,'CurrentCharacter');
 
 switch ch
-    case 28,
+    case 28, %left arrow key
     btnPrevTop_Callback( hObject, eventdata, handles ); 
     
-    case 29
+    case 29, %right arrow key
     btnNextTop_Callback( hObject, eventdata, handles );
     
-    case 'a'
+    case 'a',
     toggleBin( hObject, eventdata, handles, 1 );
     
-    case 's'
+    case 's',
     toggleBin( hObject, eventdata, handles, 2 );
     
-    case 'd'
+    case 'd',
     toggleBin( hObject, eventdata, handles, 3 );
 end
 

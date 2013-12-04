@@ -118,7 +118,7 @@ for i=1:nFiles,
     % Load traces file data
     data = loadTraces( files{i} );
     dataAll.time = data.time;  % need to verify this is consistent. FIXME
-    %dataAll.fileMetadata = data.fileMetadata;  % need to verify this is consistent. FIXME
+    dataAll.fileMetadata = data.fileMetadata;  % need to verify this is consistent. FIXME
     
     % Verify that all files have the same imaging geometry/channel definitions.
     if i==1,
