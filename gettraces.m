@@ -509,6 +509,7 @@ nCh = nChannels;
 
 if params.geometry==1,
     picks = total_picks;
+    %nChannels = 1; nCh=1;
 
 elseif params.geometry>1,
     % For each channel, predict peak locations as straight translations 
@@ -1054,19 +1055,19 @@ elseif params.geometry>1, %two- or three- or four-color
         indCh = find( strcmp(data.channelNames,ch) );
         data.(ch) = traces(indCh:nCh:end,:);
     end
+    
+    % Make an adjustment for crosstalk on the camera.
+    % For now we assume this is the same regardless of geometry.
+    if ~isfield(params,'crosstalk'),
+        params.crosstalk = constants.crosstalk;
+    end
+    data.acceptor = data.acceptor - params.crosstalk*data.donor;
 end
 
 % Save color assignments for display in sorttraces.
 emptyCh = cellfun(@isempty,data.channelNames); %unused channels
 data.fileMetadata.wavelengths = params.wavelengths(~emptyCh);
 
-
-% Make an adjustment for crosstalk on the camera.
-% For now we assume this is the same regardless of geometry.
-if ~isfield(params,'crosstalk'),
-    params.crosstalk = constants.crosstalk;
-end
-data.acceptor = data.acceptor - params.crosstalk*data.donor;
 
 % Correct for variable sensitivity across acceptor-channel camera,
 % according to measurements with DNA oligos -- QZ
@@ -1083,7 +1084,9 @@ end
 
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(data.donor,data.acceptor,constants);
-data.channelNames = [data.channelNames 'fret'];
+if params.geometry>1,
+    data.channelNames = [data.channelNames 'fret'];
+end
 
 % Also calculate FRET for multi-color FRET.
 % FIXME: only donor->acceptor crosstalk is handled!

@@ -60,7 +60,6 @@ if ~isfield(handles,'constants')
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
     linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');
-    %linkaxes([handles.axFluor handles.axTotal],'y');
     
     % SETUP AXES labels and settings.
     % Hold is needed so we don't lose the grid/zoom/etc settings, which are
@@ -165,6 +164,14 @@ handles.filename = filename;
 
 % Load the file
 data = loadTraces( filename );
+
+% If there is no "acceptor" intensity (single-color experiments), create a
+% fake one to make the later code happy. FIXME.
+if ~isfield(data,'acceptor'),
+    data.acceptor = zeros( size(data.donor) );
+    data.fret     = zeros( size(data.donor) );
+end
+
 handles.data = data;
 [handles.Ntraces,handles.len] = size(data.donor);
 
@@ -825,7 +832,12 @@ for c=1:size(chColors,1),
     total = total + trace;
 end
 
-legend( chNames{1:size(chColors,1)} );
+if size(chColors,1)>1,
+    legend( chNames{1:size(chColors,1)} );
+else
+    legend off;
+end
+
 title( handles.axFluor, [ 'Molecule ' num2str(m) ' of ' ...
                         num2str(handles.Ntraces) ' of "' data_fname '"'] );
                        
@@ -863,6 +875,8 @@ plot( handles.axFret, time,fret, 'b-');
 if isfield( handles.data, 'fret2' ),
     plot( handles.axFret, time,handles.data.fret2(m,:), 'm-');
     legend( {'fret1','fret2'} );
+else
+    legend off;
 end
 
 if isfield(handles,'idl') && ~isempty(handles.idl),

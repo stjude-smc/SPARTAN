@@ -74,7 +74,7 @@ end
 if isstruct( varargin{1} ),
     data = varargin{1};
     nTraces = size( data.donor, 1 );
-    retval = traceStat_data( data.donor, data.acceptor, data.fret );
+    retval = traceStat_data( data );
 
 % If the user gave filenames, load stats from each and combine them.
 elseif iscell( varargin{1} ),
@@ -86,7 +86,7 @@ elseif iscell( varargin{1} ),
     
     for i=1:numel(files),
         data = loadTraces( files{i} );
-        retval = [retval  traceStat_data( data.donor, data.acceptor, data.fret )  ];
+        retval = [retval  traceStat_data( data )  ];
         nTraces(i) = size(data.donor,1);
 
         waitbar(i/numel(files),h);
@@ -95,7 +95,15 @@ elseif iscell( varargin{1} ),
    
 % Assume the user passed trace data directly.
 else
-    retval = traceStat_data( varargin{:} );
+    % Passing in donor/acceptor/fret traces separately.
+    if nargin>=3,
+        data.donor    = varargin{1};
+        data.acceptor = varargin{2};
+        data.fret     = varargin{3};
+        retval = traceStat_data( data, varargin{4:end} );
+    else
+        retval = traceStat_data( varargin{:} );
+    end
 end
     
 
@@ -104,7 +112,18 @@ end
 
 
 
-function retval = traceStat_data( donorAll,acceptorAll,fretAll, constants )
+function retval = traceStat_data( data, constants )
+% FIXME: this isn't that great for 3/4-color where the total intensity has
+% many channels!
+
+if ~isfield(data,'acceptor'),
+    data.acceptor = zeros( size(data.donor) );
+    data.fret     = zeros( size(data.donor) );
+end
+
+donorAll    = data.donor;
+acceptorAll = data.acceptor;
+fretAll     = data.fret;
 
 [Ntraces,len] = size(fretAll);
 

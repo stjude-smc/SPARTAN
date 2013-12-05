@@ -217,9 +217,6 @@ function saveTracesBinary( filename, data )
 % (e.g., traceMetadata).
 % 
 
-assert( isfield(data,'donor') & isfield(data,'acceptor') & isfield(data,'fret'), ...
-        'Data to save must include, donor, acceptor, and fret traces' );
-
 global dataTypes;
 dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'int8', 'int16', 'int32', 'int16', ...
@@ -232,24 +229,30 @@ if ~isfield(data,'time'),
 end
 
 
-% Verify input arguments
-if any( size(data.donor)~=size(data.acceptor) | size(data.donor)~=size(data.fret) )
-    error('Data matrix dimensions must agree');
-end
-
-if any( isnan(data.donor(:)) | isnan(data.acceptor(:)) | isnan(data.fret(:)) )
-    error('Cannot save NaN values!');
-end
-
-[p,f,e] = fileparts(filename);
-assert( ~isempty(strfind(e,'traces')), 'Binary format traces files must have a ".*traces" extension' );
-
-
 % Legacy code (or laziness) support. If no channel names are given, try to
 % guess based on what data are present.
 if ~isfield(data,'channelNames'),
     data.channelNames = {'donor','acceptor','fret'};
 end
+
+
+% Verify input arguments
+nChannels = numel(data.channelNames);
+
+for i=1:nChannels,
+    ch = data.( data.channelNames{i} );
+    if any( size(ch) ~= size(data.donor) ),
+        error('Data matrix dimensions must agree');
+    end
+    if any( isnan(ch) )
+        error('Cannot save NaN values!');
+    end
+end
+
+
+[p,f,e] = fileparts(filename);
+assert( ~isempty(strfind(e,'traces')), 'Binary format traces files must have a ".*traces" extension' );
+
 
 % 1) Create IDs if not specified and add to the metadata list
 if ~isfield(data,'traceMetadata');
@@ -269,7 +272,6 @@ fid=fopen(filename,'w');
 
 % 3) Write header data
 version = 4; % ver 4 adds file-global metadata (see #6 below).
-nChannels = numel(data.channelNames);
 
 fwrite( fid, 0,         'uint32' );  %identifies the new traces format.
 fwrite( fid, 'TRCS',    'char'   );  %format identifier ("magic")

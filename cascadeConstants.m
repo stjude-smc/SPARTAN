@@ -45,65 +45,76 @@ constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 % correctly.
 constants.gamma = 1.0;
 
-% Donor->Acceptor channel signal crosstalk (gettraces).
-% This applies to both 2-color and 3-color FRET.
-constants.crosstalk = 0.12;  %dual-cam (630 longpass filter)
-%constants.crosstalk = 0.26;  %quad-view (Cy3->Cy5/donor-acceptor)
+
+
+% ---- Gettraces default settings
 
 % ADU (arbitrary camera intensity units) to photon conversion factor in
 % units of ADU/photon. See camera calibration data sheet. This may depend
 % on which digitizer is selected! Check camera documentation.
 % If no information is available, comment this line out.
-constants.photonConversionFactor = 100/3.1;   % 10MHz Evolve 512
-%constants.photonConversionFactor = 100/2.6;   % 5MHz Evolve 512
-
-
-
-% ---- Gettraces default settings
+params.photonConversion = 100/3.1;   % 10MHz Evolve 512
+%params.photonConversion = 100/2.6;   % 5MHz Evolve 512
 
 % Algorithm settings:
 params.don_thresh = 0; %auto
 params.overlap_thresh = 2.3;
 params.nPixelsToSum   = 4;
-params.crosstalk = constants.crosstalk;
-params.photonConversion = constants.photonConversionFactor;
-params.geometry = 2; %dual-channel by default.
 
 % Options for alignment, etc:
-params.alignTranslate = 1;  % no problems other than being slow.
-params.alignRotate = 0;     % allow field rotation for alignment. not perfect yet.
 params.skipExisting = 0;
 params.recursive = 0;
 params.quiet = 0;
 params.saveLocations = 0;
 
-% Channel naming and description. There are specific acceptable names
-% (donor, acceptor, etc) that will be used for accessing traces data.
-% Descriptions are just metadata and can be anything.
-% For now these are just the fluorophores used.
-% Dual-channel. Order is: L, R.
-constants.gettraces_chNames2  = {'donor','acceptor'};
-constants.gettraces_chDesc2   = {'Cy3','Cy5'};
-constants.gettraces_wavelengths2 = [532 640];
+% Create gettraces parameter profiles for various imaging geometries and
+% fluorophores. For the quad-view, the order is UL, UR, LL, LR. These will
+% become the items in the drop-down menu at the top of gettraces, with the
+% "name" field being the text in the dropdown list.
+clear p;
 
-% Three- or Four-channel. Order is: UL, UR, LL, LR.
-% Use null ('') for unused channels (three-color) or 0 for wavelength.
-constants.gettraces_chNames4  = {'acceptor','acceptor2','donor',''};
-constants.gettraces_chDesc4   = {'Cy5','Cy7','Cy3',''};
-constants.gettraces_wavelengths4 = [640 730 532 473];
+p(1).name        = 'Single-channel (Cy3)';
+p(1).geometry    = 1;
+p(1).chNames     = {'donor'};
+p(1).chDesc      = {'Cy3'};
+p(1).wavelengths = 532;
+p(1).crosstalk   = 0;
+p(1).alignTranslate = 0;
+p(1).alignRotate = 0;
 
-% Pick channel names, etc for the current geometry.
-if params.geometry==2,
-    params.chNames = constants.gettraces_chNames2;
-    params.chDesc  = constants.gettraces_chDesc2;
-    params.wavelengths = constants.gettraces_wavelengths2;
-elseif params.geometry>2,
-    params.chNames = constants.gettraces_chNames4;
-    params.chDesc  = constants.gettraces_chDesc4;
-    params.wavelengths = constants.gettraces_wavelengths4;
+p(2) = p(1);
+p(2).name = 'Single-channel (Cy5)';
+p(2).wavelengths = 640;
+
+p(3).name        = 'Dual-Cam (Cy3/Cy5)';
+p(3).geometry    = 2;
+p(3).chNames     = {'donor','acceptor'}; %L/R
+p(3).chDesc      = {'Cy3','Cy5'};
+p(3).wavelengths = [532 640];
+p(3).crosstalk   = 0.12; %donor->acceptor only, 630dcxr
+p(3).alignTranslate = 1;  % no problems other than being slow.
+p(3).alignRotate = 0;
+
+p(4).name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
+p(4).geometry    = 3;
+p(4).chNames     = {'acceptor','acceptor2','donor',''}; %UL/UR/LL/LR
+p(4).chDesc      = {'Cy5','Cy7','Cy3','Cy2'};
+p(4).wavelengths = [640 730 532 473];
+p(4).crosstalk   = 0.26; %donor->acceptor only
+p(4).alignTranslate = 0;  %alignment code not fully tested yet!
+p(4).alignRotate = 0;
+
+% Add all of the common settings that do not vary.
+fnames = fieldnames(params);
+for i=1:numel(fnames),
+    [ p.(fnames{i}) ] = deal( params.(fnames{i}) );
 end
 
-constants.gettracesDefaultParams = params;
+constants.gettraces_profiles = p;
+
+% Set the default settings profile.
+constants.gettraces_defaultProfile = 3;
+constants.gettracesDefaultParams = p(3); %Dual-View (Cy3/Cy5)
 
 
 

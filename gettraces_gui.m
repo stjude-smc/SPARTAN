@@ -60,10 +60,14 @@ fclose(fid);
 if ~isfield(handles,'params')
     % Choose default command line output for gettraces
     handles.output = hObject;
-
-    % Setup default values for parameter values -- 2-color FRET.
+    
+    % Setup dropdown list of configuration profiles.
     constants = cascadeConstants();
-    params = constants.gettracesDefaultParams;
+    set( handles.cboGeometry, 'String',{constants.gettraces_profiles.name}, ...
+                              'Value',constants.gettraces_defaultProfile );
+    
+    % Setup default values for parameter values -- 2-color FRET.
+    params = constants.gettraces_profiles(constants.gettraces_defaultProfile);
 
     if ~isfield(params,'don_thresh') || params.don_thresh==0,
         set( handles.txtIntensityThreshold,'String','' );
@@ -80,8 +84,6 @@ if ~isfield(handles,'params')
     
     set( handles.chkRecursive, 'Value', params.recursive    );
     set( handles.chkOverwrite, 'Value', params.skipExisting );
-    
-    set( handles.cboGeometry, 'Value', params.geometry );
 
     handles.params = params;
 end
@@ -177,8 +179,6 @@ guidata(hObject,handles);
 % --------------------- OPEN SINGLE MOVIE --------------------- %
 function handles = OpenStk(filename, handles, hObject)
 
-constants = cascadeConstants;
-
 [p,f,e] = fileparts(filename);
 fnameText = [p filesep f e];
 
@@ -224,17 +224,6 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 image_t = handles.stk_top-stkData.background;
 [nrow,ncol] = size(image_t);
 fields = {};  ax = [];
-
-% Get names and descriptions of all channels and make them easier to read.
-if handles.params.geometry<=2,
-    handles.params.chNames   = constants.gettraces_chNames2;
-    handles.params.chDesc    = constants.gettraces_chDesc2;
-    handles.params.wavelengths = constants.gettraces_wavelengths2;
-else
-    handles.params.chNames   = constants.gettraces_chNames4;
-    handles.params.chDesc    = constants.gettraces_chDesc4;
-    handles.params.wavelengths = constants.gettraces_wavelengths4;
-end
 
 chNames = upperFirst( handles.params.chNames );
 chNames = strrep(chNames, 'Factor','Factor Binding'); %for display only!
@@ -626,34 +615,24 @@ style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0],'EraseMode','ba
 % Clear any existing selection markers from previous calls.
 delete(findobj(gcf,'type','line'));
 
-
-if handles.params.geometry==1, %single-channel
-    % Draw markers on selection points (total intensity composite image)
-    axes(handles.axTotal);
-    line(handles.x,handles.y, style2{:});
-    line(handles.rx,handles.ry, style2b{:});
     
-elseif handles.params.geometry==2, %dual-channel
+if handles.params.geometry==2, %dual-channel
+    % FIXME: do not assume the order; assign based on peak locations!
     indD = 1:2:numel(handles.x);
     indA = 2:2:numel(handles.x);
         
     % Draw markers on selection points (donor side)
     axes(handles.axDonor);
-    line(handles.x(indD),handles.y(indD), style1{:});
-    line(handles.rx(1:2:end),handles.ry(1:2:end), style1b{:});
+    line( handles.x(indD),     handles.y(indD),     style1{:}  );
+    line( handles.rx(1:2:end), handles.ry(1:2:end), style1b{:} );
 
     % Draw markers on selection points (acceptor side)
-    axes(handles.axAcceptor);%default 3-color channel assignments.
-    line(handles.x(indA)-(ncol/2),handles.y(indA), style1{:});
-    line(handles.rx(2:2:end)-(ncol/2),handles.ry(2:2:end), style1b{:});
-
-    % Draw markers on selection points (total intensity composite image)
-    axes(handles.axTotal);
-    line(handles.total_x,handles.total_y, style2{:});
-    line(handles.rtotal_x,handles.rtotal_y, style2b{:});
+    axes(handles.axAcceptor);
+    line( handles.x(indA)-(ncol/2),     handles.y(indA),     style1{:}  );
+    line( handles.rx(2:2:end)-(ncol/2), handles.ry(2:2:end), style1b{:} );
     
 elseif handles.params.geometry>2, %quad-channel
-    % Assign each spot to a quadrant.
+    % Assign each spot to a quadrant. FIXME: can this be a loop?
     indUL = find( handles.x<=(ncol/2) & handles.y<=(nrow/2) );
     indLL = find( handles.x<=(ncol/2) & handles.y> (nrow/2) );
     indLR = find( handles.x> (ncol/2) & handles.y> (nrow/2) );
@@ -665,26 +644,26 @@ elseif handles.params.geometry>2, %quad-channel
     rindUR = find( handles.rx> (ncol/2) & handles.ry<=(nrow/2) );
     
     axes(handles.axUL);
-    line(handles.x(indUL),handles.y(indUL), style1{:});
-    line(handles.rx(rindUL),handles.ry(rindUL), style1b{:});
+    line( handles.x(indUL),   handles.y(indUL),   style1{:}  );
+    line( handles.rx(rindUL), handles.ry(rindUL), style1b{:} );
     
     axes(handles.axLL);
-    line(handles.x(indLL),handles.y(indLL)-(nrow/2), style1{:});
-    line(handles.rx(rindLL),handles.ry(rindLL)-(nrow/2), style1b{:});
+    line( handles.x(indLL),   handles.y(indLL)-(nrow/2),   style1{:}  );
+    line( handles.rx(rindLL), handles.ry(rindLL)-(nrow/2), style1b{:} );
     
     axes(handles.axLR);
-    line(handles.x(indLR)-(ncol/2),handles.y(indLR)-(nrow/2), style1{:});
-    line(handles.rx(rindLR)-(ncol/2),handles.ry(rindLR)-(nrow/2), style1b{:});
+    line( handles.x(indLR)-(ncol/2),   handles.y(indLR)-(nrow/2),   style1{:}  );
+    line( handles.rx(rindLR)-(ncol/2), handles.ry(rindLR)-(nrow/2), style1b{:} );
     
     axes(handles.axUR);
-    line(handles.x(indUR)-(ncol/2),handles.y(indUR), style1{:});
-    line(handles.rx(rindUR)-(ncol/2),handles.ry(rindUR), style1b{:});
-    
-    % Draw markers on selection points (total intensity composite image).
-    axes(handles.axTotal);
-    line(handles.total_x,handles.total_y, style2{:});
-    line(handles.rtotal_x,handles.rtotal_y, style2b{:});
+    line( handles.x(indUR)-(ncol/2),   handles.y(indUR),   style1{:}  );
+    line( handles.rx(rindUR)-(ncol/2), handles.ry(rindUR), style1b{:} );
 end
+
+% Draw markers on selection points (total intensity composite image).
+axes(handles.axTotal);
+line( handles.total_x,  handles.total_y,  style2{:}  );
+line( handles.rtotal_x, handles.rtotal_y, style2b{:} );
 
 
 % end function highlightPeaks
@@ -798,7 +777,7 @@ guidata(hObject,handles);
 
 function txtMaxIntensity_Callback(hObject, eventdata, handles)
 % Update axes color limits from new slider value
-val = str2num( get(hObject,'String') );
+val = str2double( get(hObject,'String') );
 minimum = get(handles.scaleSlider,'min');
 maximum = get(handles.scaleSlider,'max');
 
@@ -815,7 +794,6 @@ elseif handles.params.geometry==2, %Dual-channel recordings
     set( handles.axDonor,    'CLim',[minimum val] );
     set( handles.axAcceptor, 'CLim',[minimum val] );
     set( handles.axTotal,    'CLim',[minimum*2 val*2] );
-
     
 elseif handles.params.geometry>2,
     set( handles.axUL, 'CLim',[minimum val] );
@@ -836,9 +814,27 @@ guidata(hObject,handles);
 function cboGeometry_Callback(hObject, eventdata, handles)
 %
 
-handles.params.geometry = get(hObject,'Value');
+% Get parameter values associated with the selected profile.
+% Warning: if cascadeConstants is changed to add a new profile or rearrange
+% profiles, this can have unpredictable effects...
+constants = cascadeConstants;
+sel = get(hObject,'Value');
+params = constants.gettraces_profiles(sel);
+
+% Setup default values for parameter values -- 2-color FRET.
+if ~isfield(params,'don_thresh') || params.don_thresh==0,
+    set( handles.txtIntensityThreshold,'String','' );
+else
+    set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
+end
+set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
+set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
+set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
+set( handles.chkRecursive, 'Value', params.recursive    );
+set( handles.chkOverwrite, 'Value', params.skipExisting );
 
 % If a movie has already been loaded, reload movie with new setup
+handles.params = params;
 if isfield(handles,'stkfile'),
     handles = OpenStk( handles.stkfile, handles, hObject );
 end
@@ -846,19 +842,11 @@ end
 if handles.params.geometry==1, %Single-channel recordings
     set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
     set( handles.chkAlignTranslate, 'Enable','off', 'Value',0   );
-    set( handles.chkAlignRotate,    'Enable','off', 'Value',0   );
-    
-elseif handles.params.geometry>1, %Dual-channel recordings
+    set( handles.chkAlignRotate,    'Enable','off', 'Value',0   );    
+else  %Dual-channel recordings
     set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
     set( handles.chkAlignRotate,    'Enable','on', 'Value',handles.params.alignRotate  );
-end
-
-if handles.params.geometry>2, %Three-color recordings
-    handles.params.alignTranslate = 0;
-    handles.params.alignRotate    = 0;
-    set( handles.chkAlignTranslate, 'Enable','on', 'Value',0  );
-    set( handles.chkAlignRotate,    'Enable','on', 'Value',0  );
 end
 
 
