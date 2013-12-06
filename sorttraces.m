@@ -145,9 +145,6 @@ handles.filename = [handles.datapath handles.datafile];
 handles = OpenTracesFile( handles.filename, handles );
 
 
-% set(gcf, 'KeyPressFcn', @(x,y)disp(get(f,'CurrentCharacter')))
-
-
 guidata(hObject, handles);
 % END FUNCTION btnOpen_Callback
 
@@ -273,6 +270,23 @@ set(handles.editGoTo,'Enable','on','String','1');
 editGoTo_Callback(handles.editGoTo, [], handles);
 
 
+% Add legends to the plotted traces.
+% We want to do this once here because legend() is slow.
+idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
+
+if sum(idxFluor)>1,
+    legend( handles.axFluor, handles.data.channelNames{idxFluor} );
+else
+    legend( handles.axFluor, 'off' );
+end
+
+if isfield( handles.data, 'fret2' ),
+    legend( handles.axFret, {'fret1','fret2'} );
+else
+    legend( handles.axFret, 'off' );
+end
+
+
 % END FUNCTION OpenTracesFile
 
 
@@ -316,14 +330,14 @@ else
 end
 
 % Reset these values for the new trace.
-handles.backgrounds = zeros( 1,handles.data.nChannels-1 );
+idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
+handles.backgrounds = zeros( 1,sum(idxFluor) );
 
 % If no value has been calculated for FRET threshold, do it now.
 if handles.fretThreshold(mol) == 0,    
     d = handles.data.donor(mol,:);
     a = handles.data.acceptor(mol,:);
     f = handles.data.fret(mol,:);
-    t = d+a;
     handles.stats = traceStat(d,a,f);
     constants = cascadeConstants;
 
@@ -333,6 +347,11 @@ if handles.fretThreshold(mol) == 0,
     if numel(range)<10,
         handles.fretThreshold(mol) = 100; %arbitrary
     else
+        t = d+a;
+        if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
+            t = t+handles.data.acceptor2(mol,:);
+        end
+        
         handles.fretThreshold(mol) = constants.blink_nstd * std(t(range));
     end
     
@@ -354,10 +373,10 @@ set( handles.sldCrosstalk, 'Value',  handles.crosstalk(mol) );
 set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
 
-set(handles.btnSubDonor,'Enable','on');
-set(handles.btnSubBoth,'Enable','on');
-set(handles.btnSubAcceptor,'Enable','on');
-set(handles.btnSubUndo,'Enable','off');
+set(handles.btnSubDonor,    'Enable','on' );
+set(handles.btnSubBoth,     'Enable','on' );
+set(handles.btnSubAcceptor, 'Enable','on' );
+set(handles.btnSubUndo,     'Enable','off');
 
 guidata(hObject,handles);
 plotter(handles);
@@ -572,64 +591,72 @@ end
 
 
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
-% --- Executes on button press in btnSubBoth, etc.
 function btnSubBoth_Callback(hObject, eventdata, handles, mode)
-% FIXME: subtract all should do all fluorescence channels!
+% Subtract fluorescence background from the current x-axis region
+% (presumably zoomed to a region after photobleaching). All of the
+% subtraction buttons are handled with this one function. The mode
+% parameter specifies which button was pressued and which function
+% is to be performed.
 
-m = handles.molecule_no;
+
+m = handles.molecule_no; %selected molecule being viewed now.
+
+
+% Get the current x-axis range to determine which area of the trace to use
+% for background subtraction. Convert time (seconds) to frame number.
+xlim = get(handles.axFluor,'XLim');
 time = handles.data.time;
 
-% Same as above, but only for both donor and acceptor.
-xlim=get(handles.axFluor,'XLim');
-
-% Convert axis limits to frames
-if time(1)~=1,
+if time(1)~=1,  %time axis is in seconds if time(1)=0.
     dt = time(2)-time(1);
     xlim = floor(xlim./(dt/1000));
 end
 
+% Fix the x-axis range to be within the data range.
 if xlim(1)<1, xlim(1)=1; end
 if xlim(2)>handles.len, xlim(2)=handles.len; end
+xrange = xlim(1):xlim(2);
 
-% Subtract donor background
-% mode specifies which channels to substrate (3 means ALL, 3 means undo).
-d = handles.data.donor(m,:);
-a = handles.data.acceptor(m,:);
 
-if mode==1 || mode==3
-    handles.backgrounds(1) = mean( d(xlim(1):xlim(2)) );
-    d = d - handles.backgrounds(1);
+% Get indexes for all of the fluorescence channels.
+chNames = handles.data.channelNames;
+idxFluor = find(  cellfun( @isempty, strfind(chNames,'fret') )  );
+
+
+% Subtract DONOR background
+if mode==1,
+    idxD = strcmp('donor',chNames);
+    handles.backgrounds(idxD) = mean( handles.data.donor(m,xrange) );
+    handles.data.donor(m,:) = handles.data.donor(m,:) - handles.backgrounds(idxD);
+
+% Subtract ACCEPTOR background
+elseif mode==2,
+    idxA = strcmp('acceptor',chNames);
+    handles.backgrounds(idxA) = mean( handles.data.acceptor(m,xrange) );
+    handles.data.acceptor(m,:) = handles.data.acceptor(m,:) - handles.backgrounds(idxA);
+
+% Substrate background in ALL fluorescence channels
+elseif mode==3,
+    for i=1:numel(idxFluor), %for every non-fret channel index
+        ch = handles.data.channelNames{ idxFluor(i) };
+        handles.backgrounds(i) = mean(  handles.data.(ch)(m,xrange)  );
+        handles.data.(ch)(m,:) = handles.data.(ch)(m,:) - handles.backgrounds(i);
+    end    
+
+% UNDO background subtraction for all fluorescence channels
+elseif mode==4,
+    for i=1:numel(idxFluor), %for every non-fret channel index
+        ch = handles.data.channelNames{ idxFluor(i) };
+        handles.data.(ch)(m,:) = handles.data.(ch)(m,:) + handles.backgrounds(i);
+    end    
 end
 
-% Subtract acceptor background
-if mode==2 || mode==3
-    handles.backgrounds(2) = mean( a(xlim(1):xlim(2)) );
-    a = a - handles.backgrounds(2);
-end
 
-% Substrate factor background, if 3-color.
-if mode==3 && numel(handles.backgrounds)>2 && isfield(handles.data,'factor'),
-    handles.backgrounds(3) = mean(handles.data.factor(m,xlim(1):xlim(2)));
-    handles.data.factor(m,:) = handles.data.factor(m,:) - handles.backgrounds(3);
-end
-
-% Undo background subtraction
-if mode==4
-    d = d + handles.backgrounds(1);
-    a = a + handles.backgrounds(2);
-    if numel(handles.backgrounds)>2 && isfield(handles.data,'factor'),
-        handles.data.factor(m,:) = handles.data.factor(m,:) + handles.backgrounds(3);
-    end
-end
-
-% Save the modified traces.
-handles.data.donor(m,:) = d;
-handles.data.acceptor(m,:) = a;
-
+% Update GUI controls to allow undo if something has been changed.
 if mode<4
-    set(handles.btnSubUndo,'Enable','on');    %undo
-else  %undo
-    set(handles.btnSubUndo,'Enable','off');    %undo
+    set(handles.btnSubUndo,'Enable','on');    %allow undo
+else
+    set(handles.btnSubUndo,'Enable','off');    %disable undo
 end
 
 handles = updateTraceData( handles );
@@ -734,23 +761,36 @@ function handles = updateTraceData( handles )
 % the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
 % threshold.
 
-% Create a new FRET thresholded FRET signal
 m        = handles.molecule_no;
 donor    = handles.data.donor(m,:);
 acceptor = handles.data.acceptor(m,:);
-fret     = handles.data.fret(m,:);
-total    = donor+acceptor;
 
-stats = traceStat( donor,acceptor,fret );
-lt = stats.lifetime;
-fret = acceptor./total;
-fret( total<handles.fretThreshold(m) ) = 0;
-if lt>0,
-    fret( lt:end ) = 0;
+% Calculate total intensity and donor lifetime.
+if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
+    isThreeColor=1;
+    acceptor2 = handles.data.acceptor2(m,:);
+    total = donor+acceptor+acceptor2;
+else
+    total = donor+acceptor;
 end
 
+lt = max(1, calcLifetime(total) );
+
+% Calculate FRET
+fret = acceptor./total;
+fret( total<handles.fretThreshold(m) ) = 0;
+fret( lt:end ) = 0;
 handles.data.fret(m,:) = fret;
 
+if isThreeColor,
+    fret2 = acceptor2./total;
+    fret2( total<handles.fretThreshold(m) ) = 0;
+    fret2( lt:end ) = 0;
+    handles.data.fret2(m,:) = fret2;
+end
+
+% Recalculate stats
+handles.stats = traceStat( handles.data );
 
 
 % END FUNCTION updateTraceData
@@ -776,12 +816,10 @@ function plotter(handles)
 % FIXME: many things that happen here should really happen when loading the
 % file, including legends.
 
-constants = handles.constants;
-
-m        = handles.molecule_no;
-donor    = handles.data.donor(m,:);
-acceptor = handles.data.acceptor(m,:);
-fret     = handles.data.fret(m,:);
+m     = handles.molecule_no;
+donor = handles.data.donor(m,:);
+fret  = handles.data.fret(m,:);
+total = zeros( size(donor) );  %total fluorescence intensity all channels.
 
 if isfield(handles.data,'channelNames'),
     chNames  = handles.data.channelNames;
@@ -799,7 +837,7 @@ end
 chColors = Wavelength_to_RGB(wavelengths);
 
 % Get trace properties
-stats = traceStat( donor,acceptor,fret,constants );
+stats = handles.stats;
 lt = stats.lifetime;
 FRETlifetime = stats.acclife;
 snr = stats.snr;
@@ -820,10 +858,7 @@ if time(1)~=1, %first time is 1 if in frame number (not ms)
     time = time/1000; %in seconds
 end
 
-zoom( handles.axFluor, 'out' );
 cla( handles.axFluor );
-
-total = zeros( size(donor) );
 
 for c=1:size(chColors,1),
     trace = handles.data.(chNames{c})(m,:);
@@ -832,26 +867,17 @@ for c=1:size(chColors,1),
     total = total + trace;
 end
 
-if size(chColors,1)>1,
-    legend( chNames{1:size(chColors,1)} );
-else
-    legend off;
-end
-
-title( handles.axFluor, [ 'Molecule ' num2str(m) ' of ' ...
+set( handles.txtTitle, 'String', [ 'Molecule ' num2str(m) ' of ' ...
                         num2str(handles.Ntraces) ' of "' data_fname '"'] );
-                       
-xlim( handles.axFluor, [time(1) time(end)] );
 
 
 % Plot total fluorescence
-zoom( handles.axTotal, 'out' );
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
 plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,handles.len), 'b-');
 
 
-% Draw lines representing Cy3 (green) and Cy5 (red) alive times
+% Draw lines representing donor (green) and acceptor (red) alive times
 mean_on_signal  = mean( total(1:lt) );
 mean_off_signal = mean( total(lt+5:end) );
 
@@ -863,27 +889,22 @@ simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
 plot( handles.axTotal, time,simplified_cy5,'r' );
 plot( handles.axTotal, time,simplified_cy3,'g' );
 
-xlim( handles.axTotal, [time(1) time(end)] );
 
 
 % Plot FRET efficiency
-zoom( handles.axFret, 'out' );
 cla( handles.axFret );
-
 plot( handles.axFret, time,fret, 'b-');
 
 if isfield( handles.data, 'fret2' ),
     plot( handles.axFret, time,handles.data.fret2(m,:), 'm-');
-    legend( {'fret1','fret2'} );
-else
-    legend off;
 end
 
 if isfield(handles,'idl') && ~isempty(handles.idl),
     stairs( handles.axFret, time, handles.idl(m,:), 'r-', 'LineWidth',1 );
 end
 
-xlim( handles.axFret, [time(1) time(end)] );
+
+zoom( handles.axFret, 'out' );
 
 
 

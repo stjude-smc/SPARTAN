@@ -43,9 +43,6 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %                     that field is disregarded. OPTIONAL.
 %
 
-% TODO: also return unfiltered peak list (overlap=0) so overlap statistics
-% can be displayed in scripts that call this function.
-
 
 constants = cascadeConstants;
 
@@ -67,15 +64,7 @@ params = constants.gettracesDefaultParams;
 
 if nargin>=2,
     userParams = varargin{2};
-    
-    % Specify default channel assignments if none given.
-    % Setting it here is better in case geometry but not names are set in
-    % userParams because the default includes names for 2-channel.
-    if ~isfield(userParams,'chNames') && params.geometry>2
-        params.chNames = constants.gettraces_chNames4;
-        params.chDesc  = constants.gettraces_chDesc4;
-    end
-    
+    % FIXME: verify all required parameter settings are given!    
     params = catstruct( params, userParams );
 end
 
@@ -1083,7 +1072,7 @@ if params.geometry==2,
 end
 
 % Subtract background and calculate FRET
-[data.donor,data.acceptor,data.fret] = correctTraces(data.donor,data.acceptor,constants);
+[data.donor,data.acceptor,data.fret] = correctTraces(data.donor,data.acceptor);
 if params.geometry>1,
     data.channelNames = [data.channelNames 'fret'];
 end
@@ -1092,10 +1081,9 @@ end
 % FIXME: only donor->acceptor crosstalk is handled!
 if isfield(data,'donor2') && isfield(data,'acceptor2'),
     [data.donor2,data.acceptor2,data.fret2] = correctTraces( ...
-                                     data.donor2,data.acceptor2,constants);
+                                              data.donor2, data.acceptor2);
 elseif isfield(data,'acceptor2')
-    [~,accs,frets] = correctTraces( ...
-                      data.donor,{data.acceptor,data.acceptor2},constants);
+    [~,accs,frets] = correctTraces( data.donor, {data.acceptor,data.acceptor2} );
     data.acceptor  = accs{1};
     data.acceptor2 = accs{2};
     data.fret  = frets{1};
