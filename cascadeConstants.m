@@ -71,6 +71,9 @@ params.saveLocations = 0;
 % fluorophores. For the quad-view, the order is UL, UR, LL, LR. These will
 % become the items in the drop-down menu at the top of gettraces, with the
 % "name" field being the text in the dropdown list.
+% See gettraces.m for definitions for these parameters. Acceptable channel
+% names include: donor, acceptor, donor2, acceptor2, factor. Factor is a
+% fluorescence channel that is not part of any FRET pair.
 clear p;
 
 p(1).name        = 'Single-channel (Cy3)';
@@ -94,10 +97,16 @@ p(3).wavelengths = [532 640];
 p(3).crosstalk   = 0.12; %donor->acceptor only, 630dcxr
 p(3).alignTranslate = 1;  % no problems other than being slow.
 p(3).alignRotate = 0;
+% Qinsi's correction for uneven sensitivity of the equipment across the 
+% field of view in the acceptor (right) side. Fluorescence intensities are
+% at each point are scaled by the amount calculated by the function.
+% The function values are listed in the same order as the channels above.
+p(3).biasCorrection = {  @(x,y) 1,  ...                        %donor, LHS
+                         @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
 
 p(4).name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
 p(4).geometry    = 3;
-p(4).chNames     = {'acceptor','acceptor2','donor',''}; %UL/UR/LL/LR
+p(4).chNames     = {'acceptor','acceptor2','donor','factor'}; %UL/UR/LL/LR
 p(4).chDesc      = {'Cy5','Cy7','Cy3','Cy2'};
 p(4).wavelengths = [640 730 532 473];
 p(4).crosstalk   = 0.26; %donor->acceptor only

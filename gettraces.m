@@ -582,9 +582,9 @@ if params.geometry>1 && abs_dev>0.5 && (params.alignTranslate || params.alignRot
 
         % Transform peak location in the total intensity image to where
         % they fall in the original images.
-        T = [ sx*cos(align.theta*pi/180)     sin(align.theta*pi/180)  0 ; ...
-                -sin(align.theta*pi/180)  sy*cos(align.theta*pi/180)  0 ; ...
-                     align.dx                      align.dy           1 ];
+        T = [ align.sx*cos(align.theta*pi/180)          sin(align.theta*pi/180)  0 ; ...
+                      -sin(align.theta*pi/180) align.sy*cos(align.theta*pi/180)  0 ; ...
+                           align.dx                         align.dy             1 ];
         tform_a = maketform('affine',T);
         
         % Predict peak locations of the other channels assuming simple
@@ -902,6 +902,13 @@ bestAlign = bestAligns{bestIdx};
 bestReg   = bestRegs{bestIdx};
 
 
+% Add other parameters that are not explicitly optimize, but still needed
+% in order to make a complete transformation matrix.
+bestAlign.sx = 1;
+bestAlign.sy = 1;
+bestAlign.mag = 1;
+
+
 % If the correct alignment is out of range or the data are just random, we
 % will always get a result, but it will be meaningless. To indicate the
 % quality of (or confidence in) the optimal alignment, pass along the score
@@ -1060,14 +1067,16 @@ data.fileMetadata.wavelengths = params.wavelengths(~emptyCh);
 
 % Correct for variable sensitivity across acceptor-channel camera,
 % according to measurements with DNA oligos -- QZ
-% This is very specific to our equipment, so it should realistically be put
-% somewhere outside (cascadeConstants) as an option.
-if params.geometry==2,
+% FIXME: this assumes the order is [donor acceptor] for everything, which
+% may not be the case! Only works for dual-color for now.
+if  params.geometry==2 && isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     % creat a Look up table for intensity correction
     for j=1:Npeaks/2,
-        acc_y = y(2*j);
-        yCorrection = 0.87854+acc_y*9.45332*10^(-4);
-        data.acceptor(j,:) = data.acceptor(j,:)/yCorrection;
+        donCorr = params.biasCorrection{1}( x(2*j-1), y(2*j-1) );
+        data.donor(j,:) = data.donor(j,:)/donCorr;
+        
+        accCorr = params.biasCorrection{2}( x(2*j), y(2*j) );
+        data.acceptor(j,:) = data.acceptor(j,:)/accCorr;
     end
 end
 
