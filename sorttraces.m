@@ -367,7 +367,7 @@ set(handles.chkBin2,'Value', any(handles.FRETs_indexes==mol) );
 set(handles.chkBin3,'Value', any(handles.Best_indexes==mol) );
 
 % Re-initialize figure objects.
-set( handles.edCrosstalk,  'String', sprintf('%.2f',handles.crosstalk(mol)) );
+set( handles.edCrosstalk,  'String', sprintf('%.3f',handles.crosstalk(mol)) );
 set( handles.sldCrosstalk, 'Value',  handles.crosstalk(mol) );
 
 set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
@@ -684,7 +684,7 @@ handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:) + ...
         ( oldCrosstalk-handles.crosstalk(mol) )*handles.data.donor(mol,:);
                          
 % Save and display the result
-set( handles.edCrosstalk, 'String',sprintf('%.2f',handles.crosstalk(mol)) );
+set( handles.edCrosstalk, 'String',sprintf('%.3f',handles.crosstalk(mol)) );
 handles = updateTraceData( handles );
 guidata(hObject,handles);
 plotter(handles);
@@ -767,10 +767,11 @@ acceptor = handles.data.acceptor(m,:);
 
 % Calculate total intensity and donor lifetime.
 if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
-    isThreeColor=1;
+    isThreeColor = true;
     acceptor2 = handles.data.acceptor2(m,:);
     total = donor+acceptor+acceptor2;
 else
+    isThreeColor = false;
     total = donor+acceptor;
 end
 
@@ -850,7 +851,7 @@ set(handles.editSNR,'String', sprintf('%.2f',snr) );
 
 
 [p,name,ext] = fileparts( handles.filename );
-data_fname = strrep([name ext], '_', '\_');
+data_fname = [name ext];
 
 % Plot fluorophore traces
 time = handles.data.time;

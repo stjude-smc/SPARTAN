@@ -162,7 +162,7 @@ if strfind(filename,'.bz2'),
     delete( z_fname );
 end
 
-[p,f,ext] = fileparts(filename);
+[~,~,ext] = fileparts(filename);
 
 if ~isempty( strfind(ext,'.stk') ),
     % Load stk movie -- stk(X,Y,frame number)
@@ -479,7 +479,8 @@ elseif params.geometry>2,
     donor_t = allFields{indD};
     acceptor_t = allFields{indA};
     
-    total_t = upperLeft + lowerLeft + lowerRight + upperRight;
+    %total_t = upperLeft + lowerLeft + lowerRight + upperRight;
+    total_t = upperLeft + lowerLeft;% + lowerRight + upperRight;
 end
 
 
@@ -516,7 +517,12 @@ end
 % FIXME: this only works for donor/acceptor (FRET) channels. The factor
 % channel may not have any intensity to do the alignment calculation...
 % There is also no crosstalk that could be used to measure it...
+% FIXME (?): don't bother with this if software alignment is already
+% specified (we already know what we want to do).
 if params.geometry>1,
+    % FIXME: software alignment settings may be pre-loaded into
+    % params.alignment. If it is there, use that instead of trying to
+    % evaluate/optimize the alignment.
     
     % Get indexes of the donor and acceptor channels into the final picks
     % array, which only includes the channels IN USE -- channels without a
@@ -538,23 +544,25 @@ if params.geometry>1,
     
     % Use the picked peak locations to create a simple transformation
     % (including translation, rotation, and scaling) from donor to acceptor.
-    tform = cp2tform( r_mod(indD:nCh:end,:), r_mod(indA:nCh:end,:), ...
-                      'nonreflective similarity');
+    d = r_mod(indD:nCh:end,:);  a = r_mod(indA:nCh:end,:);
+    tform = cp2tform( d(~rejected,:), a(~rejected,:), 'nonreflective similarity' );
     T = tform.tdata.T;
-    dx = T(3,1);  dy = T(3,2);  sx = T(1,1);  sy = T(2,2);
-    theta = asin(T(1,2)) *180/pi;
-    mag = mean([sx sy]);
-    
+    theta = asind( T(1,2) );
     abs_dev = mean( sqrt( x_diff.^2 + y_diff.^2 )  ); % mean displacement.
-    align = struct('dx',dx,'dy',dy,'theta',theta,'mag',mag,'abs_dev',abs_dev);
     
+    align = struct( 'dx',T(3,1), 'dy',T(3,2), 'theta',theta, ...
+                    'sx',T(1,1)/cosd(theta), 'sy',T(2,2)/cosd(theta), ...
+                    'abs_dev',abs_dev );
 end
 
 
 %%%%% Optional software alignment algorithm (for dual-color only!)
 % If the alignment is close, no need to adjust.
 % Just give a warning unless asked to do software alignment in settings.
-if params.geometry>1 && abs_dev>0.5 && (params.alignTranslate || params.alignRotate),
+if params.geometry>1 && (params.alignTranslate || params.alignRotate) && abs_dev>0.5,
+    % FIXME (?): the user may expect the alignment to be applied even if
+    % the deviation is small when a specific alignment is loaded!
+    
     % 
     %---- 2. Transform acceptor side so that the two channels align properly.
     
@@ -567,9 +575,12 @@ if params.geometry>1 && abs_dev>0.5 && (params.alignTranslate || params.alignRot
     if ~( align_reg.dx==0 && align_reg.dy==0 && align_reg.theta==0 ),
         % The alignment is clearly off, but we may not have high confidence
         % in the predicted alignment. Just give a warning if it is below
-        % some arbitrary, but carefully chosen, threshold.
-        if quality<1.12,
-            warning('Low confidence alignment. Parameters are out of range or data quality is poor.');
+        % some arbitrary, but carefully chosen, threshold. Zero is returned
+        % by alignSearch if there is only one value per parameter, which is
+        % the case if we are just applying a specific alignment.
+        if quality<1.12 && quality>0,
+            warning('gettraces:lowConfidenceAlignment', ...
+                    'Low confidence alignment. Parameters are out of range or data quality is poor.');
             disp(quality);
         end
 
@@ -581,10 +592,16 @@ if params.geometry>1 && abs_dev>0.5 && (params.alignTranslate || params.alignRot
         [total_picks,rejected] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 
         % Transform peak location in the total intensity image to where
-        % they fall in the original images.
-        T = [ align.sx*cos(align.theta*pi/180)          sin(align.theta*pi/180)  0 ; ...
-                      -sin(align.theta*pi/180) align.sy*cos(align.theta*pi/180)  0 ; ...
-                           align.dx                         align.dy             1 ];
+        % they fall in the original images. To add shear, T(2,1) T(1,2).
+        Ts = [ align.sx 1        1 ; ...
+               1        align.sy 1 ; ...
+               1        1        1 ];
+        
+        T = [  cosd(align.theta)  sind(align.theta)  0 ; ...
+              -sind(align.theta)  cosd(align.theta)  0 ; ...
+                    align.dx           align.dy      1 ];
+        
+        T = T.*Ts;
         tform_a = maketform('affine',T);
         
         % Predict peak locations of the other channels assuming simple
@@ -772,7 +789,7 @@ end
 function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 % ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
 %
-%    [bestAlign,bestReg] = alignSearch( image_t, params )
+%    [bestAlign,bestReg] = alignSearch( image_t, params, [forceAlign] )
 %
 % Full search for a transformation (rotation+translation) of the acceptor
 % side relative to the donor. For each combination of dx, dy, and dtheta
@@ -782,7 +799,9 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 % to the well-aligned image.
 %
 % This method is slow and should only be used when the fields are far out
-% of alignment.
+% of alignment. It also doesn't work that well and has some biases when the
+% edges of the field are dark or bright (incomplete background subtraction).
+% 
 %
 % Note that this method is biased toward zero rotation because the imrotate
 % method blurs out the acceptor image, so the peak intensities are
@@ -798,8 +817,10 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 %
 
 % TODO: displacement ranges should be stored in params/cascadeConstants.
-% 
-tic;
+% FIXME: allow user to send alignment settings to be applied, which could
+% be a scalar number or a range for each variable (dx, dy, theta, etc).
+
+% tic;
 
 % Seperate fluorescence channels
 [nrow,ncol] = size(image_t);
@@ -811,22 +832,31 @@ acceptor_t = image_t( 1:nrow, ((ncol/2)+1):end );
 don_thresh = params.don_thresh;
 
 
-% Determine search range based on parameters.
-if isfield(params,'alignRotate') && params.alignRotate,
-    theta_range = -4:0.25:4;
-else
+% If software alignment settings are given, use those. If no settings are
+% given, use to defaults above. Typically, 
+if isfield(params,'alignment') && ~isempty(params.alignment),
+    dx_range = params.alignment.dx;
+    dy_range = params.alignment.dy;
+    theta_range = params.alignment.theta;
+end
+
+% Disable search for parameters if the the settings say not to search.
+if ~isfield(params,'alignRotate') || ~params.alignRotate,
     theta_range = 0;
 end
 
-if isfield(params,'alignTranslate') && params.alignTranslate,
-    trans_range = -5:1:5;
-else
-    trans_range = 0;
+if ~isfield(params,'alignTranslate') || ~params.alignTranslate,
+    dx_range = 0;
+    dy_range = dx_range;
 end
 
-ntheta = numel(theta_range);
-ntrans = numel(trans_range);
 
+% Round to integers in case we get some weird input.
+dx_range = round(dx_range);
+dy_range = round(dy_range);
+
+
+ntheta = numel(theta_range);
 
 if ~params.quiet && ntheta>1,
     h = waitbar(0,'Searching for the optimal alignment');
@@ -843,11 +873,9 @@ bestAligns = cell(1,ntheta);
 bestRegs = cell(1,ntheta);
 
 
-% for t=1:ntheta,  %use this for single-threaded
-parfor t=1:ntheta,
+for t=1:ntheta,  %use this for single-threaded
+% parfor t=1:ntheta,
     theta = theta_range(t);
-    
-    totalScore = 0;
     
     % Rotate the image, removing excess around the edges ('crop').
     % Rotation is done first for speed since imrotate is pretty slow and
@@ -858,8 +886,9 @@ parfor t=1:ntheta,
     % fields improves the bias, but the method doens't work very well.
     rot_a = imrotate( acceptor_t, theta, 'bicubic', 'crop' );
             
-    for dx=trans_range,
-        for dy=trans_range,
+    for dx = dx_range,
+        for dy = dy_range,
+            
             % Translate the image, also removing the excess.
             registered = zeros( size(acceptor_t) );
 
@@ -875,9 +904,10 @@ parfor t=1:ntheta,
             I = ( mean( total(picks) )-mean( total(~picks) ) ) / std(total(~picks));
             
             %scores(dx==trans_range) = I;
-            totalScore = totalScore+I;
+            avgScores(t) = avgScores(t)+I;
             
             % If this is the best alignment so far, save it.
+            % FIXME: besetAligns should be a structure array!
             if I>bestScores(t),
                 bestScores(t) = I;
                 bestAligns{t} = struct('dx',dx,'dy',dy,'theta',theta);
@@ -886,14 +916,15 @@ parfor t=1:ntheta,
         end
     end
     
-    % Collect averages, etc for this parfor run
-    avgScores(t) = totalScore/(ntrans*ntrans);
-     
-%     if ~params.quiet && ntheta>1,  %breaks parfor
-%         waitbar( t/ntheta, h );
-%     end
+    
+    if ~params.quiet && ntheta>1,  %breaks parfor
+        waitbar( t/ntheta, h );
+    end
 end
 % disp(toc);
+
+% Normalize scores.
+avgScores = avgScores./( numel(dx_range)*numel(dy_range) );
 
 
 % Over all possible rotations, find the best one.
@@ -902,11 +933,10 @@ bestAlign = bestAligns{bestIdx};
 bestReg   = bestRegs{bestIdx};
 
 
-% Add other parameters that are not explicitly optimize, but still needed
+% Add other parameters that are not explicitly optimized, but still needed
 % in order to make a complete transformation matrix.
 bestAlign.sx = 1;
 bestAlign.sy = 1;
-bestAlign.mag = 1;
 
 
 % If the correct alignment is out of range or the data are just random, we
@@ -914,8 +944,13 @@ bestAlign.mag = 1;
 % quality of (or confidence in) the optimal alignment, pass along the score
 % magnitude relative to other choices. Ideally, this should be more than
 % 1.1-1.15 (10-15% higher intensity than a random alignment).
-quality = bestScore / mean(avgScores);
-
+% This has no meaning (and will be 1) if only one value is given, as is the
+% case when we want to /apply/ a specific alignment.
+if ( ntheta+numel(dx_range)+numel(dy_range) ) == 3,
+    quality = 0; %means no information.
+else
+    quality = bestScore / mean(avgScores); %always >1
+end
 
 if ~params.quiet && ntheta>1,
     close(h);
@@ -928,6 +963,11 @@ end
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
 function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks, params )
+% For each molecule location in "peaks", find the most intense pixels in
+% its immediate neighborhood (defined by params.nPixelsToSum). These
+% regions are used by integrateAndSave() to sum most of the intensity for
+% each peak and generate fluorescence-time traces.
+%
 
 % Specify the number of most intense proximal pixels to sum when generating
 % fluorescence traces (depends on experimental point-spread function).
@@ -980,15 +1020,12 @@ end
 
 % function saveTraces( handles, hObject )
 function integrateAndSave( stkData, peaks, stk_fname )
-% NOTE: can find which pixels to use by correlation.
-% Up to this point the code is basically generic about what the channels
-% mean (donor/acceptor/etc). Here with multi-color measurements, we need to
-% be able to handle many possibly configurations gracefully. Donor and
-% acceptor properties in the data structure should remain. Then additional
-% channels can augment that main signal (single FRET pair). This is most
-% often in the form of factor binding. Also have to handle each specific
-% quadrant may have a different assignment (donor in one, factor or
-% acceptor in another) for each experiment. GOOD TIMES! --d
+% For each location in "peaks", sum a region that includes most of the
+% intensity for that spot and repeat for each time point to get a
+% fluorescence-time trace for each peak. Background subtraction, crosstalk
+% correction, and calculation of derived signals (FRET traces) is all done
+% here. Then the result is saved as a .rawtraces file with metadata.
+%
 
 global params;
 
@@ -1014,6 +1051,7 @@ idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 
 for k=1:nFrames,
     frame = double( movie.readFrame(k) )  -stkData.background;
+    
     if params.nPixelsToSum>1
         traces(:,k) = sum( frame(idx) );
     else
@@ -1031,7 +1069,8 @@ constants = cascadeConstants;
 if isfield(params,'photonConversion') && ~isempty(params.photonConversion) && params.photonConversion~=0,
     traces = traces./params.photonConversion;
 else
-    warning('Conversion from ADU to photons was not performed!');
+    warning( 'gettraces:noPhotonConversion', ...
+             'Conversion from ADU to photons was not performed!' );
 end
 
 % Extract individual channels from the traces matrix.
@@ -1065,10 +1104,15 @@ emptyCh = cellfun(@isempty,data.channelNames); %unused channels
 data.fileMetadata.wavelengths = params.wavelengths(~emptyCh);
 
 
-% Correct for variable sensitivity across acceptor-channel camera,
-% according to measurements with DNA oligos -- QZ
+% Correct for non-uniform sensitivity across the field-of-view in the donor
+% and acceptor fields. This is generally fixed and determined by the
+% optical properties in the light path and sometimes the CCD chips. The
+% parameters in cascadeConstants (.biasCorrection) are lamda functions that
+% give a scaling factor for each point in the field-of-view. To generate
+% this, find functions that give a flat response profile. The elements in
+% the lamba function cell array are in the same order as the channels.
 % FIXME: this assumes the order is [donor acceptor] for everything, which
-% may not be the case! Only works for dual-color for now.
+% may not be the case! Only works for dual-color for now!
 if  params.geometry==2 && isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     % creat a Look up table for intensity correction
     for j=1:Npeaks/2,
@@ -1080,14 +1124,13 @@ if  params.geometry==2 && isfield(params,'biasCorrection') && ~isempty(params.bi
     end
 end
 
-% Subtract background and calculate FRET
+% Subtract background, correct for crosstalk, and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces(data.donor,data.acceptor);
 if params.geometry>1,
     data.channelNames = [data.channelNames 'fret'];
 end
 
-% Also calculate FRET for multi-color FRET.
-% FIXME: only donor->acceptor crosstalk is handled!
+% FIXME: for 3/4-color, only donor->acceptor crosstalk is handled!
 if isfield(data,'donor2') && isfield(data,'acceptor2'),
     [data.donor2,data.acceptor2,data.fret2] = correctTraces( ...
                                               data.donor2, data.acceptor2);

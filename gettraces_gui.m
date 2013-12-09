@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 06-Mar-2013 15:03:19
+% Last Modified by GUIDE v2.5 06-Dec-2013 19:35:23
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -68,24 +68,11 @@ if ~isfield(handles,'params')
     
     % Setup default values for parameter values -- 2-color FRET.
     params = constants.gettraces_profiles(constants.gettraces_defaultProfile);
-
-    if ~isfield(params,'don_thresh') || params.don_thresh==0,
-        set( handles.txtIntensityThreshold,'String','' );
-    else
-        set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
-    end
-    set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
-    set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
-    set( handles.txtDACrosstalk,       'String', num2str(params.crosstalk)        );
-    set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
-    
-    set( handles.chkAlignTranslate, 'Value', params.alignTranslate );
-    set( handles.chkAlignRotate,    'Value', params.alignRotate    );
-    
-    set( handles.chkRecursive, 'Value', params.recursive    );
-    set( handles.chkOverwrite, 'Value', params.skipExisting );
-
+    handles.alignment = [];
     handles.params = params;
+    
+    % Set up GUI elements to reflect the internal parameter values.
+    handles = cboGeometry_Callback(handles.cboGeometry, [], handles);
 end
 
 % Update handles structure
@@ -450,6 +437,11 @@ guidata(hObject,handles);
 % ------------------------ PICK INTENSITY PEAKS ------------------------ %
 
 function handles = getTraces_Callback(hObject, eventdata, handles)
+%
+% FIXME: if handles.alignment has alignment settings, use that instead of
+% having gettraces find an optimum. This will require changes to gettraces
+% and probably params.
+%
 
 %----- Find peak locations from total intensity
 
@@ -481,11 +473,13 @@ set( handles.txtAlignWarning, 'Visible','off' );
 
 if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
     set( handles.txtAlignStatus, 'String', '' );
+    handles.alignment = [];
     
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
 else
     a = stkData.alignStatus;
+    handles.alignment = a;
     
     if isfield(a,'quality'),
         text = 'Alignment applied';
@@ -596,7 +590,8 @@ guidata(hObject,handles);
 
 function highlightPeaks(handles)
 % Draw circles around each selected fluorescence spot, defined in handles.x
-% and handles.y
+% and handles.y. FIXME: using line() to draw circles may be inefficient.
+% Try other methods. The big thing is EraseMode.
 %
 
     
@@ -811,7 +806,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on selection change in cboGeometry.
-function cboGeometry_Callback(hObject, eventdata, handles)
+function handles = cboGeometry_Callback(hObject, eventdata, handles)
 %
 
 % Get parameter values associated with the selected profile.
@@ -820,35 +815,42 @@ function cboGeometry_Callback(hObject, eventdata, handles)
 constants = cascadeConstants;
 sel = get(hObject,'Value');
 params = constants.gettraces_profiles(sel);
+handles.params = params;
 
-% Setup default values for parameter values -- 2-color FRET.
+
+% Reset all GUI elements to reflect the default settings in the currently
+% selected profile.
 if ~isfield(params,'don_thresh') || params.don_thresh==0,
     set( handles.txtIntensityThreshold,'String','' );
 else
     set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
 end
+
 set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
 set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
 set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
 set( handles.chkRecursive, 'Value', params.recursive    );
 set( handles.chkOverwrite, 'Value', params.skipExisting );
 
-% If a movie has already been loaded, reload movie with new setup
-handles.params = params;
+if handles.params.geometry==1, %Single-channel recordings
+    set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
+    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0 );
+    set( handles.chkAlignRotate,    'Enable','off', 'Value',0 ); 
+    set( handles.btnSaveAlignment,  'Enable','off' );
+    set( handles.btnLoadAlignment,  'Enable','off', 'Value',0 );
+else  %Multi-channel recordings
+    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(params.crosstalk) );
+    set( handles.chkAlignTranslate, 'Enable','on', 'Value',params.alignTranslate      );
+    set( handles.chkAlignRotate,    'Enable','on', 'Value',params.alignRotate  );
+    set( handles.btnSaveAlignment,  'Enable','on' );
+    set( handles.btnLoadAlignment,  'Enable','on', 'Value',0 );
+end
+
+
+% If a movie has already been loaded, reload movie with new setup.
 if isfield(handles,'stkfile'),
     handles = OpenStk( handles.stkfile, handles, hObject );
 end
-
-if handles.params.geometry==1, %Single-channel recordings
-    set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
-    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0   );
-    set( handles.chkAlignRotate,    'Enable','off', 'Value',0   );    
-else  %Dual-channel recordings
-    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(handles.params.crosstalk) );
-    set( handles.chkAlignTranslate, 'Enable','on', 'Value',handles.params.alignTranslate      );
-    set( handles.chkAlignRotate,    'Enable','on', 'Value',handles.params.alignRotate  );
-end
-
 
 guidata(hObject,handles);
 
@@ -857,7 +859,7 @@ guidata(hObject,handles);
 
 function txtDACrosstalk_Callback(hObject, eventdata, handles)
 % 
-handles.params.crosstalk = str2num( get(hObject,'String') );
+handles.params.crosstalk = str2double( get(hObject,'String') );
 guidata(hObject,handles);
 
 
@@ -866,7 +868,7 @@ guidata(hObject,handles);
 
 function txtPhotonConversion_Callback(hObject, eventdata, handles)
 %
-handles.params.photonConversion = str2num( get(hObject,'String') );
+handles.params.photonConversion = str2double( get(hObject,'String') );
 guidata(hObject,handles);
 
 
@@ -942,3 +944,91 @@ msgbox( output, 'MetaMorph metadata' );
 
 
 
+
+
+% --- Executes on button press in btnLoadAlignment.
+function btnLoadAlignment_Callback(hObject, eventdata, handles)
+% Load software alignment settings previously saved to file. The file
+% the "align" structure defined in gettraces, including dx, dy, theta, etc.
+%
+
+% This should only be used in multi-color experiments.
+assert( handles.params.geometry>1 );
+
+
+pressed = get(hObject,'Value');
+
+% Load an alignment file
+if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
+    [f,p] = uigetfile('*.mat','Select an alignment settings file');
+    alignFilename = [p f];
+    if f==0, return; end
+    
+    try
+        % Overwrite alignment settings with those in the file.
+        handles.params.alignment = load(alignFilename);
+    catch e,
+        % If the file is invalid, give a warning and reset the button so
+        % that is as if nothing happened.
+        disp( ['Invalid alignment file: ' e.message] );
+        set( hObject, 'Value',get(hObject,'Min') );
+        return;
+    end
+    
+    % 4) Disable alignment controls and set to checked.
+    handles.params.alignTranslate = 1;
+    handles.params.alignRotate = 1;
+    
+    set( handles.chkAlignTranslate, 'Enable','off' );
+    set( handles.chkAlignRotate,    'Enable','off' );
+    
+    
+% Unload the current alignment and reset to the normal state.
+elseif pressed == get(hObject,'Min')
+    set( handles.chkAlignTranslate, 'Enable','on' );
+    set( handles.chkAlignRotate,    'Enable','on' );
+    
+    % Reset alignment parameters back to defaults.
+    constants = cascadeConstants;
+    sel = get(handles.cboGeometry,'Value');
+    p = constants.gettraces_profiles(sel);
+    handles.params.alignment = p.alignment;
+    handles.params.alignTranslate = p.alignTranslate;
+    handles.params.alignRotate = p.alignRotate;
+    handles.alignment = [];
+end
+
+set( handles.chkAlignTranslate, 'Value',handles.params.alignTranslate );
+set( handles.chkAlignRotate,    'Value',handles.params.alignRotate );
+
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
+guidata(hObject,handles);
+
+
+%end function btnLoadAlignment_Callback
+
+
+
+
+% --- Executes on button press in btnSaveAlignment.
+function btnSaveAlignment_Callback(hObject, eventdata, handles)
+% Save current software alignment settings (which may be set to do nothing
+% at all) to file so they can be reloaded later.
+%
+
+assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.params.geometry>1 );
+
+% Verify there is a valid software alignment 
+% if ~isfield(handles,'alignment') || isempty(handles.alignment),
+%     set(handles.btnSaveAlignment,'Enable','off');
+%     return;
+% end
+
+[f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
+align = handles.alignment;
+save( [p f], '-struct', 'align' );
+
+
+%end function btnSaveAlignment_Callback

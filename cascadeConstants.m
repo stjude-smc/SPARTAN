@@ -61,7 +61,16 @@ params.don_thresh = 0; %auto
 params.overlap_thresh = 2.3;
 params.nPixelsToSum   = 4;
 
-% Options for alignment, etc:
+% Software alignment settings.
+params.alignRotate = 0; %it is slow and not that reliable; disable by default.
+
+params.alignment.theta = -4:0.1:4;
+params.alignment.dx    = -5:1:5;
+params.alignment.dy    = -5:1:5;
+params.alignment.sx    = 1;  %magnification (x)
+params.alignment.sy    = 1;  %magnification (y)
+
+% Other options:
 params.skipExisting = 0;
 params.recursive = 0;
 params.quiet = 0;
@@ -74,6 +83,8 @@ params.saveLocations = 0;
 % See gettraces.m for definitions for these parameters. Acceptable channel
 % names include: donor, acceptor, donor2, acceptor2, factor. Factor is a
 % fluorescence channel that is not part of any FRET pair.
+% FIXME: make it possible to include default alignment settings here,
+% probably by giving an alignment filename (.mat).
 clear p;
 
 p(1).name        = 'Single-channel (Cy3)';
@@ -83,7 +94,6 @@ p(1).chDesc      = {'Cy3'};
 p(1).wavelengths = 532;
 p(1).crosstalk   = 0;
 p(1).alignTranslate = 0;
-p(1).alignRotate = 0;
 
 p(2) = p(1);
 p(2).name = 'Single-channel (Cy5)';
@@ -96,7 +106,6 @@ p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
 p(3).crosstalk   = 0.12; %donor->acceptor only, 630dcxr
 p(3).alignTranslate = 1;  % no problems other than being slow.
-p(3).alignRotate = 0;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
@@ -111,7 +120,6 @@ p(4).chDesc      = {'Cy5','Cy7','Cy3','Cy2'};
 p(4).wavelengths = [640 730 532 473];
 p(4).crosstalk   = 0.26; %donor->acceptor only
 p(4).alignTranslate = 0;  %alignment code not fully tested yet!
-p(4).alignRotate = 0;
 
 % Add all of the common settings that do not vary.
 fnames = fieldnames(params);
@@ -122,8 +130,8 @@ end
 constants.gettraces_profiles = p;
 
 % Set the default settings profile.
-constants.gettraces_defaultProfile = 3;
-constants.gettracesDefaultParams = p(3); %Dual-View (Cy3/Cy5)
+constants.gettraces_defaultProfile = 3;   %Dual-View (Cy3/Cy5)
+constants.gettracesDefaultParams = p( constants.gettraces_defaultProfile );
 
 
 
