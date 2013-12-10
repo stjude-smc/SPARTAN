@@ -68,7 +68,7 @@ if ~isfield(handles,'params')
     
     % Setup default values for parameter values -- 2-color FRET.
     params = constants.gettraces_profiles(constants.gettraces_defaultProfile);
-    handles.alignment = [];
+    handles.alignment = [];  %current alignment parameters (status)
     handles.params = params;
     
     % Set up GUI elements to reflect the internal parameter values.
@@ -396,18 +396,9 @@ log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');
 
-names = fieldnames(  handles.params );
-vals  = struct2cell( handles.params );
-
-for i=1:numel(names),
-    if iscell( vals{i} )
-        f = repmat( '%s, ', 1,numel(vals{i}));
-        f = f(1:end-2);
-        fprintf(log_fid, ['  %15s:  ' f '\n'], names{i}, vals{i}{:});
-    else
-        fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
-    end
-end
+output = evalc('disp(handles.params)');
+fprintf(log_fid, '%s', output);
+%FIXME: structure parameters are not displayed here (alignment!)
 
 % Log list of files processed by gettraces
 fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
@@ -438,10 +429,6 @@ guidata(hObject,handles);
 
 function handles = getTraces_Callback(hObject, eventdata, handles)
 %
-% FIXME: if handles.alignment has alignment settings, use that instead of
-% having gettraces find an optimum. This will require changes to gettraces
-% and probably params.
-%
 
 %----- Find peak locations from total intensity
 
@@ -453,6 +440,8 @@ end
 
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
+% params = handles.params;
+% params.alignment = handles.alignment; %apply loaded alignment if any
 [stkData,peaks] = gettraces( stkData, handles.params );
 
 % The alignment may involve shifting (or distorting) the fields to get a
@@ -482,22 +471,29 @@ else
     handles.alignment = a;
     
     if isfield(a,'quality'),
-        text = 'Alignment applied';
+        text = 'Alignment applied:';
     else
-        text = 'Alignment deviation';
+        text = 'Alignment deviation:';
     end
     
-    text = sprintf('%s:\n%0.1f (x), %0.1f (y), %0.1f° (rot),\n%0.1f (abs)', ...
-                    text, [a.dx a.dy a.theta a.abs_dev] );
-                
-    if isfield(a,'residual_dev')
-        text = [text sprintf(', %0.1f (res)',a.residual_dev)];
+    for i=1:numel(a),
+        if isempty(a(i).theta),
+            continue;   %ignore donor field
+        end
+        
+        text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.1f°, %0.1f (dev)', ...
+                       [a(i).dx a(i).dy a(i).theta a(i).abs_dev] )  ];
+    
+        %if isfield(a,'residual_dev')
+        %    text = [text sprintf(', %0.1f (res)',a.residual_dev)];
+        %end
     end
     
     set( handles.txtAlignStatus, 'String', text );
 
-    if a.abs_dev>0.25,
-        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,a.abs_dev) 0 0] );
+    if any( [a.abs_dev] > 0.25 ),
+        d = max( [a.abs_dev] );
+        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
     else
         set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
     end
@@ -505,7 +501,7 @@ else
     % Total misalignment (no corresponding peaks) can give a relatively low
     % alignment since the algorithm can only search a 1px neighborhood. So
     % when things get close to 1, we need a big warning. 
-    if a.abs_dev>=0.7,
+    if any( [a.abs_dev] >=0.7 ),
         % Put up some big red text that's hard to ignore in the total
         % fluorescence image. FIXME: the warning should be different if the
         % software alignment was applied and the residual is low.
@@ -966,7 +962,9 @@ if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
     
     try
         % Overwrite alignment settings with those in the file.
-        handles.params.alignment = load(alignFilename);
+        input = load(alignFilename);
+        handles.params.alignment = input.alignment;
+        handles.alignment = input.alignment; %???
     catch e,
         % If the file is invalid, give a warning and reset the button so
         % that is as if nothing happened.
@@ -1027,8 +1025,8 @@ assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.p
 % end
 
 [f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
-align = handles.alignment;
-save( [p f], '-struct', 'align' );
+alignment = handles.alignment;
+save( [p f], 'alignment' );
 
 
 %end function btnSaveAlignment_Callback

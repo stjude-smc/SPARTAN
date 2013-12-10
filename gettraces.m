@@ -263,14 +263,13 @@ global params;
 
 % Get list of files in current directory (option: and all subdirectories)
 if params.recursive
-    movieFilenames  = rdir([direct filesep '**' filesep '*.stk']);
-    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.stk.bz2'])];
-    movieFilenames  = [movieFilenames; rdir([direct filesep '**' filesep '*.movie'])];
+    movieFilenames  = rdir([direct filesep '**' filesep '*.stk*']);
+    movieFilenames  = [ movieFilenames ; rdir([direct filesep '**' filesep '*.tif*']) ];
 else
-    movieFilenames  = rdir([direct filesep '*.stk']);
-    movieFilenames  = [movieFilenames; rdir([direct filesep '*.stk.bz2'])];
-    movieFilenames  = [movieFilenames; rdir([direct filesep '*.movie'])];
+    movieFilenames  = rdir([direct filesep '*.stk*']);
+    movieFilenames  = [ movieFilenames ; rdir([direct filesep '*.tif*']) ];
 end
+
 
 nFiles = length(movieFilenames);
 
@@ -477,10 +476,8 @@ elseif params.geometry>2,
     % Extract donor and acceptor peaks.
     allFields = {upperLeft, lowerLeft, lowerRight, upperRight};
     donor_t = allFields{indD};
-    acceptor_t = allFields{indA};
     
-    %total_t = upperLeft + lowerLeft + lowerRight + upperRight;
-    total_t = upperLeft + lowerLeft;% + lowerRight + upperRight;
+    total_t = upperLeft + lowerLeft + lowerRight + upperRight;
 end
 
 
@@ -544,6 +541,7 @@ if params.geometry>1,
     
     % Use the picked peak locations to create a simple transformation
     % (including translation, rotation, and scaling) from donor to acceptor.
+    % FIXME: this should be for ALL fields.
     d = r_mod(indD:nCh:end,:);  a = r_mod(indA:nCh:end,:);
     tform = cp2tform( d(~rejected,:), a(~rejected,:), 'nonreflective similarity' );
     T = tform.tdata.T;
@@ -570,61 +568,75 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate) && abs_dev
     % the best donor-acceptor intensity overlap. The quality score is the
     % mean aligned peak magnitude vs random alignment. If the score is low,
     % reject it and just say "we don't know".
-    [align_reg,total_reg,quality] = alignSearch( [donor_t acceptor_t], params );
+    quality = zeros(nCh,1);
+    registered_t = cell(nCh,1);
+    align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{});
+    tform = cell(nCh,1);
+    total_t = donor_t;
     
-    if ~( align_reg.dx==0 && align_reg.dy==0 && align_reg.theta==0 ),
+    for i=1:nCh,
+        if i==indD, continue; end %don't try to align donor to itself.
+        
+        % Search for an optimal alignment of the selected field vs donor.
+        % FIXME: params.alignment can be a structure array. alignSearch
+        % doesn't yet know what to do about that.
+        p = params;
+        if numel(params.alignment)>1,
+            p.alignment = params.alignment(i);
+        end
+        [align(i),registered_t{i},quality(i)] = alignSearch( donor_t, allFields{i}, p );
+        total_t = total_t + registered_t{i};        
+        
+        % Create a transformation matrix from the alignment parameters.
+        Ts = ones(3);
+        Ts(1,1) = align(i).sx;
+        Ts(2,2) = align(i).sy;
+        
+        T = [  cosd(align(i).theta)  sind(align(i).theta)  0 ; ...
+              -sind(align(i).theta)  cosd(align(i).theta)  0 ; ...
+                    align(i).dx           align(i).dy      1 ];
+        
+        T = T.*Ts;
+        tform{i} = maketform('affine',T);
+    end
+        
+    if ~( all([align.dx]==0) && all([align.dy]==0) && all([align.theta]==0) ),
         % The alignment is clearly off, but we may not have high confidence
         % in the predicted alignment. Just give a warning if it is below
         % some arbitrary, but carefully chosen, threshold. Zero is returned
         % by alignSearch if there is only one value per parameter, which is
         % the case if we are just applying a specific alignment.
-        if quality<1.12 && quality>0,
+        
+        if any( quality<1.12 & quality>0 ),
             warning('gettraces:lowConfidenceAlignment', ...
                     'Low confidence alignment. Parameters are out of range or data quality is poor.');
             disp(quality);
         end
-
-        align = align_reg;
-        total_t = total_reg;
-        align.quality=quality;
-
+        
         % Pick peaks from the aligned, total intensity image.
         [total_picks,rejected] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
 
-        % Transform peak location in the total intensity image to where
-        % they fall in the original images. To add shear, T(2,1) T(1,2).
-        Ts = [ align.sx 1        1 ; ...
-               1        align.sy 1 ; ...
-               1        1        1 ];
+        % For each channel, predict peak locations as straight translations 
+        % from the peak locations in the total intensity image.
+        nPicked = size(total_picks,1);
+        picks = zeros( nCh*nPicked, 2 );
+        remove = zeros( nPicked,1 );
+
+        for i=1:nCh,
+            [picks(i:nCh:end,:),r] = translatePeaks( total_picks, ...
+                                 size(total_t), quadrants(i), tform{i} );
+            remove = remove | r;
+        end
         
-        T = [  cosd(align.theta)  sind(align.theta)  0 ; ...
-              -sind(align.theta)  cosd(align.theta)  0 ; ...
-                    align.dx           align.dy      1 ];
-        
-        T = T.*Ts;
-        tform_a = maketform('affine',T);
-        
-        % Predict peak locations of the other channels assuming simple
-        % translation -- assuming fields are aligned.
-        [acceptor_picks,remove] = translatePeaks( total_picks, size(total_t), ...
-                                               quadrants(indA), tform_a );
-                                           
         % Remove peaks that were moved outside the field boundries in at
         % least one of the fields due to the software alignment.
         total_picks  = total_picks(~remove,:);
         rejected     = rejected(~remove);
         nPicked = size(total_picks,1);
-        
-        % For each channel, predict peak locations as straight translations 
-        % from the peak locations in the total intensity image.
-        picks = zeros( nCh*nPicked, 2 );
 
-        for i=1:nCh,  
-            picks(i:nCh:end,:) = translatePeaks( total_picks, size(total_t), quadrants(i) );
-        end
-
-        % Replace acceptor locations with aligned ones.
-        picks(indA:nCh:end,:) = acceptor_picks(~remove,:);
+        % Remove molecules if the peaks in any field are out of range.
+        z = repmat( remove, [nCh,1] ); z = z(:);
+        picks = picks(~z,:);
 
 
         %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
@@ -636,9 +648,12 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate) && abs_dev
             r_mod = [ mod(refinedPicks(:,1),ncol/2) mod(refinedPicks(:,2),nrow/2) ]; %4-color
         end
 
-        x_diff = r_mod(indA:nCh:end,1)-r_mod(indD:nCh:end,1);
-        y_diff = r_mod(indA:nCh:end,2)-r_mod(indD:nCh:end,2);
-        align.abs_dev = mean(  sqrt( x_diff.^2 + y_diff.^2 )  );
+        for i=1:nCh,
+            x_diff = r_mod(i:nCh:end,1)-r_mod(indD:nCh:end,1);
+            y_diff = r_mod(i:nCh:end,2)-r_mod(indD:nCh:end,2);
+            align(i).abs_dev = mean(  sqrt( x_diff.^2 + y_diff.^2 )  );
+            align(i).quality = quality(i);
+        end
 
         % Calculate residual alignment deviation after software alignment.
         % It is easy to calculate deviation in each peak from where it
@@ -786,7 +801,7 @@ end
 
 
 
-function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
+function [bestAlign,bestReg,quality] = alignSearch( donor_t, acceptor_t, params )
 % ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
 %
 %    [bestAlign,bestReg] = alignSearch( image_t, params, [forceAlign] )
@@ -812,20 +827,9 @@ function [bestAlign,bestReg,quality] = alignSearch( image_t, params )
 % but if it is close and some molecules are not discovered, it will cause
 % problems. This might be fixed by rotating BOTH fields...
 %
-% WARNING: This method does not handle difference in magnification across
-% the fields. FIXME.
-%
-
-% TODO: displacement ranges should be stored in params/cascadeConstants.
-% FIXME: allow user to send alignment settings to be applied, which could
-% be a scalar number or a range for each variable (dx, dy, theta, etc).
 
 % tic;
 
-% Seperate fluorescence channels
-[nrow,ncol] = size(image_t);
-donor_t    = image_t( 1:nrow, 1:ncol/2 );
-acceptor_t = image_t( 1:nrow, ((ncol/2)+1):end );
 
 [nrow,ncol] = size(donor_t);
 
@@ -855,8 +859,9 @@ end
 dx_range = round(dx_range);
 dy_range = round(dy_range);
 
-
 ntheta = numel(theta_range);
+ndx = numel(dx_range);
+ndy = numel(dy_range);
 
 if ~params.quiet && ntheta>1,
     h = waitbar(0,'Searching for the optimal alignment');
@@ -867,10 +872,9 @@ end
 % Space to store the best alignment for each possible rotation value.
 % This is required for parfor to work correctly because all threads must be
 % totally independent.
-bestScores = zeros(1,ntheta);
-avgScores = zeros(1,ntheta);
-bestAligns = cell(1,ntheta);
-bestRegs = cell(1,ntheta);
+scores = zeros(ntheta,ndx,ndy);
+bestAlign = [];
+bestReg = [];
 
 
 for t=1:ntheta,  %use this for single-threaded
@@ -885,9 +889,12 @@ for t=1:ntheta,  %use this for single-threaded
     % introduce some bias, but in practice it is small. Rotating both
     % fields improves the bias, but the method doens't work very well.
     rot_a = imrotate( acceptor_t, theta, 'bicubic', 'crop' );
+    
+    for i=1:ndx,
+        dx = dx_range(i);
             
-    for dx = dx_range,
-        for dy = dy_range,
+        for j=1:ndy,
+            dy = dy_range(j);
             
             % Translate the image, also removing the excess.
             registered = zeros( size(acceptor_t) );
@@ -903,19 +910,15 @@ for t=1:ntheta,  %use this for single-threaded
             picks = total>don_thresh;
             I = ( mean( total(picks) )-mean( total(~picks) ) ) / std(total(~picks));
             
-            %scores(dx==trans_range) = I;
-            avgScores(t) = avgScores(t)+I;
-            
             % If this is the best alignment so far, save it.
-            % FIXME: besetAligns should be a structure array!
-            if I>bestScores(t),
-                bestScores(t) = I;
-                bestAligns{t} = struct('dx',dx,'dy',dy,'theta',theta);
-                bestRegs{t} = total;
+            if all( I>scores ),
+                bestAlign = struct('dx',dx,'dy',dy,'theta',theta,'sx',1,'sy',1);
+                bestReg = registered;
             end
+            
+            scores(t,i,j) = I;  %fixme for direct indexing.
         end
     end
-    
     
     if ~params.quiet && ntheta>1,  %breaks parfor
         waitbar( t/ntheta, h );
@@ -923,20 +926,12 @@ for t=1:ntheta,  %use this for single-threaded
 end
 % disp(toc);
 
-% Normalize scores.
-avgScores = avgScores./( numel(dx_range)*numel(dy_range) );
 
-
-% Over all possible rotations, find the best one.
-[bestScore,bestIdx] = max(bestScores);
-bestAlign = bestAligns{bestIdx};
-bestReg   = bestRegs{bestIdx};
-
-
-% Add other parameters that are not explicitly optimized, but still needed
-% in order to make a complete transformation matrix.
-bestAlign.sx = 1;
-bestAlign.sy = 1;
+% Plot scores (debugging)
+% figure();
+% plot( theta_range, scores(:,dx_range==0,dy_range==0), 'k-' );
+% plot( theta_range, scores(:,dx_range==0,dy_range==-1), 'b-' );
+% plot( theta_range, scores(:,dx_range==0,dy_range==1), 'r-' );
 
 
 % If the correct alignment is out of range or the data are just random, we
@@ -946,10 +941,10 @@ bestAlign.sy = 1;
 % 1.1-1.15 (10-15% higher intensity than a random alignment).
 % This has no meaning (and will be 1) if only one value is given, as is the
 % case when we want to /apply/ a specific alignment.
-if ( ntheta+numel(dx_range)+numel(dy_range) ) == 3,
+if ( ntheta+ndx+ndy ) == 3,
     quality = 0; %means no information.
 else
-    quality = bestScore / mean(avgScores); %always >1
+    quality = max(scores(:)) / median(scores(:)); %always >1
 end
 
 if ~params.quiet && ntheta>1,

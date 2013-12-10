@@ -51,10 +51,9 @@ if nargin>3 && ~isempty(tform),
     % Mark any peaks that now fall outside the field limits.
     rejects = picks(:,1)<2      | picks(:,2)<2       | ...
               picks(:,1)>ncol-1 | picks(:,2)>nrow-1;
-    disp(sum(rejects));
 else
     picks = total_picks;
-    rejects = false( size(picks) );
+    rejects = false( size(picks,1),1 );
 end
 
 
