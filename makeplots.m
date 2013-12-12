@@ -175,7 +175,18 @@ for i=1:numel(baseFilenames),  %for each sample
     end
     
     data = loadTraces( data_fname );
-    fret = data.fret;  clear data;
+    
+    % The data may have multiple FRET signals to analyze. Ask which to use.
+    if isfield(data,'fret2'),
+        a = questdlg('This data has multiple FRET channels. Which should be used?', ...
+                     'Select FRET channel to use','fret','fret2','Cancel', 'FRET1');
+        if strcmp(a,'Cancel'), return; end
+        fret = data.(a);
+    else
+        fret = data.fret;
+    end
+    
+    clear data;
     N(i) = size(fret,1);
     
     

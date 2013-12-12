@@ -336,8 +336,8 @@ for i=1:Ntraces   %use this instead to disable parallel operation.
 
             if sum(fretRange)>1
                 retval(i).avgFret2 = mean( fret2(fretRange) );
-                retval(i).maxFret2 = max( fret2(fretRange) );
             end
+            retval(i).maxFret2 = max(fret2);
         end
     end
     
