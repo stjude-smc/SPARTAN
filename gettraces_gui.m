@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 06-Dec-2013 19:35:23
+% Last Modified by GUIDE v2.5 11-Dec-2013 18:33:04
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -829,19 +829,31 @@ set( handles.chkRecursive, 'Value', params.recursive    );
 set( handles.chkOverwrite, 'Value', params.skipExisting );
 
 if handles.params.geometry==1, %Single-channel recordings
-    set( handles.txtDACrosstalk,    'Enable','off', 'String','' );
+    set( handles.txtDACrosstalk,    'Enable','off', 'String','', 'Visible','on' );
+    set( handles.btnCrosstalk,      'Visible','off'  );
     set( handles.chkAlignTranslate, 'Enable','off', 'Value',0 );
     set( handles.chkAlignRotate,    'Enable','off', 'Value',0 ); 
     set( handles.btnSaveAlignment,  'Enable','off' );
     set( handles.btnLoadAlignment,  'Enable','off', 'Value',0 );
 else  %Multi-channel recordings
-    set( handles.txtDACrosstalk,    'Enable','on', 'String',num2str(params.crosstalk) );
     set( handles.chkAlignTranslate, 'Enable','on', 'Value',params.alignTranslate      );
     set( handles.chkAlignRotate,    'Enable','on', 'Value',params.alignRotate  );
     set( handles.btnSaveAlignment,  'Enable','on' );
     set( handles.btnLoadAlignment,  'Enable','on', 'Value',0 );
 end
 
+% For multi-color FRET, the matrix of possible crosstalk values can't
+% be handled in a little text box, so use a button for a dialog with
+% all of the values listed instead (see btnCrosstalk_Callback).
+if handles.params.geometry==2,
+    set( handles.txtDACrosstalk, 'Enable','on', 'Visible','on', ...
+                                    'String',num2str(params.crosstalk) );
+    set( handles.btnCrosstalk,   'Visible','off'  );
+elseif handles.params.geometry>2,
+    set( handles.txtDACrosstalk, 'Visible','off' );
+    set( handles.btnCrosstalk,   'Visible','on'  );
+end
+    
 
 % If a movie has already been loaded, reload movie with new setup.
 if isfield(handles,'stkfile'),
@@ -1025,8 +1037,62 @@ assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.p
 % end
 
 [f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
-alignment = handles.alignment;
+alignment = rmfield( handles.alignment, {'quality','abs_dev'} );
 save( [p f], 'alignment' );
 
 
 %end function btnSaveAlignment_Callback
+
+
+% --- Executes on button press in btnCrosstalk.
+function btnCrosstalk_Callback(hObject, eventdata, handles)
+% When there are more than 2 channels, the crosstalk is more than just a
+% scalar and can't be represented in the text box easily, so this button
+% will launch a dialog to show all the possible parameter values and allow
+% the user to change them.
+%
+
+params = handles.params;
+
+assert( handles.params.geometry>1 && numel(handles.params.crosstalk>1) );
+
+
+% Only show crosstalk parameters for channels that are adjacent in
+% wavelength space. Crosstalk in other channels is generally negligable.
+% This simplifies the input. The channels are listed in the order of
+% wavelength.
+[wl,idx] = sort(params.wavelengths);
+
+prompts = strcat( params.chNames(idx(1:end-1)'), ' (', params.chDesc(idx(1:end-1)'), ') -> ', ...
+                 params.chNames(idx(2:end)'),   ' (', params.chDesc(idx(2:end)'),   '):' );
+
+defaults = cell( numel(wl)-1, 1 );
+for i=1:(numel(wl)-1),
+    defaults{i} = num2str( params.crosstalk(idx(i),idx(i+1)) );
+end
+
+result = inputdlg( prompts, 'Enter crosstalk values', 1, defaults );
+
+if isempty(result),
+    return;
+end
+
+% Process the user input. We assume they are numbers.
+for i=1:(numel(wl)-1),
+    c = str2double( result{i} );
+
+    if isnan(c) || c>1 || c<0,
+        fprintf( 'Error: invalid crosstalk value %d ignored (%s)', ...
+                                                  i, result{i} );
+    else
+        handles.params.crosstalk( idx(i), idx(i+1) ) = c;
+    end
+end %for each channel pair.
+
+disp(handles.params.crosstalk);
+guidata(hObject,handles);
+
+%end function btnCrosstalk_Callback
+
+
+

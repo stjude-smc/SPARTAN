@@ -833,8 +833,6 @@ function [bestAlign,bestReg,quality] = alignSearch( donor_t, acceptor_t, params 
 
 [nrow,ncol] = size(donor_t);
 
-don_thresh = params.don_thresh;
-
 
 % If software alignment settings are given, use those. If no settings are
 % given, use to defaults above. Typically, 
@@ -869,17 +867,20 @@ if ~params.quiet && ntheta>1,
 end
 
 
-% Space to store the best alignment for each possible rotation value.
+% Reserve space for the best alignment for each possible rotation value.
 % This is required for parfor to work correctly because all threads must be
 % totally independent.
 scores = zeros(ntheta,ndx,ndy);
-bestAlign = [];
-bestReg = [];
+bestScores = zeros(ntheta,1);
+bestAligns = cell(ntheta,1);
+bestRegs = cell(ntheta,1);
 
+don_thresh = params.don_thresh;
 
-for t=1:ntheta,  %use this for single-threaded
-% parfor t=1:ntheta,
+% for t=1:ntheta,  %use this for single-threaded
+parfor t=1:ntheta,
     theta = theta_range(t);
+    scoreTemp = zeros(ndx,ndy);
     
     % Rotate the image, removing excess around the edges ('crop').
     % Rotation is done first for speed since imrotate is pretty slow and
@@ -906,25 +907,36 @@ for t=1:ntheta,  %use this for single-threaded
             % threshold in the (aligned) total intensity image.
             % This will be higher when intensity is gathered from both
             % donor and acceptor side and low when they are seperated.
+            % This is the most computationally intense part (mean/std).
             total = donor_t+registered;
             picks = total>don_thresh;
             I = ( mean( total(picks) )-mean( total(~picks) ) ) / std(total(~picks));
+            if isnan(I), I = eps; end
             
             % If this is the best alignment so far, save it.
-            if all( I>scores ),
-                bestAlign = struct('dx',dx,'dy',dy,'theta',theta,'sx',1,'sy',1);
-                bestReg = registered;
+            if all( I>scoreTemp(:) ),
+                bestAligns{t} = struct('dx',dx,'dy',dy,'theta',theta,'sx',1,'sy',1);
+                bestRegs{t} = registered;
+                bestScores(t) = I;
             end
             
-            scores(t,i,j) = I;  %fixme for direct indexing.
+            scoreTemp(i,j) = I;  %fixme for direct indexing.
         end
     end
     
-    if ~params.quiet && ntheta>1,  %breaks parfor
-        waitbar( t/ntheta, h );
-    end
+    scores(t,:,:) = scoreTemp;
+    
+%     if ~params.quiet && ntheta>1,  %breaks parfor
+%         waitbar( t/ntheta, h );
+%     end
 end
 % disp(toc);
+
+
+% Over all possible rotations, find the best one.
+[~,bestIdx] = max(bestScores);
+bestAlign = bestAligns{bestIdx};
+bestReg   = bestRegs{bestIdx};
 
 
 % Plot scores (debugging)
@@ -1086,12 +1098,21 @@ elseif params.geometry>1, %two- or three- or four-color
         data.(ch) = traces(indCh:nCh:end,:);
     end
     
-    % Make an adjustment for crosstalk on the camera.
-    % For now we assume this is the same regardless of geometry.
-    if ~isfield(params,'crosstalk'),
-        params.crosstalk = constants.crosstalk;
+    % Make an adjustment for crosstalk on the camera. If there are 3 or 4
+    % colors, params.crosstalk is a matrix of (src,dst) values, where most
+    % are 0 (no crosstalk).
+    if numel(params.crosstalk)==1,
+        data.acceptor = data.acceptor - params.crosstalk*data.donor;
+    else
+        [src,dst] = find( params.crosstalk~=0 );
+        
+        for i=1:numel(src),
+            chSrc = data.channelNames{ src(i) };
+            chDst = data.channelNames{ dst(i) };
+            val = params.crosstalk(src(i),dst(i));
+            data.(chDst) = data.(chDst) - val*data.(chSrc);
+        end
     end
-    data.acceptor = data.acceptor - params.crosstalk*data.donor;
 end
 
 % Save color assignments for display in sorttraces.

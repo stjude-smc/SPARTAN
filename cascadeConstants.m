@@ -47,6 +47,7 @@ constants.gamma = 1.0;
 
 
 
+
 % ---- Gettraces default settings
 
 % ADU (arbitrary camera intensity units) to photon conversion factor in
@@ -65,8 +66,8 @@ params.nPixelsToSum   = 4;
 params.alignRotate = 0; %it is slow and not that reliable; disable by default.
 
 params.alignment.theta = -4:0.1:4;
-params.alignment.dx    = -5:1:5;
-params.alignment.dy    = -5:1:5;
+params.alignment.dx    = -4:1:4;
+params.alignment.dy    = -4:1:4;  %all dx and dy must be integers
 params.alignment.sx    = 1;  %magnification (x)
 params.alignment.sy    = 1;  %magnification (y)
 
@@ -75,6 +76,7 @@ params.skipExisting = 0;
 params.recursive = 0;
 params.quiet = 0;
 params.saveLocations = 0;
+
 
 % Create gettraces parameter profiles for various imaging geometries and
 % fluorophores. For the quad-view, the order is UL, UR, LL, LR. These will
@@ -95,16 +97,18 @@ p(1).wavelengths = 532;
 p(1).crosstalk   = 0;
 p(1).alignTranslate = 0;
 
+
 p(2) = p(1);
 p(2).name = 'Single-channel (Cy5)';
 p(2).wavelengths = 640;
+
 
 p(3).name        = 'Dual-Cam (Cy3/Cy5)';
 p(3).geometry    = 2;
 p(3).chNames     = {'donor','acceptor'}; %L/R
 p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
-p(3).crosstalk   = 0.12; %donor->acceptor only, 630dcxr
+p(3).crosstalk   = 0.12; %donor->acceptor only
 p(3).alignTranslate = 1;  % no problems other than being slow.
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
@@ -113,13 +117,16 @@ p(3).alignTranslate = 1;  % no problems other than being slow.
 p(3).biasCorrection = {  @(x,y) 1,  ...                        %donor, LHS
                          @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
 
-p(4).name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
+                     
+p(4).name        = 'Quad-View (Cy2/Cy3B/Cy5/Cy7)';
 p(4).geometry    = 3;
 p(4).chNames     = {'acceptor','acceptor2','donor','factor'}; %UL/UR/LL/LR
 p(4).chDesc      = {'Cy5','Cy7','Cy3','Cy2'};
 p(4).wavelengths = [640 730 532 473];
-p(4).crosstalk   = 0.26; %donor->acceptor only
-p(4).alignTranslate = 0;  %alignment code not fully tested yet!
+p(4).crosstalk   = zeros(4);
+p(4).crosstalk(3,1) = 0.26;  %Cy3->Cy5
+p(4).crosstalk(1,2) = 0.06;   %Cy5->Cy7 (is this correct???)
+p(4).alignTranslate = 0;
 
 % Add all of the common settings that do not vary.
 fnames = fieldnames(params);
@@ -127,11 +134,13 @@ for i=1:numel(fnames),
     [ p.(fnames{i}) ] = deal( params.(fnames{i}) );
 end
 
-constants.gettraces_profiles = p;
 
 % Set the default settings profile.
+constants.gettraces_profiles = p;
 constants.gettraces_defaultProfile = 3;   %Dual-View (Cy3/Cy5)
 constants.gettracesDefaultParams = p( constants.gettraces_defaultProfile );
+
+
 
 
 
