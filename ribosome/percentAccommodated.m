@@ -57,7 +57,7 @@ idxSelected = pickTraces( stats, selectionCriteria );
 nTraces = numel(idxSelected);
 
 % Calculate percent accommodated
-avgFret = [stats.avgfret];
+avgFret = [stats.avgFret];
 avgFret = avgFret(idxSelected);
 
 fractionAccommodated = sum(avgFret>0.2)/nTraces;

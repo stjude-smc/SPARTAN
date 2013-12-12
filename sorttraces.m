@@ -832,8 +832,11 @@ end
 if isfield(handles.data,'fileMetadata') && isfield(handles.data.fileMetadata,'wavelengths'),
     wavelengths = handles.data.fileMetadata.wavelengths;
 else
-    %warning('There''s a lack of color here. Using defaults.');
-    wavelengths = [532 640];
+    %disp('Warning: no channel wavelengths given in file. Making some guesses instead.');
+    wavelengths( strcmp(handles.data.channelNames,'donor')     ) = 532;
+    wavelengths( strcmp(handles.data.channelNames,'acceptor')  ) = 640;
+    wavelengths( strcmp(handles.data.channelNames,'acceptor2') ) = 730;
+    wavelengths( strcmp(handles.data.channelNames,'factor')    ) = 473;
 end
 chColors = Wavelength_to_RGB(wavelengths);
 

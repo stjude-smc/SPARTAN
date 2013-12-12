@@ -114,14 +114,14 @@ else
     set(handles.chk_overlap,'Value',0);
 end
 
-set(handles.ed_min_corr,'String',num2str(criteria.min_corr));
-set(handles.ed_max_corr,'String',num2str(criteria.max_corr));
-set(handles.ed_snr,'String',num2str(criteria.min_snr));
-set(handles.ed_bg,'String',num2str(criteria.max_bg));
-set(handles.ed_ncross,'String',num2str(criteria.max_ncross));
-set(handles.ed_acclife,'String',num2str(criteria.min_acclife));
+set( handles.ed_min_corr, 'String',num2str(criteria.min_corr)    );
+set( handles.ed_max_corr, 'String',num2str(criteria.max_corr)    );
+set( handles.ed_snr,      'String',num2str(criteria.min_snr)     );
+set( handles.ed_bg,       'String',num2str(criteria.max_bg)      );
+set( handles.ed_ncross,   'String',num2str(criteria.max_ncross)  );
+set( handles.ed_acclife,  'String',num2str(criteria.min_acclife) );
 
-set(handles.FRETBinSize,'String',num2str(handles.contour_bin_size));
+set( handles.FRETBinSize, 'String',num2str(handles.contour_bin_size) );
 
 
 %---- Setup drop-down boxes listing trace statistics.

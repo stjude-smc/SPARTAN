@@ -32,13 +32,13 @@ gettracesParams.recursive = 1;
 gettraces(dataDir,gettracesParams);
 
 % Step3 Define selection criteria.
-selectionCriteria.min_maxFRET = 0.14;   %at least one frame with FRET>0.14
-selectionCriteria.min_lifetime = 20;    %donor lifetime > 20 frames
-selectionCriteria.min_snr = 6;          %SNR1 at least 6:1
-selectionCriteria.max_ncross = 3;       %less than 4 donor blinking events
-selectionCriteria.max_firstFRET = 0.14; %no post-accommodation traces.
-%selectionCriteria.min_maxFRET = 0.55;  %must accommodate.
-%selectionCriteria.min_acclife = 100;
+selectionCriteria.min_maxFret   = 0.14;  %at least one frame with FRET>0.14
+selectionCriteria.min_lifetime  = 20;    %donor lifetime > 20 frames
+selectionCriteria.min_snr       = 6;     %SNR1 at least 6:1
+selectionCriteria.max_ncross    = 3;     %less than 4 donor blinking events
+selectionCriteria.max_firstFret = 0.14;  %no post-accommodation traces.
+%selectionCriteria.min_maxFret  = 0.55;  %must accommodate.
+%selectionCriteria.min_acclife  = 100;
 
 % Step 5: Parameters for SKM
 skmParams.maxItr = 10;

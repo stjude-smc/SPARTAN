@@ -37,11 +37,11 @@ function [retval,nTraces] = traceStat( varargin )
 % TODO: also return comments describing each criteria
 if nargin<1,
     % Order matters -- will be displayed this way in autotrace!
-    ln.t        = 'Mean Total Intensity';
-    ln.maxFRET  = 'Highest FRET value';
-    ln.firstFRET = 'FRET at first frame';
+    ln.t          = 'Mean Total Intensity';
+    ln.maxFret    = 'Highest FRET value';
+    ln.firstFret  = 'FRET at first frame';
     ln.fretEvents = 'Number of FRET events';
-    ln.acclife  = 'FRET Lifetime';
+    ln.acclife    = 'FRET Lifetime';
     ln.donorlife  = 'Donor Lifetime';
     ln.lifetime = 'End of trace';
     ln.corr     = 'Correlation of Fluor.';
@@ -56,8 +56,13 @@ if nargin<1,
     ln.a        = 'Mean Acceptor Intensity';
     ln.d        = 'Mean Donor Intensity';
     
-    ln.avgfret  = 'Average FRET value';
-    ln.timeSaturated = 'Frames with saturated intensity';
+    ln.avgFret  = 'Average FRET value';
+    
+    % These parameters are specific to 3/4-color FRET with a second acceptor.
+    % Ideally these should only appear for 3/4-color.
+    ln.fret2Lifetime = 'Fret2 Lifetime';
+    ln.maxFret2 = 'Highest Fret2 value';
+    ln.avgFret2 = 'Average FRET value';
     
     retval = ln;
     return;
@@ -113,19 +118,29 @@ end
 
 
 function retval = traceStat_data( data, constants )
-% FIXME: this isn't that great for 3/4-color where the total intensity has
-% many channels!
+%
 
+%
 if ~isfield(data,'acceptor'),
     data.acceptor = zeros( size(data.donor) );
     data.fret     = zeros( size(data.donor) );
 end
 
+% Extract data matrices to variables to make parfor happy.
 donorAll    = data.donor;
 acceptorAll = data.acceptor;
 fretAll     = data.fret;
 
 [Ntraces,len] = size(fretAll);
+
+% Add second acceptor FRET channel if available.
+if isfield(data,'fret2'),
+    fret2All = data.fret2;
+    isThreeColor = true;
+else
+    fret2All = zeros( size(fretAll) );
+    isThreeColor = false;
+end
 
 
 if ~exist('constants','var')
@@ -139,29 +154,18 @@ end
 z = num2cell( zeros(1,Ntraces) );
 
 retval = struct( ...
-    'corr',  z, ...
-    'corrd', z, ...
-    'snr',   z, ...
-    'snr_s', z, ...
-    'nnr',   z, ...
-    'bg',    z, ...
-    't',     z, ...
-    'd',     z, ...
-    'a',     z, ...
-    'maxFRET',  z, ...
-    'ncross',   z, ...
-    'lifetime', z, ...
-    'acclife',  z, ...
-    'donorlife',  z, ...
-    'overlap',  z, ...
-    'safeRegion', z, ...
-    'avgfret',  z, ...
-    'fretEvents', z, ...
-    'firstFRET', z, ...
-    'timeSaturated', z ...
-);
-
-
+    'corr',  z, 'corrd', z, ...
+    'snr',   z, 'snr_s', z, ...
+    'nnr',   z, 'bg',    z, ...
+    't', z, 'd', z, 'a', z, ...
+    'maxFRET',    z, 'ncross',   z, ...
+    'lifetime',   z, 'acclife',  z, ...
+    'donorlife',  z, 'overlap',  z, ...
+    'safeRegion', z, 'avgFret',  z, ...
+    'fretEvents', z, 'firstFret', z, ...
+    'fret2Lifetime', z, 'maxFret2', z, ...
+    'avgFret2', z );
+    
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
 % figure;
@@ -169,16 +173,18 @@ retval = struct( ...
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors. The speed up is not
 % that significant (2.5-fold for 4 cores), but useful.
-if matlabpool('size')==0,  matlabpool;  end
+% if matlabpool('size')==0,  matlabpool;  end
 
 
-parfor i=1:Ntraces
-% for i=1:Ntraces   %use this instead to disable parallel operation.
+% parfor i=1:Ntraces
+for i=1:Ntraces   %use this instead to disable parallel operation.
     
     donor    = donorAll(i,:);
     acceptor = acceptorAll(i,:);
     fret     = fretAll(i,:);
     total    = donor+acceptor;
+    
+    fret2 = fret2All(i,:);
     
     
     %---- Calculate donor lifetime
@@ -318,23 +324,32 @@ parfor i=1:Ntraces
         retval(i).acclife = sum(fretRange);
         
         if sum(fretRange)>1
-            retval(i).avgfret = mean( fret(fretRange) );
+            retval(i).avgFret = mean( fret(fretRange) );
+        end
+        
+        % Similar calculations when there is a second acceptor (3/4-color).
+        if isThreeColor,
+            fretRange = fret2(1:lt) >= constants.min_fret;
+            fretRange = rleFilter( fretRange, constants.rle_min );
+
+            retval(i).fret2Lifetime = sum(fretRange);
+
+            if sum(fretRange)>1
+                retval(i).avgFret2 = mean( fret2(fretRange) );
+                retval(i).maxFret2 = max( fret2(fretRange) );
+            end
         end
     end
     
     % Statistics based on FRET distribution
-    retval(i).firstFRET = fret(1);
-    retval(i).maxFRET = max(fret);
+    retval(i).firstFret = fret(1);
+    retval(i).maxFret = max(fret);
     
     
     % Number of events crossing an arbitrary threshold
     % TODO?: additional filtering to detect only anticorrelated events?
     [result] = RLEncode( fret > constants.fretEventTreshold );
     retval(i).fretEvents = sum( result(:,1)==1 );
-    
-    % Number of frames with saturated intensity (max of 16-bit int)
-    retval(i).timeSaturated = ...
-           sum( donor(donorRange)>30000 | acceptor(donorRange)>30000 );
 end
 
 
