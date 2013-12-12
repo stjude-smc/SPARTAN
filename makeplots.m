@@ -150,6 +150,15 @@ end
 
 %% ===================== LOOP OVER EACH DATA FILE ====================== 
 
+% If we choose an option that needs to the number of traces in each file,
+% we have to load that first before the main loop...
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+    for i=1:numel(baseFilenames),
+        data = loadTraces( dataFilenames{i} );
+        N(i) = size( data.fret, 1 );
+    end
+end
+
 for i=1:numel(baseFilenames),  %for each sample
         
     data_fname  = dataFilenames{i};
@@ -181,6 +190,10 @@ for i=1:numel(baseFilenames),  %for each sample
     % Generate the contour plot if not available
     else        
         cplotdata = makecplot( fret, options );
+        
+        if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+            cplotdata(2:end,2:end) = cplotdata(2:end,2:end).*(N(i)/max(N));
+        end
         
         if options.saveFiles,
             dlmwrite(hist_fname,cplotdata,' ');

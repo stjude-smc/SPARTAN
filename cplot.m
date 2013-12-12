@@ -87,7 +87,8 @@ lims = ceil( (bounds(1):bounds(2))/binFactor );
 % Setup plot axes and contour levels
 % bounds(2) = min(bounds(2),time_axis(end));
 
-max_mol = sum( hist2d(2:end,2) )/scale;     %red=?% of total
+% max_mol = sum( hist2d(2:end,2) )/scale;     %red=?% of total
+max_mol = 1/scale;
 nl = size(cmap,1)-1;                        %number of contour levels
 con = 0:(max_mol/nl):max_mol;               %contour levels
 

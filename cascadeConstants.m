@@ -168,6 +168,13 @@ options.contour_length = 50;         % # frames to display in contour plots
 options.truncate_statehist = true;   % truncate data used for making statehist/tdplots to
 options.truncate_tdplot = false;     %   match the displayed contour plot (contour_length).
 
+% This option will normalize the contour plots to the plot with the most
+% molecules. This will give a better sense of when there is no FRET in a
+% particular condition. The better way to do this is to not have any FRET
+% lifetime criteria in autotrace and change the cplot_scale_factor to
+% compensate for lower density!
+options.cplot_normalize_to_max = false;
+
 % FRET axis range in countor, histogram, and TD plots.
 options.fret_axis = -0.1:options.contour_bin_size:1.2;  % bins for histogram calculation.
 options.fretRange = [-0.1 1.0];  % range of what is actually displayed.
