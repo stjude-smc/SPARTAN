@@ -49,33 +49,34 @@ constants.gamma = 1.0;
 
 
 % ---- Gettraces default settings
+% The first group of settings below will overwrite the ones in the
+% profiles, so don't put anything here unless it isn't specified in the
+% profile settings!!!
 
 % ADU (arbitrary camera intensity units) to photon conversion factor in
 % units of ADU/photon. See camera calibration data sheet. This may depend
 % on which digitizer is selected! Check camera documentation.
 % If no information is available, comment this line out.
-params.photonConversion = 100/3.1;   % 10MHz Evolve 512
-%params.photonConversion = 100/2.6;   % 5MHz Evolve 512
+commonParams.photonConversion = 100/3.1;   % 10MHz Evolve 512
+%commonParams.photonConversion = 100/2.6;   % 5MHz Evolve 512
 
 % Algorithm settings:
-params.don_thresh = 0; %auto
-params.overlap_thresh = 2.3;
-params.nPixelsToSum   = 4;
+commonParams.don_thresh = 0; %auto
+commonParams.overlap_thresh = 2.3;
+commonParams.nPixelsToSum   = 4;
 
-% Software alignment settings.
-params.alignRotate = 0; %it is slow and not that reliable; disable by default.
-
-params.alignment.theta = -4:0.1:4;
-params.alignment.dx    = -4:1:4;
-params.alignment.dy    = -4:1:4;  %all dx and dy must be integers
-params.alignment.sx    = 1;  %magnification (x)
-params.alignment.sy    = 1;  %magnification (y)
+commonParams.alignment.theta = -4:0.1:4;
+commonParams.alignment.dx    = -4:1:4;
+commonParams.alignment.dy    = -4:1:4;  %all dx and dy must be integers
+commonParams.alignment.sx    = 1;  %magnification (x)
+commonParams.alignment.sy    = 1;  %magnification (y)
 
 % Other options:
-params.skipExisting = 0;
-params.recursive = 0;
-params.quiet = 0;
-params.saveLocations = 0;
+commonParams.skipExisting = 0;
+commonParams.recursive = 0;
+commonParams.quiet = 0;
+commonParams.saveLocations = 0;
+
 
 
 % Create gettraces parameter profiles for various imaging geometries and
@@ -85,22 +86,20 @@ params.saveLocations = 0;
 % See gettraces.m for definitions for these parameters. Acceptable channel
 % names include: donor, acceptor, donor2, acceptor2, factor. Factor is a
 % fluorescence channel that is not part of any FRET pair.
-% FIXME: make it possible to include default alignment settings here,
-% probably by giving an alignment filename (.mat).
 clear p;
-
 p(1).name        = 'Single-channel (Cy3)';
 p(1).geometry    = 1;
 p(1).chNames     = {'donor'};
 p(1).chDesc      = {'Cy3'};
 p(1).wavelengths = 532;
-p(1).crosstalk   = 0;
+p(1).alignRotate = 0;
 p(1).alignTranslate = 0;
 
 
 p(2) = p(1);
-p(2).name = 'Single-channel (Cy5)';
+p(2).name        = 'Single-channel (Cy5)';
 p(2).wavelengths = 640;
+p(2).chDesc      = {'Cy5'};
 
 
 p(3).name        = 'Dual-Cam (Cy3/Cy5)';
@@ -110,6 +109,7 @@ p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
 p(3).crosstalk   = 0.12; %donor->acceptor only
 p(3).alignTranslate = 1;  % no problems other than being slow.
+p(3).alignRotate = 0;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
@@ -126,12 +126,14 @@ p(4).wavelengths = [640 730 532 473];
 p(4).crosstalk   = zeros(4);
 p(4).crosstalk(3,1) = 0.26;  %Cy3->Cy5
 p(4).crosstalk(1,2) = 0.06;   %Cy5->Cy7 (is this correct???)
+p(4).alignRotate = 0;
 p(4).alignTranslate = 0;
 
+
 % Add all of the common settings that do not vary.
-fnames = fieldnames(params);
+fnames = fieldnames(commonParams);
 for i=1:numel(fnames),
-    [ p.(fnames{i}) ] = deal( params.(fnames{i}) );
+    [ p.(fnames{i}) ] = deal( commonParams.(fnames{i}) );
 end
 
 

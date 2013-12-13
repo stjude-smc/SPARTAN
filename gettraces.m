@@ -370,18 +370,9 @@ log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');
 
-names = fieldnames(  params );
-vals  = struct2cell( params );
-
-for i=1:numel(names),
-    if iscell( vals{i} )
-        f = repmat( '%s, ', 1,numel(vals{i}));
-        f = f(1:end-2);
-        fprintf(log_fid, ['  %15s:  ' f '\n'], names{i}, vals{i}{:});
-    else
-        fprintf(log_fid, '  %15s:  %.2f\n', names{i}, vals{i});
-    end
-end
+output = evalc('disp(params)');
+fprintf(log_fid, '%s', output);
+%FIXME: structure parameters are not displayed here (alignment!)
 
 % Log list of files processed by gettraces
 fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
@@ -635,7 +626,7 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate) && abs_dev
         nPicked = size(total_picks,1);
 
         % Remove molecules if the peaks in any field are out of range.
-        z = repmat( remove, [nCh,1] ); z = z(:);
+        z = repmat( remove', [nCh,1] ); z = z(:);
         picks = picks(~z,:);
 
 
@@ -739,11 +730,14 @@ for n=1:numel(rows),
     end
 end
 
+
 if nMols<1,
     picks = zeros(0,2);
     boolRejected = false(0,2);
     return;
 end
+
+assert( ~any(tempx(:)<bf|tempy(:)<bf) ); 
 
 
 % 2. Remove pick pairs that are closer than the cutoff radius, but still

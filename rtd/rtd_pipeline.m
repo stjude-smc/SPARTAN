@@ -24,6 +24,7 @@ model2.fixSigma = ones( model2.nStates,1 );
 fretModel2 = [model2.mu' model2.sigma'];
 
 % Step 2 Parameters for gettraces
+gettracesParams = constants.gettraces_profiles(3); %2-color FRET
 gettracesParams.nPixelsToSum = 4; %old way
 gettracesParams.don_thresh = 1800;
 gettracesParams.overlap_thresh = 1.8;

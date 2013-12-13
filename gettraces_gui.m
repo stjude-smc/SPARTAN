@@ -81,39 +81,39 @@ guidata(hObject, handles);
 % gettraces may be called from sorttraces to load the movie associated with
 % a particular trace. The first argument is then the filename of the movie
 % file and the second argument is the x-y coordinate of the trace.
-% FIXME: this way of doing it generates warnings in sorttraces, so there is
-% something not quite right!!
-% FIXME: there is some missing information for 3-color implementation.
-% Channel names (and the order) are really important, but they are not in
-% traceMetadata!
+% FIXME: this still doesn't work very well. And we don't have enough
+% information to determine which profile to load, so we default to
+% something simple that will work (1 big field). We may need more from
+% fileMetadata to figure it out.
 if numel(varargin) > 0,
     handles.stkfile = varargin{1};
     traceMetadata = varargin{2};
     
-    % Determine imaging geometry and build list of coordinates from metadata.
-    geometry=1;
-    handles.x = traceMetadata.donor_x;
-    handles.y = traceMetadata.donor_y;
+    % Get the coordinates for all of the fluorescence channels.
+    fields = fieldnames(traceMetadata);
+    xs = find(  ~cellfun( @isempty, strfind(fields,'_x') )  );
+    ys = find(  ~cellfun( @isempty, strfind(fields,'_y') )  );
     
-    if isfield(traceMetadata,'acceptor_x'),
-        geometry=2;
-        handles.x = [handles.x traceMetadata.acceptor_x];
-        handles.y = [handles.y traceMetadata.acceptor_y];
+    x = zeros(0,2);  y = zeros(0,2);
+    
+    for i=1:numel(xs),
+        x = [ x  traceMetadata.(fields{xs(i)}) ];
+        y = [ y  traceMetadata.(fields{ys(i)}) ];
     end
     
-    if isfield(traceMetadata,'factor_x'),
-        geometry=3;
-        handles.x = [handles.x traceMetadata.factor_x];
-        handles.y = [handles.y traceMetadata.factor_y];
-    end
+    handles.total_x = x;  handles.total_y = y;
+    handles.rtotal_x = zeros(0,2);
+    handles.rtotal_y = zeros(0,2);
     
-    handles.params.geometry = geometry;
-    set( handles.cboGeometry, 'Value', geometry );
+    % Choose the appropriate profile and configure the GUI.
+    handles.params.geometry = 1;
+    set( handles.cboGeometry, 'Value', 1 );
+    handles = cboGeometry_Callback(handles.cboGeometry,[],handles);
     
-    handles.num = numel(handles.x)/handles.params.geometry;
+    handles.num = length(x)/numel(xs);
     set(handles.nummoles,'String',num2str(handles.num));
     
-    % Load file
+    % Load stk file
     handles = OpenStk( handles.stkfile, handles, hObject );
     set(handles.getTraces,'Enable','on');
     
