@@ -208,8 +208,6 @@ options.hideText     = false;  % don't display N=, t/s, etc on plots
 
 options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
 
-options.saveFiles    = false;  % save histogram txt files for plotting in Origin.
-
 if options.ignoreState0,
    options.colors = options.colors(2:end,:); 
 end

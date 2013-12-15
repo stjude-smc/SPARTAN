@@ -135,17 +135,19 @@ else
 end
 
 
-
 histmax = 0.05;
 histx = zeros(nSamples,1);  %1D histogram axes
 tdx = zeros(nSamples,1);  %tdplot axes
 N = zeros(nSamples,1); %number of molecules, each sample
 
+cplotdataAll = cell(nSamples,1); %contour plots, all data
+cpdataAll    = cell(nSamples,1); %contour plots, as displayed
+shistAll     = cell(nSamples,1); %state occupancy histograms
+tdpAll       = cell(nSamples,1); %td plots
 
 if ~isfield(options,'targetAxes')
     h1 = figure();
 end
-
 
 
 %% ===================== LOOP OVER EACH DATA FILE ====================== 
@@ -163,10 +165,6 @@ for i=1:numel(baseFilenames),  %for each sample
         
     data_fname  = dataFilenames{i};
     dwt_fname   = [baseFilenames{i} '.qub.dwt'];
-    hist_fname  = [baseFilenames{i} '_hist.txt'];
-    tdp_fname   = [baseFilenames{i} '.qub_tdp.txt'];
-    shist_fname = [baseFilenames{i} '.qub_shist.txt'];
-    displayhist_fname = [baseFilenames{i} '_displayhist.txt'];
     
     
     % Load FRET data
@@ -179,7 +177,7 @@ for i=1:numel(baseFilenames),  %for each sample
     % The data may have multiple FRET signals to analyze. Ask which to use.
     if isfield(data,'fret2'),
         a = questdlg('This data has multiple FRET channels. Which should be used?', ...
-                     'Select FRET channel to use','fret','fret2','Cancel', 'FRET1');
+                     'Select FRET channel to use','fret','fret2','Cancel', 'fret');
         if strcmp(a,'Cancel'), return; end
         fret = data.(a);
     else
@@ -205,10 +203,7 @@ for i=1:numel(baseFilenames),  %for each sample
         if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
             cplotdata(2:end,2:end) = cplotdata(2:end,2:end).*(N(i)/max(N));
         end
-        
-        if options.saveFiles,
-            dlmwrite(hist_fname,cplotdata,' ');
-        end
+        cplotdataAll{i} = cplotdata;
     end
     
     
@@ -222,17 +217,13 @@ for i=1:numel(baseFilenames),  %for each sample
     
     % Draw the contour plot (which may be time-binned)
     cpdata = cplot( ax, cplotdata, options.contour_bounds, constants );
-    
-    % Save display-format (time-binned) histogram.
-    if options.saveFiles,
-        dlmwrite(displayhist_fname,cpdata,' ');
-    end
+    cpdataAll{i} = cpdata;
     
     % Formatting
     title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
     
     if ~options.hideText,
-        text( 0.93*options.contour_length, 0.9*options.contour_bounds(4), ...
+        text( 0.90*options.contour_length, 0.94*options.contour_bounds(4), ...
               sprintf('N=%d', N(i)), ...
               'FontWeight','bold', 'FontSize',14, ...
               'HorizontalAlignment','right', 'Parent',ax );
@@ -258,10 +249,7 @@ for i=1:numel(baseFilenames),  %for each sample
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
     if ~options.no_statehist && has_dwt(i),
         shist = statehist( dwt_fname, fret, options );
-        
-        if options.saveFiles,
-            dlmwrite(shist_fname,shist,' ');
-        end
+        shistAll{i} = shist;
     end
     
     
@@ -350,10 +338,7 @@ for i=1:numel(baseFilenames),  %for each sample
     
     %---- GENERATE TD PLOT HISTOGRAMS
     tdp = tdplot(dwt_fname,fret,options);
-
-    if options.saveFiles,
-        dlmwrite(tdp_fname,tdp,' ');
-    end
+    tdpAll{i} = tdp;
     
     
     %---- LOAD TDPLOT DATA ----
@@ -427,8 +412,51 @@ end
 
 
 
+%% =============== ADD GUI CONTROLS ================ 
+% These are buttons and things to save the plots or manipulate them without
+% calling makeplots again.
+
+
+% Button to save data
+uicontrol( 'Style','pushbutton', 'String','Save files', ...
+           'Position',[20 20 80 30], 'Callback',@saveFiles, ...
+           'Parent',h1 );
+
+
+                 
+                 
+%% ================ GUI CALLBACKS ================ 
+% These are defined within the main function scope so we can steal the
+% variables (data, filenames, etc).
+
+function saveFiles(hObject,e)
+    
+    for i=1:numel(baseFilenames),
+        base = baseFilenames{i};
+    
+        % Save contour FRET histogram
+        dlmwrite( [base '_hist.txt'] , cplotdataAll{i}, ' ' );
+        
+        % Save display-format (time-binned) contour FRET histogram.
+        dlmwrite( [base '_displayhist.txt'], cpdataAll{i}, ' ');
+        
+        % State histogram
+        if ~isempty(shistAll{i}),
+            dlmwrite( [base '.qub_shist.txt'], shistAll{i}, ' ' );
+        end
+        
+        % TD Plot
+        if ~isempty(tdpAll{i}),
+            dlmwrite( [base '.qub_tdp.txt'], tdpAll{i}, ' ' );
+        end
+    end
+    
+end
+
 end %function makeplots
     
+
+
 
 
 

@@ -97,7 +97,6 @@ if isfield(options,'truncate_tdplot'),
     truncate = options.truncate_tdplot;
 end
 
-disp(options);
 
 %---Count all transitions and add to a transition-density matrix
 for i=1:nTraces

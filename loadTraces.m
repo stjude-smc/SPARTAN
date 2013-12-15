@@ -67,6 +67,12 @@ end %function LoadTraces
 
 %--------------------  LOAD TEXT FILES ------------------------
 function data = LoadTracesTxt( filename, indexes )
+% This loads very old traces in a text format. Obsolete!
+
+% Add extra metadata for identifying fluorescence channels.
+% Code for later traces format relies on this!
+data.nChannels = 3;
+data.channelNames = {'donor','acceptor','fret'};
 
 % Get file size for calculating how much has been loaded.
 d = dir(filename);
@@ -141,15 +147,12 @@ if hasIDs,
     data.traceMetadata = struct( 'ids', ids );
 end
 
+data.fileMetadata = struct();
+
 % Clean up
 close(h);
 fclose(fid);
 clear Data;
-
-% Add extra metadata for identifying fluorescence channels.
-% Code for later traces format relies on this!
-data.channelNames = {'donor','acceptor','fret'};
-data.nChannels = numel(data.channelNames);
 
 end %function LoadTracesTxt
     
@@ -159,6 +162,11 @@ function data = LoadTracesBinary( filename, indexes )
 % metadata (obsolete as of 8/15/2012).
 
 constants = cascadeConstants();
+
+% Add metadata for identifying fluorescence channels.
+% Code for later traces format relies on this!
+data.nChannels = 3;
+data.channelNames = {'donor','acceptor','fret'};
 
 % Open the traces file.
 fid=fopen(filename,'r');
@@ -189,22 +197,18 @@ donor    = double( Input(1:2:end-1,:) );
 acceptor = double( Input(2:2:end,  :) );
 
 % Make an adjustment for crosstalk on the camera
-acceptor = acceptor - constants.crosstalk*donor;
+acceptor = acceptor - 0.05*donor;
 
 % Subtract background and calculate FRET
 [data.donor,data.acceptor,data.fret] = correctTraces( ...
                                 donor,acceptor,constants,indexes);
 data.traceMetadata = struct( 'ids', ids );
+data.fileMetadata = struct();
 
 
 % Clean up
 clear Data;
 fclose(fid);
-
-% Add extra metadata for identifying fluorescence channels.
-% Code for later traces format relies on this!
-data.channelNames = {'donor','acceptor','fret'};
-data.nChannels = numel(data.channelNames);
 
 end %function LoadTracesBinary
 
@@ -284,6 +288,7 @@ end
 
 
 % 5) Read metadata.
+data.fileMetadata = struct(); %empty unless some metadata is in the file.
 
 % Data are divided into "sections" for different types of data/metadata.
 % Fluorescence data etc are in the root section (no heading). traceMetadata
