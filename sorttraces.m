@@ -232,6 +232,8 @@ set(handles.btnLoadDWT,  'Enable','on' );
 % Initialize array for tracking FRET donor-blinking threshold value.
 % The default value of zero is a marker that the value hasn't been
 % calculated yet (but should be using traceStat).
+% We don't calculate it here because then there would a long delay loading
+% the file; small delays for each trace are not perceptible. 
 handles.fretThreshold = zeros( handles.Ntraces, 1  );
 set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
@@ -306,7 +308,7 @@ mol=str2double( get(handles.editGoTo,'String') );
 
 % If trace ID is invalid, reset it to what it was before.
 if isnan(mol) || mol>handles.Ntraces || mol<1,
-    disp('WARNING in sorttraces: Invalid trace number. Resetting.');
+    %disp('WARNING in sorttraces: Invalid trace number. Resetting.');
     set( hObject,'String',num2str(handles.molecule_no) );
     return;
 else
@@ -337,8 +339,7 @@ handles.backgrounds = zeros( 1,sum(idxFluor) );
 if handles.fretThreshold(mol) == 0,    
     d = handles.data.donor(mol,:);
     a = handles.data.acceptor(mol,:);
-    f = handles.data.fret(mol,:);
-    handles.stats = traceStat(d,a,f);
+    handles.stats = traceStat( dataSubset(handles.data,mol) );
     constants = cascadeConstants;
 
     s = handles.stats.lifetime + 5;
@@ -790,12 +791,29 @@ if isThreeColor,
     handles.data.fret2(m,:) = fret2;
 end
 
-% Recalculate stats
-handles.stats = traceStat( handles.data );
+% Recalculate stats.
+handles.stats = traceStat( dataSubset(data,m) );
 
 
 % END FUNCTION updateTraceData
 
+
+function output = dataSubset( data, indexes )
+% Remove a single trace from a full data structure containing arbitrary
+% fields. This is needed for updating stats for a single trace and is kind
+% of a hack... This highlights why data needs to be a class!
+
+output = data;
+
+for i=1:data.nChannels,
+    ch = data.channelNames{i};
+    output.(ch) = data.(ch)(indexes,:);
+end
+
+% In theory trace metadata should be adjusted too. For now just throw it out.
+output = rmfield( output, 'traceMetadata' );
+
+% END FUNCTION extractTrace
 
 
 
