@@ -16,10 +16,10 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 11-Dec-2013 18:33:04
+% Last Modified by GUIDE v2.5 14-Dec-2013 17:42:43
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
                    'gui_OpeningFcn', @gettraces_OpeningFcn, ...
@@ -150,7 +150,7 @@ function openstk_Callback(hObject, eventdata, handles)
 
 % Get filename of input data from user
 [datafile,datapath]=uigetfile( ...
-    '*.stk;*.stk.bz2;*.tif*','Choose a movie file');
+    '*.stk;*.tif*','Choose a movie file');
 if datafile==0, return; end
 
 handles.stkfile = strcat(datapath,datafile);
@@ -270,7 +270,7 @@ for i=1:numel(fields),
     if ~isempty(chNames{i})
         % Give each field a title with the background color matching the
         % wavelength of that channel.
-        h = title(ax(i), [chNames{i} ' (' handles.params.chDesc{i} ')'], ...
+        h = title(ax(i), [chNames{i} ' (' handles.params.chDesc{i} ') #' num2str(i)], ...
                                  'BackgroundColor',chColors(i,:) );
 
         % Use white text for very dark background colors.
@@ -333,10 +333,10 @@ disp(direct);
 
 % Get list of files in current directory (option: and all subdirectories)
 if recursive
-    movieFilenames  = rdir( [direct filesep '**' filesep '*.stk*'] );
+    movieFilenames  = rdir( [direct filesep '**' filesep '*.stk'] );
     movieFilenames  = [ movieFilenames ; rdir([direct filesep '**' filesep '*.tif*']) ];
 else
-    movieFilenames  = rdir( [direct filesep '*.stk*'] );
+    movieFilenames  = rdir( [direct filesep '*.stk'] );
     movieFilenames  = [ movieFilenames ; rdir([direct filesep '*.tif*']) ];
 end
 
@@ -359,7 +359,6 @@ for i=1:nFiles
     handles.stkfile = stk_fname;
     
     % Skip if previously processed (.traces file exists)
-    stk_fname = strrep(stk_fname,'.bz2','');
     [p,name] = fileparts(stk_fname);
     traceFname = [p filesep name '.rawtraces'];
     
@@ -443,6 +442,7 @@ stkData = getappdata(handles.figure1,'stkData');
 % params = handles.params;
 % params.alignment = handles.alignment; %apply loaded alignment if any
 [stkData,peaks] = gettraces( stkData, handles.params );
+% axes( handles.axTotal );
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -453,7 +453,8 @@ minimum = get(handles.scaleSlider,'min');
 val = max(val,minimum+1);
 
 imshow( stkData.total_t, [minimum*2 val*2], 'Parent',handles.axTotal );
-colormap(handles.colortable);  zoom on;  title('Total');
+colormap( handles.axTotal, handles.colortable );
+title( handles.axTotal, 'Total Intensity' );
 
 
 % If no alignment data given (for example in single-channel recordings),
@@ -478,19 +479,22 @@ else
     
     for i=1:numel(a),
         if isempty(a(i).theta),
-            continue;   %ignore donor field
+           continue;   %ignore donor field alignment to itself
         end
         
         text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.1f°, %0.1f (dev)', ...
                        [a(i).dx a(i).dy a(i).theta a(i).abs_dev] )  ];
+    end
     
-        %if isfield(a,'residual_dev')
-        %    text = [text sprintf(', %0.1f (res)',a.residual_dev)];
-        %end
+    % If the alignment quality (confidence) is low, warn the user.
+    lowQuality = [a.quality]<1.1 & [a.quality]>0;
+    if any(lowQuality),
+        text = [text sprintf('\nLow quality alignment!')];
     end
     
     set( handles.txtAlignStatus, 'String', text );
 
+    % Color the text to draw attention to it if the alignment is bad.
     if any( [a.abs_dev] > 0.25 ),
         d = max( [a.abs_dev] );
         set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );

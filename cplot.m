@@ -71,7 +71,7 @@ if binFactor>1,
     hist2d = zeros( numel(fret_axis)+1, nTime+1 );
     hist2d(2:end,1) = fret_axis;
     hist2d(1,2:end) = time_axis;
-    hist2d(2:end,2:end) = histdata_b;
+    hist2d(2:end,2:end) = histdata_b./binFactor;
 end
 
 time_axis = hist2d(1,2:end);

@@ -86,6 +86,9 @@ commonParams.saveLocations = 0;
 % See gettraces.m for definitions for these parameters. Acceptable channel
 % names include: donor, acceptor, donor2, acceptor2, factor. Factor is a
 % fluorescence channel that is not part of any FRET pair.
+% chNames has one entry for every subfield (channel) in the field-of-view,
+% where some can be empty, meaning to ignore it. The other parameters just
+% has values for the channels IN USE.
 clear p;
 p(1).name        = 'Single-channel (Cy3)';
 p(1).geometry    = 1;
@@ -114,7 +117,7 @@ p(3).alignRotate = 0;
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
 % The function values are listed in the same order as the channels above.
-p(3).biasCorrection = {  @(x,y) 1,  ...                        %donor, LHS
+p(3).biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
                          @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
 
                      
@@ -165,7 +168,7 @@ constants.defaultAutotraceCriteria = criteria;
 
 % default population FRET contour plot paramters (cplot.m)
 options.contour_bin_size = 0.03;     % FRET bin size
-options.cplot_scale_factor = 8;      % contour level scaling; depends on bin size
+options.cplot_scale_factor = 7;      % contour level scaling; depends on bin size
 options.contour_length = 50;         % # frames to display in contour plots
 options.truncate_statehist = true;   % truncate data used for making statehist/tdplots to
 options.truncate_tdplot = false;     %   match the displayed contour plot (contour_length).
