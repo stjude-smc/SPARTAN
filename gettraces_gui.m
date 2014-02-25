@@ -482,14 +482,15 @@ else
            continue;   %ignore donor field alignment to itself
         end
         
-        text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.1f°, %0.1f (dev)', ...
+        text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.1f (rot), %0.1f (dev)', ...
                        [a(i).dx a(i).dy a(i).theta a(i).abs_dev] )  ];
     end
     
     % If the alignment quality (confidence) is low, warn the user.
-    lowQuality = [a.quality]<1.1 & [a.quality]>0;
-    if any(lowQuality),
-        text = [text sprintf('\nLow quality alignment!')];
+    if isfield(a,'quality'),
+        if any( [a.quality]<1.1 & [a.quality]>0 ),
+            text = [text sprintf('\nLow quality alignment!')];
+        end
     end
     
     set( handles.txtAlignStatus, 'String', text );

@@ -17,7 +17,7 @@ function output = readTimecourse( filename )
 % titrated reagent. This separates the intensity data for each of the
 % titration points.
 % FIXME: may need to be changed for different experiments!
-thresh = 25000;  % for uncorrected data!
+thresh = 10000;  % for uncorrected data!
 
 
 % Get filenames from user
@@ -51,8 +51,9 @@ nColumns = numel(fieldNames);
 
 %% --- Read the data
 % We assume all x-axes are the same, but maybe different lengths.
-d = textscan( fid, repmat('%f ',1,nColumns) );
+d = textscan( fid, repmat('%f ',1,nColumns), 'Delimiter','\t' );
 data = cell2mat(d);
+% data = dlmread(filename);
 
 fclose(fid);
 
@@ -69,8 +70,20 @@ Y = data(:,2:2:end);
 % 50 seconds of a number of curves to a line -- over this time there are no
 % additions. The numbers vary, so I took an average. Here I assume the time
 % axis is in seconds...
-% FIXME: this should be calculated from the data??
-% Y = Y .* repmat(  (1+((0:size(Y,1)-1)*0.2273e-3))',  1, size(Y,2)  );
+% TODO: this should be calculated from the data??
+% TODO: for these figures, also draw big circles for the average titration
+%   points detected and a plot of the result.
+Yorig = Y;
+Y = Y .* repmat(  (1+((0:size(Y,1)-1)*0.2273e-3))',  1, size(Y,2)  );  %comment out to disable bleaching correction
+
+figure;
+hUncorr = subplot(1,2,1);
+plot(Yorig);
+title('Uncorrected');
+hCorr = subplot(1,2,2);
+plot(Y); hold on;
+title('Bleaching corrected');
+
 
 % Find all points below a threshold of darkness and average each set of
 % non-zero points to get the titration points.
@@ -90,8 +103,11 @@ for i=1:size(Y,2),
     % cuvette.
     for j=1:numel(s),
         output(j,i) = median( Y(s(j):e(j),i) );
+        
+        % Plot on the raw fluorescence data to show the calculated mean value.
+        scatter( (s(j)+e(j))/2.0, output(j,i), 50, 'ko','filled' );
     end
-
+    
     % Normalize to initial fluorescence value
     output(:,i) = output(:,i)/output(1,i);
 end

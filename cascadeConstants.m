@@ -110,7 +110,7 @@ p(3).geometry    = 2;
 p(3).chNames     = {'donor','acceptor'}; %L/R
 p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
-p(3).crosstalk   = 0.12; %donor->acceptor only
+p(3).crosstalk   = 0.12;  %donor->acceptor only
 p(3).alignTranslate = 1;  % no problems other than being slow.
 p(3).alignRotate = 0;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
@@ -121,13 +121,13 @@ p(3).biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
                          @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
 
                      
-p(4).name        = 'Quad-View (Cy2/Cy3B/Cy5/Cy7)';
+p(4).name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
 p(4).geometry    = 3;
 p(4).chNames     = {'acceptor','acceptor2','donor','factor'}; %UL/UR/LL/LR
 p(4).chDesc      = {'Cy5','Cy7','Cy3','Cy2'};
 p(4).wavelengths = [640 730 532 473];
 p(4).crosstalk   = zeros(4);
-p(4).crosstalk(3,1) = 0.26;  %Cy3->Cy5
+p(4).crosstalk(3,1) = 0.13;   %Cy3->Cy5
 p(4).crosstalk(1,2) = 0.06;   %Cy5->Cy7 (is this correct???)
 p(4).alignRotate = 0;
 p(4).alignTranslate = 0;
