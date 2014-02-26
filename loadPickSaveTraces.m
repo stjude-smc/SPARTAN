@@ -113,14 +113,26 @@ nTracesPerFile = zeros(nFiles,1);
 channelNames = {};
         
 for i=1:nFiles,
+    % Load traces file data. Load only the useful subset if indexes are
+    % given to save memory.
+    if isfield(options,'indexes'),
+        data = loadTraces( files{i}, options.indexes{i} );
+    else
+        data = loadTraces( files{i} );
+    end
     
-    % Load traces file data
-    data = loadTraces( files{i} );
-    
+    % Verify that all files have the same imaging geometry/channel definitions.
+    if i==1,
+        channelNames = data.channelNames;
+    else
+        assert( all(strcmp(sort(channelNames),sort(data.channelNames))), 'Traces data format mismatch (different geometry?)' );
+    end
+  
     % Unless provided, calc trace properties and select those that meet criteria.
     if isfield( options, 'indexes' ),
-        indexes = options.indexes{i};
-        stats = struct([]);
+        % Only the picked traces are loaded above. Nothing to do.
+        %indexes = 1:numel(options.indexes{i});
+        %stats = struct([]);
     else
         % Calculate trace statistics
         % FIXME: this should check if stats are being passed!!
@@ -135,6 +147,8 @@ for i=1:nFiles,
         indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
         picks = [picks indexes+sum(nTracesPerFile)];  %indexes of picked molecules as if all files were concatinated.
         
+        data = data.subset(indexes);
+        
         % Save stats info for logging.
         if i==1
             allStats = stats;
@@ -144,8 +158,6 @@ for i=1:nFiles,
     end
     
     % Add selected traces from the current file to the output
-    data = data.subset(indexes);
-    
     if i==1,
         dataAll = data;
     else

@@ -90,9 +90,24 @@ elseif iscell( varargin{1} ),
     h = waitbar(0, 'Loading traces and calculating properties...');
     
     for i=1:numel(files),
-        data = loadTraces( files{i} );
-        retval = [retval  traceStat_data( data )  ];
-        nTraces(i) = size(data.donor,1);
+        % TODO: if the number of traces is huge (>10,000), try to load it
+        % in pieces to prevent memory overflows, specifically in autotrace.
+        offset = 0; chunkSize = 5000;
+        nTraces(i) = 0;
+        
+        while 1,
+            data = loadTraces( files{i}, offset+(1:chunkSize) );
+            if size(data.donor,1)==0,  break;   end
+            
+            retval = [retval  traceStat_data( data )  ];
+            nTraces(i) = nTraces(i) + size(data.donor,1);
+            
+            if size(data.donor,1)<chunkSize,
+                break; %no more traces to load.
+            end
+            clear data;
+            offset = offset+chunkSize;
+        end
 
         waitbar(i/numel(files),h);
     end
@@ -183,8 +198,6 @@ for i=1:Ntraces   %use this instead to disable parallel operation.
     acceptor = acceptorAll(i,:);
     fret     = fretAll(i,:);
     total    = donor+acceptor;
-    
-    fret2 = fret2All(i,:);
     
     
     %---- Calculate donor lifetime
@@ -329,6 +342,8 @@ for i=1:Ntraces   %use this instead to disable parallel operation.
         
         % Similar calculations when there is a second acceptor (3/4-color).
         if isThreeColor,
+            fret2 = fret2All(i,:);
+            
             fretRange = fret2(1:lt) >= constants.min_fret;
             fretRange = rleFilter( fretRange, constants.rle_min );
 

@@ -163,7 +163,7 @@ mxArray* treeToStruct( QUB_Tree node, int depth )
             break;
         }
         if( !(M==1 || N==1) )
-            mexErrMsgTxt("Matrix data not supported!");
+            mexWarnMsgTxt("Matrix data not supported!");
         
         mxtype = mxTypeLookup[node.dataType()];
         data = mxCreateNumericMatrix( M,N,mxtype,mxREAL );

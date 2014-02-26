@@ -173,6 +173,10 @@ fid=fopen(filename,'r');
 len=fread(fid,1,'int32');
 Ntraces=fread(fid,1,'int16');
 
+% Remove any indexes out of range silently. This is used in
+% autotrace/traceStat to load data in chunks.
+indexes = indexes( indexes>=1 & indexes<=(Ntraces/3) );
+
 % Read in the trace ids (required!)
 c = textscan(fid, '%[^-]', Ntraces/2, 'Delimiter','-');
 ids = c{1}';
@@ -293,9 +297,23 @@ if nargin<2 || isempty(indexes),
     indexes = 1:nTraces;
 end
 
+% Remove any indexes out of range silently. This is used in
+% autotrace/traceStat to load data in chunks.
+indexes = indexes( indexes>=1 & indexes<=nTraces );
+
+% Many matlab functions (like std) will not work on integer data types,
+% so loading as an integer (or whatever) will cause all sorts of
+% downstream problems, even if it might save memory.
+if dataType>=9,
+    star = '*';
+else
+    star = '';
+    disp('Warning: loadTraces: converting non-float data to single float!');
+end
+
 % Read data fields.
 for i=1:nChannels,
-    d = fread( fid, [nTraces,traceLen], dataTypes{dataType+1} );
+    d = fread( fid, [nTraces,traceLen], [star dataTypes{dataType+1}] );
     data.( channelNames{i} ) = d(indexes,:);
 end
 
@@ -350,6 +368,8 @@ while 1,
     
     % Convert into structure array for traceMetadata.
     if strcmp(section,'traceMetadata'),
+        if isempty(indexes), continue; end
+        
         if iscell(m),
             [traceMetadata.(title)] = deal( m{indexes} );
         elseif isnumeric(m),
