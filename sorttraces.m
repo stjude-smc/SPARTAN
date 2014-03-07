@@ -577,8 +577,16 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
     [p,f] = fileparts(filename);
     dwtFilename = [p filesep f '.qub.dwt'];
     
-    saveDWT( dwtFilename, handles.dwt( handles.dwtIDs(indexes) ), ...
-             (0:numel(indexes)-1)*traceLen, handles.dwtModel, handles.dwtSampling );
+    % Map DWT ID numbers to traces -- they may not be the same.
+    offsets = (0:numel(indexes)-1)*traceLen;
+    dwt_ids = handles.dwtIDs(indexes);
+    
+    % Remove traces from the DWT file without an idealization.
+    offsets = offsets( dwt_ids>0 );
+    dwt_ids = dwt_ids( dwt_ids>0 );
+    
+    saveDWT( dwtFilename, handles.dwt(dwt_ids), ...
+             offsets, handles.dwtModel, handles.dwtSampling );
 end
 
 % end function savePickedTraces
@@ -965,7 +973,6 @@ if nargin>1,
 else
     [dwt,dwtSampling,offsets,model] = loadDWT;
 end
-if isempty(dwt), return; end
 
 handles.dwt = dwt;
 handles.dwtSampling = dwtSampling;
@@ -973,8 +980,10 @@ handles.dwtModel = model;
 
 dwtSampling = double(dwtSampling);
 
-% Verify that the DWT matches the trace data.
 handles.idl = [];
+
+% Verify that the DWT matches the trace data.
+if isempty(dwt), return; end
 
 if sampling~=dwtSampling, 
     msgbox('Data and idealization sampling intervals do not match!','Error loading idealization','Error')
