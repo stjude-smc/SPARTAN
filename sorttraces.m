@@ -800,7 +800,7 @@ if isThreeColor,
 end
 
 % Recalculate stats.
-handles.stats = traceStat( dataSubset(data,m) );
+handles.stats = traceStat( dataSubset(handles.data,m) );
 
 
 % END FUNCTION updateTraceData
@@ -853,6 +853,8 @@ if isfield(handles.data,'channelNames'),
 else
     chNames = {'donor','acceptor','fret'};
 end
+idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
+fluorChannels = chNames(idxFluor);
 
 % Get file-specific display settings, if available.
 if isfield(handles.data,'fileMetadata') && isfield(handles.data.fileMetadata,'wavelengths'),
@@ -890,8 +892,8 @@ end
 
 cla( handles.axFluor );
 
-for c=1:size(chColors,1),
-    trace = handles.data.(chNames{c})(m,:);
+for c=1:numel(fluorChannels),
+    trace = handles.data.(fluorChannels{c})(m,:);
     plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
     
     total = total + trace;
