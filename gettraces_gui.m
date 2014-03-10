@@ -264,17 +264,21 @@ end
 chColors = Wavelength_to_RGB(handles.params.wavelengths);
 
 for i=1:numel(fields),
+    % i is the index of physical CCD chip locations.
+    % idxCh is the corresponding index into list of channels (there may be none).
+    idxCh = find( handles.params.idxFields==i ); 
+        
     imshow( fields{i}, [low*2 (high+low)], 'Parent',ax(i) );
     colormap(handles.colortable);  zoom on;
 
-    if ~isempty(chNames{i})
+    if ~isempty(idxCh) && ~isempty(chNames{idxCh}),
         % Give each field a title with the background color matching the
-        % wavelength of that channel.
-        h = title(ax(i), [chNames{i} ' (' handles.params.chDesc{i} ') #' num2str(i)], ...
-                                 'BackgroundColor',chColors(i,:) );
+        % wavelength of that channel.        
+        h = title( ax(i), [chNames{idxCh} ' (' handles.params.chDesc{idxCh} ') #' num2str(i)], ...
+                                 'BackgroundColor',chColors(idxCh,:) );
 
         % Use white text for very dark background colors.
-        if sum(chColors(i,:)) < 1,
+        if sum(chColors(idxCh,:)) < 1,
             set(h,'Color',[1 1 1]);
         end
     end
@@ -850,7 +854,7 @@ end
 % For multi-color FRET, the matrix of possible crosstalk values can't
 % be handled in a little text box, so use a button for a dialog with
 % all of the values listed instead (see btnCrosstalk_Callback).
-if handles.params.geometry==2,
+if handles.params.geometry>1 && numel(params.crosstalk)==1,
     set( handles.txtDACrosstalk, 'Enable','on', 'Visible','on', ...
                                     'String',num2str(params.crosstalk) );
     set( handles.btnCrosstalk,   'Visible','off'  );
@@ -1059,7 +1063,7 @@ function btnCrosstalk_Callback(hObject, eventdata, handles)
 
 params = handles.params;
 
-assert( handles.params.geometry>1 && numel(handles.params.crosstalk>1) );
+assert( params.geometry>1 && numel(params.crosstalk)>1 );
 
 
 % Only show crosstalk parameters for channels that are adjacent in

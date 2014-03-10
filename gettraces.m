@@ -420,8 +420,10 @@ abs_dev = 0;
 % the name is empty. quadrants are the indexes into the full array of
 % fields of the ones we want to use, and also define where to translate the
 % peak locations later so they are in the right channel.
-quadrants = find( ~cellfun(@isempty,params.chNames) );
-channelNames = params.chNames(quadrants);
+% quadrants = find( ~cellfun(@isempty,params.chNames) );
+% channelNames = params.chNames(quadrants);
+quadrants = params.idxFields;
+channelNames = params.chNames;
 nCh = numel(channelNames);  %# of channels TO USE.
 
 
@@ -489,7 +491,7 @@ if params.geometry>1,
     
     % For each channel, find a crude alignment using control points. This
     % helps determine if software alignment is needed.
-    d = r_mod(indD:nCh:end,:);
+    d = r_mod(indD:nCh:end,:);  %donor (reference) points
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
@@ -537,6 +539,7 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate),
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
+        fieldID = params.idxFields(i);
         
         % Search for an optimal alignment of the selected field vs donor.
         p = params;
@@ -544,7 +547,7 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate),
             p.alignment = params.alignment(i);
         end
         [newAlign(i),registered_t{i},quality(i)] = alignSearch( ...
-                                         donor_t, allFields(:,:,i), p );
+                                      donor_t, allFields(:,:,fieldID), p );
         total_t = total_t + registered_t{i};
         
         % Create a transformation matrix from the alignment parameters.
@@ -1090,9 +1093,16 @@ end
 
 % ---- Metadata: save various metadata parameters from movie here.
 
-data.fileMetadata.wavelengths = params.wavelengths;
-data.fileMetadata.crosstalk = params.crosstalk;
-% data.fileMetadata.chDesc = params.chDesc; %fixme: cells not supported!
+% Keep only parameters for channels that are being analyzed, not all
+% possible channels in the configuration.
+chToKeep = ~cellfun(@isempty,params.chNames);
+
+data.fileMetadata.wavelengths = params.wavelengths(chToKeep);
+
+if numel(params.crosstalk)>1
+    data.fileMetadata.crosstalk = params.crosstalk(chToKeep,chToKeep);
+end
+% data.fileMetadata.chDesc = params.chDesc(chToKeep); %fixme: cells not supported!
 
 
 % -- Fields specific to each trace:

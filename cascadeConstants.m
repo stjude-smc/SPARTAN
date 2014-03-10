@@ -86,12 +86,13 @@ commonParams.saveLocations = 0;
 % See gettraces.m for definitions for these parameters. Acceptable channel
 % names include: donor, acceptor, donor2, acceptor2, factor. Factor is a
 % fluorescence channel that is not part of any FRET pair.
-% chNames has one entry for every subfield (channel) in the field-of-view,
-% where some can be empty, meaning to ignore it. The other parameters just
-% has values for the channels IN USE.
+% idxFields specifies the mapping between channel names and the physical
+% position on the CCD chip. For the Quad-View the order is UL/UR/LL/LR.
+% For all parametes, only list channels that will be used.
 clear p;
 p(1).name        = 'Single-channel (Cy3)';
 p(1).geometry    = 1;
+p(1).idxFields   = 1; %only one channel
 p(1).chNames     = {'donor'};
 p(1).chDesc      = {'Cy3'};
 p(1).wavelengths = 532;
@@ -107,10 +108,11 @@ p(2).chDesc      = {'Cy5'};
 
 p(3).name        = 'Dual-Cam (Cy3/Cy5)';
 p(3).geometry    = 2;
+p(3).idxFields   = [1 2]; %L/R
 p(3).chNames     = {'donor','acceptor'}; %L/R
 p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
-p(3).crosstalk   = 0.12;  %donor->acceptor only
+p(3).crosstalk   = 0.075;  %donor->acceptor only
 p(3).alignTranslate = 1;  % no problems other than being slow.
 p(3).alignRotate = 0;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
@@ -123,7 +125,8 @@ p(3).biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
                      
 p(4).name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
 p(4).geometry    = 3;
-p(4).chNames     = {'acceptor','acceptor2','donor','factor'}; %UL/UR/LL/LR
+p(4).idxFields   = [1 2 3 4]; %UL/UR/LL/LR
+p(4).chNames     = {'acceptor','acceptor2','donor','factor'};
 p(4).chDesc      = {'Cy5','Cy7','Cy3','Cy2'};
 p(4).wavelengths = [640 730 532 473];
 p(4).crosstalk   = zeros(4);
@@ -131,6 +134,30 @@ p(4).crosstalk(3,1) = 0.13;   %Cy3->Cy5
 p(4).crosstalk(1,2) = 0.06;   %Cy5->Cy7 (is this correct???)
 p(4).alignRotate = 0;
 p(4).alignTranslate = 0;
+
+
+p(5).name        = 'Quad-View (Cy3/Cy5 only)';
+p(5).geometry    = 3;
+p(5).idxFields   = [1 3]; %UL/LL
+p(5).chNames     = {'donor','acceptor'};
+p(5).chDesc      = {'Cy3','Cy5'};
+p(5).wavelengths = [532 640];
+p(5).crosstalk   = 0.13;   %Cy3->Cy5
+p(5).alignRotate = 0;
+p(5).alignTranslate = 0;
+
+
+p(6).name        = 'Quad-View (Cy3/Cy5/Cy7)';
+p(6).geometry    = 3;
+p(6).idxFields   = [1 3 2]; %UL/LL
+p(6).chNames     = {'donor','acceptor','acceptor2'};
+p(6).chDesc      = {'Cy3','Cy5','Cy7'};
+p(6).wavelengths = [532 640 730];
+p(6).crosstalk   = zeros(4);
+p(6).crosstalk(1,2) = 0.13;   %Cy3->Cy5
+p(6).crosstalk(1,3) = 0.06;   %Cy5->Cy7 (is this correct???)
+p(6).alignRotate = 0;
+p(6).alignTranslate = 0;
 
 
 % Add all of the common settings that do not vary.
@@ -168,7 +195,7 @@ constants.defaultAutotraceCriteria = criteria;
 
 % default population FRET contour plot paramters (cplot.m)
 options.contour_bin_size = 0.03;     % FRET bin size
-options.cplot_scale_factor = 7;      % contour level scaling; depends on bin size
+options.cplot_scale_factor = 8;      % contour level scaling; depends on bin size
 options.contour_length = 50;         % # frames to display in contour plots
 options.truncate_statehist = true;   % truncate data used for making statehist/tdplots to
 options.truncate_tdplot = false;     %   match the displayed contour plot (contour_length).
