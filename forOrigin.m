@@ -44,6 +44,7 @@ end
 
 
 % Load idealization data (.DWT)
+% TODO: what if there are idealizations for multiple FRET traces?
 idl = zeros( nTraces,traceLen );
 
 if ~isempty( dwtFilename ),
@@ -65,6 +66,8 @@ if ~isempty( dwtFilename ),
     end
 end
 
+data.idl = idl;
+
 
 % Set time axis if not available,
 time = data.time;
@@ -80,23 +83,31 @@ if time(1)==1,
     time = time(1:end-1);
 end
 
-% Store traces data in an output array
-totalSize = nTraces*4;
+
+
+% Get field names to save. We want this in a particular order to make it
+% easier to make multipanel plots in Origin. Otherwise we could just
+% iterate over data.channelNames.
+fields = [ dataByName('fret') 'idl' dataByName('donor') dataByName('acceptor') ];
+fields = [ fields setdiff(data.channelNames,fields) ]; %get remaining ones
+
+
+% Store traces data in an output array.
+nFields = numel(fields);
+totalSize = nTraces*nFields;
 output = zeros(traceLen,totalSize+1);
 
 for i=1:nTraces,
-    idx = 1+ (i-1)*4;
-    
-    output(1:end,idx+1) = data.fret(i,:)';
-    output(1:end,idx+2) = idl(i,:)';
-    output(1:end,idx+3) = data.donor(i,:)';
-    output(1:end,idx+4) = data.acceptor(i,:)';
+    for j=1:numel(fields),
+        idx = 1+ (i-1)*nFields + j; %output column index
+        output(1:end,idx) = data.(fields{j})(i,:)';
+    end
 end
 
 output(:,1) = time./1000; %convert to seconds
 
 
-% Output header lines
+% Open the output file to save the data.
 if nargin<3,
     [p,f] = fileparts(filename);
     outputFilename = [p filesep f '_forOrigin.txt'];
@@ -104,10 +115,15 @@ end
 
 fid = fopen(outputFilename,'w');
 
+% Output header lines
 fprintf(fid,'Time (s)');
 
 for i=1:nTraces,
-    fprintf(fid,'\tFRET%d\tIdl%d\tDonor%d\tAcceptor%d',i,i,i,i);
+    for j=1:numel(fields),
+        fname = fields{j};
+        fname(1) = upper(fname(1));
+        fprintf( fid, '\t%s_%d', fname,i );
+    end
 end
 fprintf(fid,'\n');
 
@@ -118,3 +134,20 @@ for i=1:size(output,1),
 end
 
 fclose(fid);
+
+
+
+
+
+
+function field = dataByName(fieldname)
+% Get all traces with a specified base name (eg, "fret").
+
+field = data.channelNames(  ...
+          ~cellfun( @isempty, strfind(data.channelNames,fieldname) )  );
+end
+      
+      
+end
+
+
