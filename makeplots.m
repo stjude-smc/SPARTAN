@@ -113,8 +113,6 @@ if ~exist('titles','var'),
 end
 
 
-
-
 disp('Computing plots, please wait...');
 
 
@@ -248,7 +246,7 @@ for i=1:numel(baseFilenames),  %for each sample
    
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
     if ~options.no_statehist && has_dwt(i),
-        shist = statehist( dwt_fname, fret, options );
+        shist = statehist( dwt_fname, fret, options );        
         shistAll{i} = shist;
     end
     
@@ -290,6 +288,12 @@ for i=1:numel(baseFilenames),  %for each sample
             
             histdata = histdata(:,2:end);
             histdata = 100*histdata ./ sum(histdata(:));
+        end
+        
+        % If the option is set, rescale so that plots with only a few
+        % molecules show low occupancy in the statehist.
+        if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+            histdata = histdata.*(N(i)/max(N));
         end
 
         % Draw translucent, filled area underneath curves
@@ -338,8 +342,7 @@ for i=1:numel(baseFilenames),  %for each sample
     
     %---- GENERATE TD PLOT HISTOGRAMS
     tdp = tdplot(dwt_fname,fret,options);
-    tdpAll{i} = tdp;
-    
+ 
     
     %---- LOAD TDPLOT DATA ----
     
@@ -359,6 +362,15 @@ for i=1:numel(baseFilenames),  %for each sample
         [transmat,total_time] = CountEvents(dwt);
         t = sum(sum( transmat ));
     end
+    
+        
+    % If the option is set, rescale so that plots with only a few
+    % molecules show low occupancy in the statehist.
+    if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+        tdp(2:end,2:end) = tdp(2:end,2:end).*(N(i)/max(N));
+    end
+    
+    tdpAll{i} = tdp;
     
     
     %---- DISPLAY TD PLOT ----
@@ -395,6 +407,15 @@ for i=1:numel(baseFilenames),  %for each sample
     drawnow;
     
 end  % for each data file
+
+
+
+
+% Give a warning if using some funky normalization.
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max
+    disp('NOTE: these plots are normalized to the plot with the largest number of traces!!');
+end
+
 
 
 
