@@ -47,7 +47,7 @@ end
 
 
 % Prompt user for filenames if not supplied
-if nargin < 1,
+if nargin < 1 || isempty(files),
     disp('Select traces files, hit cancel when finished');
     files = getFiles([],'Choose a traces file:');
 end

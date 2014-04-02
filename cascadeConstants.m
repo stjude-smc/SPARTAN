@@ -113,7 +113,7 @@ p(3).chNames     = {'donor','acceptor'}; %L/R
 p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
 p(3).crosstalk   = 0.075;  %donor->acceptor only
-p(3).alignTranslate = 1;  % no problems other than being slow.
+p(3).alignTranslate = 0;  % no problems other than being slow.
 p(3).alignRotate = 0;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are

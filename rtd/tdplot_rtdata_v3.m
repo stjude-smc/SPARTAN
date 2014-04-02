@@ -148,11 +148,11 @@ end
 
 %--- Save Files
 if normMethod==1
-    outfile=strrep(tracefilename,'.txt','_tdp1.txt');
+    outfile=strrep(tracefilename,'.traces','_tdp1.txt');
 elseif normMethod==2
-    outfile=strrep(tracefilename,'.txt','_tdp2.txt');
+    outfile=strrep(tracefilename,'.traces','_tdp2.txt');
 elseif normMethod==3
-    outfile=strrep(tracefilename,'.txt','_tdp3.txt'); 
+    outfile=strrep(tracefilename,'.traces','_tdp3.txt'); 
 end
 dlmwrite(outfile,tdp,' ');
 

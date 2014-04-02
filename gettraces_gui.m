@@ -180,6 +180,7 @@ set( handles.txtIntegrationStatus, 'String', '' );
 set( handles.txtPSFWidth,          'String', '' );
 set( handles.txtAlignStatus,      'String', '' );
 set( handles.txtAlignWarning, 'Visible','off' );
+set(handles.nummoles,'String','');
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
