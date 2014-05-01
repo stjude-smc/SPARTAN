@@ -139,6 +139,9 @@ end
 dataSize = [nTraces traceLen];
 fretModel = [m.mu' m.sigma'];
 
+data.nChannels=3;
+data.channelNames = {'donor','acceptor','fret'};
+
 [dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, m, options );
 data.time = 1000*sampling*( 0:(traceLen-1) );
 

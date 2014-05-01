@@ -602,13 +602,13 @@ function highlightPeaks(handles)
 
     
 % Parameters for drawing circles around each detected molecule.
-style1 = {'LineStyle','none','marker','o','color','w','EraseMode','background'};
-style2 = {'LineStyle','none','marker','o','color','y','EraseMode','background'};
+style1 = {'LineStyle','none','marker','o','color','w'};
+style2 = {'LineStyle','none','marker','o','color','y'};
 
 % Parameters for overlapped molecules that won't actually be recorded.
 % These are darker to de-emphasize them, but yet still be visible.
-style1b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.4],'EraseMode','background'};
-style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0],'EraseMode','background'};
+style1b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.4]};
+style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
 
 
 [nrow,ncol] = size(handles.stk_top);

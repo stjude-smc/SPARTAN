@@ -84,7 +84,7 @@ end
 
 % Simulate the effect of donor to acceptor channel crosstalk
 constants = cascadeConstants;
-data.acceptor = data.acceptor + constants.crosstalk*data.donor;
+data.acceptor = data.acceptor + 0.07*data.donor;
 
 
 
