@@ -16,7 +16,7 @@ classdef Movie_TIFF
 
 properties (SetAccess=protected, GetAccess=public)
     % These varibles are part of the standard interface
-    filename = ''; % full path and filename to loaded file
+    filenames = ''; % full path and filename to loaded file
     
     nX=0;       % size (in pixels) of x dimension (columns).
     nY=0;       % size (in pixels) of y dimension (rows).
@@ -24,31 +24,49 @@ properties (SetAccess=protected, GetAccess=public)
     
     timeAxis=[]; % wall time of the start of each frame (starts with zero).
     
-    stkHeader = struct([]); %
+    header = struct([]);
 
-end %end public properties
-
-
-properties (SetAccess=protected, GetAccess=protected),
-    dataOffsets = []; %offsets to data segments in the movie file, with
-                      %one offset per plane (frame).
+% end %end public properties
+% 
+% 
+% properties (SetAccess=protected, GetAccess=protected),
+    %dataOffsets = []; %offsets to data segments in the movie file, with
+    %                  %one offset per plane (frame).
+    movieHeaders = {};  %metadata for all movies (cells) and all frames.
+    nFramesPerMovie = [];
 end
 
 
 methods
     
-    function obj = Movie_TIFF( filename )
-        obj.filename = filename;
+    function obj = Movie_TIFF( filenames )        
+        if ~iscell(filenames),  filenames = {filenames};  end
+        obj.filenames = filenames;
         
         % Read the TIFF file and get all useful header information. The data
         % sections are ignored. Data-access offsets are stored in tiffData.
-        obj.stkHeader = imfinfo( filename );
-        obj.dataOffsets = [obj.stkHeader.Offset];
+        info = imfinfo( filenames{1} );
+        obj.movieHeaders{1} = info;
+        obj.header = info(1);
         
         % Extract basic image metadata
-        obj.nX = obj.stkHeader(1).Width;
-        obj.nY = obj.stkHeader(1).Height;
-        obj.nFrames = numel( obj.dataOffsets );
+        obj.nX = info(1).Width;
+        obj.nY = info(1).Height;
+        obj.nFramesPerMovie(1) = numel(info);
+        
+        % If there are multiple files given, verify they are the same size
+        % (etc).
+        for i=2:numel(filenames),
+            info = imfinfo( filenames{i} );
+            obj.movieHeaders{i} = info;
+            obj.nFramesPerMovie(i) = numel(info);
+            
+            % Verify dimensions are the same
+            assert( info(1).Width==obj.nX && info(1).Height==obj.nY, ...
+                           'Movies in series have different sizes!' );
+        end
+        
+        obj.nFrames = sum( obj.nFramesPerMovie );
                 
         % Generate an approximate time axis. The actual timestamps are in the
         % MM_private1 (UIC1, 33628) field untag tag #16 (CreateTime). The LONG
@@ -58,12 +76,12 @@ methods
         % and other TIFFs...
         
         % If this is a MM stack...
-        if numel(obj.stkHeader)==1 && isfield(obj.stkHeader,'UnknownTags') && ...
-                                      any( [obj.stkHeader.UnknownTags.ID]==33628 ),
+        if numel(info)==1 && isfield(info,'UnknownTags') && ...
+                                      any( [info.UnknownTags.ID]==33628 ),
                                   
-            obj.stkHeader.MM = parseMetamorphInfo( obj.stkHeader.ImageDescription, 1);
+            obj.header.MM = parseMetamorphInfo( info.ImageDescription, 1);
             
-            x = repmat( obj.stkHeader.MM.Exposure, [1 obj.nFrames] );
+            x = repmat( obj.header.MM.Exposure, [1 obj.nFrames] );
             obj.timeAxis = [0 cumsum(x(1:end-1))];
             
         else
@@ -90,15 +108,21 @@ methods
         
         framesRead=0;
         for i=idx,
-            data(:,:,framesRead+1) = imread( obj.filename, 'Info',obj.stkHeader, 'Index',i );
+            data(:,:,framesRead+1) = obj.readFrame(i);
             framesRead=framesRead+1;
         end
     end
     
     function data = readFrame( obj, idx )
-%         data = imread( obj.filename, obj.stkHeader, idx );
-        data = imread( obj.filename, 'Info',obj.stkHeader, 'Index',idx );
+        % Determine which file this frame number belongs to.
+        movieFirstFrame = 1+cumsum([0 obj.nFramesPerMovie]);
+        idxFile = find( idx>=movieFirstFrame, 1, 'last' );
+        idx = idx - movieFirstFrame(idxFile)+1;
+
+        data = imread( obj.filenames{idxFile}, ...
+                          'Info',obj.movieHeaders{idxFile}, 'Index',idx );
     end
+    
     
     
 end %public methods

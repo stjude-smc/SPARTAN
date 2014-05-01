@@ -148,10 +148,15 @@ function openstk_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Get filename of input data from user
-[datafile,datapath]=uigetfile( ...
-    '*.stk;*.tif*','Choose a movie file');
-if datafile==0, return; end
+% Get filename of input data from user. If multiple files are selected,
+% they are considered sections (groups of frames) from a larger movie.
+% This happens with very large (sCMOS) movies > 2GB in size.
+[datafile,datapath] = uigetfile( '*.stk;*.tif*', 'Choose a movie file', ...
+                                 'MultiSelect','on' );
+
+if ~iscell(datafile),
+    if datafile==0, return; end  %user hit cancel
+end
 
 handles.stkfile = strcat(datapath,datafile);
 
@@ -165,13 +170,21 @@ guidata(hObject,handles);
 
 % --------------------- OPEN SINGLE MOVIE --------------------- %
 function handles = OpenStk(filename, handles, hObject)
+% Load movie data from file. filename is a cell array of files.
 
-[p,f,e] = fileparts(filename);
+if isempty(filename), return; end
+if ~iscell(filename), filename = {filename}; end
+
+[p,f,e] = fileparts( filename{1} );
 fnameText = [p filesep f e];
 
 % Trancate name if too long ot fit into window without wrapping.
 if numel(fnameText)>90,
     fnameText = ['...' fnameText(end-90:end)];
+end
+
+if numel(filename)>1,
+    fnameText = [fnameText ' (multiple files)'];
 end
 
 set( handles.txtFilename,          'String',fnameText);
@@ -677,10 +690,16 @@ line( handles.rtotal_x, handles.rtotal_y, style2b{:} );
 % --- Executes on button press in saveTraces.
 function saveTraces_Callback(hObject, eventdata, handles)
 
+if iscell(handles.stkfile),
+    filename = handles.stkfile{1};
+else
+    filename = handles.stkfile;
+end
+
 % Integrate fluorophore point-spread functions, generate fluorescence
 % traces, and save to file.
 stkData = getappdata(handles.figure1,'stkData');
-gettraces( stkData, handles.params, handles.stkfile );
+gettraces( stkData, handles.params, filename );
 clear stkData;
 
 

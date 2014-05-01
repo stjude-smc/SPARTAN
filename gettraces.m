@@ -74,8 +74,8 @@ end
 if nargin>=1 && isstruct(varargin{1}),
     stkData = varargin{1};
 
-%------ Otherwise, load an individual file
-elseif nargin>=1 && ischar(varargin{1}) && ~isdir(varargin{1}),
+%------ Otherwise, load a list of files (cell array) or single file.
+elseif nargin>=1 && iscell(varargin{1}) || (ischar(varargin{1}) && ~isdir(varargin{1})),
     stkData = OpenStk( varargin{1} );
 
 %------ If a directory name is given, run in batch mode and then terminate.
@@ -146,7 +146,9 @@ if nargin<2,
     params.geometry=2;
 end
 
-[~,~,ext] = fileparts(filename);
+if ~iscell(filename),  filename = {filename};  end
+
+[~,~,ext] = fileparts(filename{1});
 
 % Load movie data from file.
 if ~isempty( strfind(ext,'.stk') ),
@@ -987,12 +989,12 @@ regions = stkData.regions;  % pixel#, dimension(x,y), peak#
 % Create a trace for each molecule across the entire movie.
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleaching during the movie.
-traces = zeros(Npeaks,nFrames);
+traces = zeros(Npeaks,nFrames,'single');
 
 idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 
 for k=1:nFrames,
-    frame = double( movie.readFrame(k) )  -stkData.background;
+    frame = single( movie.readFrame(k) )  -stkData.background;
     
     if params.nPixelsToSum>1
         traces(:,k) = sum( frame(idx) );
@@ -1001,7 +1003,7 @@ for k=1:nFrames,
     end
     
     if mod(k,100)==0,
-        waitbar( k/nFrames, wbh );
+        waitbar( 0.9*k/nFrames, wbh );
     end
 end
 
@@ -1023,7 +1025,7 @@ nCh = numel(data.channelNames);
 
 if params.geometry==1, %single-channel    
     data.donor    = traces;
-    data.acceptor = zeros( size(traces) );
+    data.acceptor = zeros( size(traces), 'single' );
     
 elseif params.geometry>1, %two- or three- or four-color
     % Add each fluorescence channel to the data structure.
