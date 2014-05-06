@@ -24,7 +24,7 @@ properties (SetAccess=protected, GetAccess=public)
     
     timeAxis=[]; % wall time of the start of each frame (starts with zero).
     
-    stkHeader = struct([]); %
+    header = struct([]); %
 
 end %end public properties
 
@@ -38,42 +38,44 @@ end
 methods
     
     function obj = Movie_STK( filename )
+        
+        % Input may be a cell array, but it must only contain one file.
+        % For Movie_TIFF, a file list is possible.
+        if iscell(filename)
+            assert( numel(filename)==1, 'Movie_STK: file lists not allowed!' );
+            filename = filename{1};
+        end
+        
         obj.filename = filename;
         
         % Read the TIFF file and get all useful header information. The data
         % sections are ignored. Data-access offsets are stored in tiffData.
-        [obj.stkHeader,obj.dataOffsets] = readTiffHeader( filename );
+        [obj.header,obj.dataOffsets] = readTiffHeader( filename );
         
         % Extract basic image metadata
-        obj.nX = obj.stkHeader(1).width;
-        obj.nY = obj.stkHeader(1).height;
+        obj.nX = obj.header(1).width;
+        obj.nY = obj.header(1).height;
         obj.nFrames = numel( obj.dataOffsets );
         
         % Generate an approximate time axis. The actual timestamps are in the
         % MM_private1 (UIC1, 33628) field untag tag #16 (CreateTime). The LONG
         % data element is a pointer to a LONG [date,time]. FIXME
-        x = repmat( obj.stkHeader(1).MM.Exposure, [1 obj.nFrames] );
+        x = repmat( obj.header(1).MM.Exposure, [1 obj.nFrames] );
         obj.timeAxis = [0 cumsum(x(1:end-1))];
         
     end %constructor
     
     
     % Data access methods. Data are only loaded when needed by these functions.
-    function data = readFrames( obj, idxStart, idxEnd )
+    function data = readFrames( obj, idx )
         
-        % Parse input arguments.
-        % First parameter can be a vector of indexes.
-        if nargin==2,
-            idx = reshape(idxStart, [1 numel(idxStart)]);
-        else
-            assert( idxEnd>=idxStart && idxEnd<=obj.nFrames && idxStart>=1 );
-            idx = idxStart:idxEnd;
-        end
+        % Parse input arguments; insure correct orientation of vector.
+        idx = reshape(idx, [1 numel(idx)]);
+        assert( min(idx)>=1 && max(idx)<=obj.nFrames, 'Invalid indexes' );
         
         % Preallocate space for the output data.
         data = zeros( obj.nY,obj.nX,numel(idx), 'uint16' );
-        
-        
+                
         fid = fopen( obj.filename );
         
         framesRead=0;

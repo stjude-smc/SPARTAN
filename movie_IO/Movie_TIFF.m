@@ -14,90 +14,123 @@ classdef Movie_TIFF
 %
 
 % FIXME: does not correctly read XML-format metadata from MetaMorph.
-% FIXME: need to use the 'DateTime' property to construct time axis.
+% FIXME: gracefully handle DateTime field not found.
 % 
 
 
+%% ============ PROPERTIES ============= %
 properties (SetAccess=protected, GetAccess=public)
-    filenames = ''; % full path and filename to loaded file
+    filenames = {}; % full path and filename to loaded file
+    filetag = '';   % original base filename of movie file series
     
-    nX=0;       % size (in pixels) of x dimension (columns).
-    nY=0;       % size (in pixels) of y dimension (rows).
-    nFrames=0;  % number of images in the stack.
+    nX=0;       % size (in pixels) of x dimension (columns)
+    nY=0;       % size (in pixels) of y dimension (rows)
+    nFrames=0;  % number of images in the stack
     
-    timeAxis=[]; % wall time of the start of each frame (starts with zero).
-    %timestamps = []; % actual movie timestamps in ms relative to start.
+    timeAxis=[];     % uniform time axis in ms, relative to start.
+    timestamps = []; % actual movie timestamps in ms, relative to start.
     
-    header = struct([]);
+    header = struct([]);  % TIFF metadata for first frame.
 
 end %end public properties
 
 
 properties (SetAccess=protected, GetAccess=protected),
-    movieHeaders = {};  %metadata for all movies (cells) and all frames.
+    movieHeaders = [];  %metadata for all frames across all files (struct).
     nFramesPerMovie = [];
 end
 
 
 
-
+%% ============ PUBLIC METHODS ============= %
 methods
     
-    function obj = Movie_TIFF( filenames )        
+    % Basic constructor with the filename of a TIFF movie file to load or a
+    % cell array of filenames if the movie was split into multiple files.
+    % This may happenen with very large movies (>2GB).
+    function obj = Movie_TIFF( filenames )
+        
         if ~iscell(filenames),  filenames = {filenames};  end
         obj.filenames = filenames;
+        nFiles = numel(filenames);
         
-        % Read the TIFF file and get all useful header information. The data
-        % sections are ignored. Data-access offsets are stored in tiffData.
-        info = imfinfo( filenames{1} );
-        obj.movieHeaders{1} = info;
-        obj.header = info(1);
-        origFilename = info(1).Filename;
+        % Extract TIFF tags (metadata) from all files.
+        % This will be used to help determine the order.
+        headers = cell(1,nFiles);
+        times = cell(nFiles,1);  %time axis for each movie.
+        firstTime = zeros(nFiles,1); %time at first frame in each file.
         
-        % Extract basic image metadata
-        obj.nX = info(1).Width;
-        obj.nY = info(1).Height;
-        obj.nFramesPerMovie(1) = numel(info);
-        
-        % Construct time axis (eg, '20140430 11:45:10.16').
-        % This gives us a true time axis, but we only use the average time
-        % resolution because some programs assume the time axis is uniform.
-        if isfield(info,'DateTime'),
-            dot = strfind( info(1).DateTime, '.' );
-            times = cellfun(  @(s) str2double(s(dot+1:end)) + ...
-                 24*60*60*1000*datenum(s(1:dot-1),'yyyymmdd HH:MM:SS'), ...
-                  {info.DateTime}  );
-            times = times-times(1); %first frame zero time.
-            dt = round( 10*mean(diff(times)) )/10; %time resolution in ms
-        else
-            dt = [];
-        end
-        
-        
-        % If there are multiple files given, verify they are the same size
-        % (etc).
-        for i=2:numel(filenames),
+        for i=1:nFiles,
+            % Get TIFF tag metadata for this file.
             info = imfinfo( filenames{i} );
-            obj.movieHeaders{i} = info;
+            headers{i} = info;
             obj.nFramesPerMovie(i) = numel(info);
             
-            % Verify dimensions are the same
-            assert( info(1).Width==obj.nX && info(1).Height==obj.nY, ...
+            % FIXME: verify all required field names are present.
+            
+            
+            % Process time axis information.
+            dot = strfind( info(1).DateTime, '.' );
+            times{i} = cellfun(  @(s) str2double(s(dot+1:end)) + ...
+                24*60*60*1000*datenum(s(1:dot-1),'yyyymmdd HH:MM:SS'), ...
+                {info.DateTime}  );
+            firstTime(i) = times{i}(1);
+            
+            % Parse file dimensions, etc
+            if i==1,
+                [p,f] = fileparts(info(1).Filename);
+                f = regexprep(f,'-file[0-9]*$','');
+                obj.filetag = [p filesep f];
+                
+                obj.nX = info(1).Width;
+                obj.nY = info(1).Height;
+            else
+                % Verify dimensions are the same
+                assert( info(1).Width==obj.nX && info(1).Height==obj.nY, ...
                            'Movies in series have different sizes!' );
-                       
-            if ~strcmp(info(1).Filename,origFilename),
-                warning('Movie_TIFF:filename_mismatch', ...
-                     'Files do not appear to be part of the same acquisition');
+                 
+                % Verify the file base name is the same across files.
+                % Remove the extension and the '-file003' prefix.
+                % We expect (but don't assume) the extension is '.tif'.
+                [p,f] = fileparts(info(1).Filename);
+                f = regexprep(f,'-file[0-9]*.[A-Za-z0-9]*$','');
+                tag = [p filesep f];
+                
+                if ~strcmp(tag,obj.filetag),
+                   warning('Movie_TIFF:filename_mismatch', ...
+                        'Files do not appear to be part of the same acquisition');
+                    disp(info(1).Filename);
+                end
             end
         end
         
-        obj.nFrames = sum( obj.nFramesPerMovie );
+        % Reorder the files so the frames are continuous in time.
+        % This is not generally necessary because sorting the filenames
+        % gives the correct order.
+        [~,fileOrder] = sort(firstTime);
+        obj.filenames       = obj.filenames(fileOrder);
+        obj.nFramesPerMovie = obj.nFramesPerMovie(fileOrder);
+        obj.movieHeaders    = headers(fileOrder); %convert to matrix
+        obj.timestamps      = [ times{fileOrder}   ]; %convert to matrix
+        obj.header = obj.movieHeaders{1}(1);
         
-        if ~isempty(dt),
-            obj.timeAxis = 0:dt:(dt*obj.nFrames-1);
-        else
-            obj.timeAxis = 1:1:obj.nFrames;
+        % Construct a time axis with a uniform time resolution (.timeAxis).
+        % Some programs will be confused by the actual timestamps with
+        % non-uniform time resolution.
+        timediff = diff(obj.timestamps);
+        obj.nFrames  = sum( obj.nFramesPerMovie );
+        dt = round( 10*median(timediff) )/10; %time resolution in ms
+        obj.timeAxis = 0:dt:(dt*obj.nFrames-1);
+        
+        % Verify the timestamps are continuous. If files from distinct
+        % movies are spliced together, they will have big jumps. This is a
+        % warning because sometimes movies are shuttered, giving big jumps.
+        if any(timediff<0.1) || any(timediff>3*dt),
+            warning('Movie_TIFF:discontinuousTimestamps', ...
+                    'Timestamps are not continuous. This can happen if files from multiple movies are mixed!');
+            disp(  [ min(diff(obj.timestamps)) max(diff(obj.timestamps)) ]  );
         end
+        %obj.timestamps = obj.timestamps-obj.timestamps(1); %relative to start.
                 
         % Get MetaMorph metadata. This can (in the STK format) be a special
         % tag with a whitespace delimited list of key/value pairs.
@@ -108,6 +141,9 @@ methods
         end
         
         % In new versions (TIFF), the metadata is instead in XML.
+        if isfield(obj,'ImageDescription'),
+            % TODO
+        end
         
     end %constructor
     
@@ -115,16 +151,11 @@ methods
     
     
     % Data access methods. Data are only loaded when needed by these functions.
-    function data = readFrames( obj, idxStart, idxEnd )
+    function data = readFrames( obj, idx )
         
-        % Parse input arguments.
-        % First parameter can be a vector of indexes.
-        if nargin==2,
-            idx = reshape(idxStart, [1 numel(idxStart)]);
-        else
-            assert( idxEnd>=idxStart && idxEnd<=obj.nFrames && idxStart>=1 );
-            idx = idxStart:idxEnd;
-        end
+        % Parse input arguments; insure correct orientation of vector.
+        idx = reshape(idx, [1 numel(idx)]);
+        assert( min(idx)>=1 && max(idx)<=obj.nFrames, 'Invalid indexes' );
         
         % Preallocate space for the output data.
         data = zeros( obj.nY,obj.nX,numel(idx), 'uint16' );
@@ -138,6 +169,8 @@ methods
     
     
     function data = readFrame( obj, idx )
+        assert( numel(idx)==1 && idx>=1 && idx<=obj.nFrames, 'Invalid indexes' );
+        
         % Determine which file this frame number belongs to.
         movieFirstFrame = 1+cumsum([0 obj.nFramesPerMovie]);
         idxFile = find( idx>=movieFirstFrame, 1, 'last' );
@@ -146,8 +179,6 @@ methods
         data = imread( obj.filenames{idxFile}, ...
                           'Info',obj.movieHeaders{idxFile}, 'Index',idx );
     end
-    
-    
     
 end %public methods
 
@@ -159,7 +190,10 @@ end %class Movie_TIFF
 
 
 
-%% %%  Parse the Metamorph camera info tag into respective fields
+
+%% ============ ACCESSORY FUNCTIONS ============= %
+
+% Parse the Metamorph camera info tag into respective fields
 % This is only used with old-format (STK) movies from MetaMorph.
 % EVBR 2/7/2005, FJN Dec. 2007. See tiffread.m
 function mm = parseMetamorphInfo(info, cnt)
