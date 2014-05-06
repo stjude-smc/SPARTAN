@@ -72,14 +72,16 @@ for i=1:nFiles,
         channelNames = d.channelNames;
         traceMetadataFields = fieldnames(d.traceMetadata);
     else
-        % Check if the channel names all match. You can change this to a
-        % warning and the rest of the code will (probably) work.
-        if ~isempty( setxor(channelNames,d.channelNames) ),
-            close(h);
-            error('All files must have the same data channels!');
-        end
+        % FIXME: channels may be in a different order. This will give an
+        % error here, but it is possible to reorder the data.
+        assert( all(strcmp(channelNames,d.channelNames)), ...
+                                      'Data channels must be the same' );
+        %if ~isempty( setxor(channelNames,d.channelNames) ),
+        %    close(h);
+        %    error('All files must have the same data channels!');
+        %end
         
-        channelNames = intersect(channelNames,d.channelNames);
+        %channelNames = intersect(channelNames,d.channelNames);
         traceMetadataFields = intersect( ...
                         traceMetadataFields, fieldnames(d.traceMetadata) );
     end
