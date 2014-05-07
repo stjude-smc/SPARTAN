@@ -164,10 +164,12 @@ data = loadTraces( filename );
 
 % If there is no "acceptor" intensity (single-color experiments), create a
 % fake one to make the later code happy. FIXME.
-if ~isfield(data,'acceptor'),
-    data.acceptor = zeros( size(data.donor) );
-    data.fret     = zeros( size(data.donor) );
-end
+% if ~isfield(data,'acceptor'),
+%     data.channelNames = [data.channelNames,'acceptor','fret'];
+%     data.nChannels = numel(data.channelNames);
+%     data.acceptor = zeros( size(data.donor) );
+%     data.fret     = zeros( size(data.donor) );
+% end
 
 handles.data = data;
 [handles.Ntraces,handles.len] = size(data.donor);
@@ -333,13 +335,19 @@ end
 
 % Reset these values for the new trace.
 idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
-handles.backgrounds = zeros( 1,sum(idxFluor) );
+idxFluor = find(idxFluor);
+handles.backgrounds = zeros( 1,numel(idxFluor) );
 
 % If no value has been calculated for FRET threshold, do it now.
-if handles.fretThreshold(mol) == 0,    
-    d = handles.data.donor(mol,:);
-    a = handles.data.acceptor(mol,:);
-    handles.stats = traceStat( dataSubset(handles.data,mol) );
+if handles.fretThreshold(mol) == 0,
+    trace = dataSubset(handles.data,mol);
+    total = zeros( size(trace) );
+    
+    for i=1:numel(idxFluor),
+        total = total + trace.(trace.channelNames{idxFluor(i)});
+    end
+    
+    handles.stats = traceStat(trace);
     constants = cascadeConstants;
 
     s = handles.stats.lifetime + 5;
@@ -348,12 +356,11 @@ if handles.fretThreshold(mol) == 0,
     if numel(range)<10,
         handles.fretThreshold(mol) = 100; %arbitrary
     else
-        t = d+a;
-        if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
-            t = t+handles.data.acceptor2(mol,:);
-        end
+        %if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
+        %    t = t+handles.data.acceptor2(mol,:);
+        %end
         
-        handles.fretThreshold(mol) = constants.blink_nstd * std(t(range));
+        handles.fretThreshold(mol) = constants.blink_nstd * std(total(range));
     end
     
     % Adjust scroll bar range if the new value falls outside of it.
@@ -813,7 +820,7 @@ function output = dataSubset( data, indexes )
 
 output = data;
 
-for i=1:data.nChannels,
+for i=1:numel(data.channelNames),
     ch = data.channelNames{i};
     output.(ch) = data.(ch)(indexes,:);
 end
@@ -844,9 +851,7 @@ function plotter(handles)
 % file, including legends.
 
 m     = handles.molecule_no;
-donor = handles.data.donor(m,:);
-fret  = handles.data.fret(m,:);
-total = zeros( size(donor) );  %total fluorescence intensity all channels.
+total = zeros( size(handles.data.donor(m,:)) );  %total fluorescence intensity all channels.
 
 if isfield(handles.data,'channelNames'),
     chNames  = handles.data.channelNames;
@@ -925,7 +930,10 @@ plot( handles.axTotal, time,simplified_cy3,'g' );
 
 % Plot FRET efficiency
 cla( handles.axFret );
-plot( handles.axFret, time,fret, 'b-');
+if isfield( handles.data, 'fret' ),
+    fret  = handles.data.fret(m,:);
+    plot( handles.axFret, time,fret, 'b-');
+end
 
 if isfield( handles.data, 'fret2' ),
     plot( handles.axFret, time,handles.data.fret2(m,:), 'm-');
