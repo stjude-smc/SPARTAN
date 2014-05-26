@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 17-Mar-2013 16:32:30
+% Last Modified by GUIDE v2.5 26-May-2014 16:57:35
 
 
 % Begin initialization code - DO NOT EDIT
@@ -54,9 +54,9 @@ if ~isfield(handles,'constants')
 
     % Initialize some variables, utilizing the handles structure
     handles.constants = cascadeConstants();
-    set(handles.sldCrosstalk, 'Value',  0);
+    set(handles.sldCrosstalk1, 'Value',  0);
     set(handles.sldThreshold, 'Value',  100);
-    set(handles.edCrosstalk,  'String', '0');
+    set(handles.edCrosstalk1,  'String', '0');
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
     linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');
@@ -225,10 +225,18 @@ set(handles.btnSelAll3,'Enable','on');
 % Turn on other controls that can now be used now that a file is loaded.
 set(handles.edThreshold, 'Enable','on' );
 set(handles.sldThreshold,'Enable','on' );
-set(handles.edCrosstalk, 'Enable','on' );
-set(handles.sldCrosstalk,'Enable','on' );
+set(handles.edCrosstalk1, 'Enable','on' );
+set(handles.sldCrosstalk1,'Enable','on' );
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
+
+if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
+    isThreeColor = 'on';
+else
+    isThreeColor = 'off';
+end
+set(handles.edCrosstalk2, 'Enable',isThreeColor,'String','0' );
+set(handles.sldCrosstalk2,'Enable',isThreeColor,'Value',0 );
 
 
 % Initialize array for tracking FRET donor-blinking threshold value.
@@ -242,7 +250,7 @@ set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 % Set data correction starting values.
 % The crosstalk value here reflects *the correction that has already been
 % made* -- the actual data are modified each time
-handles.crosstalk = zeros( handles.Ntraces, 1  );
+handles.crosstalk = zeros( handles.Ntraces, 2  );
 
 
 % Reset x-axis label to reflect time or frame-based.
@@ -375,8 +383,11 @@ set(handles.chkBin2,'Value', any(handles.FRETs_indexes==mol) );
 set(handles.chkBin3,'Value', any(handles.Best_indexes==mol) );
 
 % Re-initialize figure objects.
-set( handles.edCrosstalk,  'String', sprintf('%.3f',handles.crosstalk(mol)) );
-set( handles.sldCrosstalk, 'Value',  handles.crosstalk(mol) );
+set( handles.edCrosstalk1,  'String', sprintf('%.3f',handles.crosstalk(mol,1)) );
+set( handles.sldCrosstalk1, 'Value',  handles.crosstalk(mol,1) );
+
+set( handles.edCrosstalk2,  'String', sprintf('%.3f',handles.crosstalk(mol,2)) );
+set( handles.sldCrosstalk2, 'Value',  handles.crosstalk(mol,2) );
 
 set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
@@ -684,46 +695,57 @@ plotter(handles);
 
 %----------ADJUST CROSSTALK WITH SLIDER----------%
 % --- Executes on slider movement.
-function sldCrosstalk_Callback(hObject, eventdata, handles)
+function sldCrosstalk_Callback(hObject, eventdata, handles, ch )
 % Called when user changes the scroll bar for specifying FRET threshold.
 %
 
+assert( ch==1 || ch==2 );
 mol = handles.molecule_no;
 
-oldCrosstalk = handles.crosstalk(mol);
-handles.crosstalk(mol) = get(hObject,'Value');
+oldCrosstalk = handles.crosstalk(mol,ch);
+handles.crosstalk(mol,ch) = get(hObject,'Value');
+delta = oldCrosstalk - handles.crosstalk(mol,ch);
 
 % Adjust the acceptor fluorescence to subtract donor->acceptor crosstalk
 % according to the new value. The trace has already been adjusted according
 % to the old value, so that has to be "undone" first.
-handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:) + ...
-        ( oldCrosstalk-handles.crosstalk(mol) )*handles.data.donor(mol,:);
+chNames = handles.data.channelNames;  %we assume these are in order of wavelength!!
+ch1 = chNames{ch};
+ch2 = chNames{ch+1};
+
+handles.data.(ch2)(mol,:) = handles.data.(ch2)(mol,:) + ...
+                                          delta * handles.data.(ch1)(mol,:);
                          
 % Save and display the result
-set( handles.edCrosstalk, 'String',sprintf('%.3f',handles.crosstalk(mol)) );
+name = sprintf('edCrosstalk%d',ch);
+set( handles.(name), 'String',sprintf('%.3f',handles.crosstalk(mol,ch)) );
+
 handles = updateTraceData( handles );
 guidata(hObject,handles);
 plotter(handles);
 
 
 
-function edCrosstalk_Callback(hObject, eventdata, handles)
+function edCrosstalk_Callback(hObject, eventdata, handles, ch )
 % Called when user changes the text box for specifying FRET threshold.
 %
 
-crosstalk = sscanf( '%f', get(hObject,'String') );
+assert( ch==1 || ch==2 );
+crosstalk = str2double( get(hObject,'String') );
+
+name = sprintf('sldCrosstalk%d',ch);  %slider control name
 
 % Restrict value to the range of the slider to prevent errors.
-sldMax = get( handles.sldCrosstalk, 'max' );
-sldMin = get( handles.sldCrosstalk, 'min' );
+% FIXME: changing the box should change the scale of the slider, within reason.
+sldMax = get( handles.(name), 'max' );
+sldMin = get( handles.(name), 'min' );
 crosstalk = max(crosstalk,sldMin);
 crosstalk = min(crosstalk,sldMax);
 
-set( handles.sldCrosstalk, 'Value',crosstalk );
+set( handles.(name), 'Value',crosstalk );
 
 % Make the corrections and update plots.
-sldCrosstalk_Callback( handles.sldCrosstalk, evendata, handles );
-
+sldCrosstalk_Callback( handles.(name), eventdata, handles, ch );
 
 
 
@@ -1143,8 +1165,3 @@ gettraces_gui( movieFilename, handles.data.traceMetadata(m) );
 
 
 % end function btnGettraces_Callback
-
-
-
-
-

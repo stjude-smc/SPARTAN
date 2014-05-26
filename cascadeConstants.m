@@ -89,6 +89,7 @@ commonParams.saveLocations = 0;
 % idxFields specifies the mapping between channel names and the physical
 % position on the CCD chip. For the Quad-View the order is UL/UR/LL/LR.
 % For all parametes, only list channels that will be used.
+% NOTE: you must put the channels in their spectral order.
 clear p;
 p(1).name        = 'Single-channel (Cy3)';
 p(1).geometry    = 1;
@@ -154,8 +155,8 @@ p(6).chNames     = {'donor','acceptor','acceptor2'};
 p(6).chDesc      = {'Cy3','Cy5','Cy7'};
 p(6).wavelengths = [532 640 730];
 p(6).crosstalk   = zeros(4);
-p(6).crosstalk(1,2) = 0.13;   %Cy3->Cy5
-p(6).crosstalk(1,3) = 0.06;   %Cy5->Cy7 (is this correct???)
+p(6).crosstalk(1,2) = 0.12;   %Cy3->Cy5
+p(6).crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
 p(6).alignRotate = 0;
 p(6).alignTranslate = 0;
 
