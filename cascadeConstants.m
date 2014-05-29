@@ -161,6 +161,17 @@ p(6).alignRotate = 0;
 p(6).alignTranslate = 0;
 
 
+p(7).name        = 'Quad-View (Cy5/Cy7)';
+p(7).geometry    = 3;
+p(7).idxFields   = [1 2]; % field order: LL/UL/LL
+p(7).chNames     = {'donor','acceptor'};
+p(7).chDesc      = {'Cy5','Cy7'};
+p(7).wavelengths = [640 730];
+p(7).crosstalk   = 0.11;
+p(7).alignRotate = 0;
+p(7).alignTranslate = 0;
+
+
 % Add all of the common settings that do not vary.
 fnames = fieldnames(commonParams);
 for i=1:numel(fnames),

@@ -347,17 +347,17 @@ idxFluor = find(idxFluor);
 handles.backgrounds = zeros( 1,numel(idxFluor) );
 
 % If no value has been calculated for FRET threshold, do it now.
+trace = dataSubset(handles.data,mol);
+handles.stats = traceStat(trace);
+    
 if handles.fretThreshold(mol) == 0,
-    trace = dataSubset(handles.data,mol);
     total = zeros( size(trace) );
     
     for i=1:numel(idxFluor),
         total = total + trace.(trace.channelNames{idxFluor(i)});
     end
     
-    handles.stats = traceStat(trace);
     constants = cascadeConstants;
-
     s = handles.stats.lifetime + 5;
     range = s:min(s+constants.NBK,handles.len);
     
@@ -895,17 +895,22 @@ else
 end
 chColors = Wavelength_to_RGB(wavelengths);
 
-% Get trace properties
+% Get trace properties and reset GUI values with these results
 stats = handles.stats;
 lt = stats.lifetime;
 FRETlifetime = stats.acclife;
 snr = stats.snr;
 CC = stats.corr;
 
-% Reset GUI values with these results
 set(handles.editCorrelation,'String', sprintf('%.2f',CC) );
-set(handles.editLifetime,'String',  sprintf('%d, %d', [FRETlifetime lt]));
 set(handles.editSNR,'String', sprintf('%.2f',snr) );
+
+if ismember('acceptor2',handles.data.channelNames),  %isThreeColor,
+    fret2Lifetime = stats.fret2Lifetime;
+    set(handles.editLifetime,'String',  sprintf('%d, %d, %d', [FRETlifetime fret2Lifetime lt]));
+else
+    set(handles.editLifetime,'String',  sprintf('%d, %d', [FRETlifetime lt]));
+end
 
 
 [p,name,ext] = fileparts( handles.filename );
