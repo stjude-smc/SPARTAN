@@ -343,8 +343,8 @@ end
 
 % Reset these values for the new trace.
 idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
-idxFluor = find(idxFluor);
-handles.backgrounds = zeros( 1,numel(idxFluor) );
+fluorNames = handles.data.channelNames{ idxFluor };
+handles.backgrounds = zeros( 1,numel(fluorNames) );
 
 % If no value has been calculated for FRET threshold, do it now.
 trace = dataSubset(handles.data,mol);
@@ -353,8 +353,8 @@ handles.stats = traceStat(trace);
 if handles.fretThreshold(mol) == 0,
     total = zeros( size(trace) );
     
-    for i=1:numel(idxFluor),
-        total = total + trace.(trace.channelNames{idxFluor(i)});
+    for i=1:numel(fluorNames),
+        total = total + trace.(fluorNames{i});
     end
     
     constants = cascadeConstants;
@@ -364,10 +364,6 @@ if handles.fretThreshold(mol) == 0,
     if numel(range)<10,
         handles.fretThreshold(mol) = 100; %arbitrary
     else
-        %if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
-        %    t = t+handles.data.acceptor2(mol,:);
-        %end
-        
         handles.fretThreshold(mol) = constants.blink_nstd * std(total(range));
     end
     
@@ -645,35 +641,37 @@ if xlim(2)>handles.len, xlim(2)=handles.len; end
 xrange = xlim(1):xlim(2);
 
 
-% Get indexes for all of the fluorescence channels.
+% Get names/indexes for all of the fluorescence channels.
 chNames = handles.data.channelNames;
-idxFluor = find(  cellfun( @isempty, strfind(chNames,'fret') )  );
+idxFluor = cellfun( @isempty, strfind(chNames,'fret') );
+fluorNames = chNames(idxFluor);
 
+% Get the indexes of fluorescence channels the user wishes to subtract
+idxSub = [];
 
-% Subtract DONOR background
-if mode==1,
-    idxD = strcmp('donor',chNames);
-    handles.backgrounds(idxD) = mean( handles.data.donor(m,xrange) );
-    handles.data.donor(m,:) = handles.data.donor(m,:) - handles.backgrounds(idxD);
+if mode==1,      % Subtract DONOR background
+    idxSub = find(  ~cellfun( @isempty, strfind(fluorNames,'donor') )  );
+    
+elseif mode==2,  % Subtract ACCEPTOR background
+    idxSub = find(  ~cellfun( @isempty, strfind(fluorNames,'acceptor') )  );
+    
+elseif mode==3,  % Substrate background in ALL fluorescence channels
+    idxSub = 1:numel(fluorNames);
+end
 
-% Subtract ACCEPTOR background
-elseif mode==2,
-    idxA = strcmp('acceptor',chNames);
-    handles.backgrounds(idxA) = mean( handles.data.acceptor(m,xrange) );
-    handles.data.acceptor(m,:) = handles.data.acceptor(m,:) - handles.backgrounds(idxA);
-
-% Substrate background in ALL fluorescence channels
-elseif mode==3,
-    for i=1:numel(idxFluor), %for every non-fret channel index
-        ch = handles.data.channelNames{ idxFluor(i) };
-        handles.backgrounds(i) = mean(  handles.data.(ch)(m,xrange)  );
-        handles.data.(ch)(m,:) = handles.data.(ch)(m,:) - handles.backgrounds(i);
-    end    
-
+% Subtract background from all selected channels
+for i=1:numel(idxSub), %for every non-fret channel index
+    ch = fluorNames{ idxSub(i) };
+    bg = mean(  handles.data.(ch)(m,xrange)  );
+    handles.backgrounds( idxSub(i) ) = bg;
+    handles.data.(ch)(m,:) = handles.data.(ch)(m,:) - bg;
+end
+    
+    
 % UNDO background subtraction for all fluorescence channels
-elseif mode==4,
-    for i=1:numel(idxFluor), %for every non-fret channel index
-        ch = handles.data.channelNames{ idxFluor(i) };
+if mode==4,
+    for i=1:numel(fluorNames), %for every non-fret channel
+        ch = fluorNames{i};
         handles.data.(ch)(m,:) = handles.data.(ch)(m,:) + handles.backgrounds(i);
     end    
 end
