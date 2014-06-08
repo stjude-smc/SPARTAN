@@ -1,63 +1,39 @@
-function [donor,acceptor,fret] = correctTraces( ...
-                                      donor,acceptor, constants, indexes )
+function data = correctTraces( data, constants )
 % CORRECTTRACES  Makes simple adjustments to traces
 %
-%   [D,A,F] = CORRECTTRACES( DONOR, ACCEPTOR, CONST, INDEXES )
+%   [D,A,F] = CORRECTTRACES( DATA )
 %   Subtracts background fluorscence from both channels, using 100
 %   frames after donor photobleaching.  Also calculates FRET
 %   efficiency, with E=0 where donor is blinking or photobleached.
-%
-%   INDEXES specifies the indexes of traces to load. Useful if only a small
-%   number of traces are needed from a large file.
 %   
 
 % TODO: gamma correction (whole pipeline), background drift correction?
 
 if nargin<2,
-    error('CorrectTraces: not all required parameters given!')
-end
-if nargin<3,
     constants = cascadeConstants;
 end
 
 % If the acceptor is a cell array, this is a three-color FRET experiment
 % and we have two acceptor signals.
-isThreeColor = 0;
+assert( isfield(data,'donor') && isfield(data,'acceptor') && ...
+        ~isempty(data.donor) && ~isempty(data.acceptor) );
+isThreeColor = isfield(data,'acceptor2');
 
-if iscell(acceptor),
-    assert( numel(acceptor)==2 );
-    a = acceptor{1};
-    acceptor2 = acceptor{2};
-    acceptor = a;
-    isThreeColor=1;
+if isfield(data,'donor2'),
+    warning('correctTraces:multiDonor','This function is not designed for multiple donors');
 end
 
-% Extract just the traces requested (default=all)
-if nargin>=4 && ~isempty(indexes),
-    donor = donor(indexes,:);
-    acceptor = acceptor(indexes,:);
-    if isThreeColor,
-        acceptor2 = acceptor2(indexes);
-    end
-end
 
 % Calculate donor lifetime
-if isThreeColor,
-    total = donor+acceptor+acceptor2;
-else
-    total = donor+acceptor;
-end
-
-lt = calcLifetime(total,constants.TAU,constants.NSTD);
+lt = calcLifetime(data.total,constants.TAU,constants.NSTD);
 
 
-[Ntraces,len] = size(donor);
 
 % Subtract fluorescence intensity so the baseline after photobleaching in
 % zero. For traces that do not photobleach, no correction is made, but the
 % baseline will be close because an estimated background image is
 % subtracted from each frame in gettraces.
-for m=1:Ntraces,
+for m=1:data.nTraces,
 
     s = lt(m)+5;  %ignore the frames around the photobleaching event
     range = s:min(s+constants.NBK,len);
@@ -66,12 +42,12 @@ for m=1:Ntraces,
         continue; %not enough baseline to calculate background. skip trace.
     end
 
-    % Make background correction    
-    donor(m,:) = donor(m,:)       - mean( donor(m,range) );
-    acceptor(m,:) = acceptor(m,:) - mean( acceptor(m,range) );
+    % Make background correction
+    data.donor(m,:)    = data.donor(m,:)    - mean( data.donor(m,range) );
+    data.acceptor(m,:) = data.acceptor(m,:) - mean( data.acceptor(m,range) );
     
     if isThreeColor,
-        acceptor2(m,:) = acceptor2(m,:) - mean( acceptor2(m,range) );
+        data.acceptor2(m,:) = data.acceptor2(m,:) - mean( data.acceptor2(m,range) );
     end
 end
 
@@ -83,16 +59,15 @@ end
 % not transferred to the other acceptor. In this case, FRET1+FRET2 can be
 % more than 1. This has the advantage that the FRET signals can be
 % semi-independent.
+total = data.total;
+
 if isThreeColor,
-    total = donor+acceptor+acceptor2;
     %fret  = acceptor  ./ (donor+acceptor);
     %fret2 = acceptor2 ./ (donor+acceptor2);
-    fret  = acceptor  ./ total;
-    fret2 = acceptor2 ./ total;
+    data.fret  = data.acceptor  ./ total;
+    data.fret2 = data.acceptor2 ./ total;
 else
-    total = donor+acceptor;
-    fret  = acceptor ./ total;
-    fret2 = zeros(size(donor));
+    data.fret  = data.acceptor ./ total;
 end
 
 
@@ -100,27 +75,19 @@ end
 % Sets FRET value to 0 when intensity is below a calculated threshold
 % based on the number of standard devations above background
 for m=1:Ntraces,
-
-    fret(m, lt(m):end) = 0;
-    fret2(m, lt(m):end) = 0;
+    data.fret(m, lt(m):end) = 0;
+    data.fret2(m, lt(m):end) = 0;
 
     s = lt(m)+5;
     range = s:min(s+constants.NBK,len);
     if numel(range)<10, continue; end 
 
     % Set FRET to 0 when Cy3 is blinking or photobleached:
-    % ie, when FRET is below a calculated threshold = 4*std(background) 
-    stdbg = std( total(m,range) );
-    fret(m, total(m,1:lt(m))<=constants.blink_nstd*stdbg)=0;
-    fret2(m, total(m,1:lt(m))<=constants.blink_nstd*stdbg)=0;
+    % ie, when FRET is below a calculated threshold = 4*std(background)
+    darkRange = total(m,1:lt(m)) <= constants.blink_nstd*std(total(m,range));
+    data.fret(m,darkRange)  = 0;
+    data.fret2(m,darkRange) = 0;
 end
 
-
-% For three-color FRET, acceptors are returned as they are sent in: as a
-% cell array.
-if isThreeColor,
-    acceptor = {acceptor,acceptor2};
-    fret = {fret,fret2};
-end
 
 

@@ -107,7 +107,6 @@ end
 
 
 % Ideally, space should be pre-allocated. TODO.
-dataAll = struct();
 allStats = struct( [] );
 picks = [];
 nTracesPerFile = zeros(nFiles,1);
@@ -117,16 +116,6 @@ for i=1:nFiles,
     
     % Load traces file data
     data = loadTraces( files{i} );
-    dataAll.time = data.time;  % need to verify this is consistent. FIXME
-    dataAll.fileMetadata = data.fileMetadata;  % need to verify this is consistent. FIXME
-    
-    % Verify that all files have the same imaging geometry/channel definitions.
-    if i==1,
-        channelNames = data.channelNames;
-        dataAll.channelNames = data.channelNames;
-    else
-        assert( all(strcmp(sort(channelNames),sort(data.channelNames))), 'Traces data format mismatch (different geometry?)' );
-    end
     
     % Unless provided, calc trace properties and select those that meet criteria.
     if isfield( options, 'indexes' ),
@@ -142,7 +131,7 @@ for i=1:nFiles,
         end
         
         % Pick traces passing criteria
-        [indexes] = pickTraces( stats, criteria );
+        indexes = pickTraces( stats, criteria );
         indexes = reshape(indexes,1,numel(indexes));  %insure row vector shape.
         picks = [picks indexes+sum(nTracesPerFile)];  %indexes of picked molecules as if all files were concatinated.
         
@@ -153,28 +142,14 @@ for i=1:nFiles,
             allStats = cat(2, allStats, stats);
         end
     end
-
-    % Remove molecules that are not selected, pool together with data sets
-    % already loaded (in dataAll).
-    for j=1:numel(channelNames),
-        c = channelNames{j};
-        if i==1,
-            dataAll.(c) = data.(c)(indexes,:);
-        else
-            dataAll.(c) = [ dataAll.(c) ; data.(c)(indexes,:) ];
-        end
-    end
     
-    assert( isfield(data,'traceMetadata'), 'File doesn''t have metadata. This should never happen!' );
+    % Add selected traces from the current file to the output
+    data = data.subset(indexes);
+    
     if i==1,
-        dataAll.traceMetadata = data.traceMetadata(indexes);
+        dataAll = data;
     else
-        % Remove metadata fields that are not present in all datasets.
-        % Otherwise, concatinating the two will give an error.
-        data.traceMetadata = rmfield( data.traceMetadata, setdiff(fieldnames(data.traceMetadata),fieldnames(dataAll.traceMetadata)) );
-        dataAll.traceMetadata   = rmfield( dataAll.traceMetadata, setdiff(fieldnames(dataAll.traceMetadata),fieldnames(data.traceMetadata)) );
-
-        dataAll.traceMetadata = [dataAll.traceMetadata data.traceMetadata(indexes)];
+        dataAll.combine(data);
     end
     
     % Update status bar

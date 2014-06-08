@@ -17,6 +17,7 @@ if nargin<3,
     NSTD = constants.NSTD;
 end
 
+total = double(total);
 
 % For each trace, calc Cy3 lifetime
 for i=1:Ntraces

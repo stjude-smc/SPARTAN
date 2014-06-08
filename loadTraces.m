@@ -248,7 +248,7 @@ nChannels = fread( fid, 1, '*uint8'  );
 nTraces   = fread( fid, 1, 'uint32'  );
 traceLen  = fread( fid, 1, 'uint32'  );
 
-data.nChannels = nChannels;
+% data.nChannels = nChannels;
 
 
 % 3) Read data channel names (version 4+)
@@ -267,7 +267,20 @@ end
 % Remove empty (trailing) channel names. This might happen if extra
 % delimiters are added to the end to pad to word boundries.
 channelNames = channelNames( ~cellfun(@isempty,channelNames) );
-data.channelNames = channelNames;
+% data.channelNames = channelNames;
+
+
+% Create a Traces object.
+% TODO: add try/catch.
+if isempty( setdiff(channelNames,{'donor','acceptor','fret'}) ),
+    data = TracesFret(nTraces,nChannels,channelNames);
+elseif ismember('donor',channelNames)
+    data = TracesFret4(nTraces,nChannels,channelNames);
+elseif ismember('ch1',channelNames),
+    data = TracesFluor4(nTraces,nChannels,channelNames);
+else
+    error('Channel names do not match any available Traces class template');
+end
 
 
 % 4) Read fluorescence and FRET data.
@@ -350,8 +363,8 @@ while 1,
         
     % Empty section heading = root variables.
     % Currently none are here! Future expansion?
-    elseif isempty(section),
-        data.(title) = m;
+    %elseif isempty(section),
+    %    data.(title) = m;
     
     else
         error('Unknown metadata section heading!');

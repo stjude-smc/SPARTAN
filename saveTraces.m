@@ -27,7 +27,7 @@ function saveTraces( filename, varargin )
 % 
 
 % If no format name given, assume traces file.
-if nargin==2 && isstruct( varargin{1} ),
+if nargin==2 && ( isstruct(varargin{1}) || isa(varargin{1},'Traces') ),
     saveTracesBinary( filename, varargin{1} );
     return;
 end
@@ -46,7 +46,7 @@ switch format
         saveTracesBinary( filename, data );
         
     case 'qub'
-        if isstruct(data)
+        if isstruct(data) || isa(data,'Traces')
             fret = data.fret;
         else
             fret = data;
@@ -308,12 +308,13 @@ end
 for i=1:numel(fnames),
     fname = fnames{i};
     m = data.traceMetadata(1).(fname); %just get first element for determining data type
+    tm = data.traceMetadata; %HACK for class Traces access.
     
     % Collapse strucutre array into a single field for serialization.
     if isnumeric(m),
-        metadata = [data.traceMetadata.(fname)];
+        metadata = [tm.(fname)];
     elseif ischar(m),
-        metadata = strcat( {data.traceMetadata.(fname)}, char(31) );
+        metadata = strcat( {tm.(fname)}, char(31) );
         metadata = [ metadata{:} ];
         metadata = metadata(1:end-1); %removing trailing seperator
     else

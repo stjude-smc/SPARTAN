@@ -975,7 +975,6 @@ global params;
 
 movie = stkData.movie;
 nFrames = movie.nFrames;
-data.time = movie.timeAxis;
 wbh = waitbar(0,'Extracting traces from movie data');
 
 % Get x,y coordinates of picked peaks
@@ -984,6 +983,36 @@ x = peaks(:,1);
 y = peaks(:,2);
 
 regions = stkData.regions;  % pixel#, dimension(x,y), peak#
+
+
+
+% Create channel name list for the final data file. This includes FRET channels,
+% which are not in the movie. chNames includes only fluorescence fields.
+chNames = params.chNames( ~cellfun(@isempty,params.chNames) );
+nCh = numel(chNames);
+nTraces = Npeaks/nCh;
+
+dataNames = chNames;
+
+if ismember('acceptor',dataNames),
+    dataNames = [dataNames 'fret'];
+end
+
+if ismember('acceptor2',dataNames),
+    dataNames = [dataNames 'fret2'];
+end
+
+% Create traces object, where the data will be stored.
+if params.geometry>2 && ismember('donor',dataNames)
+    data = TracesFret4(nTraces,nFrames,dataNames);
+elseif ismember('donor',dataNames)
+    data = TracesFret(nTraces,nFrames,dataNames);
+else
+    data = TracesFluor(nTraces,nFrames,dataNames);
+end
+
+data.time = movie.timeAxis;
+
 
 
 % Create a trace for each molecule across the entire movie.
@@ -1020,9 +1049,6 @@ end
 % Extract individual channels from the traces matrix.
 % For channel names, ignore empty strings that are placeholders for
 % unused channels.
-data.channelNames = params.chNames( ~cellfun(@isempty,params.chNames) );
-nCh = numel(data.channelNames);
-
 if params.geometry==1, %single-channel    
     data.donor    = traces;
     data.acceptor = zeros( size(traces), 'single' );
@@ -1070,26 +1096,7 @@ end
 
 
 % Subtract background, correct for crosstalk, and calculate FRET
-[data.donor,data.acceptor,data.fret] = correctTraces(data.donor,data.acceptor);
-if params.geometry>1,
-    data.channelNames = [data.channelNames 'fret'];
-end
-
-% FIXME: for 3/4-color, only donor->acceptor crosstalk is handled!
-if isfield(data,'donor2') && isfield(data,'acceptor2'),
-    [data.donor2,data.acceptor2,data.fret2] = correctTraces( ...
-                                              data.donor2, data.acceptor2);
-elseif isfield(data,'acceptor2')
-    [~,accs,frets] = correctTraces( data.donor, {data.acceptor,data.acceptor2} );
-    data.acceptor  = accs{1};
-    data.acceptor2 = accs{2};
-    data.fret  = frets{1};
-    data.fret2 = frets{2};
-end
-
-if isfield(data,'fret2'),
-    data.channelNames = [data.channelNames 'fret2'];
-end
+data = correctTraces(data);
 
 
 
@@ -1099,7 +1106,7 @@ end
 % possible channels in the configuration.
 chToKeep = ~cellfun(@isempty,params.chNames);
 
-data.fileMetadata.wavelengths = params.wavelengths(chToKeep);
+data.fileMetadata(1).wavelengths = params.wavelengths(chToKeep);
 
 if numel(params.crosstalk)>1
     data.fileMetadata.crosstalk = params.crosstalk(chToKeep,chToKeep);
@@ -1118,8 +1125,8 @@ elseif params.geometry>1,
     % Add each fluorescence channel to the data structure.
     for i=1:nCh,
         ch = data.channelNames{i};
-        data.traceMetadata.([ch '_x']) = x(i:nCh:end);
-        data.traceMetadata.([ch '_y']) = y(i:nCh:end);
+        data.traceMetadata().([ch '_x']) = x(i:nCh:end);
+        data.traceMetadata().([ch '_y']) = y(i:nCh:end);
     end
 end
 

@@ -33,9 +33,7 @@ h = waitbar(0,'Combining datasets');
 nTraces  = zeros(1,nFiles);
 traceLen = zeros(1,nFiles);
 
-traceMetadataFields = {}; %field names that are common across files.
-channelNames = {}; %channel names that are common across all files.
-
+data = cell(nFiles,1);
 dwt=cell(nFiles,1);
 sampling=zeros(nFiles,1);
 offsets=cell(nFiles,1);
@@ -45,54 +43,8 @@ for i=1:nFiles,
 
     % Load traces from file. If any of the files have a slightly different
     % structure (fields missing or in a different order), this will fail!
-    d = loadTraces(filenames{i});
-    [nTraces(i),traceLen(i)] = size(d.donor);
-    assert( traceLen(i)>1 );
-    
-    % Select only the fields that are common to both files. Generally
-    % all fields will be in common. This is just a precaution.
-    if i>1,
-
-        fieldsToRemove = setxor(fieldnames(d),fieldnames(data));
-        
-        if ~isempty(fieldsToRemove),
-            d    = rmfield( d,    setdiff(fieldnames(d),fieldnames(data)) );
-            data = rmfield( data, setdiff(fieldnames(data),fieldnames(d)) );
-            
-            text = sprintf( '%s, ',fieldsToRemove{:} );
-            warning( 'combineDatasets:missingDataFields', ...
-                     'Some fields were removed because they are not in all files: %s', ...
-                     text(1:end-2)  );
-        end
-    end
-    data(i) = d;
-    
-    % Get common field names for data and metadata fields.
-    if i==1,
-        channelNames = d.channelNames;
-        traceMetadataFields = fieldnames(d.traceMetadata);
-    else
-        % FIXME: channels may be in a different order. This will give an
-        % error here, but it is possible to reorder the data.
-        assert( all(strcmp(channelNames,d.channelNames)), ...
-                                      'Data channels must be the same' );
-        %if ~isempty( setxor(channelNames,d.channelNames) ),
-        %    close(h);
-        %    error('All files must have the same data channels!');
-        %end
-        
-        %channelNames = intersect(channelNames,d.channelNames);
-        traceMetadataFields = intersect( ...
-                        traceMetadataFields, fieldnames(d.traceMetadata) );
-    end
-    
-    
-    % Verify the data are valid. We can't save NaN values to file!
-    for c=1:numel(channelNames),
-        chName = channelNames{c};
-        assert(  ~any( isnan(data(i).(chName)(:)) )  );
-    end
-    
+    data{i} = loadTraces(filenames{i});
+    [nTraces(i),traceLen(i)] = size(data{i}.donor);
     
     % Look for an idealization. These will be combined if every dataset has one.
     [path,file] = fileparts( filenames{i} );
@@ -103,11 +55,6 @@ for i=1:nFiles,
     
     waitbar(0.7*i/nFiles,h);
 end
-
-
-% Get the longest time axis
-[~,longest] = max(traceLen);
-time = data(longest).time;
 
 
 %% Resize traces so they are all the same length
@@ -125,16 +72,11 @@ if min(traceLen) ~= max(traceLen),
         
     % ---- Truncate traces to the same length
     elseif strcmp(choice,'Truncate'),
-        
         newTraceLength = min(traceLen);
+        
+        output = combine( data{:} );
 
         for i=1:nFiles,
-            % Resize each channel in this file.
-            for c=1:numel(channelNames),
-                chName = channelNames{c};
-                data.(chName) = data.(chName)(:,1:newTraceLength);
-            end
-            
             % Convert dwell-times to an idealization, which are easy to
             % truncate, and convert back for saving later.
             if ~isempty(dwt{i}),
@@ -143,8 +85,6 @@ if min(traceLen) ~= max(traceLen),
                 [dwt{i},offsets{i}] = idlToDwt(idl);
             end
         end %end for each file.
-        
-        time = time(1:newTraceLength);
 
         
     % ---- Extend traces to the same length
@@ -153,22 +93,17 @@ if min(traceLen) ~= max(traceLen),
         % the values in the last frame to pad the end. This can create 
         % problems later on, so use with caution!
         newTraceLength = max( traceLen );
+        
+        output = combine( data{:},'extend' );
 
         for i=1:nFiles,
-            delta = newTraceLength - numel(data(i).time);
-            
-            % Resize each data channel in this file.
-            for c=1:numel(channelNames),
-                chName = channelNames{c};
-                data(i).(chName) = [  data(i).(chName) ...
-                             repmat( data(i).(chName)(:,end), 1,delta )  ];
-            end
-        
             % To "extend" the dwell-times, we just have to change the
             % offsets. But this is very easy to do by converting it to an
             % idealization and adding zeros (a marker for regions that are
             % not idealized) to the ends.
             if ~isempty(dwt{i}),
+                delta = newTraceLength - traceLen(i);
+                
                 idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
                 idl = [ idl  zeros( size(idl,1), delta )  ];
                 [dwt{i},offsets{i}] = idlToDwt(idl);
@@ -176,46 +111,10 @@ if min(traceLen) ~= max(traceLen),
         end
     end
     
+else
+    output = combine( data{:} );
 end %if trace length mismatch
 
-waitbar(0.75,h);
-
-
-% Remove any metadatafields that are not common to all files.
-for i=1:nFiles,
-    fieldsToRemove = setdiff( fieldnames(data(i).traceMetadata), traceMetadataFields );
-    
-    if ~isempty(fieldsToRemove),
-        data(i).traceMetadata = rmfield( data(i).traceMetadata, fieldsToRemove );
-        
-        text = sprintf( '%s, ',fieldsToRemove{:} );
-        warning( 'combineDatasets:missingMetadataFields', ...
-                 'Some metadata fields were removed because they are not in all files: %s', ...
-                 text(1:end-2)  );
-    end
-end
-
-% Merge fluorescence and FRET data and trace metadata. We don't simply copy
-% everything from data(1) and overwrite some fields because there may be
-% additional fields we don't want (eg, they are not in all fields).
-% Warning: that the metadata fields may depend on some fluorescence 
-% channels being saved and we don't check for that here!
-output.nChannels = numel(channelNames);
-output.channelNames = channelNames;
-output.time = time; %longest time axis
-
-for c=1:numel(channelNames),
-    chName = channelNames{c};
-    output.(chName) = vertcat( data.(chName) );
-end
-
-if isfield(data,'traceMetadata'),
-    output.traceMetadata = [data.traceMetadata];
-end
-
-if isfield(data,'fileMetadata'),
-    output.fileMetadata = data(1).fileMetadata;
-end
 
 clear data;
 waitbar(0.9,h);

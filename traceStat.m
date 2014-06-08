@@ -76,7 +76,7 @@ end
 
 % If the user gives a structure, this is a data structure with fluorescence
 % data etc from loadTraces. Parse out the fields.
-if isstruct( varargin{1} ),
+if isstruct( varargin{1} ) || isa(varargin{1},'Traces'),
     data = varargin{1};
     nTraces = size( data.donor, 1 );
     retval = traceStat_data( data );
@@ -134,7 +134,7 @@ fretAll     = data.fret;
 [Ntraces,len] = size(fretAll);
 
 % Add second acceptor FRET channel if available.
-if isfield(data,'fret2'),
+if isfield(data,'fret2') && ~isempty(data.fret2),
     fret2All = data.fret2;
     isThreeColor = true;
 else
