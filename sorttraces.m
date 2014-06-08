@@ -347,7 +347,7 @@ fluorNames = handles.data.channelNames{ idxFluor };
 handles.backgrounds = zeros( 1,numel(fluorNames) );
 
 % If no value has been calculated for FRET threshold, do it now.
-trace = dataSubset(handles.data,mol);
+trace = handles.data.getSubset(mol);
 handles.stats = traceStat(trace);
     
 if handles.fretThreshold(mol) == 0,
@@ -558,20 +558,7 @@ function savePickedTraces( handles, filename, indexes )
 indexes = sort(indexes);
 
 % Put together the subset of selected traces for saving.
-data.channelNames = handles.data.channelNames;
-data.time         = handles.data.time;
-
-for i=1:numel(data.channelNames),
-    c = data.channelNames{i};
-    data.(c) = handles.data.(c)(indexes,:);
-end
-
-if isfield(handles.data,'traceMetadata')
-    data.traceMetadata = handles.data.traceMetadata(indexes);
-end
-if isfield(handles.data,'fileMetadata')
-    data.fileMetadata = handles.data.fileMetadata;
-end
+data = handles.data.getSubset(indexes);  %create a copy
 
 [p,f,e] = fileparts(filename);
 if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
@@ -602,6 +589,8 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
     saveDWT( dwtFilename, handles.dwt(dwt_ids), ...
              offsets, handles.dwtModel, handles.dwtSampling );
 end
+
+delete(data);  %clean up. not necessary, but fun.
 
 % end function savePickedTraces
 
@@ -827,28 +816,10 @@ if isThreeColor,
 end
 
 % Recalculate stats.
-handles.stats = traceStat( dataSubset(handles.data,m) );
+handles.stats = traceStat( handles.data.getSubset(m) );
 
 
 % END FUNCTION updateTraceData
-
-
-function output = dataSubset( data, indexes )
-% Remove a single trace from a full data structure containing arbitrary
-% fields. This is needed for updating stats for a single trace and is kind
-% of a hack... This highlights why data needs to be a class!
-
-output = data;
-
-for i=1:numel(data.channelNames),
-    ch = data.channelNames{i};
-    output.(ch) = data.(ch)(indexes,:);
-end
-
-% In theory trace metadata should be adjusted too. For now just throw it out.
-output = rmfield( output, 'traceMetadata' );
-
-% END FUNCTION extractTrace
 
 
 
@@ -873,23 +844,21 @@ function plotter(handles)
 m     = handles.molecule_no;
 total = zeros( size(handles.data.donor(m,:)) );  %total fluorescence intensity all channels.
 
-if isfield(handles.data,'channelNames'),
-    chNames  = handles.data.channelNames;
-else
-    chNames = {'donor','acceptor','fret'};
-end
-idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
-fluorChannels = chNames(idxFluor);
+chNames = handles.data.channelNames;
+fluorCh = chNames(handles.data.idxFluor);
+nCh = numel(fluorCh);
 
-% Get file-specific display settings, if available.
-if isfield(handles.data,'fileMetadata') && isfield(handles.data.fileMetadata,'wavelengths'),
+% Determine colors to user for plotting fluorescence.
+% If not give in the traces file, use an old standard (that may be incorrect).
+if isfield(handles.data.fileMetadata,'wavelengths'),
     wavelengths = handles.data.fileMetadata.wavelengths;
 else
-    %disp('Warning: no channel wavelengths given in file. Making some guesses instead.');
-    wavelengths( strcmp(handles.data.channelNames,'donor')     ) = 532;
-    wavelengths( strcmp(handles.data.channelNames,'acceptor')  ) = 640;
-    wavelengths( strcmp(handles.data.channelNames,'acceptor2') ) = 730;
-    wavelengths( strcmp(handles.data.channelNames,'factor')    ) = 473;
+    wavelengths = zeros(1,nCh);
+    wavelengths( strcmp(chNames,'factor')    ) = 473;
+    wavelengths( strcmp(chNames,'donor')     ) = 532;
+    wavelengths( strcmp(chNames,'acceptor')  ) = 640;
+    wavelengths( strcmp(chNames,'acceptor2') ) = 730;
+    %alternativesly, could use jet(nCh) as a generic set of colors
 end
 chColors = Wavelength_to_RGB(wavelengths);
 
@@ -922,8 +891,8 @@ end
 
 cla( handles.axFluor );
 
-for c=1:numel(fluorChannels),
-    trace = handles.data.(fluorChannels{c})(m,:);
+for c=1:numel(fluorCh),
+    trace = handles.data.(fluorCh{c})(m,:);
     plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
     
     total = total + trace;
@@ -955,12 +924,11 @@ plot( handles.axTotal, time,simplified_cy3,'g' );
 
 % Plot FRET efficiency
 cla( handles.axFret );
-if isfield( handles.data, 'fret' ),
-    fret  = handles.data.fret(m,:);
-    plot( handles.axFret, time,fret, 'b-');
+if ismember('fret',chNames),
+    plot( handles.axFret, time,handles.data.fret(m,:), 'b-');
 end
 
-if isfield( handles.data, 'fret2' ),
+if ismember('fret2',chNames),
     plot( handles.axFret, time,handles.data.fret2(m,:), 'm-');
 end
 
