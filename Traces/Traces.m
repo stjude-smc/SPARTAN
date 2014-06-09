@@ -211,6 +211,10 @@ methods
         out = ismember( fieldname, properties(this) );
     end
     
+    function out = isChannel(this,fieldname)
+        out = ismember(fieldname,this.channelNames);
+    end
+    
     % When altering the list of channel names, insure the list is valid.
     % Ideally we would initialize any variables in here that are new.
     function set.channelNames(this, chNames)

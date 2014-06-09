@@ -121,7 +121,7 @@ function retval = traceStat_data( data, constants )
 %
 
 %
-if ~isfield(data,'acceptor'),
+if data.isChannel('acceptor'),
     data.acceptor = zeros( size(data.donor) );
     data.fret     = zeros( size(data.donor) );
 end
@@ -134,7 +134,7 @@ fretAll     = data.fret;
 [Ntraces,len] = size(fretAll);
 
 % Add second acceptor FRET channel if available.
-if isfield(data,'fret2') && ~isempty(data.fret2),
+if data.isChannel('fret2'),
     fret2All = data.fret2;
     isThreeColor = true;
 else

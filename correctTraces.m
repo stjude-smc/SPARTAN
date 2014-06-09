@@ -15,11 +15,11 @@ end
 
 % If the acceptor is a cell array, this is a three-color FRET experiment
 % and we have two acceptor signals.
-assert( isfield(data,'donor') && isfield(data,'acceptor') && ...
+assert( data.isChannel('donor') && data.isChannel('acceptor') && ...
         ~isempty(data.donor) && ~isempty(data.acceptor) );
-isThreeColor = isfield(data,'acceptor2');
+isThreeColor = data.isChannel('acceptor2');
 
-if isfield(data,'donor2'),
+if data.isChannel('donor2'),
     warning('correctTraces:multiDonor','This function is not designed for multiple donors');
 end
 

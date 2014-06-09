@@ -162,15 +162,6 @@ handles.filename = filename;
 % Load the file
 data = loadTraces( filename );
 
-% If there is no "acceptor" intensity (single-color experiments), create a
-% fake one to make the later code happy. FIXME.
-% if ~isfield(data,'acceptor'),
-%     data.channelNames = [data.channelNames,'acceptor','fret'];
-%     data.nChannels = numel(data.channelNames);
-%     data.acceptor = zeros( size(data.donor) );
-%     data.fret     = zeros( size(data.donor) );
-% end
-
 handles.data = data;
 [handles.Ntraces,handles.len] = size(data.donor);
 
@@ -230,7 +221,7 @@ set(handles.sldCrosstalk1,'Enable','on' );
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
 
-if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
+if isChannel(handles.data,'acceptor2') && ~isChannel(handles.data,'donor2')
     isThreeColor = 'on';
 else
     isThreeColor = 'off';
@@ -284,7 +275,7 @@ editGoTo_Callback(handles.editGoTo, [], handles);
 
 % Add legends to the plotted traces.
 % We want to do this once here because legend() is slow.
-idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
+idxFluor = handles.data.idxFluor;
 
 if sum(idxFluor)>1,
     legend( handles.axFluor, handles.data.channelNames{idxFluor} );
@@ -292,7 +283,7 @@ else
     legend( handles.axFluor, 'off' );
 end
 
-if isfield( handles.data, 'fret2' ),
+if isChannel( handles.data, 'fret2' ),
     legend( handles.axFret, {'fret1','fret2'} );
 else
     legend( handles.axFret, 'off' );
@@ -791,7 +782,7 @@ donor    = handles.data.donor(m,:);
 acceptor = handles.data.acceptor(m,:);
 
 % Calculate total intensity and donor lifetime.
-if isfield(handles.data,'acceptor2') && ~isfield(handles.data,'donor2'),
+if isChannel(handles.data,'acceptor2') && ~isChannel(handles.data,'donor2'),
     isThreeColor = true;
     acceptor2 = handles.data.acceptor2(m,:);
     total = donor+acceptor+acceptor2;
