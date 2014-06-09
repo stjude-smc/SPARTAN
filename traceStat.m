@@ -207,7 +207,7 @@ for i=1:Ntraces   %use this instead to disable parallel operation.
     % with our data (~300 photons/frame), but another value may be needed
     % with very low intensity data?
     total2 = constants.gamma*donor + acceptor;
-    filt_total  = medianfilter(total2,constants.TAU);
+    filt_total  = medianfilter(double(total2),constants.TAU);
     dfilt_total = gradient(filt_total);
     mean_dfilt_total = mean( dfilt_total );
     std_dfilt_total  = std( dfilt_total );

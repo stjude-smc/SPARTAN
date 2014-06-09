@@ -68,18 +68,18 @@ if ~isfield(handles,'constants')
     grid( handles.axFluor, 'on' );
     zoom( handles.axFluor, 'on' );
     hold( handles.axFluor, 'on' );
-
-    xlabel( handles.axFret, 'Frame Number' );
-    ylabel( handles.axFret, 'FRET Efficiency' );
-    ylim( handles.axFret, [-0.1 1] );
-    grid( handles.axFret, 'on' );
-    zoom( handles.axFret, 'on' );
-    hold( handles.axFret, 'on' );
     
     ylabel( handles.axTotal, 'Total Fluorescence' );
     grid( handles.axTotal, 'on' );
     zoom( handles.axTotal, 'on' );
     hold( handles.axTotal, 'on' );
+
+    xlabel( handles.axFret, 'Frame Number' );
+    ylabel( handles.axFret, 'FRET Efficiency' );
+    %ylim( handles.axFret, [-0.1 1] );
+    grid( handles.axFret, 'on' );
+    zoom( handles.axFret, 'on' );
+    hold( handles.axFret, 'on' );
 end
 
 % Update handles structure
@@ -160,12 +160,9 @@ function handles = OpenTracesFile( filename, handles )
 handles.filename = filename;
 
 % Load the file
-data = loadTraces( filename );
+handles.data = loadTraces( filename );
 
-handles.data = data;
-[handles.Ntraces,handles.len] = size(data.donor);
-
-if size(data.donor,1)<1,
+if isempty(handles.data),
     error('File is empty');
 end
 
@@ -173,7 +170,7 @@ end
 if handles.data.time(1)==1,
     f = inputdlg('What is the sampling interval (in ms) for this data?');
     sampling = str2double(f)
-    handles.data.time = sampling.*(0:handles.len-1);
+    handles.data.time = sampling.*(0:handles.data.nFrames-1);
 end
 
 
@@ -214,10 +211,16 @@ set(handles.btnSelAll2,'Enable','on');
 set(handles.btnSelAll3,'Enable','on');
 
 % Turn on other controls that can now be used now that a file is loaded.
-set(handles.edThreshold, 'Enable','on' );
-set(handles.sldThreshold,'Enable','on' );
-set(handles.edCrosstalk1, 'Enable','on' );
-set(handles.sldCrosstalk1,'Enable','on' );
+if ismember('fret',handles.data.channelNames),
+    isFret = 'on';
+else
+    isFret = 'off';
+end
+set(handles.edThreshold,  'Enable',isFret );
+set(handles.sldThreshold, 'Enable',isFret );
+set(handles.edCrosstalk1, 'Enable',isFret );
+set(handles.sldCrosstalk1,'Enable',isFret );
+
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
 
@@ -235,18 +238,18 @@ set(handles.sldCrosstalk2,'Enable',isThreeColor,'Value',0 );
 % calculated yet (but should be using traceStat).
 % We don't calculate it here because then there would a long delay loading
 % the file; small delays for each trace are not perceptible. 
-handles.fretThreshold = zeros( handles.Ntraces, 1  );
+handles.fretThreshold = zeros( handles.data.nTraces, 1  );
 set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
 % Set data correction starting values.
 % The crosstalk value here reflects *the correction that has already been
 % made* -- the actual data are modified each time
-handles.crosstalk = zeros( handles.Ntraces, 2  );
+handles.crosstalk = zeros( handles.data.nTraces, 2  );
 
 
 % Reset x-axis label to reflect time or frame-based.
 time = handles.data.time;
-if (time(1)==1),
+if time(1)==1,
     xlabel( handles.axFret, 'Frame Number' );
 else
     time = time/1000; %convert from ms to seconds
@@ -290,6 +293,16 @@ else
 end
 
 
+% Adjust bottom axis, depending on the type of data.
+if ismember('fret',handles.data.channelNames),
+    ylabel('FRET');
+    ylim([-0.1 1]);
+else
+    ylabel('');
+    ylim('auto');
+end
+
+
 % END FUNCTION OpenTracesFile
 
 
@@ -308,7 +321,7 @@ function handles = editGoTo_Callback(hObject, eventdata, handles)
 mol=str2double( get(handles.editGoTo,'String') );
 
 % If trace ID is invalid, reset it to what it was before.
-if isnan(mol) || mol>handles.Ntraces || mol<1,
+if isnan(mol) || mol>handles.data.nTraces || mol<1,
     %disp('WARNING in sorttraces: Invalid trace number. Resetting.');
     set( hObject,'String',num2str(handles.molecule_no) );
     return;
@@ -317,7 +330,7 @@ else
 end
 
 % Make sure that the molecule selected actually exists.
-if mol+1>handles.Ntraces
+if mol+1>handles.data.nTraces
     set(handles.btnNextTop,'Enable','off');
     set(handles.btnNextBottom,'Enable','off');
 else
@@ -340,7 +353,7 @@ handles.backgrounds = zeros( 1,numel(fluorNames) );
 trace = handles.data.getSubset(mol);
 handles.stats = traceStat(trace);
     
-if handles.fretThreshold(mol) == 0,
+if handles.data.isChannel('fret') && handles.fretThreshold(mol) == 0,
     total = zeros( size(trace) );
     
     for i=1:numel(fluorNames),
@@ -349,7 +362,7 @@ if handles.fretThreshold(mol) == 0,
     
     constants = cascadeConstants;
     s = handles.stats.lifetime + 5;
-    range = s:min(s+constants.NBK,handles.len);
+    range = s:min(s+constants.NBK,handles.data.nFrames);
     
     if numel(range)<10,
         handles.fretThreshold(mol) = 100; %arbitrary
@@ -616,7 +629,7 @@ end
 
 % Fix the x-axis range to be within the data range.
 if xlim(1)<1, xlim(1)=1; end
-if xlim(2)>handles.len, xlim(2)=handles.len; end
+if xlim(2)>handles.data.nFrames, xlim(2)=handles.data.nFrames; end
 xrange = xlim(1):xlim(2);
 
 
@@ -776,6 +789,10 @@ function handles = updateTraceData( handles )
 % the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
 % threshold.
 
+if ~isChannel(handles.data,'fret'),
+    return;
+end
+
 m        = handles.molecule_no;
 donor    = handles.data.donor(m,:);
 acceptor = handles.data.acceptor(m,:);
@@ -828,29 +845,26 @@ printdlg(handles.figure1);
 %----------PLOT TRACES----------%
 function plotter(handles)
 % Draw traces for current molecule and update displayed stats.
-% FIXME: many things that happen here should really happen when loading the
-% file, including legends.
 
 m     = handles.molecule_no;
-total = zeros( size(handles.data.donor(m,:)) );  %total fluorescence intensity all channels.
-
 chNames = handles.data.channelNames;
 fluorCh = chNames(handles.data.idxFluor);
 nCh = numel(fluorCh);
 
 % Determine colors to user for plotting fluorescence.
-% If not give in the traces file, use an old standard (that may be incorrect).
 if isfield(handles.data.fileMetadata,'wavelengths'),
-    wavelengths = handles.data.fileMetadata.wavelengths;
-else
+    chColors = Wavelength_to_RGB( handles.data.fileMetadata.wavelengths );
+elseif ismember('fret',data.channelNames),    
+    % For old FRET data (missing metadata), use the old standard colors.
     wavelengths = zeros(1,nCh);
     wavelengths( strcmp(chNames,'factor')    ) = 473;
     wavelengths( strcmp(chNames,'donor')     ) = 532;
     wavelengths( strcmp(chNames,'acceptor')  ) = 640;
     wavelengths( strcmp(chNames,'acceptor2') ) = 730;
-    %alternativesly, could use jet(nCh) as a generic set of colors
+    chColors = Wavelength_to_RGB(wavelengths);
+else
+    chColors = jet(nCh);  %color in order from blue to red as an approximation
 end
-chColors = Wavelength_to_RGB(wavelengths);
 
 % Get trace properties and reset GUI values with these results
 stats = handles.stats;
@@ -885,30 +899,37 @@ for c=1:numel(fluorCh),
     trace = handles.data.(fluorCh{c})(m,:);
     plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
     
-    total = total + trace;
+    if c==1
+        total=trace;
+    else
+        total = total + trace;
+    end
 end
 
 set( handles.txtTitle, 'String', [ 'Molecule ' num2str(m) ' of ' ...
-                        num2str(handles.Ntraces) ' of "' data_fname '"'] );
-
+                        num2str(handles.data.nTraces) ' of "' data_fname '"'] );
+axis(handles.axFluor,'auto');
 
 % Plot total fluorescence
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
-plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,handles.len), 'b-');
-
+axis(handles.axTotal,'auto');
 
 % Draw lines representing donor (green) and acceptor (red) alive times
-mean_on_signal  = mean( total(1:lt) );
-mean_off_signal = mean( total(lt+5:end) );
+if ismember('fret',chNames),
+    plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,handles.data.nFrames), 'b-');
+    
+    mean_on_signal  = mean( total(1:lt) );
+    mean_off_signal = mean( total(lt+5:end) );
 
-simplified_cy3=[mean_on_signal*ones(1,lt)...
-        mean_off_signal*ones(1,handles.len-lt)];
-simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
-        mean_off_signal*ones(1,handles.len-FRETlifetime)];
+    simplified_cy3=[mean_on_signal*ones(1,lt)...
+            mean_off_signal*ones(1,handles.data.nFrames-lt)];
+    simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
+            mean_off_signal*ones(1,handles.data.nFrames-FRETlifetime)];
 
-plot( handles.axTotal, time,simplified_cy5,'r' );
-plot( handles.axTotal, time,simplified_cy3,'g' );
+    plot( handles.axTotal, time,simplified_cy5,'r' );
+    plot( handles.axTotal, time,simplified_cy3,'g' );
+end
 
 
 
@@ -927,7 +948,7 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
 end
 
 
-zoom( handles.axFret, 'out' );
+xlim([time(1) time(end)]);
 
 
 
@@ -958,7 +979,8 @@ function handles = loadDWT_ex( handles, filename)
 
 time = handles.data.time;
 sampling = time(2)-time(1);
-[nTraces,traceLen] = size(handles.data.fret);
+nTraces  = handles.data.nTraces;
+traceLen = handles.data.nFrames;
 
 % Get filename for .dwt file from user and load it.
 if nargin>1,
@@ -1026,13 +1048,13 @@ if ~strcmp(result,'OK'),
 end
 
 if index==1,
-    handles.NoFRETs_indexes = 1:handles.Ntraces;
+    handles.NoFRETs_indexes = 1:handles.data.nTraces;
     set(handles.chkBin1,'Value',1);
 elseif index==2,
-    handles.FRETs_indexes = 1:handles.Ntraces;
+    handles.FRETs_indexes = 1:handles.data.nTraces;
     set(handles.chkBin2,'Value',1);
 elseif index==3,
-    handles.Best_indexes = 1:handles.Ntraces;
+    handles.Best_indexes = 1:handles.data.nTraces;
     set(handles.chkBin3,'Value',1);
 end
 
