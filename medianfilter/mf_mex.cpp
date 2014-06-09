@@ -17,9 +17,12 @@ using namespace std;
 #include "mex.h"
 
 
+#define	INPUT	prhs[0]
+#define OUTPUT  plhs[0]
+
 
 //forward function declarations (see mfilt.cpp)
-double* medianfilter( double* data, const int Npoints, const int TAU );
+double* medianfilter( double* data, const int nPoints, const int TAU );
 
 
 //Matlab entry point
@@ -31,33 +34,41 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     if (nlhs!=1 || nrhs!=2)
         mexErrMsgTxt( "Invalid arguments" );
 
-	//Transpose column-major (MATLAB-style) input tino row-major for easier
-    //access within C.
-	mxArray* RHS[1] = { (mxArray*)prhs[0] };
-	mxArray* LHS[1];
-	mexCallMATLAB( 1,LHS, 1,RHS, "transpose" );
-    
-    //Load input matrix
+    mwSize nTraces = mxGetM(INPUT);  //number of rows
+    mwSize nPoints = mxGetN(INPUT);  //number of columns
 	const int TAU = mxGetScalar(prhs[1]);
-    const mxArray* input = LHS[0];  //MxN matrix of doubles
-
-    mwSize Npoints = mxGetM(input);  //num rows
-    mwSize Ntraces = mxGetN(input);  //num columns
-
-	if (Npoints<TAU*2)
+    
+    //mexPrintf("nTraces=%d, nPoints=%d, TAU=%d\n",nTraces,nPoints,TAU);
+    
+	if (nPoints<TAU*2)
 		mexErrMsgTxt( "Traces are too small to filter!" );
     
+    // Allocate output array memory. and copy the input data there.
+    // Since MATLAB is column major and C is row-major, we need to
+    // transpose for direct array access to be efficient.
+    // This automatically allocates memory in OUTPUT.
+    //OUTPUT = mxCreateDoubleMatrix(nTraces, nPoints, mxREAL);
+    mxArray *intermediate[1];
+    mexCallMATLAB( 1,intermediate, 1,(mxArray**)&INPUT, "transpose" );
+    
+    if( mxGetClassID(prhs[0]) != mxDOUBLE_CLASS )
+        mexErrMsgTxt( "mex medianfilter only works on doubles." );
+    
     //Create output matrix
-    mxArray* output = LHS[0];//mxDuplicateArray(input);
-    double*  p_output = mxGetPr( output );
+    double* p_output = mxGetPr( intermediate[0] ); //get pointer to actual data.
     
-    for( int i=0; i<Ntraces; ++i)
-        medianfilter( p_output+(i*Npoints), Npoints, TAU );
+    for( int i=0; i<nTraces; ++i)
+       medianfilter( p_output+(i*nPoints), nPoints, TAU );
     
-	//Transpose to convert output back to column-major.
-	RHS[0] = output;
-	mexCallMATLAB( 1,LHS, 1,RHS, "transpose" );
-
-    plhs[0] = LHS[0];
+    // Transpose again to return data as column-major to MATLAB.
+    mexCallMATLAB( 1,&OUTPUT, 1,intermediate, "transpose" );
+    
+    mxDestroyArray(intermediate[0]);
     return;
 }
+
+
+
+
+
+

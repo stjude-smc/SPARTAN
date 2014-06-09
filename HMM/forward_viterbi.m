@@ -16,17 +16,29 @@ function [vPath,vLL,tLL] = forward_viterbi(start_p, trans_p, emit_p)
 % Nice explainations:  http://www.comp.leeds.ac.uk/roger/HiddenMarkovModels/
 % html_dev/viterbi_algorithm
 
+
 [nStates,nObs] = size( emit_p );
 
 % Calculate log probabilities.
-% Set a minimal value to probabilities to prevent underflow.
 lsp = log( start_p );
 ltp = log( trans_p );
 lep = log( emit_p  );
 
+% Set a minimal value to probabilities to prevent underflow.
 lsp(lsp==-Inf) = -1e10;
 ltp(ltp==-Inf) = -1e10;
 lep(lep==-Inf) = -1e10;
+
+
+
+% If possible, run the binary (mex) version instead.
+if exist('forward_viterbix','file')==3,
+    [vPath,vLL] = forward_viterbix( double(lsp),double(ltp),double(lep) );
+    assert( all(vPath>0) && vLL<0 );
+    return;
+end
+
+
 
 % Setup data structures used for finding the most likely path.
 delta = zeros( nStates, nObs );  %partial probabilities

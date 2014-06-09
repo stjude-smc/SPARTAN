@@ -19,25 +19,6 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %    ofeach trace, given the sequence of states (Viterbi path) and the model.
 %
 
-% Strictly speaking, this code is incorrect:
-%  The probability of observing any particular FRET value is zero
-%  because there are infinitely more FRET values nearly the same.
-%  In principle, one should calculate the probability of a FRET
-%  value occuring in a specific range. In other words, one
-%  should bin the distribution and distribute FRET values into
-%  bins with set probabilities. The effect on the algorithm
-%  here would be to multiply each datapoint by the precision
-%  of computer representation of FRET values (eg, 1e-9).
-%  The effect of the result would be to add M*log10(precision)
-%  to the final log-likelihood and to slightly reduce the
-%  precision of calculating probabilities. Since this realistically
-%  adds nothing to the algorithm but extra work, I have not
-%  implemented this strategy.
-%
-% Also note that multiplying any other normalization factor
-%  to the emission probabilities also has no effect on
-%  the final path.
-%
 
 
 [nTraces,nFrames] = size(obs);
@@ -71,10 +52,9 @@ for i=1:nTraces,
     end
     
     % Precompute emmission probability matrix.
-    % This ist reated as if using descretized Gaussian distributions with
-    % a bin size of 0.001. While the values are computed explicitly, the
-    % probabilities should be very similar. While slightly slower, this
-    % method is simple and easy in MATLAB.
+    % Strictly speaking, Bx isn't a probability because it contains values drawn
+    % from the (continuous) PDF, but since this ultimately just adds a constant
+    % factor to the LL, it does not matter.
     Bx = zeros(nStates,traceLen);
     for s=1:nStates,
         Bx(s,:) = 0.001*normpdf( trace, mu(s), sigma(s) );

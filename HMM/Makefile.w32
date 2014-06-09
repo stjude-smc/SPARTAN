@@ -1,2 +1,0 @@
-mex -O -DMEX_FCN forward_viterbi.cpp -output ../../cascade_binary/forward_viterbi.mexw32
-

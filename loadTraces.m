@@ -273,15 +273,24 @@ end
 channelNames = channelNames( ~cellfun(@isempty,channelNames) );
 % data.channelNames = channelNames;
 
+% Select subset of traces if indexes are given.
+if nargin<2 || isempty(indexes),
+    indexes = 1:nTraces;
+end
+
+% Remove any indexes out of range silently. This is used in
+% autotrace/traceStat to load data in chunks.
+indexes = indexes( indexes>=1 & indexes<=nTraces );
+nTracesLoaded = numel(indexes);
 
 % Create a Traces object.
 % TODO: add try/catch.
 if isempty( setdiff(channelNames,{'donor','acceptor','fret'}) ),
-    data = TracesFret(nTraces,nChannels,channelNames);
+    data = TracesFret(nTracesLoaded,nChannels,channelNames);
 elseif ismember('donor',channelNames)
-    data = TracesFret4(nTraces,nChannels,channelNames);
+    data = TracesFret4(nTracesLoaded,nChannels,channelNames);
 elseif ismember('ch1',channelNames),
-    data = TracesFluor4(nTraces,nChannels,channelNames);
+    data = TracesFluor4(nTracesLoaded,nChannels,channelNames);
 else
     error('Channel names do not match any available Traces class template');
 end
@@ -291,15 +300,6 @@ end
 assert( dataType==9, 'Only single values are supported.');
 
 data.time = fread( fid, [traceLen,1], dataTypes{dataType+1} ); %time axis (in seconds)
-
-% Select subset of traces if indexes are given.
-if nargin<2 || isempty(indexes),
-    indexes = 1:nTraces;
-end
-
-% Remove any indexes out of range silently. This is used in
-% autotrace/traceStat to load data in chunks.
-indexes = indexes( indexes>=1 & indexes<=nTraces );
 
 % Many matlab functions (like std) will not work on integer data types,
 % so loading as an integer (or whatever) will cause all sorts of
