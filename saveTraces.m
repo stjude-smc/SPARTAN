@@ -342,7 +342,7 @@ for i=1:numel(fnames),
     m = data.fileMetadata.(fname);
     
     % Collapse strucutre array into a single field for serialization.
-    if ~isnumeric(m) || ischar(m),
+    if ~isnumeric(m) && ~ischar(m),
         warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
     else
         writeMetadata( fid, fname, m );

@@ -20,6 +20,12 @@ function [idl,dwtIDs] = dwtToIdl( dwt, traceLen, offsets )
 % not represented!
 %
 
+% If not offsets are provided, we assume all traces have an idealization,
+% or that any empty idealizations have an empty element in dwt.
+if nargin<3,
+    offsets = traceLen*( 0:1:numel(dwt)-1 );
+end
+
 
 nTraces = ceil(offsets(end)/traceLen)+1;
 
@@ -31,8 +37,8 @@ for dwtID=1:numel(dwt)
     traceID = floor(offsets(dwtID)/traceLen)+1;
     dwtIDs(traceID)=dwtID;
     
-    states = dwt{dwtID}(:,1);
-    times  = dwt{dwtID}(:,2);
+    states = floor( dwt{dwtID}(:,1) );
+    times  = floor( dwt{dwtID}(:,2) );
 
     % For all dwells in this trace, get the start and end times.
     ends = cumsum(times);
