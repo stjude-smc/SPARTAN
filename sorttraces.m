@@ -333,8 +333,7 @@ else
 end
 
 % Reset these values for the new trace.
-idxFluor = cellfun( @isempty, strfind(handles.data.channelNames,'fret')  );
-fluorNames = handles.data.channelNames{ idxFluor };
+fluorNames = handles.data.channelNames( handles.data.idxFluor );
 handles.backgrounds = zeros( 1,numel(fluorNames) );
 
 % If no value has been calculated for FRET threshold, do it now.

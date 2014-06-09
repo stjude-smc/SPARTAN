@@ -33,7 +33,9 @@ lt = calcLifetime(data.total,constants.TAU,constants.NSTD);
 % zero. For traces that do not photobleach, no correction is made, but the
 % baseline will be close because an estimated background image is
 % subtracted from each frame in gettraces.
-for m=1:data.nTraces,
+[nTraces,len] = size(data.donor);
+
+for m=1:nTraces,
 
     s = lt(m)+5;  %ignore the frames around the photobleaching event
     range = s:min(s+constants.NBK,len);
@@ -74,9 +76,12 @@ end
 
 % Sets FRET value to 0 when intensity is below a calculated threshold
 % based on the number of standard devations above background
-for m=1:Ntraces,
+for m=1:nTraces,
     data.fret(m, lt(m):end) = 0;
-    data.fret2(m, lt(m):end) = 0;
+    
+    if isThreeColor,
+        data.fret2(m, lt(m):end) = 0;
+    end
 
     s = lt(m)+5;
     range = s:min(s+constants.NBK,len);
@@ -86,7 +91,10 @@ for m=1:Ntraces,
     % ie, when FRET is below a calculated threshold = 4*std(background)
     darkRange = total(m,1:lt(m)) <= constants.blink_nstd*std(total(m,range));
     data.fret(m,darkRange)  = 0;
-    data.fret2(m,darkRange) = 0;
+    
+    if isThreeColor,
+        data.fret2(m,darkRange) = 0;
+    end
 end
 
 

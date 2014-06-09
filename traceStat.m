@@ -120,8 +120,8 @@ end
 function retval = traceStat_data( data, constants )
 %
 
-%
-if data.isChannel('acceptor'),
+% Handle the single-color case (no acceptors) by creating zero'd data.
+if ~data.isChannel('acceptor'),
     data.acceptor = zeros( size(data.donor) );
     data.fret     = zeros( size(data.donor) );
 end
