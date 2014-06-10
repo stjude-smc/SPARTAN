@@ -66,7 +66,7 @@ if ~isempty( dwtFilename ),
     end
 end
 
-data.idl = idl;
+% data.idl = idl;
 
 
 % Set time axis if not available,
@@ -100,7 +100,11 @@ output = zeros(traceLen,totalSize+1);
 for i=1:nTraces,
     for j=1:numel(fields),
         idx = 1+ (i-1)*nFields + j; %output column index
-        output(1:end,idx) = data.(fields{j})(i,:)';
+        if strcmp(fields{j},'idl'),
+            output(1:end,idx) = idl(i,:)';
+        else
+            output(1:end,idx) = data.(fields{j})(i,:)';
+        end            
     end
 end
 

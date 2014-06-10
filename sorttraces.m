@@ -295,11 +295,11 @@ end
 
 % Adjust bottom axis, depending on the type of data.
 if ismember('fret',handles.data.channelNames),
-    ylabel('FRET');
-    ylim([-0.1 1]);
+    ylabel(handles.axFret, 'FRET');
+    ylim(handles.axFret, [-0.1 1]);
 else
-    ylabel('');
-    ylim('auto');
+    ylabel(handles.axFret, '');
+    ylim(handles.axFret, 'auto');
 end
 
 
