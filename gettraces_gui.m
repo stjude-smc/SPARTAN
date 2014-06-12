@@ -942,7 +942,7 @@ function btnMetadata_Callback(hObject, eventdata, handles)
 
 stkData = getappdata(handles.figure1,'stkData');
 
-if isempty(stkData) || ~isfield(stkData.movie.stkHeader,'MM')
+if isempty(stkData) || ~isfield(stkData.movie.header,'MM')
     % This movie doesn't have MetaMorph metadata (should never happen).
     set( hObject, 'Enable','off' );
     return;

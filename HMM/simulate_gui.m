@@ -135,15 +135,20 @@ if simMovies
     options.stdBackground = 0;
 end
 
+% Ensure model dimensions for saving
+m.mu = reshape( m.mu, [numel(m.mu),1] );
+m.sigma = reshape( m.sigma, [numel(m.sigma),1] );
+
 % Simulate FRET and fluorescence traces
 dataSize = [nTraces traceLen];
-fretModel = [m.mu' m.sigma'];
+fretModel = [m.mu m.sigma];
 
 data.nChannels=3;
 data.channelNames = {'donor','acceptor','fret'};
 
 [dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, m, options );
 data.time = 1000*sampling*( 0:(traceLen-1) );
+data.fileMetadata.wavelengths = [532 640];
 
 % Save resulting raw traces files
 saveTraces( fname_output, 'traces', data );

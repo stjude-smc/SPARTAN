@@ -101,7 +101,7 @@ for n=1:numel(bgMovieFilenames)
     % --- 1. Load background movie as initial image to which peaks are added.
     movie = Movie_STK( bgMovieFilenames{n} );
     assert( traceLen<=movie.nFrames, 'Background movie is too short!' );
-    stk = movie.readFrames(1,traceLen);
+    stk = movie.readFrames(1:traceLen);
     
     stkOutput = double( stk );  %use background movies
     [stkY,stkX,stkNFrames] = size(stkOutput);
@@ -221,6 +221,14 @@ for n=1:numel(bgMovieFilenames)
     [p,name] = fileparts(tracesFilename);
     stkFilename = [p filesep strrep(name,'.traces','') num2str(n) '.tiff'];
     
+    % Create DateTime stamps -- DOES NOT WORK WITH IMWRITE; FIXME!
+    % Use the Tiff class instead of imwrite to do this...
+    % Consider grabbing header information from the background movie.
+    %times = now+data.time/24/60/60/1000; %fractions of a day
+    %time_str = datestr(times,'yyyymmdd HH:MM:SS.FFF');
+    %for each frame, add the parameter: 'DateTime',time_str(k,:)
+    
+    % Write each TIFF plane
     imwrite( uint16(stkOutput(:,:,1)), stkFilename, 'Compression','none'); %overwrite existing
     for k=2:stkNFrames,
         imwrite( uint16(stkOutput(:,:,k)), stkFilename, 'WriteMode','append',  'Compression','none');

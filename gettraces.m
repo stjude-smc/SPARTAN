@@ -1013,6 +1013,17 @@ end
 
 data.time = movie.timeAxis;
 
+% Ask the user
+if ~params.quiet && data.time(1)==1,
+    disp('Time axis information is not present in movie!');
+    a = inputdlg('Time resolution (ms):','No time axis in movie!');
+    a = str2double(a);
+    if ~isempty(a), %empty if user hit Cancel or entered an invalid number
+        data.time = a*( 0:nFrames-1 );
+    else
+        disp('Using frames as the time axis');
+    end
+end
 
 
 % Create a trace for each molecule across the entire movie.

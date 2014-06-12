@@ -854,7 +854,7 @@ nCh = numel(fluorCh);
 % Determine colors to user for plotting fluorescence.
 if isfield(handles.data.fileMetadata,'wavelengths'),
     chColors = Wavelength_to_RGB( handles.data.fileMetadata.wavelengths );
-elseif ismember('fret',data.channelNames),    
+elseif ismember('fret',handles.data.channelNames),
     % For old FRET data (missing metadata), use the old standard colors.
     wavelengths = zeros(1,nCh);
     wavelengths( strcmp(chNames,'factor')    ) = 473;

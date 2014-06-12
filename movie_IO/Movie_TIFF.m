@@ -70,11 +70,17 @@ methods
             
             
             % Process time axis information.
-            dot = strfind( info(1).DateTime, '.' );
-            times{i} = cellfun(  @(s) str2double(s(dot+1:end)) + ...
-                24*60*60*1000*datenum(s(1:dot-1),'yyyymmdd HH:MM:SS'), ...
-                {info.DateTime}  );
-            firstTime(i) = times{i}(1);
+            if isfield( info,'DateTime' )
+                dot = strfind( info(1).DateTime, '.' );
+                times{i} = cellfun(  @(s) str2double(s(dot+1:end)) + ...
+                    24*60*60*1000*datenum(s(1:dot-1),'yyyymmdd HH:MM:SS'), ...
+                    {info.DateTime}  );
+                firstTime(i) = times{i}(1);
+            else
+                warning('Movie_TIFF:NoDateTime','No DateTime field. Using frame number as time axis.');
+                firstTime(i) = 1 + sum( obj.nFramesPerMovie(1:i-1) );
+                times{i} = firstTime(i)+(1:numel(info))-1;
+            end
             
             % Parse file dimensions, etc
             if i==1,
@@ -117,20 +123,27 @@ methods
         % Construct a time axis with a uniform time resolution (.timeAxis).
         % Some programs will be confused by the actual timestamps with
         % non-uniform time resolution.
-        timediff = diff(obj.timestamps);
         obj.nFrames  = sum( obj.nFramesPerMovie );
-        dt = round( 10*median(timediff) )/10; %time resolution in ms
-        obj.timeAxis = 0:dt:(dt*obj.nFrames-1);
+        timediff = diff(obj.timestamps);
         
-        % Verify the timestamps are continuous. If files from distinct
-        % movies are spliced together, they will have big jumps. This is a
-        % warning because sometimes movies are shuttered, giving big jumps.
-        if any(timediff<0.1) || any(timediff>3*dt),
-            warning('Movie_TIFF:discontinuousTimestamps', ...
-                    'Timestamps are not continuous. This can happen if files from multiple movies are mixed!');
-            disp(  [ min(diff(obj.timestamps)) max(diff(obj.timestamps)) ]  );
+        if obj.timestamps(1)==1 && all(timediff==1),
+            % Time in frames
+            obj.timeAxis = obj.timestamps;
+        else
+            dt = round( 10*median(timediff) )/10; %time resolution in ms
+            obj.timeAxis = 0:dt:(dt*obj.nFrames-1);
+            
+            % Verify the timestamps are continuous. If files from distinct
+            % movies are spliced together, they will have big jumps. This is a
+            % warning because sometimes movies are shuttered, giving big jumps.
+            if any(timediff<0.1) || any(timediff>3*dt),
+                warning('Movie_TIFF:discontinuousTimestamps', ...
+                        'Timestamps are not continuous. This can happen if files from multiple movies are mixed!');
+                disp(  [ min(diff(obj.timestamps)) max(diff(obj.timestamps)) ]  );
+            end
+            %obj.timestamps = obj.timestamps-obj.timestamps(1); %relative to start.
         end
-        %obj.timestamps = obj.timestamps-obj.timestamps(1); %relative to start.
+        
                 
         % Get MetaMorph metadata. This can (in the STK format) be a special
         % tag with a whitespace delimited list of key/value pairs.
