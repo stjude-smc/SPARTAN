@@ -265,6 +265,15 @@ methods
     function this = subset( this, idxTraces, idxFrames )
         assert( nargin>=2, 'Not enough input arguments' );
         
+        % If a logical array is given, convert it into a list of indexes
+        if islogical(idxTraces),
+            idxTraces = find(idxTraces);
+        end
+        
+        if nargin>2 && islogical(idxFrames),
+            idxFrames = find(idxFrames);
+        end
+        
         % Verify input arguments are valid.
         assert( all(idxTraces>=1 & idxTraces<=this.nTraces), 'Invalid trace indexes' );
 
