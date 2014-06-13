@@ -413,8 +413,8 @@ if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
 end
 
 % Determine default filename to use when saving.
-[p f] = fileparts( handles.inputfiles{1} );
-handles.outfile = [p filesep f '_auto.traces'];
+[p,f] = fileparts( handles.inputfiles{1} );
+handles.outfile = fullfile(p, [f '_auto.traces']);
 % handles.outfile = strrep(f, '_01_auto.traces', '_auto.traces');
 
 % Calculate trace stats
@@ -509,7 +509,7 @@ names = fieldnames(stats);
 
 % Write column headers
 [p,f] = fileparts( handles.outfile );
-filename = [p filesep f '_prop.txt'];
+filename = fullfile(p, [f '_prop.txt']);
 fid = fopen( filename, 'w' );
 fprintf( fid, '%s\t', names{:} );
 fprintf( fid, '\n' );

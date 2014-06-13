@@ -136,7 +136,7 @@ ifd_pos = fread(TIF.file,1,'uint32');
 while (ifd_pos ~= 0)  %follow directory pointers until end
 
     clear IMG;
-    IMG.filename = [pwd filesep filename];
+    IMG.filename = fullfile(pwd,filename);
     % move in the file to the first IFD
     fseek(TIF.file, ifd_pos, -1);
     %disp(strcat('reading img at pos :',num2str(ifd_pos)));

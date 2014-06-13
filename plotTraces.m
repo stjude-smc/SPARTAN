@@ -43,7 +43,7 @@ end
 
 % Load idealization data
 [p,n] = fileparts(filename);
-dwt_fname = [p filesep n '.qub.dwt'];
+dwt_fname = fullfile(p, [n '.qub.dwt']);
 if exist(dwt_fname,'file')
     [dwt,dwtSampling,offsets,model] = loadDWT( dwt_fname );
     model = model(:,1);

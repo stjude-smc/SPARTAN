@@ -193,7 +193,7 @@ if isempty(p)
 end
     
 % logFilename = strrep(outFilename,'.traces','.log');
-logFilename = [p filesep n '.log'];
+logFilename = fullfile(p, [n '.log']);
 fid = fopen(logFilename,'w');
 
 % Save header, with filenames and the number of traces picked.

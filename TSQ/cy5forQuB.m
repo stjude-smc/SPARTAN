@@ -48,7 +48,7 @@ for i=1:nFiles,
     %   each datapoint is on a new line.
     %
     [p f] = fileparts(filename);
-    outfilename = [p filesep f '.qub_cy5.txt'];
+    outfilename = fullfile( p, [f '.qub_cy5.txt'] );
     
     fid=fopen(outfilename,'w');
     if fid<=0,

@@ -18,7 +18,7 @@ if ~exist('filename','var'),
     [datafile,datapath] = uigetfile({'*.traces'},'Choose a traces file:');
     if datafile==0, return; end  %user hit "cancel"
 
-    filename = [datapath filesep datafile];
+    filename = fullfile(datapath,datafile);
 end
 
 % Strip extensions from files to get the "base name" from which all other

@@ -17,8 +17,8 @@ for i=1:length(files),
     fret( fret>1 ) = 1;
 
     % Create or get an output filename
-    outfile=strrep(files{i},'.traces','.txt');
-    outfile=strrep(outfile,'.txt','.qub.txt');
+    [p,f] = fileparts(files{i});
+    outfile = fullfile(p, [f '.qub.txt']);
     
     % Save the data to file
     fid2=fopen(outfile,'w');

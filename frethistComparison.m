@@ -52,6 +52,10 @@ if nargin < 1 || isempty(files),
     files = getFiles([],'Choose a traces file:');
 end
 
+if ~iscell(files),
+    files = {files};
+end
+
 nFiles = numel(files);
 
 if nFiles == 0,

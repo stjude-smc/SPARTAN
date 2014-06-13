@@ -54,10 +54,10 @@ output(:,1)=output(:,1)/1000; %convert to seconds
 % Save the output to file.
 if nFiles==1,
     [p,f] = fileparts(files{1});
-    outputFilename = [p filesep f '_avgFretTime.txt'];
+    outputFilename = fullfile(p, [f '_avgFretTime.txt']);
 else
     [f,p] = uiputfile('*.txt','Save state timecourse data','avgFretTime.txt');
-    outputFilename = [p f];
+    outputFilename = fullfile(p,f);
 end
 
 fid = fopen(outputFilename,'w');

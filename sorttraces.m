@@ -181,7 +181,7 @@ handles.Best_indexes=[];
 
 % Check for previous molecule picking on same file
 [p,fname] = fileparts( filename );
-inds_fname = [p filesep fname '_picked_inds.txt'];
+inds_fname = fullfile(p, [fname '_picked_inds.txt']);
 
 if exist(inds_fname,'file'),
     text = 'These traces have been binned before.  ';
@@ -258,8 +258,8 @@ end
 xlim( handles.axFret, [time(1) time(end)] );
 
 % Look for an corresponding idealization file and load it if found.
-dwt_fname = [p filesep fname '.qub.dwt'];
-dwt_fname2 = [p filesep fname '.dwt'];
+dwt_fname = fullfile(p, [fname '.qub.dwt']);
+dwt_fname2 = fullfile(p, [fname '.dwt']);
 
 if exist( dwt_fname, 'file' ),
     handles = loadDWT_ex( handles, dwt_fname );
@@ -522,7 +522,7 @@ function btnSave_Callback(hObject, eventdata, handles)
 
 %--- Save indexes of picked molecules to file
 [p,f]=fileparts(handles.filename);
-baseFilename = [p filesep f];
+baseFilename = fullfile(p,f);
 
 fid = fopen( [baseFilename '_picked_inds.txt'], 'w' );
 fprintf(fid, '%d ', handles.NoFRETs_indexes); fprintf(fid,'\n');
@@ -579,7 +579,7 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
     traceLen = numel(data.time);
     
     [p,f] = fileparts(filename);
-    dwtFilename = [p filesep f '.qub.dwt'];
+    dwtFilename = fullfile(p, [f '.qub.dwt']);
     
     % Map DWT ID numbers to traces -- they may not be the same.
     offsets = (0:numel(indexes)-1)*traceLen;
@@ -1128,14 +1128,15 @@ if ~exist( movieFilename, 'file' ),
     warning('Movie file specified in trace metadata doesn''t exist!');
         
     [p,f,e] = fileparts(movieFilename);
-    altFilename = [pwd filesep f e];
+    altFilename = fullfile(pwd, [f e]);
     if exist( altFilename, 'file' ),
         movieFilename = altFilename;
     else        
         disp( ['Unable to find associated movie file: ' movieFilename] );
         disp( 'Please find the associated movie file manually.' )
-        [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', [pwd filesep f e] );
-        movieFilename = [p f];
+        [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', ...
+                                fullfile(pwd, [f e]);
+        movieFilename = fullfile(p,f);
         
         % Verify the selected file exists.
         if ~ischar(f) || ~exist(movieFilename,'file'),

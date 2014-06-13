@@ -28,7 +28,7 @@ end
 % Get idealization filename if not provided.
 if nargin<2,
     [p,f] = fileparts(filename);
-    dwtFilename = [p filesep f '.qub.dwt'];
+    dwtFilename = fullfile(p, [f '.qub.dwt']);
 end
 
 if ~exist(dwtFilename,'file'),
@@ -36,7 +36,7 @@ if ~exist(dwtFilename,'file'),
     
     [f,p] = uigetfile('*.dwt','Select the corresponding dwell-time file');
     if f~=0,
-        dwtFilename = [p f];
+        dwtFilename = fullfile(p,f);
     else
         disp('No idealization file found!');
     end
@@ -114,7 +114,7 @@ output(:,1) = time./1000; %convert to seconds
 % Open the output file to save the data.
 if nargin<3,
     [p,f] = fileparts(filename);
-    outputFilename = [p filesep f '_forOrigin.txt'];
+    outputFilename = fullfile( p, [f '_forOrigin.txt'] );
 end
 
 fid = fopen(outputFilename,'w');

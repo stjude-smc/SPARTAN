@@ -18,7 +18,7 @@ if nargin==0,
         [datafile,datapath] = uigetfile({'*.dwt'},'Choose a DWT file:');
         if datafile==0, break; end  %user hit "cancel"
 
-        filenames{end+1} = [datapath filesep datafile];
+        filenames{end+1} = fullfile(datapath,datafile);
         disp( filenames{end} );
     end
 end

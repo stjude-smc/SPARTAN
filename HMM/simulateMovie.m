@@ -46,7 +46,7 @@ if ischar(varargin{1})
     
 % First parameter is a matrix of numbers, specifying donor/acceptor traces.
 else
-    tracesFilename = [pwd filesep 'sim.traces'];
+    tracesFilename = fullfile(pwd,'sim.traces');
     data.donor    = varargin{1};
     data.acceptor = varargin{2};
     data.time = 1:size(data.donor,2);
@@ -219,7 +219,7 @@ for n=1:numel(bgMovieFilenames)
 
     % --- 4. Save newly generated movie to file
     [p,name] = fileparts(tracesFilename);
-    stkFilename = [p filesep strrep(name,'.traces','') num2str(n) '.tiff'];
+    stkFilename = fullfile(p, [strrep(name,'.traces','') num2str(n) '.tiff'] );
     
     % Create DateTime stamps -- DOES NOT WORK WITH IMWRITE; FIXME!
     % Use the Tiff class instead of imwrite to do this...

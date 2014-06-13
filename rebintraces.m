@@ -61,7 +61,7 @@ for i=1:nFiles,
     
     % Write file back to disk
     [p f] = fileparts( files{i} );
-    saveTraces( [p filesep f '_rebin.traces'], data2 );
+    saveTraces( fullfile(p, [f '_rebin.traces']), data2 );
 end
 
 % end function

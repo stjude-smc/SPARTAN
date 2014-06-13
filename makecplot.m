@@ -85,7 +85,7 @@ hist2d(2:end,2:end) = hist2d(2:end,2:end)/Nmol;
 % arguments. What else could they want?
 if nargout==0 && exist(data_filename,'var'),
     [p,n] = fileparts(data_filename);
-    hist_fname = [p filesep n '_hist.txt'];
+    hist_fname = fullfile(p, [n '_hist.txt']);
     dlmwrite(hist_fname,hist2d,' ');
 end
 

@@ -270,7 +270,7 @@ for i=1:nFiles,
     % Skip if previously processed (.rawtraces file exists)
     stk_fname = movieFilenames(i).name;
     [p,name]=fileparts(stk_fname);
-    traceFname = [p filesep name '.rawtraces'];
+    traceFname = fullfile(p, [name '.rawtraces']);
     
     if params.skipExisting && exist(traceFname,'file'),
         if ~params.quiet,
@@ -348,7 +348,7 @@ if all(existing),  return;  end
 
 
 % ----- Create log file with results
-log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
+log_fid = fopen( fullfile(direct,'gettraces.log'), 'w' );
 
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');
@@ -1152,7 +1152,7 @@ end
 
 % ---- Save data to file.
 [p,name]=fileparts(stk_fname);
-save_fname = [p filesep name '.rawtraces'];
+save_fname = fullfile(p, [name '.rawtraces']);
 
 saveTraces( save_fname, 'traces', data );
 

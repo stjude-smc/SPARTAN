@@ -30,7 +30,7 @@ lifetimes = calcLifetime( data.donor+data.acceptor )-4;
 
 % Save data to file
 [p,f] = fileparts(filename);
-basename = [p filesep f '_HaMMy'];
+basename = fullfile( p, [f '_HaMMy'] );
 basename = strrep(basename,'.','p');
 
 for i=1:Ntraces, % for each trace

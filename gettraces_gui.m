@@ -176,7 +176,7 @@ if isempty(filename), return; end
 if ~iscell(filename), filename = {filename}; end
 
 [p,f,e] = fileparts( filename{1} );
-fnameText = [p filesep f e];
+fnameText = fullfile(p, [f e]);
 
 % Trancate name if too long ot fit into window without wrapping.
 if numel(fnameText)>90,
@@ -378,7 +378,7 @@ for i=1:nFiles
     
     % Skip if previously processed (.traces file exists)
     [p,name] = fileparts(stk_fname);
-    traceFname = [p filesep name '.rawtraces'];
+    traceFname = fullfile(p, [name '.rawtraces']);
     
     if skipExisting && exist(traceFname,'file'),
         disp( ['Skipping (already processed): ' stk_fname] );
@@ -408,7 +408,7 @@ end
 
 
 % ----- Create log file with results
-log_fid = fopen( [direct filesep 'gettraces.log'], 'w' );
+log_fid = fopen( fullfile(direct,'gettraces.log'), 'w' );
 
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');

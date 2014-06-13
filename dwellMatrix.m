@@ -10,7 +10,7 @@ if ~exist( 'dwtfilename', 'var' ),
     [datafile,datapath] = uigetfile({'*.dwt'},'Choose a DWT file:');
     if datafile==0, return; end  %user hit "cancel"
 
-    dwtfilename = [datapath filesep datafile];
+    dwtfilename = fullfile(datapath,datafile);
 end
 
 

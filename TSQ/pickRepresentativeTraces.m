@@ -35,8 +35,8 @@ for i=1:numel(filenames),
     data.fret     = data.fret(ind,:);
     data.traceMetadata = data.traceMetadata(ind);
     
-    [p f] = fileparts(filenames{i});
-    saveTraces( [p filesep f '_sel.traces'], 'traces', data );
+    [p,f] = fileparts(filenames{i});
+    saveTraces( fullfile(p, [f '_sel.traces']), 'traces', data );
 end
 
 

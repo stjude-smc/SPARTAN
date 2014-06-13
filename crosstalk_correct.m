@@ -55,7 +55,7 @@ for i=1:nFiles
      
     % Save resulting data
     [p,f] = fileparts( files{i} );
-    outFilename = [p filesep f '_crosstalkcorrect.traces'];
+    outFilename = fileparts(p, [f '_crosstalkcorrect.traces']);
 %     outFilename = files{i};
     saveTraces( outFilename, 'traces', data );
 

@@ -286,17 +286,17 @@ clear lpst_options;
 % Get output filename if not already defined.
 if ~isfield(handles,'outFilename'),
     % Define default output filename (as in autotrace.m)
-    [p f] = fileparts( handles.filesLoaded{1} );
-    handles.outFilename = [p filesep f '_auto.traces'];
+    [p,f] = fileparts( handles.filesLoaded{1} );
+    handles.outFilename = fullfile(p, [f '_auto.traces']);
     
     [f p] = uiputfile('.traces','Save picked traces as:',handles.outFilename);
     
     % If user hits cancel, choosen some default temporary filename to store
     % intermediate results. The name can be changed later...
     if f~=0,
-        handles.outFilename = [p f];
+        handles.outFilename = fullfile(p,f);
     else
-        handles.outFilename = [pwd filesep 'auto.traces'];
+        handles.outFilename = fullfile(pwd,'auto.traces');
     end
 end
 
@@ -713,15 +713,15 @@ guidata(hObject,handles);
 
 % Define default output filename (as in autotrace.m)
 if ~isfield(handles,'outFilename') || isempty(handles.outFilename),
-    [p f] = fileparts( handles.filesLoaded{1} );
-    handles.outFilename = [p filesep f '_auto.traces'];
+    [p,f] = fileparts( handles.filesLoaded{1} );
+    handles.outFilename = fullfile(p, [f '_auto.traces']);
 end
 
-[f p] = uiputfile('.traces','Save picked traces as:',handles.outFilename);
+[f,p] = uiputfile('.traces','Save picked traces as:',handles.outFilename);
 
 % If user hits cancel, do nothing.
 if f~=0,
-    handles.outFilename = [p f];
+    handles.outFilename = fullfile(p,f);
     
     % Re-pick/save the selected traces to the new file.
     % Do nothing if no data has been loaded yet.    

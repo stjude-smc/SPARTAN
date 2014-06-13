@@ -369,7 +369,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
 
         % Save the idealization
         [p,n] = fileparts(filename);
-        dwtFilename = [p filesep n '.qub.dwt'];
+        dwtFilename = fullfile( p, [n '.qub.dwt'] );
         fretModel = [skmModels(i).mu skmModels(i).sigma];
         saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
 
@@ -408,7 +408,7 @@ avgStdRates = cell(nFiles,1);
 
 for i=1:nFiles
     [p,n] = fileparts(dataFilenames{i});
-    dwtFilename = [p filesep n '.qub.dwt'];
+    dwtFilename = fullfile( p, [n '.qub.dwt'] );
     disp( sprintf('%d: %s', i,dwtFilename) );
     
     % Verify the idealization has been performed

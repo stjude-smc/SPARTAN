@@ -86,7 +86,7 @@ methods
             if i==1,
                 [p,f] = fileparts(info(1).Filename);
                 f = regexprep(f,'-file[0-9]*$','');
-                obj.filetag = [p filesep f];
+                obj.filetag = fullfile(p,f);
                 
                 obj.nX = info(1).Width;
                 obj.nY = info(1).Height;
@@ -100,7 +100,7 @@ methods
                 % We expect (but don't assume) the extension is '.tif'.
                 [p,f] = fileparts(info(1).Filename);
                 f = regexprep(f,'-file[0-9]*.[A-Za-z0-9]*$','');
-                tag = [p filesep f];
+                tag = fullfile(p,f);
                 
                 if ~strcmp(tag,obj.filetag),
                    warning('Movie_TIFF:filename_mismatch', ...

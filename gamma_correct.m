@@ -56,11 +56,7 @@ for i=1:nFiles
      
     % Save resulting data
     [p,f] = fileparts( files{i} );
-    if ~isempty(p),
-        outFilename = [p filesep f '_gammacorrect.traces'];
-    else
-        outFilename = [f '_gammacorrect.traces'];
-    end
+    outFilename = fullfile(p, [f '_gammacorrect.traces']);
     saveTraces( outFilename, 'traces', data );
 
 end %for each file

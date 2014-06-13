@@ -17,7 +17,7 @@ if nargin<2
 
     % Strip off path, leaving just filename
     for i=1:nFiles,
-        titles{i} = strip_path( titles{i} );
+        [~,titles{i}] = fileparts( titles{i} );
     end
 end
 
@@ -133,10 +133,3 @@ end %function tsqComparison
 
 
 
-%%
-function output = strip_path( filename )
-
-pos = find( filename==filesep );
-output = filename(pos(end)+1:end);
-
-end

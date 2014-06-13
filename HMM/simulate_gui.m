@@ -160,7 +160,7 @@ saveTraces( fname_output, 'traces', data );
 offsets = (0:(numel(dwt)-1))*traceLen * (sampling*1000);
 
 [p f] = fileparts(fname_output);
-fname_idl = [p filesep f '.sim.dwt'];
+fname_idl = fullfile(p, [f '.sim.dwt']);
 saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
 
@@ -174,7 +174,7 @@ end
 constants = cascadeConstants;
 
 [p f] = fileparts(fname_output);
-fid = fopen( [p filesep f '.sim.log'], 'w' );
+fid = fopen( fullfile(p,[f '.sim.log']), 'w' );
 
 t = clock;
 fprintf(fid, 'Run time:  %d/%d/%d %d:%d  (v%s)', t(1:5), constants.version);

@@ -48,7 +48,7 @@ for i=1:nFiles,
     
     % Look for an idealization. These will be combined if every dataset has one.
     [path,file] = fileparts( filenames{i} );
-    dwt_fname = [path filesep file '.qub.dwt'];
+    dwt_fname = fullfile(path, [file '.qub.dwt']);
     if exist(dwt_fname,'file'), 
         [dwt{i},sampling(i),offsets{i},model{i}] = loadDWT( dwt_fname );
     end
@@ -155,7 +155,7 @@ elseif ~all( cellfun(@isempty,dwt) )
 
     % Save the dwt file.
     if isempty(p), p=pwd; end
-    dwtFilename = [p filesep f '.qub.dwt'];
+    dwtFilename = fullfile(p, [f '.qub.dwt']);
     saveDWT( dwtFilename, dwtAll, offsetsAll, modelAll, sampling(1) );
 end
 

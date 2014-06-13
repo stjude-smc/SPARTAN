@@ -24,7 +24,7 @@ thresh = 10000;  % for uncorrected data!
 if nargin<1 || isempty(filename),
     [f,p] = uigetfile('*.txt','Select fluorescence timecourse file');
     if f==0, return; end
-    filename = [p filesep f];
+    filename = fullfile(p,f);
 end
 
 

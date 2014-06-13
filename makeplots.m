@@ -107,7 +107,7 @@ if ~exist('titles','var'),
     
     % Strip off path, leaving just filename
     for i=1:nSamples,
-        titles{i} = strip_path( titles{i} );
+        [~,titles{i}] = fileparts( titles{i} );
     end
     
 end
@@ -475,21 +475,9 @@ function saveFiles(hObject,e)
 end
 
 end %function makeplots
-    
 
 
 
-
-
-%% =============== OTHER FUNCTIONS =============== 
-
-
-function output = strip_path( filename )
-
-pos = find( filename==filesep );
-output = filename(pos(end)+1:end);
-
-end
 
 
 

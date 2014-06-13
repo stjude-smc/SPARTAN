@@ -20,7 +20,7 @@ end
 
 % Create or get an output filename
 [p,n] = fileparts(files{i});
-outfile = [p filesep n '.qub.txt']
+outfile = fullfile(p, [n '.qub.txt'])
 
 if length(files)>1
     outname=0;
