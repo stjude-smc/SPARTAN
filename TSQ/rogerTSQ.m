@@ -50,19 +50,22 @@ for i=1:nFiles,
     %-------------------------------------------------------------
     % 2) Load data from each file and calculate stats. 
     data = loadTraces( fnames{i} );
-    [~,names{i},ext] = fileparts( fnames{i} );
     
-    time = data.time;
-    d = data.donor;
-    a = data.acceptor;
-    f = data.fret;
+    [p,f,ext] = fileparts( fnames{i} );
+    names{i} = f;
+    basename = fullfile(p,f);
+    
+    % Calculate total intensity. Typically there is only a dye in one channel,
+    % but we don't know which.
+    total = data.donor;
+    if ismember('acceptor',data.channelNames)
+        total = total + data.acceptor;
+    end
     
     
     %-------------------------------------------------------------
     % 3) Pick traces according to defined criteria if not already filtered.
-    %stats = traceStat( data, constants );
     stats = traceStat( data );
-    clear data;
     
     if strcmp(ext,'.traces'),
         % Fit the background distribution to find a good cutoff.
@@ -85,14 +88,11 @@ for i=1:nFiles,
 
         % Select traces according to criteria defined above.
         indexes = pickTraces( stats, criteria );
-        d = d(indexes,:);
-        a = a(indexes,:);
-        f = f(indexes,:);
+        data.subset(indexes);
         stats = stats(indexes);
     end
     
-    [nTraces,traceLen] = size(d);
-    data = d+a;
+    [nTraces,traceLen] = size(total);
     
     
     % Save stats by fitting the distributions.
@@ -124,17 +124,17 @@ for i=1:nFiles,
 %     end
     
     % Need to scale the data so it fits
-    data = data/rawIntensity;
+    total = total/rawIntensity;
     
     
     %-------------------------------------------------------------
     % 4) Idealize the intensity data to a two-state model using SKM.
-    sampling = ( time(2)-time(1) ); %exposure time in seconds.
+    sampling = diff( data.time(1:2) ); %exposure time in seconds.
     
     skmParams.seperately = 1;
     skmParams.quiet = 1;
-        
-    [dwt,newModel,LL,offsets] = skm( data, sampling, initialModel, skmParams );
+            
+    [dwt,newModel,LL,offsets] = skm( total, sampling, initialModel, skmParams );
         
     
     %-------------------------------------------------------------
@@ -154,7 +154,7 @@ for i=1:nFiles,
         selected = transRate < (meanTrans + 2*stdTrans);
         nRejected = nTraces-sum(selected);
     else
-        selected = logical( ones(size(transRate)) );
+        selected = true(size(transRate));
         nRejected = 0;
     end
     
@@ -168,29 +168,22 @@ for i=1:nFiles,
     mu    = initialModel.mu';
     sigma = initialModel.sigma';
     FRETmodel = [mu sigma];
-    dwtFilename{i} = [ removeExt(fnames{i}) '.qub.dwt' ];
+    dwtFilename{i} = [basename '.qub.dwt'];
     
     % Save selected traces and idealization.
-    selectedData.time     = time;
-    selectedData.donor    = d(selected,:);
-    selectedData.acceptor = a(selected,:);
-    selectedData.fret     = f(selected,:);
-    
+    selectedData = data.getSubset(selected);
     offsets = traceLen*((1:sum(selected))-1);
     
-    saveTraces( [removeExt(fnames{i}) '_auto.traces'], 'traces', selectedData );
+    saveTraces( [basename '_auto.traces'], 'traces', selectedData );
     saveDWT( dwtFilename{i}, dwt(selected), offsets, FRETmodel, sampling );
     clear selectedData;
     
     % Save rejectedtraces and idealization.
-    rejectedData.time     = time;
-    rejectedData.donor    = d(~selected,:);
-    rejectedData.acceptor = a(~selected,:);
-    rejectedData.fret     = f(~selected,:);
-    
+    rejectedData = data.getSubset(~selected);
     offsets = traceLen*((1:sum(~selected))-1);
-    saveTraces( [removeExt(fnames{i}) '_rejected.traces'], 'traces', rejectedData );
-    saveDWT( strrep(dwtFilename{i},'.dwt','_rejected.dwt'), dwt(~selected), ...
+    
+    saveTraces( [basename '_rejected.traces'], 'traces', rejectedData );
+    saveDWT( [basename '_rejected.dwt'], dwt(~selected), ...
              offsets, FRETmodel, sampling );
     clear rejectedData;
          
@@ -250,7 +243,7 @@ Ton = Ton(:,2);
 f=0;k=0;
 while all(f==0) && k<2,
     [f,p] = uiputfile('tsqStats.txt','Choose a filename to save the results.');
-    fname = [p f];
+    fname = fullfile(p,f);
     k = k+1;
 end
 
@@ -274,10 +267,5 @@ end
 % end %FUNCTION rogerTSQ
 
 
-function filename = removeExt( filename )
 
-[p,n] = fileparts(filename);
-filename = [p filesep n];
-
-end
 
