@@ -1,5 +1,5 @@
 function pickRepresentativeTraces( filenames )
-
+% Select traces with average intensity and lifetime.
 
 % 
 if nargin<1,
@@ -27,16 +27,12 @@ for i=1:numel(filenames),
     criteria.max_bg = 2*median(bg);
     criteria.eq_overlap = 0;
     
-    
     % Select traces and save to a new file.
     ind = pickTraces( stats, criteria  );
-    data.donor    = data.donor(ind,:);
-    data.acceptor = data.acceptor(ind,:);
-    data.fret     = data.fret(ind,:);
-    data.traceMetadata = data.traceMetadata(ind);
+    data.subset(ind);
     
     [p,f] = fileparts(filenames{i});
-    saveTraces( fullfile(p, [f '_sel.traces']), 'traces', data );
+    saveTraces( fullfile(p, [f '_sel.traces']), data );
 end
 
 

@@ -77,7 +77,7 @@ if isfield(model,'fixRates') && any(model.fixRates(:)),
     warning('BW:fixRates','Fixing specific rates not support!');
 end
 
-if isfield(params,'seperately'),
+if isfield(params,'seperately') && params.seperately,
     error('Individual trace analysis not yet supported!');
 end
 
@@ -94,14 +94,14 @@ end
 
 % PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
 if isfield(model,'fixMu')
-    params(1).fixMu = model.fixMu;
+    params(1).fixMu = to_row(model.fixMu);
 end
 if ~isfield(params,'fixMu')
     params(1).fixMu = zeros(1,nStates); %all are re-estimated
 end
 
 if isfield(model,'fixSigma')
-    params.fixSigma = model.fixSigma;
+    params.fixSigma = to_row(model.fixSigma);
 end
 if ~isfield(params,'fixSigma')
     params.fixSigma = zeros(1,nStates); %all are re-estimated
@@ -420,3 +420,5 @@ assert( all(p0s>=0), 'Invalid estimated p0 vector' );
 
 
 end
+
+

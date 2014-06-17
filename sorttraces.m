@@ -1135,7 +1135,7 @@ if ~exist( movieFilename, 'file' ),
         disp( ['Unable to find associated movie file: ' movieFilename] );
         disp( 'Please find the associated movie file manually.' )
         [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', ...
-                                fullfile(pwd, [f e]);
+                                fullfile(pwd, [f e]) );
         movieFilename = fullfile(p,f);
         
         % Verify the selected file exists.

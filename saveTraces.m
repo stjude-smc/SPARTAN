@@ -40,6 +40,8 @@ data   = varargin{2};
 
 switch format
     case 'txt'
+        warning( 'saveTraces:txtFormatDepricated',...
+                 'Saving in the txt format is depricated' );
         saveTracesTxt( filename, data );
         
     case 'traces'

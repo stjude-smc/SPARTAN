@@ -69,11 +69,6 @@ end %function LoadTraces
 function data = LoadTracesTxt( filename, indexes )
 % This loads very old traces in a text format. Obsolete!
 
-% Add extra metadata for identifying fluorescence channels.
-% Code for later traces format relies on this!
-data.nChannels = 3;
-data.channelNames = {'donor','acceptor','fret'};
-
 % Get file size for calculating how much has been loaded.
 d = dir(filename);
 fileSize = d.bytes;
@@ -82,11 +77,10 @@ clear d;
 % Open the traces file
 fid=fopen(filename,'r');
 
-% Read the time axis header
-data.time=strread(fgetl(fid),'%f')';
-len=length(data.time);
+% Try to read time axis
+time=strread(fgetl(fid),'%f')';
+len=length(time);
 assert( len>1, 'Cannot parse forQuB file!');
-
 
 % If the first element of the second line is not a number, then the
 % file has molecule ids.
@@ -94,17 +88,17 @@ sig=textscan(fid,'%s',1);
 sig=sig{:};
 hasIDs = isnan(str2double(sig));
 
-% Get the time axis
+% Get the time axis. Why do this twice???
 fseek(fid,-ftell(fid),0);
-data.time=strread(fgetl(fid),'%f')';
+time=strread(fgetl(fid),'%f')';
 
 % Extract intensity information (and IDs) from file.
 h = waitbar(0,'Loading trace data...');
 
 ids = cell(0,1);
 i = 1;
-Data = cell(0);
-while 1
+Input = cell(0);
+while 1,  %for each line in the file.
     if hasIDs
         id = textscan(fid, '%s',1);
         if isempty(id{1}), break; end  %end of file
@@ -115,7 +109,7 @@ while 1
     line = textscan(fid, '%f', len);
     if isempty(line{1}), break; end  %end of file
     
-    Data{i} = line{1};
+    Input{i} = line{1};
     i = i+1;
     
     % update wait bar occasionally based on amount of data read.
@@ -123,22 +117,32 @@ while 1
         waitbar( 0.99*ftell(fid)/fileSize, h );
     end
 end
-Data = cell2mat(Data)';
+Input = cell2mat(Input)';
+fclose(fid);
 
 % Split data into donor, acceptor, and FRET channels.
-donor=Data(1:3:end-2,:);
-acceptor=Data(2:3:end-1,:);
-fret  = Data(3:3:end,:);
-assert( all( size(fret)==size(donor)) );
+donor    = Input(1:3:end-2,:);
+acceptor = Input(2:3:end-1,:);
+fret     = Input(3:3:end,:);
+assert( all(size(fret)==size(donor)) );
+clear Input;
 
 % Select only molecules specified
 if nargin<2 || isempty(indexes),
     indexes = 1:size(donor,1);
 end
 
-data.donor = donor(indexes,:);
-data.acceptor = acceptor(indexes,:);
-data.fret = fret(indexes,:);
+donor    = donor(indexes,:);
+acceptor = acceptor(indexes,:);
+fret     = fret(indexes,:);
+[nTraces,len] = size(donor);
+
+% Create Traces objecct with all the input data.
+data = TracesFret( nTraces, len );
+data.time     = time;
+data.donor    = donor;
+data.acceptor = acceptor;
+data.fret     = fret;
 
 % Get trace IDs, if available...
 if hasIDs,
@@ -147,72 +151,71 @@ if hasIDs,
     data.traceMetadata = struct( 'ids', ids );
 end
 
-data.fileMetadata = struct();
 
 % Clean up
 close(h);
-fclose(fid);
-clear Data;
 
 end %function LoadTracesTxt
     
     
 function data = LoadTracesBinary( filename, indexes )
 % This loads binary trace data from the old format, which did not include
-% metadata (obsolete as of 8/15/2012).
-
-constants = cascadeConstants();
-
-% Add metadata for identifying fluorescence channels.
-% Code for later traces format relies on this!
-data.nChannels = 3;
-data.channelNames = {'donor','acceptor','fret'};
+% metadata (obsolete as of 8/15/2012). An even older format can be found from
+% before 2007 without the IDs, but it is not supported.
 
 % Open the traces file.
 fid=fopen(filename,'r');
 len=fread(fid,1,'int32');
-Ntraces=fread(fid,1,'int16');
+Ntraces=fread(fid,1,'int16');  %each trace is counted twice: donor, acceptor.
 
 % Remove any indexes out of range silently. This is used in
 % autotrace/traceStat to load data in chunks.
-indexes = indexes( indexes>=1 & indexes<=(Ntraces/3) );
+indexes = indexes( indexes>=1 & indexes<=(Ntraces/2) );
 
 % Read in the trace ids (required!)
 c = textscan(fid, '%[^-]', Ntraces/2, 'Delimiter','-');
 ids = c{1}';
 assert( length(ids) == Ntraces/2, 'LoadTracesBinary: data mismatch' );
 
-if ~isempty(indexes),
-    ids = ids(indexes);
-end
-
 % Read in the data:
 Input = fread( fid, [Ntraces len], 'int16' );
-data.time = fread( fid,  len, 'int32' );
+time = fread( fid,  len, 'int32' );
+fclose(fid);
 
-if isempty(data.time)
-    data.time = 1:len;
+if isempty(time)
+    time = 1:len;
 else
-    assert( length(data.time)==len, 'loadTraces: Time axis size mismatch' );
+    assert( length(time)==len, 'loadTraces: Time axis size mismatch' );
 end
 
 % Parse the data into donor, acceptor, etc. arrays.
 donor    = double( Input(1:2:end-1,:) );
 acceptor = double( Input(2:2:end,  :) );
+clear Input;
 
-% Make an adjustment for crosstalk on the camera
+% Strip out the requested subset of traces.
+if ~isempty(indexes),
+    ids      = ids(indexes);
+    donor    = donor(indexes,:);
+    acceptor = acceptor(indexes,:);
+end
+[Ntraces,len] = size(donor);
+
+% Make an adjustment for crosstalk on the camera.
+% In the past this was not done in gettraces!
 acceptor = acceptor - 0.05*donor;
 
+% Construct Traces object to contain the data.
+data = TracesFret(Ntraces,len);
+data.time  = time;
+data.donor = donor;
+data.acceptor = acceptor;
+data.traceMetadata = struct('ids',ids);
+clear donor;  clear acceptor;  clear ids;
+
 % Subtract background and calculate FRET
-[data.donor,data.acceptor,data.fret] = correctTraces( ...
-                                donor,acceptor,constants,indexes);
-data.traceMetadata = struct( 'ids', ids );
-data.fileMetadata = struct();
+data = correctTraces(data);
 
-
-% Clean up
-clear Data;
-fclose(fid);
 
 end %function LoadTracesBinary
 
@@ -252,8 +255,6 @@ nChannels = fread( fid, 1, '*uint8'  );
 nTraces   = fread( fid, 1, 'uint32'  );
 traceLen  = fread( fid, 1, 'uint32'  );
 
-% data.nChannels = nChannels;
-
 
 % 3) Read data channel names (version 4+)
 if version>3,
@@ -286,11 +287,11 @@ nTracesLoaded = numel(indexes);
 % Create a Traces object.
 % TODO: add try/catch.
 if isempty( setdiff(channelNames,{'donor','acceptor','fret'}) ),
-    data = TracesFret(nTracesLoaded,nChannels,channelNames);
+    data = TracesFret(nTracesLoaded,traceLen,channelNames);
 elseif ismember('donor',channelNames)
-    data = TracesFret4(nTracesLoaded,nChannels,channelNames);
+    data = TracesFret4(nTracesLoaded,traceLen,channelNames);
 elseif ismember('ch1',channelNames),
-    data = TracesFluor4(nTracesLoaded,nChannels,channelNames);
+    data = TracesFluor4(nTracesLoaded,traceLen,channelNames);
 else
     error('Channel names do not match any available Traces class template');
 end

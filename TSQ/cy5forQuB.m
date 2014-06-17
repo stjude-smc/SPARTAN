@@ -4,12 +4,14 @@ function cy5forQuB( files )
 %    
 % 
 
-const = cascadeConstants;
-const.gamma=1;
 
 % Get filename from user if not specified
 if nargin < 1,
     files = getFiles;
+end
+
+if ~iscell(files),
+    files = {files};
 end
 
 nFiles = numel(files);
@@ -20,12 +22,7 @@ for i=1:nFiles,
     
     % Load FRET data file
     data = loadTraces( filename );
-    d = data.donor;
-    a = data.acceptor;
-    
-    % Use Cy3 if channels are reversed (instead of making a Cy3forqub script).
-    if mean(d(:)) > mean(a(:)), a = d; end
-    d = zeros(size(a));
+    a = data.total;
 
     % Normalize the intensity to the average.
     % Using traceStat seems to bias toward high intensities and gives a poor

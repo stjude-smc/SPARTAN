@@ -118,6 +118,9 @@ methods
         this.nTraces = varargin{1};
         nFrames = varargin{2};
         this.time = 1:nFrames;
+        
+        assert( isscalar(this.nTraces) && isscalar(nFrames), ...
+                'Invalid Traces constructor parameters; sizes must be scalar' );
             
         % Generate IDs for each trace.
         ids = cellfun(@num2str,num2cell(1:varargin{1}),'UniformOutput',false)';

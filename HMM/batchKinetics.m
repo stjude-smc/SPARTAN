@@ -283,7 +283,7 @@ delete('bwmodel.qmf');
 
 if ~strcmp(options.idealizeMethod,'Do Nothing'),
     %----- STEP 1: Optimize params using SKM and idealize
-    waitbar(0,h,'Idealizing data using Segmental k-means...');
+    waitbar( 0, h, ['Idealizing data using ' options.idealizeMethod '...'] );
     
     skmLL = zeros(nFiles,1);
 
@@ -304,7 +304,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         elseif strcmp(options.idealizeMethod,'Baum-Welch'),
             
             result = BWoptimize( data, sampling, model, bwOptions );
-            fretModel = [model.mu' model.sigma'];
+            fretModel = [to_col(model.mu) to_col(model.sigma)];
             optModel = model;
             % TODO: update optModel with optimized parameter values.
             
@@ -370,7 +370,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         % Save the idealization
         [p,n] = fileparts(filename);
         dwtFilename = fullfile( p, [n '.qub.dwt'] );
-        fretModel = [skmModels(i).mu skmModels(i).sigma];
+        fretModel = [to_col(skmModels(i).mu) to_col(skmModels(i).sigma)];
         saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
 
         waitbar(0.33*i/nFiles,h);
