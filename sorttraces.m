@@ -47,6 +47,11 @@ function sorttraces_OpeningFcn(hObject, eventdata, handles, varargin)
 
 % Initialize GUI if sorrtraces is being launched for the first time.
 if ~isfield(handles,'constants')
+    disp('Keyboard shortcuts:');
+    disp('   Left arrow key  = Previous molecule');
+    disp('   Right arrow key = Next molecule');
+    disp('   a, s, d = Put molecule in No, All, or Best FRET, respectively');
+    disp('   z       = Zoom in to trace. Press again to zoom out');    
     
     % Choose default command line output for sorttraces
     handles.output = hObject;
@@ -1096,6 +1101,23 @@ switch ch
     
     case 'd',
     toggleBin( hObject, eventdata, handles, 3 );
+    
+    case 'z',  %zoom in on trace
+        dt  = diff(handles.data.time(1:2)) / 1000;  %time step in seconds
+        lt  = handles.stats.lifetime*dt;
+        lta = handles.stats.acclife*dt;
+        x = xlim();  x = x(end);
+
+        if x==lt+15,
+            % User already zoomed once; zoom in further.
+            xlim( handles.axFluor, [0,lta+10] );
+        elseif x==lta+10,
+            % User already zoomed twice; zoom out.
+            xlim( handles.axFluor, 'auto' );
+        else
+            % Zoom in to show full trace.
+            xlim( handles.axFluor, [0,lt+15] );
+        end
 end
 
 
