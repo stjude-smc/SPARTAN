@@ -1,4 +1,4 @@
-classdef Traces < handle & matlab.mixin.Copyable
+classdef Traces < handle %& matlab.mixin.Copyable  %R2011b required!
 % Traces: abstract class defining the interface for Traces classes
 %
 %    You can create instances of this abstract class, but they will have no
@@ -345,6 +345,18 @@ methods
         this.traceMetadata = source.traceMetadata;
         this.fileMetadata = source.fileMetadata;
         this.time = source.time;
+    end
+    
+    
+    % Create a new object as a shallow copy of this one.
+    % This is normally implemented by subclassing matlab.mixin.Copyable, but
+    % that requires MATLAB 2011a and up, but many clients here have 2010b.
+    % As a compromise, I have implemented my own copy function instead.
+    function newObj = copy(this)
+        % Create a new Traces object and copy all of the internal data from this
+        % object to that one.
+        newObj = eval(  [class(this) '()']  );
+        newObj.copyDataFrom(this);
     end
     
     
