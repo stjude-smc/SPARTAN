@@ -1093,6 +1093,12 @@ switch ch
     case 29, %right arrow key
     btnNextTop_Callback( hObject, eventdata, handles );
     
+    %case 30, %up arrow key
+    %
+    
+    %case 31, %down arrow key
+    %
+    
     case 'a',
     toggleBin( hObject, eventdata, handles, 1 );
     
@@ -1118,6 +1124,8 @@ switch ch
             % Zoom in to show full trace.
             xlim( handles.axFluor, [0,lt+15] );
         end
+    otherwise
+        disp( double(ch) );
 end
 
 

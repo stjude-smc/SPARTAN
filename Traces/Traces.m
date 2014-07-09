@@ -314,11 +314,11 @@ methods
         
     % Extract a subset of traces from the data. This actually creates a copy of
     % the traces object!
-    function data = getSubset(this,idx)
+    function data = getSubset(this,varargin)
         % This creates a shallow copy -- data elements are not duplicated in
         % memory until they are modified during subset.
         data = copy(this);
-        data.subset(idx);
+        data.subset(varargin{:});
     end
     
     
