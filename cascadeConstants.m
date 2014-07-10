@@ -65,11 +65,12 @@ commonParams.don_thresh = 0; %auto
 commonParams.overlap_thresh = 2.3;
 commonParams.nPixelsToSum   = 4;
 
-commonParams.alignment.theta = -4:0.1:4;
-commonParams.alignment.dx    = -4:1:4;
-commonParams.alignment.dy    = -4:1:4;  %all dx and dy must be integers
-commonParams.alignment.sx    = 1;  %magnification (x)
-commonParams.alignment.sy    = 1;  %magnification (y)
+% commonParams.alignment.theta = -4:0.1:4;
+% commonParams.alignment.dx    = -4:1:4;
+% commonParams.alignment.dy    = -4:1:4;  %all dx and dy must be integers
+% commonParams.alignment.sx    = 1;  %magnification (x)
+% commonParams.alignment.sy    = 1;  %magnification (y)
+commonParams.alignMethod = 1; %disabled, assume aligned.
 
 % Other options:
 commonParams.skipExisting = 0;
@@ -97,8 +98,6 @@ p(1).idxFields   = 1; %only one channel
 p(1).chNames     = {'donor'};
 p(1).chDesc      = {'Cy3'};
 p(1).wavelengths = 532;
-p(1).alignRotate = 0;
-p(1).alignTranslate = 0;
 
 
 p(2) = p(1);
@@ -114,8 +113,6 @@ p(3).chNames     = {'donor','acceptor'};
 p(3).chDesc      = {'Cy3','Cy5'};
 p(3).wavelengths = [532 640];
 p(3).crosstalk   = 0.075;  %donor->acceptor
-p(3).alignTranslate = 0;
-p(3).alignRotate = 0;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
@@ -133,8 +130,6 @@ p(4).wavelengths = [473 532 640 730];
 p(4).crosstalk   = zeros(4);
 p(4).crosstalk(2,3) = 0.13;   %Cy3->Cy5
 p(4).crosstalk(3,4) = 0.06;   %Cy5->Cy7 (is this correct???)
-p(4).alignRotate = 0;
-p(4).alignTranslate = 0;
 
 
 p(5).name        = 'Quad-View (Cy3/Cy5 only)';
@@ -144,8 +139,6 @@ p(5).chNames     = {'donor','acceptor'};
 p(5).chDesc      = {'Cy3','Cy5'};
 p(5).wavelengths = [532 640];
 p(5).crosstalk   = 0.13;   %Cy3->Cy5
-p(5).alignRotate = 0;
-p(5).alignTranslate = 0;
 
 
 p(6).name        = 'Quad-View (Cy3/Cy5/Cy7)';
@@ -157,8 +150,6 @@ p(6).wavelengths = [532 640 730];
 p(6).crosstalk   = zeros(4);
 p(6).crosstalk(1,2) = 0.12;   %Cy3->Cy5
 p(6).crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
-p(6).alignRotate = 0;
-p(6).alignTranslate = 0;
 
 
 p(7).name        = 'Quad-View (Cy5/Cy7)';
@@ -168,8 +159,6 @@ p(7).chNames     = {'donor','acceptor'};
 p(7).chDesc      = {'Cy5','Cy7'};
 p(7).wavelengths = [640 730];
 p(7).crosstalk   = 0.11;
-p(7).alignRotate = 0;
-p(7).alignTranslate = 0;
 
 p(8).name        = 'Twin-Cam sCMOS (Cy3/Cy5)';
 p(8).geometry    = 2;
@@ -178,8 +167,6 @@ p(8).chNames     = {'donor','acceptor'};
 p(8).chDesc      = {'Cy3','Cy5'};
 p(8).wavelengths = [532 640];
 p(8).crosstalk   = 0.115;  %donor->acceptor
-p(8).alignTranslate = 0;
-p(8).alignRotate  = 0;
 p(8).nPixelsToSum = 5;  %5-6
 p(8).photonConversion = 2.04; %0.49 e-/ADU
 %No Qinsi correction; we assume the fields are flat.

@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 10-Jul-2014 14:27:42
+% Last Modified by GUIDE v2.5 10-Jul-2014 15:44:01
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -40,7 +40,7 @@ end
 
 % --------------------- GUI INITIALIZATION --------------------- %
 % --- Executes just before gettraces is made visible.
-function gettraces_OpeningFcn(hObject, eventdata, handles, varargin)
+function gettraces_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -128,7 +128,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = gettraces_OutputFcn(hObject, eventdata, handles) 
+function varargout = gettraces_OutputFcn(~, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -143,7 +143,7 @@ varargout{1} = handles.output;
 % --------------- OPEN SINGLE MOVIE (CALLBACK) ---------------- %
 
 % --- Executes on button press in openstk.
-function openstk_Callback(hObject, eventdata, handles)
+function openstk_Callback(hObject, ~, handles)
 % hObject    handle to openstk (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -215,7 +215,7 @@ low=0;
 sort_px = sort(handles.stk_top);
 high = sort_px( floor(0.99*numel(sort_px)) );
 high = min( ceil(high*2), 32000 );
-val = (low+high)/2;
+val = (low+high)/3;
 
 set(handles.scaleSlider,'min',low);
 set(handles.scaleSlider,'max',high); %uint16 maxmimum value
@@ -335,7 +335,7 @@ end
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
 
 % --- Executes on button press in batchmode.
-function batchmode_Callback(hObject, eventdata, handles)
+function batchmode_Callback(hObject, ~, handles)
 % hObject    handle to batchmode (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -445,7 +445,7 @@ guidata(hObject,handles);
 
 % ------------------------ PICK INTENSITY PEAKS ------------------------ %
 
-function handles = getTraces_Callback(hObject, eventdata, handles)
+function handles = getTraces_Callback(hObject, ~, handles)
 %
 
 %----- Find peak locations from total intensity
@@ -691,7 +691,7 @@ line( handles.rtotal_x, handles.rtotal_y, style2b{:} );
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
 % --- Executes on button press in saveTraces.
-function saveTraces_Callback(hObject, eventdata, handles)
+function saveTraces_Callback(~, ~, handles)
 
 if iscell(handles.stkfile),
     filename = handles.stkfile{1};
@@ -713,7 +713,7 @@ clear stkData;
 % --------------------- MISC. GUI CALLBACK FUNCTIONS --------------------- %
 
 % --- Executes on slider movement.
-function scaleSlider_Callback(hObject, eventdata, handles)
+function scaleSlider_Callback(hObject, ~, handles)
 % Update axes color limits from new slider value
 val = get(hObject,'value');
 minimum = get(hObject,'min');
@@ -741,7 +741,7 @@ guidata(hObject,handles);
 
 
 % --- Peak selection total intensity threshold specification
-function txtIntensityThreshold_Callback(hObject, eventdata, handles)
+function txtIntensityThreshold_Callback(hObject, ~, handles)
 % Update gettraces parameters using specified values
 text = get(hObject,'String');
 if ~isempty( text )
@@ -756,7 +756,7 @@ guidata(hObject,handles);
 
 
 % --- Overlap rejection threshold specification
-function txtOverlap_Callback(hObject, eventdata, handles)
+function txtOverlap_Callback(hObject, ~, handles)
 % Update gettraces parameters using specified values
 handles.params.overlap_thresh = 0;
 
@@ -771,7 +771,7 @@ guidata(hObject,handles);
 
 
 % --- Integration window size specification
-function txtIntegrationWindow_Callback(hObject, eventdata, handles)
+function txtIntegrationWindow_Callback(hObject, ~, handles)
 % Update gettraces parameters using specified values
 text = get(hObject,'String');
 if ~isempty( text )
@@ -790,7 +790,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in chkSaveLocations.
-function chkSaveLocations_Callback(hObject, eventdata, handles)
+function chkSaveLocations_Callback(hObject, ~, handles)
 % Update gettraces parameters using specified values
 handles.params.saveLocations = get(handles.chkSaveLocations,'Value');
 guidata(hObject,handles);
@@ -798,7 +798,7 @@ guidata(hObject,handles);
 
 
 
-function txtMaxIntensity_Callback(hObject, eventdata, handles)
+function txtMaxIntensity_Callback(hObject, ~, handles)
 % Update axes color limits from new slider value
 val = str2double( get(hObject,'String') );
 minimum = get(handles.scaleSlider,'min');
@@ -834,7 +834,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on selection change in cboGeometry.
-function handles = cboGeometry_Callback(hObject, eventdata, handles)
+function handles = cboGeometry_Callback(hObject, ~, handles)
 %
 
 % Get parameter values associated with the selected profile.
@@ -859,17 +859,14 @@ set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
 set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
 set( handles.chkRecursive, 'Value', params.recursive    );
 set( handles.chkOverwrite, 'Value', params.skipExisting );
+set( handles.cboAlignMethod, 'Value',1 ); %params.alignment.method
 
 if handles.params.geometry==1, %Single-channel recordings
     set( handles.txtDACrosstalk,    'Enable','off', 'String','', 'Visible','on' );
     set( handles.btnCrosstalk,      'Visible','off'  );
-    set( handles.chkAlignTranslate, 'Enable','off', 'Value',0 );
-    set( handles.chkAlignRotate,    'Enable','off', 'Value',0 ); 
     set( handles.btnSaveAlignment,  'Enable','off' );
     set( handles.btnLoadAlignment,  'Enable','off', 'Value',0 );
 else  %Multi-channel recordings
-    set( handles.chkAlignTranslate, 'Enable','on', 'Value',params.alignTranslate      );
-    set( handles.chkAlignRotate,    'Enable','on', 'Value',params.alignRotate  );
     set( handles.btnSaveAlignment,  'Enable','on' );
     set( handles.btnLoadAlignment,  'Enable','on', 'Value',0 );
 end
@@ -897,7 +894,7 @@ guidata(hObject,handles);
 
 
 
-function txtDACrosstalk_Callback(hObject, eventdata, handles)
+function txtDACrosstalk_Callback(hObject, ~, handles)
 % 
 handles.params.crosstalk = str2double( get(hObject,'String') );
 guidata(hObject,handles);
@@ -906,40 +903,15 @@ guidata(hObject,handles);
 
 
 
-function txtPhotonConversion_Callback(hObject, eventdata, handles)
+function txtPhotonConversion_Callback(hObject, ~, handles)
 %
 handles.params.photonConversion = str2double( get(hObject,'String') );
 guidata(hObject,handles);
 
 
 
-
-
-% --- Executes on button press in chkAlignTranslate.
-function chkAlignTranslate_Callback(hObject, eventdata, handles)
-%
-handles.params.alignTranslate = get(hObject,'Value');
-
-% Re-pick molecules with new settings.
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
-
-
-
-% --- Executes on button press in chkAlignRotate.
-function chkAlignRotate_Callback(hObject, eventdata, handles)
-%
-handles.params.alignRotate = get(hObject,'Value');
-
-% Re-pick molecules with new settings.
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
-
-
-
-
 % --- Executes on button press in btnMetadata.
-function btnMetadata_Callback(hObject, eventdata, handles)
+function btnMetadata_Callback(hObject, ~, handles)
 % Display a simple diaglog with the MetaMorph metadata for the first frame.
 % 
 
@@ -987,7 +959,7 @@ msgbox( output, 'MetaMorph metadata' );
 
 
 % --- Executes on button press in btnLoadAlignment.
-function btnLoadAlignment_Callback(hObject, eventdata, handles)
+function btnLoadAlignment_Callback(hObject, ~, handles)
 % Load software alignment settings previously saved to file. The file
 % the "align" structure defined in gettraces, including dx, dy, theta, etc.
 %
@@ -1018,8 +990,7 @@ if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
     end
     
     % 4) Disable alignment controls and set to checked.
-    handles.params.alignTranslate = 1;
-    handles.params.alignRotate = 1;
+    handles.params.alignMethod = 2;
     
     set( handles.chkAlignTranslate, 'Enable','off' );
     set( handles.chkAlignRotate,    'Enable','off' );
@@ -1035,13 +1006,9 @@ elseif pressed == get(hObject,'Min')
     sel = get(handles.cboGeometry,'Value');
     p = constants.gettraces_profiles(sel);
     handles.params.alignment = p.alignment;
-    handles.params.alignTranslate = p.alignTranslate;
-    handles.params.alignRotate = p.alignRotate;
+    handles.params.alignMethod = p.alignMethod;
     handles.alignment = [];
 end
-
-set( handles.chkAlignTranslate, 'Value',handles.params.alignTranslate );
-set( handles.chkAlignRotate,    'Value',handles.params.alignRotate );
 
 
 % Re-pick molecules with new settings.
@@ -1055,7 +1022,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in btnSaveAlignment.
-function btnSaveAlignment_Callback(hObject, eventdata, handles)
+function btnSaveAlignment_Callback(~, ~, handles)
 % Save current software alignment settings (which may be set to do nothing
 % at all) to file so they can be reloaded later.
 %
@@ -1076,8 +1043,10 @@ save( [p f], 'alignment' );
 %end function btnSaveAlignment_Callback
 
 
+
+
 % --- Executes on button press in btnCrosstalk.
-function btnCrosstalk_Callback(hObject, eventdata, handles)
+function btnCrosstalk_Callback(hObject, ~, handles)
 % When there are more than 2 channels, the crosstalk is more than just a
 % scalar and can't be represented in the text box easily, so this button
 % will launch a dialog to show all the possible parameter values and allow
@@ -1128,3 +1097,23 @@ guidata(hObject,handles);
 
 
 
+
+% --- Executes on selection change in cboAlignMethod.
+function cboAlignMethod_Callback(hObject, ~, handles)
+% 
+
+% Hints: contents = cellstr(get(hObject,'String')) returns cboAlignMethod contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from cboAlignMethod
+
+% methods = contents = cellstr(get(hObject,'String'));
+sel = get(hObject,'Value');
+% method = contents{sel};
+
+handles.params.alignMethod = sel;
+
+% Re-pick molecules with new settings.
+handles = getTraces_Callback( hObject, [], handles);
+guidata(hObject,handles);
+
+
+% END FUNCTION cboAlignMethod_Callback

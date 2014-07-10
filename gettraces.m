@@ -420,10 +420,6 @@ function [picks,total_t,align,total_picks,fractionOverlapped,rejectedPicks,rejec
 % When looking into the image, use idxFields.
 
 
-% align = [];
-% abs_dev = 0;
-
-
 % Get the names and indexes of channels TO USE. Channels will be ignored if
 % the name is empty. quadrants are the indexes into the full array of
 % fields of the ones we want to use, and also define where to translate the
@@ -526,7 +522,7 @@ end
 %%%%% Optional software alignment algorithm (for dual-color only!)
 % If the alignment is close, no need to adjust.
 % Just give a warning unless asked to do software alignment in settings.
-if params.geometry>1 && (params.alignTranslate || params.alignRotate),
+if params.geometry>1 && params.alignMethod>1,
     % FIXME (?): the user may expect the alignment to be applied even if
     % the deviation is small when a specific alignment is loaded!
     
@@ -550,28 +546,24 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate),
         fieldID = params.idxFields(i);
         
         % Search for an optimal alignment of the selected field vs donor.
-        p = params;
-        if numel(params.alignment)>1,
-            p.alignment = params.alignment(i);
+        %p = params;
+        %if numel(params.alignment)>1,
+        %    p.alignment = params.alignment(i);
+        %end
+        
+        if params.alignMethod==2,
+            %alignment loaded; what do we do?
+        
+        elseif params.alignMethod==3,
+            [newAlign(i),registered_t{i},quality(i)] = alignSearch_cpt( ...
+                                     donor_t, allFields(:,:,fieldID), params );
+                                 
+        elseif params.alignMethod==4,
+            [newAlign(i),registered_t{i},quality(i)] = alignSearch_weber( ...
+                                     donor_t, allFields(:,:,fieldID), params );
         end
-        %[newAlign(i),registered_t{i},quality(i)] = alignSearch( ...
-        %                              donor_t, allFields(:,:,fieldID), p );
-        
-        [newAlign(i),registered_t{i},quality(i)] = alignSearch_cpt( ...
-                                      donor_t, allFields(:,:,fieldID), p );
         total_t = total_t + registered_t{i};
-        
-        % Create a transformation matrix from the alignment parameters.
-%         Ts = ones(3);
-%         Ts(1,1) = newAlign(i).sx;
-%         Ts(2,2) = newAlign(i).sy;
-%         
-%         T = [  cosd(newAlign(i).theta)  sind(newAlign(i).theta)  0 ; ...
-%               -sind(newAlign(i).theta)  cosd(newAlign(i).theta)  0 ; ...
-%                     newAlign(i).dx           newAlign(i).dy      1 ];
-%         
-%         T = T.*Ts;
-%         tform{i} = maketform('affine',T);
+
         tform{i} = newAlign(i).tform;
     end
         
@@ -768,7 +760,7 @@ end
 
 
 
-function [align,reg_img,q] = alignSearch_cpt( ref_img, target_img, params )
+function [align,reg_img,quality] = alignSearch_cpt( ref_img, target_img, params )
 % ALIGNSEARCH    Align two images using a simple control point algorithm.
 %
 %    [bestAlign,bestReg,quality] = alignSearch( REF, TARGET, params)
@@ -782,8 +774,6 @@ function [align,reg_img,q] = alignSearch_cpt( ref_img, target_img, params )
 %
 % TODO: allow multiple arguments for aligning multiple fields. The first image
 % will be the reference.
-%
-% CONSIDER using normxcorr2.Hungarian algorithm
 %
 
 [nrow,ncol] = size(ref_img);
@@ -808,9 +798,11 @@ ref_peaks    = ref_peaks(dist<5,:);
 % Find any reference peaks that use the same target peak multiple times. Such
 % points clearly have some uncertainty and should be thrown out.
 % Apparently this does not help. 
-u = unique(idx);
-n = histc(idx,u); %count how many times each index is used
-fprintf('%.0f (%.0f%%) of points are ambiguous\n', sum(n>1), 100*sum(n>1)/numel(n) );
+if ~params.quiet,
+    u = unique(idx);
+    n = histc(idx,u); %count how many times each index is used
+    fprintf('alignSearch_cpt: %.0f (%.0f%%) of points are ambiguous\n', sum(n>1), 100*sum(n>1)/numel(n) );
+end
 
 % idx = u(n==1);
 % ref_peaks    = ref_peaks(idx,:);
@@ -833,13 +825,15 @@ ss = tform.tdata.Tinv(2,1);
 sc = tform.tdata.Tinv(1,1);
 tx = tform.tdata.Tinv(3,1);
 ty = tform.tdata.Tinv(3,2);
-scale = sqrt(ss*ss + sc*sc);  %FIXME: which is which??
+scale = sqrt(ss*ss + sc*sc);
 theta = atan2(ss,sc)*180/pi;
 
 align = struct( 'dx',tx,'dy',ty, 'theta',theta, 'sx',scale,'sy',scale, ...
-                'abs_dev',0, 'tform',fliptform(tform) )
+                'abs_dev',0, 'tform',fliptform(tform) );
 
-q = 2; %fake quality value. FIXME.
+% Measure the "quality" of the alignment as the magnitude increase in
+% score compared to a "random" alignment.
+quality =  weberQuality(ref_img,reg_img,params.don_thresh);
 
 
 
@@ -848,7 +842,7 @@ q = 2; %fake quality value. FIXME.
 
 
 
-function [bestAlign,bestReg,quality] = alignSearch( donor_t, acceptor_t, params )
+function [bestAlign,bestReg,quality] = alignSearch_weber( donor_t, acceptor_t, params )
 % ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
 %
 %    [bestAlign,bestReg] = alignSearch( image_t, params, [forceAlign] )
@@ -859,6 +853,18 @@ function [bestAlign,bestReg,quality] = alignSearch( donor_t, acceptor_t, params 
 % donor and acceptor images, and calculate a contrast score. The one with
 % the brightest, sharpest peaks wins.
 %
+
+
+% These parameters used to be in cascadeConstants, but since they are very
+% specific to this algorithm, I moved them here. This makes some of the code
+% below redundant!
+params.alignment.theta = -4:0.1:4;
+params.alignment.dx    = -4:1:4;
+params.alignment.dy    = -4:1:4;  %all dx and dy must be integers
+params.alignment.sx    = 1;  %magnification (x)
+params.alignment.sy    = 1;  %magnification (y)
+params.alignRotate    = true;
+params.alignTranslate = true;
 
 [nrow,ncol] = size(donor_t);
 
@@ -909,8 +915,8 @@ bestRegs = cell(ntheta,1);
 
 don_thresh = params.don_thresh;
 
-% for t=1:ntheta,  %use this for single-threaded
-parfor t=1:ntheta,
+for t=1:ntheta,  %use this for single-threaded
+% parfor t=1:ntheta,
     theta = theta_range(t);
     scoreTemp = zeros(ndx,ndy); %contrast scores for all translations.
     
@@ -957,9 +963,9 @@ parfor t=1:ntheta,
     
     %scores(t,:,:) = scoreTemp;
     
-%     if ~params.quiet && ntheta>1,  %do not use with parfor
-%         waitbar( t/ntheta, h );
-%     end
+    if ~params.quiet && ntheta>1,  %do not use with parfor
+        waitbar( t/ntheta, h );
+    end
 end
 
 
@@ -967,8 +973,39 @@ end
 [~,bestIdx] = max(bestScores);
 bestAlign = bestAligns{bestIdx};
 bestReg   = bestRegs{bestIdx};
+        
+
+% Create a transformation matrix from the alignment parameters.
+Ts = ones(3);
+Ts(1,1) = 1;  % x scaling
+Ts(2,2) = 1;  % y scaling
+
+T = [  cosd(bestAlign.theta)  sind(bestAlign.theta)  0 ; ...
+      -sind(bestAlign.theta)  cosd(bestAlign.theta)  0 ; ...
+            bestAlign.dx           bestAlign.dy      1 ];
+T = T.*Ts;
+bestAlign.tform = maketform('affine',T);
 
 
+% Measure the "quality" of the alignment as the magnitude increase in
+% score compared to a "random" alignment.
+% quality = max(bestScores) / weberRandom(donor_t,acceptor_t,don_thresh);
+quality =  weberQuality(donor_t,bestReg,don_thresh);
+
+
+if ~params.quiet && ntheta>1,
+    close(h);
+end
+
+
+% END FUNCTION alignSearch
+
+
+
+function [quality,randomScore] = weberQuality( base, registered, thresh )
+% Calculates a Weber contrast score for random scampling of the target image.
+% This provides a way to calculate the score expected for a random (poor)
+% alignment. quality = weberScore/weberRandom(X,Y).
 % Measure the "quality" of the alignment as the magnitude increase in
 % score compared to a "random" alignment, which is approximated by
 % scrambling the donor and acceptor field data. In practice, this gives
@@ -977,20 +1014,27 @@ bestReg   = bestRegs{bestIdx};
 % because there may only be one parameter value or a small range. Quality
 % scores above 1.1-1.15 (10-15% higher contrast than a random) are
 % generally acceptable; any lower and the data may have other problems.
-S = 0;
-for i=1:10,
-    total = donor_t( randperm(numel(donor_t)) ) + acceptor_t( randperm(numel(acceptor_t)) );
-    picks = total>don_thresh;    %pixels above background
-    Ib = mean( total(~picks) );  %background intensity
-    S = S + ( mean(total(picks)) -Ib ) / Ib;  %Weber contrast score
+%
+
+N = 6; %number of repititions for averaging.
+S = zeros(N,1);
+
+for i=1:N,
+    if i==1, %base case, no scrambling
+        total = base(:)+registered(:);
+    else
+        total = base( randperm(numel(base)) ) + registered( randperm(numel(registered)) );
+    end
+    
+    Ib = mean( total(total<thresh) );  %background intensity
+    S(i) = ( mean(total(total>thresh)) -Ib ) / Ib;  %Weber contrast score
 end
-quality = max(bestScores) / (S/10);
+
+randomScore = mean(S(2:end));
+quality = S(1) / randomScore;
 
 
-if ~params.quiet && ntheta>1,
-    close(h);
-end
-
+% END FUNCTION weberRandom
 
 
 
