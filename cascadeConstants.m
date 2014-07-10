@@ -171,8 +171,22 @@ p(7).crosstalk   = 0.11;
 p(7).alignRotate = 0;
 p(7).alignTranslate = 0;
 
+p(8).name        = 'Twin-Cam sCMOS (Cy3/Cy5)';
+p(8).geometry    = 2;
+p(8).idxFields   = [2 1]; %L/R; they're reversed. oops.
+p(8).chNames     = {'donor','acceptor'};
+p(8).chDesc      = {'Cy3','Cy5'};
+p(8).wavelengths = [532 640];
+p(8).crosstalk   = 0.115;  %donor->acceptor
+p(8).alignTranslate = 0;
+p(8).alignRotate  = 0;
+p(8).nPixelsToSum = 5;  %5-6
+p(8).photonConversion = 2.04; %0.49 e-/ADU
+%No Qinsi correction; we assume the fields are flat.
+
 
 % Add all of the common settings that do not vary.
+% FIXME: do not overwrite any values set.
 fnames = fieldnames(commonParams);
 for i=1:numel(fnames),
     [ p.(fnames{i}) ] = deal( commonParams.(fnames{i}) );

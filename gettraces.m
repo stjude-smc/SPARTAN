@@ -414,8 +414,14 @@ function [picks,total_t,align,total_picks,fractionOverlapped,rejectedPicks,rejec
 %    rejectedTotalPicks = rejected peaks in total intensity image.
 % 
 
-align = [];
-abs_dev = 0;
+% A note on notation: i, indD, indA, etc are indexes into the list of channels
+% as they will appear in the output data (donor,acceptor). params.idxFields and
+% quadrants identify the physical position of each channel on the camera chip.
+% When looking into the image, use idxFields.
+
+
+% align = [];
+% abs_dev = 0;
 
 
 % Get the names and indexes of channels TO USE. Channels will be ignored if
@@ -533,10 +539,10 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate),
     % reject it and just say "we don't know".
     quality = zeros(nCh,1);
     registered_t = cell(nCh,1);
-    newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{});
+    newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     tform = cell(nCh,1);
     
-    donor_t = allFields(:,:,indD); %target field to align to
+    donor_t = allFields( :,:, params.idxFields(indD) ); %target field to align to
     total_t = donor_t;
     
     for i=1:nCh,
@@ -548,21 +554,25 @@ if params.geometry>1 && (params.alignTranslate || params.alignRotate),
         if numel(params.alignment)>1,
             p.alignment = params.alignment(i);
         end
-        [newAlign(i),registered_t{i},quality(i)] = alignSearch( ...
+        %[newAlign(i),registered_t{i},quality(i)] = alignSearch( ...
+        %                              donor_t, allFields(:,:,fieldID), p );
+        
+        [newAlign(i),registered_t{i},quality(i)] = alignSearch_cpt( ...
                                       donor_t, allFields(:,:,fieldID), p );
         total_t = total_t + registered_t{i};
         
         % Create a transformation matrix from the alignment parameters.
-        Ts = ones(3);
-        Ts(1,1) = newAlign(i).sx;
-        Ts(2,2) = newAlign(i).sy;
-        
-        T = [  cosd(newAlign(i).theta)  sind(newAlign(i).theta)  0 ; ...
-              -sind(newAlign(i).theta)  cosd(newAlign(i).theta)  0 ; ...
-                    newAlign(i).dx           newAlign(i).dy      1 ];
-        
-        T = T.*Ts;
-        tform{i} = maketform('affine',T);
+%         Ts = ones(3);
+%         Ts(1,1) = newAlign(i).sx;
+%         Ts(2,2) = newAlign(i).sy;
+%         
+%         T = [  cosd(newAlign(i).theta)  sind(newAlign(i).theta)  0 ; ...
+%               -sind(newAlign(i).theta)  cosd(newAlign(i).theta)  0 ; ...
+%                     newAlign(i).dx           newAlign(i).dy      1 ];
+%         
+%         T = T.*Ts;
+%         tform{i} = maketform('affine',T);
+        tform{i} = newAlign(i).tform;
     end
         
     if ~( all([newAlign.dx]==0) && all([newAlign.dy]==0) && all([newAlign.theta]==0) ),
@@ -754,6 +764,86 @@ for j=1:size(peaks,1),
 end
 
 % END FUNCTION refinePeaks
+
+
+
+
+function [align,reg_img,q] = alignSearch_cpt( ref_img, target_img, params )
+% ALIGNSEARCH    Align two images using a simple control point algorithm.
+%
+%    [bestAlign,bestReg,quality] = alignSearch( REF, TARGET, params)
+%
+% Finds all bright spots in the field-of-view, picking on each field separately,
+% then uses nearest neighbors in each field as control points for creating a
+% transformation matrix. This allows translation, rotation, scaling, and some
+% non-linear distortions. Generally this is only possible with beads samples,
+% where there is a high SNR signal on all channels and no background junk to
+% confuse the algorithm. This will not work well for single fluorophores.
+%
+% TODO: allow multiple arguments for aligning multiple fields. The first image
+% will be the reference.
+%
+% CONSIDER using normxcorr2.Hungarian algorithm
+%
+
+[nrow,ncol] = size(ref_img);
+assert( all(size(ref_img)==size(target_img)) );
+
+% 1) Detect beads as brights spots above background.
+ref_peaks    = pickPeaks( ref_img,    0.7*params.don_thresh, params.overlap_thresh );
+target_peaks = pickPeaks( target_img, 0.7*params.don_thresh, params.overlap_thresh );
+
+
+% 2) For each peak in the reference, find the corresponding peak in the target.
+% K-nearest neighbor search (Statistics toolbox), where K=1. Using K>1 could be
+% used to verify there is no uncertainty (other pints are far away).
+% This will not work if the beads are too dense or if the distortion is too
+% severe -- the "correct" choice has to be closer than nearby beads.
+[idx,dist] = knnsearch( target_peaks, ref_peaks );
+target_peaks = target_peaks(idx,:);
+
+target_peaks = target_peaks(dist<5,:);
+ref_peaks    = ref_peaks(dist<5,:);
+
+% Find any reference peaks that use the same target peak multiple times. Such
+% points clearly have some uncertainty and should be thrown out.
+% Apparently this does not help. 
+u = unique(idx);
+n = histc(idx,u); %count how many times each index is used
+fprintf('%.0f (%.0f%%) of points are ambiguous\n', sum(n>1), 100*sum(n>1)/numel(n) );
+
+% idx = u(n==1);
+% ref_peaks    = ref_peaks(idx,:);
+% target_peaks = target_peaks(idx,:);
+
+
+% 3) Generate the transformation matrix from control points
+assert( all(size(ref_peaks)==size(target_peaks)) );
+tform = cp2tform( target_peaks, ref_peaks, 'nonreflective similarity' );
+
+
+% 4) Transform the target field image so it is aligned with the reference.
+% X/YData are needed so imtransform crops the output to the size of the input.
+reg_img = imtransform( target_img, tform, 'bicubic', ...
+                          'XData',[1 ncol], 'YData',[1 nrow]);
+                      
+                      
+% 5) Calculate distortion parameters from tform.
+ss = tform.tdata.Tinv(2,1);
+sc = tform.tdata.Tinv(1,1);
+tx = tform.tdata.Tinv(3,1);
+ty = tform.tdata.Tinv(3,2);
+scale = sqrt(ss*ss + sc*sc);  %FIXME: which is which??
+theta = atan2(ss,sc)*180/pi;
+
+align = struct( 'dx',tx,'dy',ty, 'theta',theta, 'sx',scale,'sy',scale, ...
+                'abs_dev',0, 'tform',fliptform(tform) )
+
+q = 2; %fake quality value. FIXME.
+
+
+
+% END FUNCTION %function alignSearch_cpt
 
 
 

@@ -45,8 +45,11 @@ if nargin>3 && ~isempty(tform),
     % We have to first center the peak locations at (0,0) so the rotation is
     % about the center of the image, then put it back afterward.
     % Peak (maxima) locations must be integers, so they are rounded.
-    picks = tformfwd(  tform,  [total_picks(:,1)-(ncol/2) total_picks(:,2)-(nrow/2)]  );
-    picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
+%     picks = tformfwd(  tform,  [total_picks(:,1)-(ncol/2) total_picks(:,2)-(nrow/2)]  );
+%     picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
+    
+    % Centering isn't required (it actually breaks it) for a real tform.
+    picks = round( tformfwd( tform, total_picks ) );
     
     % Mark any peaks that now fall outside the field limits.
     rejects = picks(:,1)<3      | picks(:,2)<3       | ...

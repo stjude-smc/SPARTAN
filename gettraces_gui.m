@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 14-Dec-2013 17:42:43
+% Last Modified by GUIDE v2.5 10-Jul-2014 14:27:42
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -212,12 +212,13 @@ setappdata(handles.figure1,'stkData', stkData);
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 % low = min(min(handles.stk_top));
 low=0;
-high = max(max(handles.stk_top));
-high = min( ceil(high*1.5), 32000 );
+sort_px = sort(handles.stk_top);
+high = sort_px( floor(0.99*numel(sort_px)) );
+high = min( ceil(high*2), 32000 );
 val = (low+high)/2;
 
 set(handles.scaleSlider,'min',low);
-set(handles.scaleSlider,'max',32000); %uint32 maxmimum value
+set(handles.scaleSlider,'max',high); %uint16 maxmimum value
 set(handles.scaleSlider,'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
@@ -500,8 +501,8 @@ else
            continue;   %ignore donor field alignment to itself
         end
         
-        text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.1f (rot), %0.1f (dev)', ...
-                       [a(i).dx a(i).dy a(i).theta a(i).abs_dev] )  ];
+        text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.2f (rot), %.1f%% (s), %0.1f (dev)', ...
+                       [a(i).dx a(i).dy a(i).theta 100*(a(i).sx-1) a(i).abs_dev] )  ];
     end
     
     % If the alignment quality (confidence) is low, warn the user.
@@ -631,19 +632,21 @@ delete(findobj(gcf,'type','line'));
 
     
 if handles.params.geometry==2, %dual-channel
-    % FIXME: do not assume the order; assign based on peak locations!
-    indD = 1:2:numel(handles.x);
-    indA = 2:2:numel(handles.x);
-        
+    % Assign each spot to the corresponding field image.
+    indL  = find( handles.x<=(ncol/2) );
+    indR  = find( handles.x> (ncol/2) );
+    rindL = find( handles.rx<=(ncol/2) );
+    rindR = find( handles.rx> (ncol/2) );
+    
     % Draw markers on selection points (donor side)
     axes(handles.axDonor);
-    line( handles.x(indD),     handles.y(indD),     style1{:}  );
-    line( handles.rx(1:2:end), handles.ry(1:2:end), style1b{:} );
+    line( handles.x(indL),   handles.y(indL),   style1{:}  );
+    line( handles.rx(rindL), handles.ry(rindL), style1b{:} );
 
     % Draw markers on selection points (acceptor side)
     axes(handles.axAcceptor);
-    line( handles.x(indA)-(ncol/2),     handles.y(indA),     style1{:}  );
-    line( handles.rx(2:2:end)-(ncol/2), handles.ry(2:2:end), style1b{:} );
+    line( handles.x(indR)-(ncol/2),   handles.y(indR),  style1{:}   );
+    line( handles.rx(rindR)-(ncol/2), handles.ry(rindR), style1b{:} );
     
 elseif handles.params.geometry>2, %quad-channel
     % Assign each spot to a quadrant. FIXME: can this be a loop?
