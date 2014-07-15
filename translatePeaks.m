@@ -49,7 +49,7 @@ if nargin>3 && ~isempty(tform),
 %     picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
     
     % Centering isn't required (it actually breaks it) for a real tform.
-    picks = round( tformfwd( tform, total_picks ) );
+    picks = round( tforminv( tform, total_picks ) );
     
     % Mark any peaks that now fall outside the field limits.
     rejects = picks(:,1)<3      | picks(:,2)<3       | ...

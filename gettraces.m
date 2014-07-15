@@ -418,22 +418,12 @@ function [picks,total_t,align,total_picks,fractionOverlapped,rejectedPicks,rejec
 % as they will appear in the output data (donor,acceptor). params.idxFields and
 % quadrants identify the physical position of each channel on the camera chip.
 % When looking into the image, use idxFields.
-
-
-% Get the names and indexes of channels TO USE. Channels will be ignored if
-% the name is empty. quadrants are the indexes into the full array of
-% fields of the ones we want to use, and also define where to translate the
-% peak locations later so they are in the right channel.
-% quadrants = find( ~cellfun(@isempty,params.chNames) );
-% channelNames = params.chNames(quadrants);
 quadrants = params.idxFields;
 channelNames = params.chNames;
 nCh = numel(channelNames);  %# of channels TO USE.
 
 
 % Define each channel's dimensions and sum fields together.
-% For dual-channel, we assume they are arranged L/R.
-% For quad-channel, it is UL/UR/LL/LR
 [nrow ncol] = size(image_t);  %full-chip size.
 
 if params.geometry==1,
@@ -515,6 +505,10 @@ if params.geometry>1,
         align(i) = struct( 'dx',T(3,1), 'dy',T(3,2), 'theta',theta, ...
                            'sx',T(1,1)/cosd(theta), 'sy',T(2,2)/cosd(theta), ...
                            'abs_dev',abs_dev );
+        
+        % Measure the "quality" of the alignment as the magnitude increase in
+        % score compared to a "random" alignment.
+        %quality =  weberQuality(ref_img,reg_img,params.don_thresh)
     end
 end
 
@@ -543,37 +537,38 @@ if params.geometry>1 && params.alignMethod>1,
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
-        fieldID = params.idxFields(i);
+        target_t = allFields(:,:,params.idxFields(i));
         
-        % Search for an optimal alignment of the selected field vs donor.
-        %p = params;
-        %if numel(params.alignment)>1,
-        %    p.alignment = params.alignment(i);
-        %end
-        
+        % Search for an optimal alignment of the selected field vs donor.        
         if params.alignMethod==2,
-            %alignment loaded; what do we do?
-        
+            % Nothing to search, just apply the alignment.
+            newAlign(i) = params.alignment(i);
+            registered_t{i} = imtransform( target_t, newAlign(i).tform, ...
+                                'bicubic', 'XData',[1 ncol], 'YData',[1 nrow]);
+            
         elseif params.alignMethod==3,
-            [newAlign(i),registered_t{i},quality(i)] = alignSearch_cpt( ...
-                                     donor_t, allFields(:,:,fieldID), params );
+            % Use peaks of fluorescence as control points.
+            [newAlign(i),registered_t{i}] = alignSearch_cpt( ...
+                                                   donor_t, target_t, params );
                                  
         elseif params.alignMethod==4,
-            [newAlign(i),registered_t{i},quality(i)] = alignSearch_weber( ...
-                                     donor_t, allFields(:,:,fieldID), params );
+            % Old, slow brute force method.
+            [newAlign(i),registered_t{i}] = alignSearch_weber( ...
+                                                   donor_t, target_t, params );
         end
+        
         total_t = total_t + registered_t{i};
-
         tform{i} = newAlign(i).tform;
+        
+        % Measure the "quality" of the alignment as the magnitude increase in
+        % score compared to a "random" alignment.
+        quality(i) =  weberQuality(donor_t,registered_t{i},params.don_thresh);
     end
-        
+    
+    % If the optimal alignment is not trivial, re-pick molecule locations and
+    % derive alignment deviation score.
     if ~( all([newAlign.dx]==0) && all([newAlign.dy]==0) && all([newAlign.theta]==0) ),
-        % The alignment is clearly off, but we may not have high confidence
-        % in the predicted alignment. Just give a warning if it is below
-        % some arbitrary, but carefully chosen, threshold. Zero is returned
-        % by alignSearch if there is only one value per parameter, which is
-        % the case if we are just applying a specific alignment.
-        
+        % Give a warning for poor quality alignment.
         if any( quality<1.1 & quality>0 ),
             warning('gettraces:lowConfidenceAlignment', ...
                     'Low confidence alignment. Parameters are out of range or data quality is poor.');
@@ -760,7 +755,7 @@ end
 
 
 
-function [align,reg_img,quality] = alignSearch_cpt( ref_img, target_img, params )
+function [align,reg_img] = alignSearch_cpt( ref_img, target_img, params )
 % ALIGNSEARCH    Align two images using a simple control point algorithm.
 %
 %    [bestAlign,bestReg,quality] = alignSearch( REF, TARGET, params)
@@ -829,11 +824,11 @@ scale = sqrt(ss*ss + sc*sc);
 theta = atan2(ss,sc)*180/pi;
 
 align = struct( 'dx',tx,'dy',ty, 'theta',theta, 'sx',scale,'sy',scale, ...
-                'abs_dev',0, 'tform',fliptform(tform) );
+                'abs_dev',0, 'tform',tform );
 
 % Measure the "quality" of the alignment as the magnitude increase in
 % score compared to a "random" alignment.
-quality =  weberQuality(ref_img,reg_img,params.don_thresh);
+%quality =  weberQuality(ref_img,reg_img,params.don_thresh);
 
 
 
@@ -842,7 +837,7 @@ quality =  weberQuality(ref_img,reg_img,params.don_thresh);
 
 
 
-function [bestAlign,bestReg,quality] = alignSearch_weber( donor_t, acceptor_t, params )
+function [bestAlign,bestReg] = alignSearch_weber( donor_t, acceptor_t, params )
 % ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
 %
 %    [bestAlign,bestReg] = alignSearch( image_t, params, [forceAlign] )
@@ -984,13 +979,13 @@ T = [  cosd(bestAlign.theta)  sind(bestAlign.theta)  0 ; ...
       -sind(bestAlign.theta)  cosd(bestAlign.theta)  0 ; ...
             bestAlign.dx           bestAlign.dy      1 ];
 T = T.*Ts;
-bestAlign.tform = maketform('affine',T);
+bestAlign.tform = fliptform( maketform('affine',T) );
 
 
 % Measure the "quality" of the alignment as the magnitude increase in
 % score compared to a "random" alignment.
 % quality = max(bestScores) / weberRandom(donor_t,acceptor_t,don_thresh);
-quality =  weberQuality(donor_t,bestReg,don_thresh);
+%quality =  weberQuality(donor_t,bestReg,don_thresh);
 
 
 if ~params.quiet && ntheta>1,

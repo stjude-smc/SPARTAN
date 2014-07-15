@@ -65,11 +65,9 @@ commonParams.don_thresh = 0; %auto
 commonParams.overlap_thresh = 2.3;
 commonParams.nPixelsToSum   = 4;
 
-% commonParams.alignment.theta = -4:0.1:4;
-% commonParams.alignment.dx    = -4:1:4;
-% commonParams.alignment.dy    = -4:1:4;  %all dx and dy must be integers
-% commonParams.alignment.sx    = 1;  %magnification (x)
-% commonParams.alignment.sy    = 1;  %magnification (y)
+% Default alignment is trivial (do nothing).
+% commonParams.alignemnt = struct( 'dx',0, 'dy',0, 'theta',0, 'sx',0, 'sy',0, ...
+%                             'abs_dev',0, 'tform',maketform('affine',eye(3)) );
 commonParams.alignMethod = 1; %disabled, assume aligned.
 
 % Other options:
@@ -184,8 +182,6 @@ end
 constants.gettraces_profiles = p;
 constants.gettraces_defaultProfile = 3;   %Dual-View (Cy3/Cy5)
 constants.gettracesDefaultParams = p( constants.gettraces_defaultProfile );
-
-
 
 
 

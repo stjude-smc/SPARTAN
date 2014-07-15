@@ -195,6 +195,8 @@ set( handles.txtAlignStatus,      'String', '' );
 set( handles.txtAlignWarning, 'Visible','off' );
 set(handles.nummoles,'String','');
 
+set(gcf,'pointer','watch'); drawnow;
+
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
     rmappdata(handles.figure1,'stkData');
@@ -308,6 +310,7 @@ colormap(handles.colortable);  zoom on;
 title(handles.axTotal,'Total Intensity');
 
 % Finish up
+set(gcf,'pointer','arrow');
 set(handles.getTraces,'Enable','on');
 set(handles.btnMetadata,'Enable','on');
 guidata(hObject,handles);
@@ -456,6 +459,8 @@ if ~isfield(handles, 'stkfile')
     return;
 end
 
+set(gcf,'pointer','watch'); drawnow;
+
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
 % params = handles.params;
@@ -602,6 +607,7 @@ set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
 
 set(handles.saveTraces,'Enable','on');
 
+set(gcf,'pointer','arrow');
 guidata(hObject,handles);
 
 % end function
@@ -991,22 +997,22 @@ if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
     
     % 4) Disable alignment controls and set to checked.
     handles.params.alignMethod = 2;
-    
-    set( handles.chkAlignTranslate, 'Enable','off' );
-    set( handles.chkAlignRotate,    'Enable','off' );
+    set( handles.cboAlignMethod, 'Value',2 );
     
     
 % Unload the current alignment and reset to the normal state.
-elseif pressed == get(hObject,'Min')
-    set( handles.chkAlignTranslate, 'Enable','on' );
-    set( handles.chkAlignRotate,    'Enable','on' );
-    
+elseif pressed == get(hObject,'Min')    
     % Reset alignment parameters back to defaults.
     constants = cascadeConstants;
     sel = get(handles.cboGeometry,'Value');
     p = constants.gettraces_profiles(sel);
-    handles.params.alignment = p.alignment;
+    
     handles.params.alignMethod = p.alignMethod;
+    set( handles.cboAlignMethod, 'Value',p.alignMethod );
+    
+    if isfield(handles.params,'alignment'),
+        handles.params = rmfield(handles.params,'alignment');
+    end
     handles.alignment = [];
 end
 
@@ -1036,7 +1042,7 @@ assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.p
 % end
 
 [f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
-alignment = rmfield( handles.alignment, {'quality','abs_dev'} );
+alignment = rmfield( handles.alignment, {'quality'} );
 save( [p f], 'alignment' );
 
 
@@ -1102,14 +1108,13 @@ guidata(hObject,handles);
 function cboAlignMethod_Callback(hObject, ~, handles)
 % 
 
-% Hints: contents = cellstr(get(hObject,'String')) returns cboAlignMethod contents as cell array
-%        contents{get(hObject,'Value')} returns selected item from cboAlignMethod
-
 % methods = contents = cellstr(get(hObject,'String'));
 sel = get(hObject,'Value');
 % method = contents{sel};
 
 handles.params.alignMethod = sel;
+
+% FIXME: if the users selects "load alignment", this should ask for a file.
 
 % Re-pick molecules with new settings.
 handles = getTraces_Callback( hObject, [], handles);
@@ -1117,3 +1122,13 @@ guidata(hObject,handles);
 
 
 % END FUNCTION cboAlignMethod_Callback
+
+
+
+
+
+
+
+
+
+
