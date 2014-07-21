@@ -66,7 +66,7 @@ methods
         % This does not allow initializing TracesFret4 object with TracesFret
         % data, which seems like a valid thing to do! Doing so may require
         % copying property fields.
-        elseif strcmp(class(varargin{1}),class(this))
+        elseif nargin==1 && strcmp(class(varargin{1}),class(this))
             this = copy(varargin{1});
             
         elseif nargin==1 && isa(varargin{1},'Traces')

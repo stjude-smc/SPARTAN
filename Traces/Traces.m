@@ -326,6 +326,8 @@ methods
     % This is useful in constructors, where class type must be preserved.
     % Only copies channels that are common to BOTH objects.
     function copyDataFrom(this,source)
+        chNames = {};
+        
         % Copy all data channels in common with other object to this one.
         for c=1:source.nChannels,
             ch = source.channelNames{c};
@@ -335,12 +337,13 @@ methods
                 
                 % If this channel is valid, but not used, add it.
                 if ~ismember(ch,this.channelNames)
-                    this.channelNames = [this.channelNames ch];
+                    chNames = [chNames ch];
                 end
             end
         end
         
         % Copy parameters common to all Traces classes.
+        this.channelNames = chNames;
         this.nTraces = source.nTraces;
         this.traceMetadata = source.traceMetadata;
         this.fileMetadata = source.fileMetadata;
