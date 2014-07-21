@@ -336,7 +336,7 @@ methods
                 this.(ch) = source.(ch);
                 
                 % If this channel is valid, but not used, add it.
-                if ~ismember(ch,this.channelNames)
+                if ~ismember(ch,chNames)
                     chNames = [chNames ch];
                 end
             end

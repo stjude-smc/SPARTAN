@@ -786,9 +786,11 @@ target_peaks = pickPeaks( target_img, 0.7*params.don_thresh, params.overlap_thre
 % severe -- the "correct" choice has to be closer than nearby beads.
 [idx,dist] = knnsearch( target_peaks, ref_peaks );
 target_peaks = target_peaks(idx,:);
+sel = dist<params.nPixelsToSum;
 
-target_peaks = target_peaks(dist<5,:);
-ref_peaks    = ref_peaks(dist<5,:);
+idx = idx(sel);
+target_peaks = target_peaks(sel,:);
+ref_peaks    = ref_peaks(sel,:);
 
 % Find any reference peaks that use the same target peak multiple times. Such
 % points clearly have some uncertainty and should be thrown out.
@@ -796,7 +798,8 @@ ref_peaks    = ref_peaks(dist<5,:);
 if ~params.quiet,
     u = unique(idx);
     n = histc(idx,u); %count how many times each index is used
-    fprintf('alignSearch_cpt: %.0f (%.0f%%) of points are ambiguous\n', sum(n>1), 100*sum(n>1)/numel(n) );
+    fprintf('alignSearch_cpt: %.0f (%0.0f%%) were used; of those %.0f (%.0f%%) are ambiguous\n', ...
+             numel(idx), 100*numel(idx)/numel(dist), sum(n>1), 100*sum(n>1)/numel(n) );
 end
 
 % idx = u(n==1);

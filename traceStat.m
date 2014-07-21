@@ -188,11 +188,11 @@ retval = struct( ...
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors. The speed up is not
 % that significant (2.5-fold for 4 cores), but useful.
-% if matlabpool('size')==0,  matlabpool;  end
+if matlabpool('size')==0,  matlabpool;  end
 
 
-% parfor i=1:Ntraces
-for i=1:Ntraces   %use this instead to disable parallel operation.
+parfor i=1:Ntraces
+% for i=1:Ntraces   %use this instead to disable parallel operation.
     
     donor    = donorAll(i,:);
     acceptor = acceptorAll(i,:);

@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 10-Jul-2014 15:44:01
+% Last Modified by GUIDE v2.5 20-Jul-2014 18:11:03
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -175,7 +175,9 @@ function handles = OpenStk(filename, handles, hObject)
 if isempty(filename), return; end
 if ~iscell(filename), filename = {filename}; end
 
+% Remove "-file00x" extension for multi-file TIFF stacks.
 [p,f,e] = fileparts( filename{1} );
+f = regexprep(f,'-file[0-9]*$','');
 fnameText = fullfile(p, [f e]);
 
 % Trancate name if too long ot fit into window without wrapping.
@@ -1122,13 +1124,3 @@ guidata(hObject,handles);
 
 
 % END FUNCTION cboAlignMethod_Callback
-
-
-
-
-
-
-
-
-
-

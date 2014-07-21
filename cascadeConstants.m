@@ -1,9 +1,11 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.6.1';  %pipeline release version number
+constants.version = '2.7';  %pipeline release version number
 
 
+
+%% ======================  Global Algorithm Settings ====================== %%
 % ---- Algorithm constants that rarely need to be adjusted.
 
 % Constants for calculating certain properties in traceStat for autotrace.
@@ -48,34 +50,35 @@ constants.gamma = 1.0;
 
 
 
-% ---- Gettraces default settings
+
+%% ======================  Gettraces Default Settings ====================== %%
 % The first group of settings below will overwrite the ones in the
 % profiles, so don't put anything here unless it isn't specified in the
 % profile settings!!!
+
+% Placeholders
+commonParams = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
+                       'chDesc',{}, 'wavelengths',[], 'crosstalk',[], ...
+                       'biasCorrection',{} );
 
 % ADU (arbitrary camera intensity units) to photon conversion factor in
 % units of ADU/photon. See camera calibration data sheet. This may depend
 % on which digitizer is selected! Check camera documentation.
 % If no information is available, comment this line out.
-commonParams.photonConversion = 100/3.1;   % 10MHz Evolve 512
-%commonParams.photonConversion = 100/2.6;   % 5MHz Evolve 512
+commonParams(1).photonConversion = 100/3.1;   % 10MHz Evolve 512
+%commonParams(1).photonConversion = 100/2.6;   % 5MHz Evolve 512
 
 % Algorithm settings:
-commonParams.don_thresh = 0; %auto
-commonParams.overlap_thresh = 2.3;
-commonParams.nPixelsToSum   = 4;
-
-% Default alignment is trivial (do nothing).
-% commonParams.alignemnt = struct( 'dx',0, 'dy',0, 'theta',0, 'sx',0, 'sy',0, ...
-%                             'abs_dev',0, 'tform',maketform('affine',eye(3)) );
-commonParams.alignMethod = 1; %disabled, assume aligned.
+commonParams.don_thresh     = 0;   %molecule detection threshold (0=automatic)
+commonParams.overlap_thresh = 2.3; %remove molecules that are w/i X pixels.
+commonParams.nPixelsToSum   = 4;   %number of pixels to sum per trace
+commonParams.alignMethod    = 1;   %disabled, assume aligned.
 
 % Other options:
-commonParams.skipExisting = 0;
-commonParams.recursive = 0;
-commonParams.quiet = 0;
-commonParams.saveLocations = 0;
-
+commonParams.skipExisting  = 0; %batch mode: skip files already processed.
+commonParams.recursive     = 0; %batch mode: search recursively.
+commonParams.quiet         = 0; %don't output debug messages.
+commonParams.saveLocations = 0; %save molecule locations to a text file
 
 
 % Create gettraces parameter profiles for various imaging geometries and
@@ -89,103 +92,124 @@ commonParams.saveLocations = 0;
 % position on the CCD chip. For the Quad-View the order is UL/UR/LL/LR.
 % For all parametes, only list channels that will be used.
 % NOTE: you must put the channels in their spectral order.
-clear p;
-p(1).name        = 'Single-channel (Cy3)';
-p(1).geometry    = 1;
-p(1).idxFields   = 1; %only one channel
-p(1).chNames     = {'donor'};
-p(1).chDesc      = {'Cy3'};
-p(1).wavelengths = 532;
+clear p; clear profiles
 
 
-p(2) = p(1);
-p(2).name        = 'Single-channel (Cy5)';
-p(2).wavelengths = 640;
-p(2).chDesc      = {'Cy5'};
+p = commonParams;
+p.name        = 'EMCCD, Single-channel (Cy3)';
+p.geometry    = 1;
+p.idxFields   = 1; %only one channel
+p.chNames     = {'donor'};
+p.chDesc      = {'Cy3'};
+p.wavelengths = 532;
+profiles(1) = p;
 
 
-p(3).name        = 'Dual-Cam (Cy3/Cy5)';
-p(3).geometry    = 2;
-p(3).idxFields   = [1 2]; %L/R
-p(3).chNames     = {'donor','acceptor'};
-p(3).chDesc      = {'Cy3','Cy5'};
-p(3).wavelengths = [532 640];
-p(3).crosstalk   = 0.075;  %donor->acceptor
+p.name        = 'EMCCD, Single-channel (Cy5)';
+p.wavelengths = 640;
+p.chDesc      = {'Cy5'};
+profiles(end+1) = p;
+
+
+p = commonParams;
+p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5)';
+p.geometry    = 2;
+p.idxFields   = [1 2]; %L/R
+p.chNames     = {'donor','acceptor'};
+p.chDesc      = {'Cy3','Cy5'};
+p.wavelengths = [532 640];
+p.crosstalk   = 0.075;  %donor->acceptor
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
 % The function values are listed in the same order as the channels above.
-p(3).biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
+p.biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
                          @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
-
-                     
-p(4).name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
-p(4).geometry    = 3;
-p(4).idxFields   = [4 3 1 2];  %field order: LR/LL/UL/UR
-p(4).chNames     = {'donor','acceptor','donor2','acceptor2'};
-p(4).chDesc      = {'Cy2','Cy3','Cy5','Cy7'};
-p(4).wavelengths = [473 532 640 730];
-p(4).crosstalk   = zeros(4);
-p(4).crosstalk(2,3) = 0.13;   %Cy3->Cy5
-p(4).crosstalk(3,4) = 0.06;   %Cy5->Cy7 (is this correct???)
+profiles(end+1) = p;
 
 
-p(5).name        = 'Quad-View (Cy3/Cy5 only)';
-p(5).geometry    = 3;
-p(5).idxFields   = [3 1]; %field order: LL/UL
-p(5).chNames     = {'donor','acceptor'};
-p(5).chDesc      = {'Cy3','Cy5'};
-p(5).wavelengths = [532 640];
-p(5).crosstalk   = 0.13;   %Cy3->Cy5
+p.name        = 'EMCCD 5MHz, Dual-Cam (Cy3/Cy5)';
+p.photonConversion = 100/2.6;   % 5MHz Evolve 512, assuming 100x gain.
+profiles(end+1) = p;
 
 
-p(6).name        = 'Quad-View (Cy3/Cy5/Cy7)';
-p(6).geometry    = 3;
-p(6).idxFields   = [3 1 2]; % field order: LL/UL/LL
-p(6).chNames     = {'donor','acceptor','acceptor2'};
-p(6).chDesc      = {'Cy3','Cy5','Cy7'};
-p(6).wavelengths = [532 640 730];
-p(6).crosstalk   = zeros(4);
-p(6).crosstalk(1,2) = 0.12;   %Cy3->Cy5
-p(6).crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
+p = commonParams;
+p.name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
+p.geometry    = 3;
+p.idxFields   = [4 3 1 2];  %field order: LR/LL/UL/UR
+p.chNames     = {'donor','acceptor','donor2','acceptor2'};
+p.chDesc      = {'Cy2','Cy3','Cy5','Cy7'};
+p.wavelengths = [473 532 640 730];
+p.crosstalk   = zeros(4);
+p.crosstalk(2,3) = 0.13;   %Cy3->Cy5
+p.crosstalk(3,4) = 0.06;   %Cy5->Cy7 (is this correct???)
+profiles(end+1) = p;
 
 
-p(7).name        = 'Quad-View (Cy5/Cy7)';
-p(7).geometry    = 3;
-p(7).idxFields   = [1 2]; % field order: LL/UL/LL
-p(7).chNames     = {'donor','acceptor'};
-p(7).chDesc      = {'Cy5','Cy7'};
-p(7).wavelengths = [640 730];
-p(7).crosstalk   = 0.11;
-
-p(8).name        = 'Twin-Cam sCMOS (Cy3/Cy5)';
-p(8).geometry    = 2;
-p(8).idxFields   = [2 1]; %L/R; they're reversed. oops.
-p(8).chNames     = {'donor','acceptor'};
-p(8).chDesc      = {'Cy3','Cy5'};
-p(8).wavelengths = [532 640];
-p(8).crosstalk   = 0.115;  %donor->acceptor
-p(8).nPixelsToSum = 5;  %5-6
-p(8).photonConversion = 2.04; %0.49 e-/ADU
-%No Qinsi correction; we assume the fields are flat.
+p = commonParams;
+p.name        = 'Quad-View (Cy3/Cy5 only)';
+p.geometry    = 3;
+p.idxFields   = [3 1]; %field order: LL/UL
+p.chNames     = {'donor','acceptor'};
+p.chDesc      = {'Cy3','Cy5'};
+p.wavelengths = [532 640];
+p.crosstalk   = 0.13;   %Cy3->Cy5
+profiles(end+1) = p;
 
 
-% Add all of the common settings that do not vary.
-% FIXME: do not overwrite any values set.
-fnames = fieldnames(commonParams);
-for i=1:numel(fnames),
-    [ p.(fnames{i}) ] = deal( commonParams.(fnames{i}) );
-end
+p = commonParams;
+p.name        = 'Quad-View (Cy3/Cy5/Cy7)';
+p.geometry    = 3;
+p.idxFields   = [3 1 2]; % field order: LL/UL/LL
+p.chNames     = {'donor','acceptor','acceptor2'};
+p.chDesc      = {'Cy3','Cy5','Cy7'};
+p.wavelengths = [532 640 730];
+p.crosstalk   = zeros(4);
+p.crosstalk(1,2) = 0.12;   %Cy3->Cy5
+p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
+profiles(end+1) = p;
+
+
+p = commonParams;
+p.name        = 'Quad-View (Cy5/Cy7)';
+p.geometry    = 3;
+p.idxFields   = [1 2]; % field order: LL/UL/LL
+p.chNames     = {'donor','acceptor'};
+p.chDesc      = {'Cy5','Cy7'};
+p.wavelengths = [640 730];
+p.crosstalk   = 0.11;
+profiles(end+1) = p;
+
+
+p = commonParams;
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5)';
+p.geometry    = 2;
+p.idxFields   = [1 2]; %L/R
+p.chNames     = {'donor','acceptor'};
+p.chDesc      = {'Cy3','Cy5'};
+p.wavelengths = [532 640];
+p.crosstalk   = 0.115;  %donor->acceptor
+p.nPixelsToSum = 5;  %5-6
+p.photonConversion = 2.04; %0.49 e-/ADU
+profiles(end+1) = p;
+
+% This last one is for a few movies we took in the beginning, where the cameras
+% were reversed in metamorph (Cy5 on the left). Not needed anymore?
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
+p.idxFields   = [2 1]; %L/R; they're reversed. oops.
+profiles(end+1) = p;
 
 
 % Set the default settings profile.
-constants.gettraces_profiles = p;
+constants.gettraces_profiles = profiles;
 constants.gettraces_defaultProfile = 3;   %Dual-View (Cy3/Cy5)
-constants.gettracesDefaultParams = p( constants.gettraces_defaultProfile );
+constants.gettracesDefaultParams = profiles( constants.gettraces_defaultProfile );
 
 
 
-% ---- Default selection criteria for autotrace
+
+
+%% =================  Autotrace Default Selection Criteria ================= %%
 
 criteria.eq_overlap  = 0;       % Remove overlapping molecules
 criteria.min_corr    = -1.1;    % 
@@ -200,6 +224,8 @@ constants.defaultAutotraceCriteria = criteria;
 
 
 
+
+%% ======================  Makeplots Default Settings ====================== %%
 % ---- Constants for display/plotting functions (makeplots)
 
 % default population FRET contour plot paramters (cplot.m)
@@ -252,13 +278,22 @@ constants.defaultMakeplotsOptions = options;
 
 
 
-% ---- Other settings
+
+
+%% ============================  Other Settings ============================ %%
+
 if ispc,
     constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
 else
-    constants.modelLocation = '/home/dsterry/data/Daniel/models/';
+    constants.modelLocation = '/media/Z/SharedDocs/Shared QuB/';
 end
 
 % For MIL (batch kinetics).
 warning off MATLAB:maxNumCompThreads:Deprecated
 constants.nProcessors = maxNumCompThreads;
+
+
+
+
+
+
