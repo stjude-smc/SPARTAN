@@ -149,7 +149,7 @@ end
 if ~iscell(filename),  filename = {filename};  end
 
 [~,~,ext] = fileparts(filename{1});
-
+% tic
 % Load movie data from file.
 if ~isempty( strfind(ext,'.stk') ),
     movie = Movie_STK( filename );
@@ -158,7 +158,7 @@ elseif ~isempty( strfind(ext,'.tif') ),
 else
     error('Unrecognized file type');
 end
-
+% disp(toc);
 time = movie.timeAxis;
 stkX = movie.nX;
 stkY = movie.nY;
@@ -202,7 +202,7 @@ background=imresize(temp,[stkY stkX],'bicubic');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
-% FIXME: this causes problems in experiments where the background at the
+% FIXME: this causes problems in experiments where the background ayyyymmdd HH:MM:SSt the
 % end of the movies is higher than at the beginning: tRNA selection.
 endBackground = movie.readFrames(nFrames-11:nFrames-1);
 
@@ -450,7 +450,7 @@ total_t = sum( allFields(:,:,quadrants), 3 );
 
 
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
-[total_picks,rejected] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+[total_picks,rejected] = pickPeaks( total_t, params );
 nPicked = size(total_picks,1);
 
 assert( all(total_picks(:))>0, 'bad peak locations' );
@@ -576,7 +576,7 @@ if params.geometry>1 && params.alignMethod>1,
         end
         
         % Pick peaks from the aligned, total intensity image.
-        [total_picks,rejected] = pickPeaks( total_t, params.don_thresh, params.overlap_thresh );
+        [total_picks,rejected] = pickPeaks( total_t, params );
 
         % For each channel, predict peak locations as straight translations 
         % from the peak locations in the total intensity image.
@@ -633,105 +633,70 @@ fractionOverlapped = size(rejectedTotalPicks,1) / nPicked;
 
 
 
-function wavg = WeightedAvg( vals, weights )
-% Produces a weighted average of <vals>.
-% Used by getTraces to find fluor centroid position
-
-weights = weights / sum(weights);  % normalize
-
-wavg = sum( vals.*weights );
-
-% end function WEIGHTEDAVG
-
-
-
-function [picks,boolRejected] = pickPeaks( image_t, threshold, overlap_thresh )
+function [picks,boolRejected] = pickPeaks( image_t, params )
 % Localizes the peaks of fluorescence.
 %   picks = locations (x,y) of all molecules selected.
 %   rejectedPicks = locations of molecules that are too close to a neighbor
 %                        and should be ignored in analysis.
 %
-[nrow ncol] = size(image_t);
+
+[nrow,ncol] = size(image_t);
 
 
-% 1. For each pixel (excluding edges), pick those above threshold that have
-% greater intensity than their neighbors (3x3,local maxima).
-% tempxy is peak position, centroidxy is estimated true molecule position.
-bf = 3; %pixels around the edges to ignore.
+threshold = params.don_thresh;
+overlap_thresh = params.overlap_thresh;
+% nhood = params.nhoodSize;  %rough size of peak area (1=>3x3 pixels,2=>5x5,3=>7x7,etc)
+nhood=1;  %for some reason this generally works slightly better. FIXME?
 
-[rows,cols] = find( image_t(1+bf:nrow-bf,1+bf:ncol-bf)>threshold );
-rows = rows+bf;
-cols = cols+bf;
-off_x = 0; off_y = 0;
+% tic;
+% Detect molecules as fluorescence maxima over local 3x3 regions,
+% ignoring any that are below the detection threshold or near the edges.
+kernel = [0 1 0 ; 1 1 1; 0 1 0];
 
-nMols=0;
-for n=1:numel(rows),
-    i = rows(n);
-    j = cols(n);
+maxima = imregionalmax(image_t,kernel) & image_t>threshold;
+[rows,cols] = find(maxima);
+picks = [cols,rows];
+
+ed = size(kernel,1);  %distance from the edge to avoid
+edge = rows<=ed | rows>=nrow-ed | cols<=ed  | cols>=ncol-ed;
+picks = picks(~edge,:);
+
+
+% Find weighted center of each peak for more accurate PSF overlap detection.
+% imdilate+regionprops works for this, but tends to merge nearby peaks.
+nMol = size(picks,1);
+centroids = zeros(nMol,2);
+
+for i=1:nMol,
+    % Extract a window region around the molecule.
+    x_window = picks(i,1) + (-nhood:+nhood);
+    y_window = picks(i,2) + (-nhood:+nhood);
+    block = image_t( y_window, x_window );
     
-    block = image_t(i-1:i+1,j-1:j+1);
-    cross = block( [2,4,5,6,8] );
-
-    if image_t(i,j)==max(cross)
-        % Calc centroid position using intensity-weighted average of
-        % position. This gives some additional information that is useful
-        % for alignment...I think.
-        if overlap_thresh~=0,
-            off_x = WeightedAvg( 1:3, sum(block,1)  ) -2;
-            off_y = WeightedAvg( 1:3, sum(block,2)' ) -2;
-        end
-
-        % Save the position of this molecule
-        nMols=nMols+1;
-        tempx(nMols)=j;
-        tempy(nMols)=i;
-
-        centroidx(nMols) = j+ off_x;
-        centroidy(nMols) = i+ off_y;
-    end
+    % Calculate an intensity-weighted average position of molecule w/i window.
+    tot = sum(block(:));
+    x = sum( x_window .* sum(block,2)'/tot );
+    y = sum( y_window .* sum(block,1)/tot  );
+    
+    centroids(i,:) = [y x];
 end
 
 
-if nMols<1,
-    picks = zeros(0,2);
-    boolRejected = false(0,2);
-    return;
+% Detect maxima that are very close together and probably have overlapping
+% point-spread functions.
+if overlap_thresh==0 || nMol==0,
+    boolRejected = false(1,nMol);  %no overlap rejection.
+else
+    %centroids = [centroidx' centroidy'];
+    [~,dist] = knnsearch( centroids, centroids, 'k',2 );
+    boolRejected = dist(:,2)'<=overlap_thresh;
 end
-
-assert( ~any(tempx(:)<bf|tempy(:)<bf) ); 
-
-
-% 2. Remove pick pairs that are closer than the cutoff radius, but still
-% easily distinguishable as distinct molecules. The loop iterates in a way
-% to avoid searching each pair twice and once the peaks are pretty far away
-% (in terms of y-axis/rows), it stops searching for overlap for that
-% molecule.
-overlap=zeros(1,nMols);
-
-if overlap_thresh~=0,
-    for i=1:nMols,
-        for j=i+1:nMols,
-            % quickly ignore molecules way beyond the threshold
-            if abs(centroidx(j)-centroidx(i)) > 1+ceil(overlap_thresh),
-                break;
-            end
-
-            % otherwise, we have to check more precisely
-            if (centroidx(i)-centroidx(j))^2 + (centroidy(i)-centroidy(j))^2 ...
-               < overlap_thresh^2
-                overlap(i)=1;
-                overlap(j)=1;
-            end
-        end
-    end
-end
-
-
-picks = [tempx' tempy'];
-boolRejected = overlap==1; %find peaks that overlap (are rejected)
+% disp(toc);
 
 
 % END FUNCTION pickPeaks
+
+
 
 
 function peaks = refinePeaks( image_t, peaks )
@@ -779,11 +744,13 @@ assert( all(size(ref_img)==size(target_img)) );
 % Since we are picking on the individual fields, the threshold is lowered. I
 % have no really optimized this factor (0.7). This will only work well if there
 % is a strong signal on all channels -- beads.
-pickParams = {0.7*params.don_thresh, params.overlap_thresh};
-[ref_peaks,reject]    = pickPeaks( ref_img,    pickParams{:} );
+pickParams = params;
+pickParams.don_thresh = 0.7*params.don_thresh;
+
+[ref_peaks,reject]    = pickPeaks( ref_img,    pickParams );
 ref_peaks = ref_peaks(~reject,:);
 
-[target_peaks,reject] = pickPeaks( target_img, pickParams{:} );
+[target_peaks,reject] = pickPeaks( target_img, pickParams );
 target_peaks = target_peaks(~reject,:);
 
 
@@ -1022,7 +989,7 @@ function [quality,randomScore] = weberQuality( base, registered, thresh )
 % generally acceptable; any lower and the data may have other problems.
 %
 
-N = 6; %number of repititions for averaging.
+N = 5; %number of repititions for averaging.
 S = zeros(N,1);
 
 for i=1:N,
@@ -1052,49 +1019,69 @@ function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks
 % its immediate neighborhood (defined by params.nPixelsToSum). These
 % regions are used by integrateAndSave() to sum most of the intensity for
 % each peak and generate fluorescence-time traces.
+% To minimize the contribution of nearby molecules, the molecules closest to the
+% peak center are added first and progressively out to the edge.
 %
 
-% Specify the number of most intense proximal pixels to sum when generating
-% fluorescence traces (depends on experimental point-spread function).
-swChoices = (1:2:19);
-idx = find( params.nPixelsToSum<=(swChoices.^2), 1,'first' );
-squarewidth = swChoices(idx);
+hw = params.nhoodSize;  % distance from peak to consider (eg, 1=3x3 area)
+squarewidth = 1+2*hw;   % width of neighborhood to examine.
+
+
+% Create masks for finding pixels progressively farther from the center.
+% mask{1} is the peak pixel, mask{2} is a 3x3 neighborhood, mask{3} is 5x5, etc.
+mask = cell(hw+1,1);
+
+for i=0:hw,
+    mask{i+1} = false(squarewidth);
+    mask{i+1}( 1+hw+(-i:i),     1+hw+(-i:i)     ) = 1; %edge
+    mask{i+1}( 1+hw+(-i+1:i-1), 1+hw+(-i+1:i-1) ) = 0; %inside
+end
+
 
 % Get x,y coordinates of picked peaks
 Npeaks = size(peaks,1);
 x = peaks(:,1);
 y = peaks(:,2);
 
-regions=zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
 integrationEfficiency = zeros(Npeaks,squarewidth^2);
+regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
-for m=1:Npeaks
+for m=1:Npeaks    
+    % Get a window of pixels around the intensity maximum (peak).
+    nhood = stk_top( y(m)-hw:y(m)+hw, x(m)-hw:x(m)+hw );
     
-    hw = floor(squarewidth/2);
+    % Find the most intense pixels, starting from the center and moving out.
+    % This reduces the chance of getting intensity from nearby molecules.
+    winPx = zeros(numel(nhood),1); %sorted pixel values for entire window
+    coord = zeros(numel(nhood),2); %row,col coordinates of pixels to use
+    nAdded = 0;
     
-    % Get pixels around picked point (squarewidth^2 pixels)
-    peak = stk_top( ...
-            y(m)-hw:y(m)+hw, ...
-            x(m)-hw:x(m)+hw  );
-    center = sort( peak(:) );  %vector of sorted intensities in peak.
+    for i=0:hw, %while nAdded<numel(winPx),
+        % Get all pixels a set distance (i) from the peak center.
+        [rows,cols] = find(mask{i+1});  %coordinates of pixels in window.
+        
+        % Sort pixel intensity values and coordinates within this window
+        [px,idx] = sort( nhood(mask{i+1}), 'descend' );
+        
+        % Add the most intense pixels to final sorted list
+        assert( all(nAdded +(1:numel(px))<=numel(nhood)) );
+        winPx( nAdded +(1:numel(px))    ) = px;
+        coord( nAdded +(1:numel(px)), : ) = [rows(idx) cols(idx)];
+        nAdded = nAdded+numel(px);
+    end
+
+    % Estimate the fraction of intensity in each pixel,
+    % relative to the total intensity in the full window region around the peak.
+    % This is just an estimate and depends on the window size.
+    % High molecule density can also distort this if there are overlapping PSFs.
+    integrationEfficiency(m,:) = cumsum( winPx/sum(winPx) );
     
-    % Estimate the fraction of intensity in each pixel.
-    % This is used in the GUI to show the efficiency of collecting
-    % intensity at a given integratin window size and to estimate the size
-    % of the point-spread function.
-    integrationEfficiency(m,:) = integrationEfficiency(m,:) + cumsum( center(end:-1:1)/sum(center) )';
-    
-    % Get pixels whose intensity is greater than the median (max=NumPixels).
-    % We just want the centroid to avoid adding noise ...
-    % A is x-coord, B is Y-coord of the top <NumPixels> pixels
-    [A,B]=find( peak>=center(squarewidth*squarewidth-params.nPixelsToSum+1), ...
-                params.nPixelsToSum );
-    
-    % Define a region over which to integrate each peak
-    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
+    % Convert to coordinates in the full FOV image and save.
+    coord = coord(1:params.nPixelsToSum,:);  %keep only the ones we need.
+    regions(:,:,m) = [ coord(:,1)+y(m)-hw-1, coord(:,2)+x(m)-hw-1  ];
 end
 
 
