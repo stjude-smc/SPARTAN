@@ -603,12 +603,13 @@ if params.geometry>1 && params.alignMethod>1,
 
         %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
         % Then normalize so that the "expected" location of each peak is (0,0).
-        % The rmsd is then the distance between each channel and the donor
+        % The rmsd is then the distance between each channel and the donor.
         refinedPicks = refinePeaks( image_t, picks );
         residuals = refinedPicks-picks; 
         
         for i=1:nCh,
             dev = residuals(i:nCh:end,:)-residuals(indD:nCh:end,:);
+            dev = dev(~rejected,:);  %remove overlapped peaks.
             newAlign(i).abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
             newAlign(i).quality = quality(i);
         end
@@ -775,8 +776,15 @@ function [align,reg_img] = alignSearch_cpt( ref_img, target_img, params )
 assert( all(size(ref_img)==size(target_img)) );
 
 % 1) Detect beads as brights spots above background.
-ref_peaks    = pickPeaks( ref_img,    0.7*params.don_thresh, params.overlap_thresh );
-target_peaks = pickPeaks( target_img, 0.7*params.don_thresh, params.overlap_thresh );
+% Since we are picking on the individual fields, the threshold is lowered. I
+% have no really optimized this factor (0.7). This will only work well if there
+% is a strong signal on all channels -- beads.
+pickParams = {0.7*params.don_thresh, params.overlap_thresh};
+[ref_peaks,reject]    = pickPeaks( ref_img,    pickParams{:} );
+ref_peaks = ref_peaks(~reject,:);
+
+[target_peaks,reject] = pickPeaks( target_img, pickParams{:} );
+target_peaks = target_peaks(~reject,:);
 
 
 % 2) For each peak in the reference, find the corresponding peak in the target.

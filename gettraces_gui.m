@@ -873,10 +873,10 @@ if handles.params.geometry==1, %Single-channel recordings
     set( handles.txtDACrosstalk,    'Enable','off', 'String','', 'Visible','on' );
     set( handles.btnCrosstalk,      'Visible','off'  );
     set( handles.btnSaveAlignment,  'Enable','off' );
-    set( handles.btnLoadAlignment,  'Enable','off', 'Value',0 );
+    set( handles.btnLoadAlignment,  'Enable','off' );
 else  %Multi-channel recordings
     set( handles.btnSaveAlignment,  'Enable','on' );
-    set( handles.btnLoadAlignment,  'Enable','on', 'Value',0 );
+    set( handles.btnLoadAlignment,  'Enable','on' );
 end
 
 % For multi-color FRET, the matrix of possible crosstalk values can't
@@ -976,10 +976,10 @@ function btnLoadAlignment_Callback(hObject, ~, handles)
 assert( handles.params.geometry>1 );
 
 
-pressed = get(hObject,'Value');
+% pressed = get(hObject,'Value');
 
 % Load an alignment file
-if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
+% if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
     [f,p] = uigetfile('*.mat','Select an alignment settings file');
     alignFilename = [p f];
     if f==0, return; end
@@ -993,7 +993,7 @@ if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
         % If the file is invalid, give a warning and reset the button so
         % that is as if nothing happened.
         disp( ['Invalid alignment file: ' e.message] );
-        set( hObject, 'Value',get(hObject,'Min') );
+        %set( hObject, 'Value',get(hObject,'Min') );
         return;
     end
     
@@ -1003,20 +1003,20 @@ if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
     
     
 % Unload the current alignment and reset to the normal state.
-elseif pressed == get(hObject,'Min')    
-    % Reset alignment parameters back to defaults.
-    constants = cascadeConstants;
-    sel = get(handles.cboGeometry,'Value');
-    p = constants.gettraces_profiles(sel);
-    
-    handles.params.alignMethod = p.alignMethod;
-    set( handles.cboAlignMethod, 'Value',p.alignMethod );
-    
-    if isfield(handles.params,'alignment'),
-        handles.params = rmfield(handles.params,'alignment');
-    end
-    handles.alignment = [];
-end
+% elseif pressed == get(hObject,'Min')    
+%     % Reset alignment parameters back to defaults.
+%     constants = cascadeConstants;
+%     sel = get(handles.cboGeometry,'Value');
+%     p = constants.gettraces_profiles(sel);
+%     
+%     handles.params.alignMethod = p.alignMethod;
+%     set( handles.cboAlignMethod, 'Value',p.alignMethod );
+%     
+%     if isfield(handles.params,'alignment'),
+%         handles.params = rmfield(handles.params,'alignment');
+%     end
+%     handles.alignment = [];
+% end
 
 
 % Re-pick molecules with new settings.
@@ -1116,11 +1116,18 @@ sel = get(hObject,'Value');
 
 handles.params.alignMethod = sel;
 
-% FIXME: if the users selects "load alignment", this should ask for a file.
+if sel==2
+    % Load alignment from file.
+    % FIXME: if this fails or the user hits cancel, the dropdown has "load
+    % alignment" selected, but is still in the previous state.
+    btnLoadAlignment_Callback(hObject, [], handles);
+else
+    % Re-pick molecules with new settings.
+    handles = getTraces_Callback(hObject, [], handles);
+    guidata(hObject,handles);
+end
 
-% Re-pick molecules with new settings.
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
+
 
 
 % END FUNCTION cboAlignMethod_Callback
