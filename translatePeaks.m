@@ -45,6 +45,7 @@ if nargin>3 && ~isempty(tform),
     % We have to first center the peak locations at (0,0) so the rotation is
     % about the center of the image, then put it back afterward.
     % Peak (maxima) locations must be integers, so they are rounded.
+    % FIXME: this may be required for alignSearch_weber!
 %     picks = tformfwd(  tform,  [total_picks(:,1)-(ncol/2) total_picks(:,2)-(nrow/2)]  );
 %     picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
     

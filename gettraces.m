@@ -478,8 +478,9 @@ indD = find( strcmp(channelNames,'donor') ); %donor channel to align to.
 
 if params.geometry>1,
     % Refine peak locations and how much they deviate. This helps determine
-    % if realignment is needed.
-    refinedPicks = refinePeaks( image_t, picks );
+    % if realignment is needed. FIXME: this could be improved (?) by using
+    % centroid locations for translatePeaks above?
+    refinedPicks = getCentroids( image_t, picks, params.nhoodSize );
     r_mod = [ mod(refinedPicks(:,1),ncol) mod(refinedPicks(:,2),nrow) ];
     residuals = refinedPicks-picks;
     
@@ -604,7 +605,7 @@ if params.geometry>1 && params.alignMethod>1,
         %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
         % Then normalize so that the "expected" location of each peak is (0,0).
         % The rmsd is then the distance between each channel and the donor.
-        refinedPicks = refinePeaks( image_t, picks );
+        refinedPicks = getCentroids( image_t, picks, params.nhoodSize );
         residuals = refinedPicks-picks; 
         
         for i=1:nCh,
@@ -633,7 +634,7 @@ fractionOverlapped = size(rejectedTotalPicks,1) / nPicked;
 
 
 
-function [picks,boolRejected] = pickPeaks( image_t, params )
+function [picks,boolRejected,centroids] = pickPeaks( image_t, params )
 % Localizes the peaks of fluorescence.
 %   picks = locations (x,y) of all molecules selected.
 %   rejectedPicks = locations of molecules that are too close to a neighbor
@@ -645,8 +646,7 @@ function [picks,boolRejected] = pickPeaks( image_t, params )
 
 threshold = params.don_thresh;
 overlap_thresh = params.overlap_thresh;
-% nhood = params.nhoodSize;  %rough size of peak area (1=>3x3 pixels,2=>5x5,3=>7x7,etc)
-nhood=1;  %for some reason this generally works slightly better. FIXME?
+nhood = params.nhoodSize;  %rough size of peak area (1=>3x3 pixels,2=>5x5,etc)
 
 
 % Detect molecules as fluorescence maxima over local 3x3 regions,
@@ -664,6 +664,34 @@ picks = picks(~edge,:);
 
 % Find weighted center of each peak for more accurate PSF overlap detection.
 % imdilate+regionprops works for this, but tends to merge nearby peaks.
+% FIXME: consider using these centroid locations as picks. The only problem is
+% that they msut be converted back to integers for indexing the image.
+centroids = getCentroids( image_t, picks, nhood );
+nMol = size(centroids,1);
+
+% Detect maxima that are very close together and probably have overlapping
+% point-spread functions.
+if overlap_thresh==0 || nMol==0,
+    boolRejected = false(1,nMol);  %no overlap rejection.
+else
+    [~,dist] = knnsearch( centroids, centroids, 'k',2 );
+    boolRejected = dist(:,2)'<=overlap_thresh;
+end
+
+
+
+% END FUNCTION pickPeaks
+
+
+
+function centroids = getCentroids( image_t, picks, nhood )
+% Find weighted center of each peak for more accurate PSF overlap detection.
+% imdilate+regionprops works for this, but tends to merge nearby peaks.
+
+if nargin<3,
+    nhood=1;  %3x3 region.
+end
+
 nMol = size(picks,1);
 centroids = zeros(nMol,2);
 
@@ -678,46 +706,10 @@ for i=1:nMol,
     x = sum( x_window .* sum(block,2)'/tot );
     y = sum( y_window .* sum(block,1)/tot  );
     
-    centroids(i,:) = [y x];
+    centroids(i,:) = [x y];
 end
 
-
-% Detect maxima that are very close together and probably have overlapping
-% point-spread functions.
-if overlap_thresh==0 || nMol==0,
-    boolRejected = false(1,nMol);  %no overlap rejection.
-else
-    %centroids = [centroidx' centroidy'];
-    [~,dist] = knnsearch( centroids, centroids, 'k',2 );
-    boolRejected = dist(:,2)'<=overlap_thresh;
-end
-
-
-% END FUNCTION pickPeaks
-
-
-
-
-function peaks = refinePeaks( image_t, peaks )
-% pickPeaks simply finds peaks of intensity in the total (D+A) image. Here
-% the peak locations are refined to account for slight differences due to
-% misalignment, where the donor and acceptor peaks may be in different
-% relative positions. This can be used to re-align the images in software.
-% The input image and peak locations are listed as:
-%     donor/acceptor/donor/acceptor/etc.
-
-%FIXME: use params.nhoodSize tp determine how far away from the target to look. 
-
-for j=1:size(peaks,1),
-    % Refine acceptor peak positions by finding local maxima
-    % within the 3x3 (if nhoodSize=1) grid around the initial guess.
-    temp = image_t( peaks(j,2)-1:peaks(j,2)+1, peaks(j,1)-1:peaks(j,1)+1 );
-    [maxy, maxx] = find(temp==max(temp(:)),1);
-    peaks(j,1) = peaks(j,1) +maxx-2;  %X
-    peaks(j,2) = peaks(j,2) +maxy-2;  %Y
-end
-
-% END FUNCTION refinePeaks
+% END FUNCTION getCentroids
 
 
 
@@ -748,10 +740,10 @@ assert( all(size(ref_img)==size(target_img)) );
 pickParams = params;
 pickParams.don_thresh = 0.7*params.don_thresh;
 
-[ref_peaks,reject]    = pickPeaks( ref_img,    pickParams );
+[~,reject,ref_peaks]    = pickPeaks( ref_img,    pickParams );
 ref_peaks = ref_peaks(~reject,:);
 
-[target_peaks,reject] = pickPeaks( target_img, pickParams );
+[~,reject,target_peaks] = pickPeaks( target_img, pickParams );
 target_peaks = target_peaks(~reject,:);
 
 
