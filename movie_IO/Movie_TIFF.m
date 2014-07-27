@@ -72,9 +72,15 @@ methods
             % Process time axis information.
             if isfield( info,'DateTime' )
                 dot = strfind( info(1).DateTime, '.' );
-                times{i} = cellfun(  @(s) str2double(s(dot+1:end)) + ...
-                    24*60*60*1000*datenum(s(1:dot-1),'yyyymmdd HH:MM:SS'), ...
-                    {info.DateTime}  );
+                
+                % This is hacky because ms time is variable width with MetaMorph
+                % and because each call to datenum is slow.
+                tcell = {info.DateTime};
+                ms  = cellfun( @(s) str2double(s(dot+1:end)), tcell );
+                pre = cellfun( @(s) s(1:dot-1), tcell, 'UniformOutput',false );
+                pre = vertcat( pre{:} );    
+                times{i} = ms + 24*60*60*1000*datenum(pre,'yyyymmdd HH:MM:SS')';
+
                 firstTime(i) = times{i}(1);
             else
                 warning('Movie_TIFF:NoDateTime','No DateTime field. Using frame number as time axis.');
@@ -99,7 +105,7 @@ methods
                 % Remove the extension and the '-file003' prefix.
                 % We expect (but don't assume) the extension is '.tif'.
                 [p,f] = fileparts(info(1).Filename);
-                f = regexprep(f,'-file[0-9]*.[A-Za-z0-9]*$','');
+                f = regexprep(f,'-file[0-9]*$','');
                 tag = fullfile(p,f);
                 
                 if ~strcmp(tag,obj.filetag),

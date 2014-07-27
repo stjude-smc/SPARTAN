@@ -202,7 +202,7 @@ background=imresize(temp,[stkY stkX],'bicubic');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
-% FIXME: this causes problems in experiments where the background ayyyymmdd HH:MM:SSt the
+% FIXME: this causes problems in experiments where the background at the
 % end of the movies is higher than at the beginning: tRNA selection.
 endBackground = movie.readFrames(nFrames-11:nFrames-1);
 
@@ -648,7 +648,7 @@ overlap_thresh = params.overlap_thresh;
 % nhood = params.nhoodSize;  %rough size of peak area (1=>3x3 pixels,2=>5x5,3=>7x7,etc)
 nhood=1;  %for some reason this generally works slightly better. FIXME?
 
-% tic;
+
 % Detect molecules as fluorescence maxima over local 3x3 regions,
 % ignoring any that are below the detection threshold or near the edges.
 kernel = [0 1 0 ; 1 1 1; 0 1 0];
@@ -691,7 +691,6 @@ else
     [~,dist] = knnsearch( centroids, centroids, 'k',2 );
     boolRejected = dist(:,2)'<=overlap_thresh;
 end
-% disp(toc);
 
 
 % END FUNCTION pickPeaks
@@ -707,9 +706,11 @@ function peaks = refinePeaks( image_t, peaks )
 % The input image and peak locations are listed as:
 %     donor/acceptor/donor/acceptor/etc.
 
+%FIXME: use params.nhoodSize tp determine how far away from the target to look. 
+
 for j=1:size(peaks,1),
     % Refine acceptor peak positions by finding local maxima
-    % within the 3x3 grid around the initial guess.
+    % within the 3x3 (if nhoodSize=1) grid around the initial guess.
     temp = image_t( peaks(j,2)-1:peaks(j,2)+1, peaks(j,1)-1:peaks(j,1)+1 );
     [maxy, maxx] = find(temp==max(temp(:)),1);
     peaks(j,1) = peaks(j,1) +maxx-2;  %X
@@ -989,7 +990,7 @@ function [quality,randomScore] = weberQuality( base, registered, thresh )
 % generally acceptable; any lower and the data may have other problems.
 %
 
-N = 5; %number of repititions for averaging.
+N = 3; %number of repititions for averaging.
 S = zeros(N,1);
 
 for i=1:N,
@@ -1027,17 +1028,6 @@ hw = params.nhoodSize;  % distance from peak to consider (eg, 1=3x3 area)
 squarewidth = 1+2*hw;   % width of neighborhood to examine.
 
 
-% Create masks for finding pixels progressively farther from the center.
-% mask{1} is the peak pixel, mask{2} is a 3x3 neighborhood, mask{3} is 5x5, etc.
-mask = cell(hw+1,1);
-
-for i=0:hw,
-    mask{i+1} = false(squarewidth);
-    mask{i+1}( 1+hw+(-i:i),     1+hw+(-i:i)     ) = 1; %edge
-    mask{i+1}( 1+hw+(-i+1:i-1), 1+hw+(-i+1:i-1) ) = 0; %inside
-end
-
-
 % Get x,y coordinates of picked peaks
 Npeaks = size(peaks,1);
 x = peaks(:,1);
@@ -1052,36 +1042,20 @@ regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 for m=1:Npeaks    
     % Get a window of pixels around the intensity maximum (peak).
     nhood = stk_top( y(m)-hw:y(m)+hw, x(m)-hw:x(m)+hw );
+    center = sort( nhood(:), 'descend' );
     
     % Find the most intense pixels, starting from the center and moving out.
     % This reduces the chance of getting intensity from nearby molecules.
-    winPx = zeros(numel(nhood),1); %sorted pixel values for entire window
-    coord = zeros(numel(nhood),2); %row,col coordinates of pixels to use
-    nAdded = 0;
-    
-    for i=0:hw, %while nAdded<numel(winPx),
-        % Get all pixels a set distance (i) from the peak center.
-        [rows,cols] = find(mask{i+1});  %coordinates of pixels in window.
-        
-        % Sort pixel intensity values and coordinates within this window
-        [px,idx] = sort( nhood(mask{i+1}), 'descend' );
-        
-        % Add the most intense pixels to final sorted list
-        assert( all(nAdded +(1:numel(px))<=numel(nhood)) );
-        winPx( nAdded +(1:numel(px))    ) = px;
-        coord( nAdded +(1:numel(px)), : ) = [rows(idx) cols(idx)];
-        nAdded = nAdded+numel(px);
-    end
+    [A,B] = find( nhood>=center(params.nPixelsToSum), params.nPixelsToSum );
 
     % Estimate the fraction of intensity in each pixel,
     % relative to the total intensity in the full window region around the peak.
     % This is just an estimate and depends on the window size.
     % High molecule density can also distort this if there are overlapping PSFs.
-    integrationEfficiency(m,:) = cumsum( winPx/sum(winPx) );
+    integrationEfficiency(m,:) = cumsum( center/sum(center) )';
     
     % Convert to coordinates in the full FOV image and save.
-    coord = coord(1:params.nPixelsToSum,:);  %keep only the ones we need.
-    regions(:,:,m) = [ coord(:,1)+y(m)-hw-1, coord(:,2)+x(m)-hw-1  ];
+    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
 end
 
 

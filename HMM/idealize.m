@@ -46,7 +46,7 @@ for i=1:nTraces,
     traceLen = find(trace~=0, 1,'last');
     trace = trace(1:traceLen);
     
-    if isempty(traceLen) || traceLen<1,
+    if isempty(traceLen) || traceLen<2,
         dwt{i} = zeros(0,nStates);
         continue;
     end

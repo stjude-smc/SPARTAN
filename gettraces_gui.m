@@ -215,14 +215,13 @@ setappdata(handles.figure1,'stkData', stkData);
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 % low = min(min(handles.stk_top));
+sort_px = sort(handles.stk_top(:));
 low=0;
-sort_px = sort(handles.stk_top);
-high = sort_px( floor(0.99*numel(sort_px)) );
-high = min( ceil(high*2), 32000 );
-val = (low+high)/3;
+val = sort_px( floor(0.98*numel(sort_px)) );
+high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 
 set(handles.scaleSlider,'min',low);
-set(handles.scaleSlider,'max',high); %uint16 maxmimum value
+set(handles.scaleSlider,'max',high);
 set(handles.scaleSlider,'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
@@ -287,7 +286,7 @@ for i=1:numel(fields),
     % idxCh is the corresponding index into list of channels (there may be none).
     idxCh = find( handles.params.idxFields==i ); 
         
-    imshow( fields{i}, [low*2 (high+low)], 'Parent',ax(i) );
+    imshow( fields{i}, [low val], 'Parent',ax(i) );
     colormap(handles.colortable);  zoom on;
 
     if ~isempty(idxCh) && ~isempty(chNames{idxCh}),
@@ -307,7 +306,7 @@ end
 linkaxes( [ax handles.axTotal] );
 
 % Show total fluorescence channel
-imshow( handles.total_t, [low*2 (high+low)], 'Parent',handles.axTotal );
+imshow( handles.total_t, [low*2 val*2], 'Parent',handles.axTotal );
 colormap(handles.colortable);  zoom on;
 title(handles.axTotal,'Total Intensity');
 
@@ -707,6 +706,9 @@ else
     filename = handles.stkfile;
 end
 
+% Remove file extension for multi-part movies.
+filename = regexprep(filename,'-file[0-9]*.[A-Za-z0-9]*$','');
+
 % Integrate fluorophore point-spread functions, generate fluorescence
 % traces, and save to file.
 stkData = getappdata(handles.figure1,'stkData');
@@ -936,10 +938,10 @@ if isempty(stkData) || ~isfield(stkData.movie.header,'MM')
 end
 
 % Grab extra MetaMorph fields outside the MM struct.
-metadata = stkData.movie.stkHeader.MM(1);
+metadata = stkData.movie.header.MM(1);
 
-if isfield( stkData.movie.stkHeader, 'MM_wavelength' ),
-    wv = stkData.movie.stkHeader.MM_wavelength;
+if isfield( stkData.movie.header, 'MM_wavelength' ),
+    wv = stkData.movie.header.MM_wavelength;
     metadata.MM_wavelength = wv(wv>100);
 end
 
@@ -980,48 +982,27 @@ function btnLoadAlignment_Callback(hObject, ~, handles)
 assert( handles.params.geometry>1 );
 
 
-% pressed = get(hObject,'Value');
-
 % Load an alignment file
-% if pressed == get(hObject,'Max')  %toggle is pressed: load alignment.
-    [f,p] = uigetfile('*.mat','Select an alignment settings file');
-    alignFilename = [p f];
-    if f==0, return; end
-    
-    try
-        % Overwrite alignment settings with those in the file.
-        input = load(alignFilename);
-        handles.params.alignment = input.alignment;
-        handles.alignment = input.alignment; %???
-    catch e,
-        % If the file is invalid, give a warning and reset the button so
-        % that is as if nothing happened.
-        disp( ['Invalid alignment file: ' e.message] );
-        %set( hObject, 'Value',get(hObject,'Min') );
-        return;
-    end
-    
-    % 4) Disable alignment controls and set to checked.
-    handles.params.alignMethod = 2;
-    set( handles.cboAlignMethod, 'Value',2 );
-    
-    
-% Unload the current alignment and reset to the normal state.
-% elseif pressed == get(hObject,'Min')    
-%     % Reset alignment parameters back to defaults.
-%     constants = cascadeConstants;
-%     sel = get(handles.cboGeometry,'Value');
-%     p = constants.gettraces_profiles(sel);
-%     
-%     handles.params.alignMethod = p.alignMethod;
-%     set( handles.cboAlignMethod, 'Value',p.alignMethod );
-%     
-%     if isfield(handles.params,'alignment'),
-%         handles.params = rmfield(handles.params,'alignment');
-%     end
-%     handles.alignment = [];
-% end
+[f,p] = uigetfile('*.mat','Select an alignment settings file');
+alignFilename = [p f];
+if f==0, return; end
 
+try
+    % Overwrite alignment settings with those in the file.
+    input = load(alignFilename);
+    handles.params.alignment = input.alignment;
+    handles.alignment = input.alignment; %???
+catch e,
+    % If the file is invalid, give a warning and reset the button so
+    % that is as if nothing happened.
+    disp( ['Invalid alignment file: ' e.message] );
+    return;
+end
+
+% 4) Disable alignment controls and set to checked.
+handles.params.alignMethod = 2;
+set( handles.cboAlignMethod, 'Value',2 );
+    
 
 % Re-pick molecules with new settings.
 handles = getTraces_Callback( hObject, [], handles);
@@ -1048,8 +1029,11 @@ assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.p
 % end
 
 [f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
-alignment = rmfield( handles.alignment, {'quality'} );
-save( [p f], 'alignment' );
+
+if f,
+    alignment = rmfield( handles.alignment, {'quality'} );
+    save( [p f], 'alignment' );
+end
 
 
 %end function btnSaveAlignment_Callback
