@@ -178,9 +178,19 @@ if ~iscell(filename), filename = {filename}; end
 % Remove "-file00x" extension for multi-file TIFF stacks.
 [p,f,e] = fileparts( filename{1} );
 f = regexprep(f,'-file[0-9]*$','');
-fnameText = fullfile(p, [f e]);
+
+
+% If a single file is selected, look for the others in multi-file TIFFs.
+% If the user selected multiple files, we assume that they got all of them.
+if numel(filename)==1,
+    d = dir( [f '*.tif*'] );
+    d = regexpi( {d.name}, [f '(-file[0-9]*)?\.tiff?$'], 'match' );
+    filename = [d{:}];
+end
 
 % Trancate name if too long ot fit into window without wrapping.
+fnameText = fullfile(p, [f e]);
+
 if numel(fnameText)>90,
     fnameText = ['...' fnameText(end-90:end)];
 end
@@ -363,6 +373,22 @@ else
     movieFilenames  = [ movieFilenames ; rdir([direct filesep '*.tif*']) ];
 end
 
+
+% Get the base filename (no extension or -file00x).
+% Because this only matches TIFF files, other file formats are left alone.
+d = {movieFilenames.name};
+fr = regexprep( d, '(-file[0-9]*)?\.tiff?$', '' );
+
+% Find clusters of filenames with the same base name (presumably the same movie)
+[names,~,assignment] = unique(fr);
+
+% Build a nested cell array from the clusters
+movieFilenames = cell( 1, numel(names) );
+for i=1:numel(names)
+    movieFilenames{i} = d(assignment==i);
+end
+
+
 nFiles = length(movieFilenames);
 
 
@@ -378,11 +404,19 @@ set(handles.txtProgress,'String','Creating traces, please wait...');
 
 % For each file...
 for i=1:nFiles
-    stk_fname = movieFilenames(i).name;
+    stk_fname = movieFilenames{i}; %movieFilenames(i).name;
     handles.stkfile = stk_fname;
     
+    % Get base filename for multi-file TIFFs
+    if iscell(stk_fname),
+        [p,name] = fileparts(stk_fname{end});
+    else
+        [p,name] = fileparts(stk_fname);
+    end
+    
+    name = regexprep(name,'-file[0-9]*$','');
+    
     % Skip if previously processed (.traces file exists)
-    [p,name] = fileparts(stk_fname);
     traceFname = fullfile(p, [name '.rawtraces']);
     
     if skipExisting && exist(traceFname,'file'),
@@ -426,10 +460,17 @@ fprintf(log_fid, '%s', output);
 fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
 
 for i=1:nFiles
-    if existing(i),
-        fprintf(log_fid, 'SKIP %s\n', movieFilenames(i).name);
+    % Get a single file name for multi-file TIFF movies.
+    if iscell(movieFilenames{i}),
+        name = [movieFilenames{i}{end} ' (multiple files)'];
     else
-        fprintf(log_fid, '%.0f %s\n', nTraces(i), movieFilenames(i).name);
+        name = movieFilenames{i};
+    end
+    
+    if existing(i),
+        fprintf(log_fid, 'SKIP %s\n', name);
+    else
+        fprintf(log_fid, '%.0f %s\n', nTraces(i), name);
     end
 end
 
