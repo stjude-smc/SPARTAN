@@ -184,8 +184,10 @@ f = regexprep(f,'-file[0-9]*$','');
 % If the user selected multiple files, we assume that they got all of them.
 if numel(filename)==1,
     d = dir( [f '*.tif*'] );
-    d = regexpi( {d.name}, [f '(-file[0-9]*)?\.tiff?$'], 'match' );
-    filename = [d{:}];
+    if numel(d)>1,
+        d = regexpi( {d.name}, [f '(-file[0-9]*)?\.tiff?$'], 'match' );
+        filename = [d{:}];
+    end
 end
 
 % Trancate name if too long ot fit into window without wrapping.
