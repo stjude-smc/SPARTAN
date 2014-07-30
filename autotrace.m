@@ -814,8 +814,7 @@ histData = get(ax,'UserData');
 if isempty(histData) || numel(histData)<2, return; end
 
 % Copy to clipboard
-y = num2str(histData);
-clipboard('copy', sprintf([y(1,:) '\n' y(2,:)]) );
+clipboard('copy', sprintf('%f %f\n',histData) );
 
 
 
