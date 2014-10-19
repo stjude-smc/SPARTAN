@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 26-May-2014 16:57:35
+% Last Modified by GUIDE v2.5 19-Oct-2014 16:31:46
 
 
 % Begin initialization code - DO NOT EDIT
@@ -1124,8 +1124,9 @@ switch ch
             % Zoom in to show full trace.
             xlim( handles.axFluor, [0,lt+15] );
         end
-    otherwise
-        disp( double(ch) );
+        
+%     otherwise
+%         disp( double(ch) );
 end
 
 
@@ -1179,3 +1180,15 @@ gettraces_gui( movieFilename, handles.data.traceMetadata(m) );
 
 
 % end function btnGettraces_Callback
+
+
+% --- Executes on button press in btnClearIdl.
+function btnClearIdl_Callback(hObject, eventdata, handles)
+% Clear the currently loaded idealization if any.
+
+handles.dwt = [];
+handles.idl = [];
+
+% Save data and redraw the FRET plot without the idealization.
+guidata(hObject,handles);
+plotter(handles);

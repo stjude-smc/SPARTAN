@@ -73,8 +73,11 @@ methods
             if isfield( info,'DateTime' )
                 dot = strfind( info(1).DateTime, '.' );
                 
-                % This is hacky because ms time is variable width with MetaMorph
-                % and because each call to datenum is slow.
+                % NOTE: for most acquisition implementations, these
+                % timestamps are for the time transfered from the camera 
+                % to the computer and may not actually be that valuable.
+                % This is hacky because ms time is variable width with
+                % MetaMorph and because each call to datenum is slow.
                 tcell = {info.DateTime};
                 ms  = cellfun( @(s) str2double(s(dot+1:end)), tcell );
                 pre = cellfun( @(s) s(1:dot-1), tcell, 'UniformOutput',false );
@@ -82,6 +85,15 @@ methods
                 times{i} = ms + 24*60*60*1000*datenum(pre,'yyyymmdd HH:MM:SS')';
 
                 firstTime(i) = times{i}(1);
+                
+            elseif isfield( info,'ExposureTime' )
+                % No explicit time axis is available, but we can
+                % reconstruct an approximate one using the exposure time.
+                % This field is specific to the LabVIEW software.
+                ms = info(1).ExposureTime*1000;                
+                firstTime(i) = 0 + sum( obj.nFramesPerMovie(1:i-1) )*ms;
+                times{i} = firstTime(i) + (0:numel(info)-1)*ms;
+                
             else
                 warning('Movie_TIFF:NoDateTime','No DateTime field. Using frame number as time axis.');
                 firstTime(i) = 1 + sum( obj.nFramesPerMovie(1:i-1) );
@@ -119,6 +131,9 @@ methods
         % Reorder the files so the frames are continuous in time.
         % This is not generally necessary because sorting the filenames
         % gives the correct order.
+        assert( numel(unique(firstTime)) == numel(firstTime), ...
+                'Not enough information to put movie files in order!' );
+        
         [~,fileOrder] = sort(firstTime);
         obj.filenames       = obj.filenames(fileOrder);
         obj.nFramesPerMovie = obj.nFramesPerMovie(fileOrder);

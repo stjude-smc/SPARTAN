@@ -44,10 +44,10 @@ function varargout = autotrace(varargin)
 %   4/2008  -DT
 
 
-% Last Modified by GUIDE v2.5 17-May-2013 19:31:58
+% Last Modified by GUIDE v2.5 19-Oct-2014 16:10:51
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
     'gui_Singleton',  gui_Singleton, ...
     'gui_OpeningFcn', @autotrace_OpeningFcn, ...
@@ -815,6 +815,3 @@ if isempty(histData) || numel(histData)<2, return; end
 
 % Copy to clipboard
 clipboard('copy', sprintf('%f %f\n',histData) );
-
-
-
