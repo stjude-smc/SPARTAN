@@ -17,7 +17,7 @@ function output = readTimecourse( filename )
 % titrated reagent. This separates the intensity data for each of the
 % titration points.
 % FIXME: may need to be changed for different experiments!
-thresh = 10000;  % for uncorrected data!
+thresh = 3000;  % for uncorrected data!
 
 
 % Get filenames from user
@@ -65,17 +65,33 @@ X = data(:,longestXaxis);
 % Select data columns, skip other time axes.
 Y = data(:,2:2:end);       
 
+
 % Attempt to correct for photobleaching by dividing by the bleaching
 % fraction over time. The bleaching curve was obtained by fitting the first
 % 50 seconds of a number of curves to a line -- over this time there are no
-% additions. The numbers vary, so I took an average. Here I assume the time
-% axis is in seconds...
-% TODO: this should be calculated from the data??
-% TODO: for these figures, also draw big circles for the average titration
-%   points detected and a plot of the result.
-Yorig = Y;
-Y = Y .* repmat(  (1+((0:size(Y,1)-1)*0.2273e-3))',  1, size(Y,2)  );  %comment out to disable bleaching correction
+% additions. The numbers vary, so I took an average.
+% FIXME: this doesn't take into account a non-zero intercept.
 
+% Option 1: use a fixed value derived from earlier experiments.
+% slope = 0.2273e-3; %derived from data in earlier experiments
+
+% Option 2: calculate the bleaching rate from only the first 50 frames
+p = polyfit( (1:45)', Y(1:45), 1 );
+slope = -p(1)/p(2) %slope relative to intercept
+
+% Option 4: calculate from both the beginning and end
+% p = polyfit( [1:40]', Y(end-39:end), 1 );
+% slope = mean( [slope -p(1)/p(2)] );
+
+% Comment out to disable bleaching correction
+Yorig = Y;
+Y = Y .* repmat(  (1+((0:size(Y,1)-1)*slope))',  1, size(Y,2)  );  
+
+
+
+%% --- Find injection events, calculate intensities for each
+
+% Plot the raw and corrected fluorescence data.
 figure;
 hUncorr = subplot(1,2,1);
 plot(Yorig);
@@ -104,7 +120,7 @@ for i=1:size(Y,2),
     for j=1:numel(s),
         output(j,i) = median( Y(s(j):e(j),i) );
         
-        % Plot on the raw fluorescence data to show the calculated mean value.
+        % Plot on the fluorescence data to show the calculated mean value.
         scatter( (s(j)+e(j))/2.0, output(j,i), 50, 'ko','filled' );
     end
     
@@ -112,6 +128,7 @@ for i=1:size(Y,2),
     output(:,i) = output(:,i)/output(1,i);
 end
     
+
 
 %% --- Save the output for importing into Origin.
 outname = strrep(filename,'.txt','_analyzed.txt');
