@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 20-Jul-2014 18:11:03
+% Last Modified by GUIDE v2.5 20-Oct-2014 12:07:39
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -589,7 +589,7 @@ end
 percentOverlap = stkData.fractionOverlapped*100;
 
 set(  handles.txtOverlapStatus, 'String', ...
-      sprintf('%0.0f%% molecules overlapped', percentOverlap)  );
+      sprintf('Rejected %0.0f%%', percentOverlap)  );
 
 if percentOverlap>30,
     set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
@@ -650,6 +650,7 @@ set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
                                     numel(handles.rtotal_x)+handles.num) );
 
 set(handles.saveTraces,'Enable','on');
+set(handles.btnHidePicks,'Enable','on');
 
 set(gcf,'pointer','arrow');
 guidata(hObject,handles);
@@ -1159,6 +1160,19 @@ else
 end
 
 
-
-
 % END FUNCTION cboAlignMethod_Callback
+
+
+% --- Executes on button press in btnHidePicks.
+function btnHidePicks_Callback(hObject, eventdata, handles)
+% Hide the circles drawn to indicate molecule locations so the field of
+% view image is more visible. They will show up again if the "Pick Peaks"
+% button is clicked.
+
+delete(findobj(gcf,'type','line'));
+
+
+
+
+
+

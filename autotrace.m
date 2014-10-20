@@ -722,9 +722,7 @@ guidata(hObject,handles);
 % --- Executes on selection change in any of the drop down boxes above each
 %     of the trace statistic histogram plots.
 function cboStat_Callback(hObject, eventdata, handles)
-% hObject    handle to cboStat5 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% 
 
 % Get ID of this combo control
 id = get(hObject,'UserData');
@@ -734,9 +732,7 @@ stats = getappdata(handles.figure1,'infoStruct');
 stats = stats(handles.inds_picked);
 
 % Get user selection
-% statNames  = get(hObject,'String');
 selected   = get(hObject,'Value');
-% statToPlot = statNames{selected};
 statNames = fieldnames(handles.statLongNames);
 statToPlot = statNames{selected};
 
@@ -755,7 +751,7 @@ end
 % Plot the distribution of the statistic
 statData = [stats.(statToPlot)];
 if any(isnan(statData))
-    warning( 'NaN values found' );
+    disp( 'warning: NaN values found' );
 %     statData( isnan(statData) ) = 0;
 end
 
@@ -770,7 +766,6 @@ data = 100*data/sum(data);  %normalize the histograms
 
 axes( handles.(['axStat' num2str(id)]) );
 bar( binCenters, data, 1 );
-% xlabel(statToPlot);
 zoom on;
 grid on;
 
@@ -782,6 +777,9 @@ end
 if length(stats)>=1,
     set( handles.(['axStat' num2str(id)]), 'UserData', [binCenters;data] );
 end
+
+% Display a mean value for easier interpretation.
+legend(  sprintf( 'Mean: %.2f', mean([stats.(statToPlot)]) )  );
 
 
 guidata(hObject,handles);

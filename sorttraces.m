@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 19-Oct-2014 18:42:45
+% Last Modified by GUIDE v2.5 20-Oct-2014 12:24:40
 
 
 % Begin initialization code - DO NOT EDIT
@@ -149,10 +149,10 @@ if handles.datafile==0, return; end
 handles.filename = [handles.datapath handles.datafile];
 
 % Load the file and fully initialize sorttraces.
-handles = OpenTracesFile( handles.filename, handles );
+OpenTracesFile( handles.filename, handles );
 
 
-guidata(hObject, handles);
+% guidata(hObject, handles);
 % END FUNCTION btnOpen_Callback
 
 
@@ -278,6 +278,7 @@ end
 
 
 % Got to and plot first molecule.
+% The "GoTo" callback ends up calling guidata() to save handles.
 handles.molecule_no = 1;
 set(handles.editGoTo,'Enable','on','String','1');
 editGoTo_Callback(handles.editGoTo, [], handles);
@@ -1246,3 +1247,27 @@ plotter(handles);
 
 
 % end function btnGettraces_Callback
+
+
+% --- Executes when user attempts to close figure1.
+function sorttraces_CloseRequestFcn(hObject, eventdata, handles)
+% 
+
+% TODO: ask the user if the traces should be saved before closing.
+if strcmpi( get(handles.btnSave,'Enable'), 'on' )
+    a = questdlg( 'Are you sure you want to exit without saving selections?',...
+                  'Exit without saving', 'OK','Cancel', 'OK' ); 
+    if ~strcmp(a,'OK'),
+        return;
+    end
+end
+
+% Close the molecule location window if open
+if ~isempty(handles.axFOV) && ishandle(handles.axFOV),
+    close( get(handles.axFOV,'Parent') );
+end
+
+% Close the sorttraces window
+delete(hObject);
+
+
