@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 19-Oct-2014 16:31:46
+% Last Modified by GUIDE v2.5 19-Oct-2014 18:42:45
 
 
 % Begin initialization code - DO NOT EDIT
@@ -85,6 +85,8 @@ if ~isfield(handles,'constants')
     grid( handles.axFret, 'on' );
     zoom( handles.axFret, 'on' );
     hold( handles.axFret, 'on' );
+    
+    handles.axFOV = [];
 end
 
 % Update handles structure
@@ -336,17 +338,13 @@ end
 
 % Make sure that the molecule selected actually exists.
 if mol+1>handles.data.nTraces
-    set(handles.btnNextTop,'Enable','off');
     set(handles.btnNextBottom,'Enable','off');
 else
-    set(handles.btnNextTop,'Enable','on');
     set(handles.btnNextBottom,'Enable','on');
 end
 if mol-1>=1
-    set(handles.btnPrevTop,'Enable','on');
     set(handles.btnPrevBottom,'Enable','on');
 else
-    set(handles.btnPrevTop,'Enable','off');
     set(handles.btnPrevBottom,'Enable','off');
 end
 
@@ -856,6 +854,39 @@ chNames = handles.data.channelNames;
 fluorCh = chNames(handles.data.idxFluor);
 nCh = numel(fluorCh);
 
+
+% If open, show the molecule location over the field image.
+% Get the coordinates for all of the fluorescence channels.
+if ishandle(handles.axFOV),
+    traceMetadata = handles.data.traceMetadata(m);
+
+    fields = fieldnames(traceMetadata);
+    xs = find(  ~cellfun( @isempty, strfind(fields,'_x') )  );
+    ys = find(  ~cellfun( @isempty, strfind(fields,'_y') )  );
+
+    x = [];  y = [];
+    for i=1:numel(xs),
+        x = [ x ; traceMetadata.(fields{xs(i)}) ];
+        y = [ y ; traceMetadata.(fields{ys(i)}) ];
+    end
+
+    % Draw markers on selection points (total intensity composite image).
+    % FIXME: try to draw a shape with scale dimensions so it gets bigger as
+    % we zoom in. Otherwise it gets lost.
+    axes(handles.axFOV);
+    delete(findobj(handles.axFOV,'type','line'));
+    line( x,y, 'LineStyle','none','marker','o','color','w' );
+    
+    % If available, draw a circle shape that scales with the image and is
+    % easier to see. Requires 2014.
+    if exist('viscircles','file'),
+        viscircles( gca, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
+    end
+    
+    figure(handles.figure1);  %return focus to main window.
+end
+
+
 % Determine colors to user for plotting fluorescence.
 if isfield(handles.data.fileMetadata,'wavelengths'),
     chColors = Wavelength_to_RGB( handles.data.fileMetadata.wavelengths );
@@ -1034,6 +1065,16 @@ else
 end %if errors
 
 
+% --- Executes on button press in btnClearIdl.
+function btnClearIdl_Callback(hObject, eventdata, handles)
+% Clear the currently loaded idealization if any.
+
+handles.dwt = [];
+handles.idl = [];
+
+% Save data and redraw the FRET plot without the idealization.
+guidata(hObject,handles);
+plotter(handles);
 
 
 
@@ -1153,42 +1194,55 @@ else
 end
 
 
-% Verify file actually exists in the specified location. If not, given a
-% warning and try to find it in the current location.
-if ~exist( movieFilename, 'file' ),
-    warning('Movie file specified in trace metadata doesn''t exist!');
+% Find the movie data given in metadata, if it exists, plot an image from
+% the first few frames, and indicate the location of the molecule.
+% FIXME: need to save this image in the metadata rather than having to find
+% the original movie file, which may not be around long.
+% FIXME: automatically split the image up into each fluorescence channel.
+if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
+    figure;
+    handles.axFOV = gca;
+    
+    % If the movie file doesn't exist, allow the user to look for it.
+    if ~exist( movieFilename, 'file' ),
+        idx = find( movieFilename=='\',1,'last' )+1;
+        movieFilename = fullfile(pwd, movieFilename(idx:end));
         
-    [p,f,e] = fileparts(movieFilename);
-    altFilename = fullfile(pwd, [f e]);
-    if exist( altFilename, 'file' ),
-        movieFilename = altFilename;
-    else        
-        disp( ['Unable to find associated movie file: ' movieFilename] );
-        disp( 'Please find the associated movie file manually.' )
-        [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', ...
-                                fullfile(pwd, [f e]) );
-        movieFilename = fullfile(p,f);
-        
-        % Verify the selected file exists.
-        if ~ischar(f) || ~exist(movieFilename,'file'),
-            return;
+        if ~exist( movieFilename, 'file' ),
+            disp( ['Unable to find associated movie file: ' movieFilename] );
+            disp( 'Please find the associated movie file manually.' )
+            [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', ...
+                                    fullfile(pwd, [f e]) );
+            movieFilename = fullfile(p,f);
+
+            % Verify the selected file exists.
+            % FIXME: draw a blank background instead of cancelling.
+            if ~ischar(f) || ~exist(movieFilename,'file'),
+                return;
+            end
         end
     end
+
+    % Load colormap for image viewer
+    fid=fopen('colortable.txt','r');
+    colortable = fscanf(fid,'%d',[3 256]);
+    handles.colortable = colortable'/255;
+    fclose(fid);
+
+    % Load stk file
+    stkData = gettraces( movieFilename );
+    image_t = stkData.stk_top-stkData.background;
+    
+    sort_px = sort(stkData.stk_top(:));
+    val = sort_px( floor(0.98*numel(sort_px)) );
+    imshow( image_t, [0 val], 'Parent',handles.axFOV );
+    colormap(handles.colortable);  zoom on;
+    guidata(hObject,handles);
 end
 
-gettraces_gui( movieFilename, handles.data.traceMetadata(m) );
+
+% Show molecule location
+plotter(handles);
 
 
 % end function btnGettraces_Callback
-
-
-% --- Executes on button press in btnClearIdl.
-function btnClearIdl_Callback(hObject, eventdata, handles)
-% Clear the currently loaded idealization if any.
-
-handles.dwt = [];
-handles.idl = [];
-
-% Save data and redraw the FRET plot without the idealization.
-guidata(hObject,handles);
-plotter(handles);
