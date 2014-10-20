@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 20-Oct-2014 12:07:39
+% Last Modified by GUIDE v2.5 20-Oct-2014 14:26:21
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -209,7 +209,7 @@ set( handles.txtAlignStatus,      'String', '' );
 set( handles.txtAlignWarning, 'Visible','off' );
 set(handles.nummoles,'String','');
 
-set(gcf,'pointer','watch'); drawnow;
+set(handles.figure1,'pointer','watch'); drawnow;
 
 % Clear the original stack to save memory
 if isappdata(handles.figure1,'stkData')
@@ -299,7 +299,8 @@ for i=1:numel(fields),
     idxCh = find( handles.params.idxFields==i ); 
         
     imshow( fields{i}, [low val], 'Parent',ax(i) );
-    colormap(handles.colortable);  zoom on;
+%     colormap(ax(i),handles.colortable);
+%     zoom(ax(i),'on');
 
     if ~isempty(idxCh) && ~isempty(chNames{idxCh}),
         % Give each field a title with the background color matching the
@@ -319,11 +320,12 @@ linkaxes( [ax handles.axTotal] );
 
 % Show total fluorescence channel
 imshow( handles.total_t, [low*2 val*2], 'Parent',handles.axTotal );
-colormap(handles.colortable);  zoom on;
+colormap(handles.axTotal,handles.colortable);
+zoom(handles.axTotal,'on');
 title(handles.axTotal,'Total Intensity');
 
 % Finish up
-set(gcf,'pointer','arrow');
+set(handles.figure1,'pointer','arrow');
 set(handles.getTraces,'Enable','on');
 set(handles.btnMetadata,'Enable','on');
 guidata(hObject,handles);
@@ -351,20 +353,26 @@ end
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
 
 % --- Executes on button press in batchmode.
-function batchmode_Callback(hObject, ~, handles)
+function batchmode_Callback(hObject, ~, handles,direct)
 % hObject    handle to batchmode (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+% direct     target directory location to look for new files
 
 % Get input parameter values
 skipExisting = get(handles.chkOverwrite,'Value');
 recursive = get(handles.chkRecursive,'Value');
 
-
 % Get location of files for gettraces to process
-direct=uigetdir('','Choose directory:');
-if direct==0, return; end
-disp(direct);
+if nargin>=4 && exist(direct,'dir'),
+    % Get a fresh copy of handles. The one passed in arguments is an old
+    % copy made when the timer was created. Kind of ugly...
+    handles = guidata(handles.chkAutoBatch);
+else
+    direct=uigetdir('','Choose directory:');
+    if direct==0, return; end
+    disp(direct);
+end
 
 % Get list of files in current directory (option: and all subdirectories)
 if recursive
@@ -422,7 +430,7 @@ for i=1:nFiles
     traceFname = fullfile(p, [name '.rawtraces']);
     
     if skipExisting && exist(traceFname,'file'),
-        disp( ['Skipping (already processed): ' stk_fname] );
+        %disp( ['Skipping (already processed): ' stk_fname] );
         existing(i) = 1;
         continue;
     end
@@ -503,7 +511,7 @@ if ~isfield(handles, 'stkfile')
     return;
 end
 
-set(gcf,'pointer','watch'); drawnow;
+set(handles.figure1,'pointer','watch'); drawnow;
 
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
@@ -652,7 +660,7 @@ set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
 set(handles.saveTraces,'Enable','on');
 set(handles.btnHidePicks,'Enable','on');
 
-set(gcf,'pointer','arrow');
+set(handles.figure1,'pointer','arrow');
 guidata(hObject,handles);
 
 % end function
@@ -679,7 +687,7 @@ style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
 [nrow,ncol] = size(handles.stk_top);
 
 % Clear any existing selection markers from previous calls.
-delete(findobj(gcf,'type','line'));
+delete(findobj(handles.figure1,'type','line'));
 
     
 if handles.params.geometry==2, %dual-channel
@@ -691,13 +699,13 @@ if handles.params.geometry==2, %dual-channel
     
     % Draw markers on selection points (donor side)
     axes(handles.axDonor);
-    line( handles.x(indL),   handles.y(indL),   style1{:}  );
-    line( handles.rx(rindL), handles.ry(rindL), style1b{:} );
+    line( handles.x(indL),   handles.y(indL),   style1{:},  'Parent',handles.axDonor );
+    line( handles.rx(rindL), handles.ry(rindL), style1b{:}, 'Parent',handles.axDonor );
 
     % Draw markers on selection points (acceptor side)
     axes(handles.axAcceptor);
-    line( handles.x(indR)-(ncol/2),   handles.y(indR),  style1{:}   );
-    line( handles.rx(rindR)-(ncol/2), handles.ry(rindR), style1b{:} );
+    line( handles.x(indR)-(ncol/2),   handles.y(indR),   style1{:},  'Parent',handles.axAcceptor );
+    line( handles.rx(rindR)-(ncol/2), handles.ry(rindR), style1b{:}, 'Parent',handles.axAcceptor );
     
 elseif handles.params.geometry>2, %quad-channel
     % Assign each spot to a quadrant. FIXME: can this be a loop?
@@ -712,26 +720,26 @@ elseif handles.params.geometry>2, %quad-channel
     rindUR = find( handles.rx> (ncol/2) & handles.ry<=(nrow/2) );
     
     axes(handles.axUL);
-    line( handles.x(indUL),   handles.y(indUL),   style1{:}  );
-    line( handles.rx(rindUL), handles.ry(rindUL), style1b{:} );
+    line( handles.x(indUL),   handles.y(indUL),   style1{:},  'Parent',handles.axUL  );
+    line( handles.rx(rindUL), handles.ry(rindUL), style1b{:}, 'Parent',handles.axUL );
     
     axes(handles.axLL);
-    line( handles.x(indLL),   handles.y(indLL)-(nrow/2),   style1{:}  );
-    line( handles.rx(rindLL), handles.ry(rindLL)-(nrow/2), style1b{:} );
+    line( handles.x(indLL),   handles.y(indLL)-(nrow/2),   style1{:},  'Parent',handles.axLL  );
+    line( handles.rx(rindLL), handles.ry(rindLL)-(nrow/2), style1b{:}, 'Parent',handles.axLL );
     
     axes(handles.axLR);
-    line( handles.x(indLR)-(ncol/2),   handles.y(indLR)-(nrow/2),   style1{:}  );
-    line( handles.rx(rindLR)-(ncol/2), handles.ry(rindLR)-(nrow/2), style1b{:} );
+    line( handles.x(indLR)-(ncol/2),   handles.y(indLR)-(nrow/2),   style1{:},  'Parent',handles.axLR  );
+    line( handles.rx(rindLR)-(ncol/2), handles.ry(rindLR)-(nrow/2), style1b{:}, 'Parent',handles.axLR );
     
     axes(handles.axUR);
-    line( handles.x(indUR)-(ncol/2),   handles.y(indUR),   style1{:}  );
-    line( handles.rx(rindUR)-(ncol/2), handles.ry(rindUR), style1b{:} );
+    line( handles.x(indUR)-(ncol/2),   handles.y(indUR),   style1{:},  'Parent',handles.axUR  );
+    line( handles.rx(rindUR)-(ncol/2), handles.ry(rindUR), style1b{:}, 'Parent',handles.axUR );
 end
 
 % Draw markers on selection points (total intensity composite image).
 axes(handles.axTotal);
-line( handles.total_x,  handles.total_y,  style2{:}  );
-line( handles.rtotal_x, handles.rtotal_y, style2b{:} );
+line( handles.total_x,  handles.total_y,  style2{:},  'Parent',handles.axTotal  );
+line( handles.rtotal_x, handles.rtotal_y, style2b{:}, 'Parent',handles.axTotal );
 
 
 % end function highlightPeaks
@@ -1163,13 +1171,84 @@ end
 % END FUNCTION cboAlignMethod_Callback
 
 
+
 % --- Executes on button press in btnHidePicks.
 function btnHidePicks_Callback(hObject, eventdata, handles)
 % Hide the circles drawn to indicate molecule locations so the field of
 % view image is more visible. They will show up again if the "Pick Peaks"
 % button is clicked.
+delete(findobj(handles.figure1,'type','line'));
 
-delete(findobj(gcf,'type','line'));
+
+
+% --- Executes on button press in chkAutoBatch.
+function chkAutoBatch_Callback(hObject, eventdata, handles)
+% 
+    
+% If another timer is running, stop it.
+fileTimer = timerfind('Name','gettraces_fileTimer');
+
+if ~isempty(fileTimer),
+    stop(fileTimer);
+    delete(fileTimer);
+    %disp('Timer deleted.');
+end
+
+% Start a new timer if requested
+if get(hObject,'Value') == get(hObject,'Max'),
+    % Ask the user for a directory location
+    targetDir = uigetdir('','Choose directory:');
+    if targetDir==0,
+        set( hObject, 'Value', get(hObject,'Min') );
+        return;
+    end
+    disp(targetDir);
+    
+    % Force "skip processed data" setting so we don't end up trying to
+    % reprocess every movie in every iteration.
+    set(handles.chkOverwrite,'Value',1);
+    
+    % Start a thread that will periodically check for new movies every 5
+    % seconds and process them automatically.
+    %disp('Timer started.');
+    fileTimer = timer('ExecutionMode','fixedSpacing','StartDelay',1, ...
+                              'Name','gettraces_fileTimer', 'TimerFcn', ...
+                              {@updateFileTimer,hObject,targetDir}, ...
+                              'StopFcn',{@stopFileTimer,hObject}, ...
+                              'Period',5.0,'BusyMode','drop');
+    start(fileTimer);
+    %FIXME: add an error/stop function to clear the checkbox.
+end
+
+% guidata(hObject,handles);
+
+% END FUNCTION chkAutoBatch_Callback
+
+
+function stopFileTimer(~,~,hObject)
+% This function is called when there is an error during the timer callback
+% or when the timer is stopped.
+handles = guidata(hObject);
+set(handles.chkAutoBatch,'Value',0);
+
+% END FUNCTION stopFileTimer
+
+
+function updateFileTimer(~,~,hObject,targetDir)
+% This function runs each time the timer is fired, looking for any new
+% movies that may have appeared on the path.
+% disp('Timer fired');
+batchmode_Callback( hObject, [], guidata(hObject), targetDir );
+
+
+% END FUNCTION updateFileTimer
+
+
+
+
+
+
+
 
 
 
