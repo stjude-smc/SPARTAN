@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 20-Oct-2014 12:24:40
+% Last Modified by GUIDE v2.5 20-Oct-2014 20:06:25
 
 
 % Begin initialization code - DO NOT EDIT
@@ -227,6 +227,8 @@ set(handles.edThreshold,  'Enable',isFret );
 set(handles.sldThreshold, 'Enable',isFret );
 set(handles.edCrosstalk1, 'Enable',isFret );
 set(handles.sldCrosstalk1,'Enable',isFret );
+set(handles.edGamma,      'Enable',isFret,'String','1' );
+set(handles.sldGamma,     'Enable',isFret,'Value',1 );
 
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
@@ -252,6 +254,7 @@ set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 % The crosstalk value here reflects *the correction that has already been
 % made* -- the actual data are modified each time
 handles.crosstalk = zeros( handles.data.nTraces, 2  );
+handles.gamma     = ones( handles.data.nTraces, 1  );
 
 
 % Reset x-axis label to reflect time or frame-based.
@@ -394,6 +397,9 @@ set( handles.sldCrosstalk2, 'Value',  handles.crosstalk(mol,2) );
 
 set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
+
+set( handles.edGamma,  'String', sprintf('%.2f',handles.gamma(mol)) );
+set( handles.sldGamma, 'Value',  handles.gamma(mol) );
 
 set(handles.btnSubDonor,    'Enable','on' );
 set(handles.btnSubBoth,     'Enable','on' );
@@ -603,6 +609,15 @@ delete(data);  %clean up. not necessary, but fun.
 
 
 
+% --- Executes on button press in btnSaveInPlace.
+function btnSaveInPlace_Callback(~, ~, handles)
+% Button to overwrite the current file with modifications, rather than
+% saving results to selected traces.
+
+
+% END FUNCTION savePickedTraces
+
+
 
 
 %=========================================================================%
@@ -784,6 +799,55 @@ handles = updateTraceData( handles );
 guidata(hObject,handles);
 plotter(handles);
 
+
+
+
+function edGamma_Callback(hObject, ~, handles)
+% Text box for adjusting apparent gamma was changed. Scale acceptor1.
+% A value of 1 means no adjustment. A value of 5 will multiply the acceptor
+% by a factor of 5.
+
+gamma = str2double( get(hObject,'String') );
+
+% Restrict value to the range of the slider to prevent errors.
+% FIXME: changing the box should change the scale of the slider, within reason.
+sldMax = get( handles.sldGamma, 'max' );
+sldMin = get( handles.sldGamma, 'min' );
+gamma = max(gamma,sldMin);
+gamma = min(gamma,sldMax);
+
+set( handles.sldGamma, 'Value',gamma );
+
+% Make the corrections and update plots.
+sldGamma_Callback( handles.sldGamma, [], handles );
+
+% END FUNCTION edGamma1_Callback
+
+
+
+% --- Executes on slider movement.
+function sldGamma_Callback(hObject, ~, handles)
+% 
+
+mol = handles.molecule_no;
+
+oldGamma = handles.gamma(mol,1);
+newGamma = get(hObject,'Value');
+handles.gamma(mol,1) = newGamma;
+
+% First, undo the correct that was previously applied, then apply the new
+% correction value.
+handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:)*newGamma/oldGamma;
+
+% Save and display the result
+set( handles.edGamma, 'String',sprintf('%.2f',newGamma) );
+
+handles = updateTraceData( handles );
+guidata(hObject,handles);
+plotter(handles);
+
+
+% END FUNCTION sldGamma1_Callback
 
 
 
@@ -1020,6 +1084,7 @@ nTraces  = handles.data.nTraces;
 traceLen = handles.data.nFrames;
 
 % Get filename for .dwt file from user and load it.
+% FIXME: suggest a file name (or at least location) automatically).
 if nargin>1,
     [dwt,dwtSampling,offsets,model] = loadDWT(filename);
 else
@@ -1065,6 +1130,12 @@ else
     
 end %if errors
 
+set(handles.btnClearIdl,'Enable','on');
+
+
+% END FUNCTION loadDWT_ex
+
+
 
 % --- Executes on button press in btnClearIdl.
 function btnClearIdl_Callback(hObject, eventdata, handles)
@@ -1075,9 +1146,11 @@ handles.idl = [];
 
 % Save data and redraw the FRET plot without the idealization.
 guidata(hObject,handles);
+set(handles.btnClearIdl,'Enable','off');
+
 plotter(handles);
 
-
+% END FUNCTION btnClearIdl_Callback
 
 
 
@@ -1269,5 +1342,3 @@ end
 
 % Close the sorttraces window
 delete(hObject);
-
-
