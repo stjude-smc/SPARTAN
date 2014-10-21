@@ -1279,7 +1279,7 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
     
     % If the movie file doesn't exist, allow the user to look for it.
     if ~exist( movieFilename, 'file' ),
-        idx = find( movieFilename=='\',1,'last' )+1;
+        idx = find( movieFilename=='\' | movieFilename=='/',1,'last' )+1;
         movieFilename = fullfile(pwd, movieFilename(idx:end));
         
         if ~exist( movieFilename, 'file' ),
