@@ -41,7 +41,7 @@ end
 
 
 % --- Executes just before sorttraces is made visible.
-function sorttraces_OpeningFcn(hObject, eventdata, handles, varargin)
+function sorttraces_OpeningFcn(hObject, ~, handles, varargin)
 % Setup GUI controls in their default state (no file loaded).
 
 
@@ -114,7 +114,7 @@ end
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = sorttraces_OutputFcn(hObject, eventdata, handles)
+function varargout = sorttraces_OutputFcn(~, ~, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -135,7 +135,7 @@ varargout{1} = handles.output;
 
 
 %----------"OPEN TRACES FILE" Button----------%
-function btnOpen_Callback(hObject, eventdata, handles)
+function btnOpen_Callback(~, ~, handles)
 % Open a user-selected traces file.
 
 % Get traces filename by menu driven input
@@ -324,7 +324,7 @@ end
 
 
 %----------GO TO MOLECULE----------%
-function handles = editGoTo_Callback(hObject, eventdata, handles)
+function handles = editGoTo_Callback(hObject, ~, handles)
 % Called when user changes the molecule number textbox. Jump to and plot
 % the indicated trace.
 
@@ -413,7 +413,7 @@ plotter(handles);
 
 %----------GO BACK TO PREVIOUS MOLECULE----------%
 % --- Executes on button press in btnPrevTop.
-function btnPrevTop_Callback(hObject, eventdata, handles)
+function btnPrevTop_Callback(~, ~, handles)
 % User clicked "previous molecule" button.
 set( handles.editGoTo,'String',num2str(handles.molecule_no-1) );
 editGoTo_Callback( handles.editGoTo, [], handles );
@@ -422,7 +422,7 @@ editGoTo_Callback( handles.editGoTo, [], handles );
 
 %----------GO TO NEXT MOLECULE----------%
 % --- Executes on button press in btnNextTop - 'Next Molecule'.
-function btnNextTop_Callback(hObject, eventdata, handles)
+function btnNextTop_Callback(~, ~, handles)
 % User clicked "next molecule" button.
 set( handles.editGoTo,'String',num2str(handles.molecule_no+1) );
 editGoTo_Callback( handles.editGoTo, [], handles );
@@ -434,7 +434,7 @@ editGoTo_Callback( handles.editGoTo, [], handles );
 %=========================   MOLECULE BINNING   ==========================%
 
 % --- Executes on button press in chkBin1.
-function addToBin_Callback(hObject, eventdata, handles, index)
+function addToBin_Callback(hObject, ~, handles, index)
 % User clicked on one of the check boxes associated with each bin.
 % The last parameter determines which bin was indicated.
 
@@ -477,7 +477,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in chkBin1.
-function toggleBin(hObject, eventdata, handles, index)
+function toggleBin(hObject, ~, handles, index)
 % User clicked on one of the check boxes associated with each bin.
 % The last parameter determines which bin was indicated.
 
@@ -525,7 +525,7 @@ guidata(hObject,handles);
 
 %----------SAVE TRACES----------%
 % --- Executes on button press in btnSave.
-function btnSave_Callback(hObject, eventdata, handles)
+function btnSave_Callback(hObject, ~, handles)
 % User clicked "Save Traces".
 % Traces files are saved for each bin in which there are picked molecules.
 
@@ -573,7 +573,7 @@ indexes = sort(indexes);
 % Put together the subset of selected traces for saving.
 data = handles.data.getSubset(indexes);  %create a copy
 
-[p,f,e] = fileparts(filename);
+[~,~,e] = fileparts(filename);
 if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
     saveTraces( filename, data );
 elseif strcmp(e,'.txt'),
@@ -610,7 +610,7 @@ delete(data);  %clean up. not necessary, but fun.
 
 
 % --- Executes on button press in btnSaveInPlace.
-function btnSaveInPlace_Callback(~, ~, handles)
+function btnSaveInPlace_Callback(~, ~, ~)
 % Button to overwrite the current file with modifications, rather than
 % saving results to selected traces.
 
@@ -625,7 +625,7 @@ function btnSaveInPlace_Callback(~, ~, handles)
 
 
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
-function btnSubBoth_Callback(hObject, eventdata, handles, mode)
+function btnSubBoth_Callback(hObject, ~, handles, mode)
 % Subtract fluorescence background from the current x-axis region
 % (presumably zoomed to a region after photobleaching). All of the
 % subtraction buttons are handled with this one function. The mode
@@ -704,7 +704,7 @@ plotter(handles);
 
 %----------ADJUST CROSSTALK WITH SLIDER----------%
 % --- Executes on slider movement.
-function sldCrosstalk_Callback(hObject, eventdata, handles, ch )
+function sldCrosstalk_Callback(hObject, ~, handles, ch )
 % Called when user changes the scroll bar for specifying FRET threshold.
 %
 
@@ -761,7 +761,7 @@ sldCrosstalk_Callback( handles.(name), eventdata, handles, ch );
 %---------------------------------------------------%
 
 % --- Executes on slider movement.
-function sldThreshold_Callback(hObject, eventdata, handles)
+function sldThreshold_Callback(hObject, ~, handles)
 % Called when user changes the scroll bar for specifying FRET threshold.
 %
 
@@ -778,7 +778,7 @@ plotter(handles);
 
 
 
-function edThreshold_Callback(hObject, eventdata, handles)
+function edThreshold_Callback(hObject, ~, handles)
 % Called when user changes the text box for specifying FRET threshold.
 %
 
@@ -904,7 +904,7 @@ handles.stats = traceStat( handles.data.getSubset(m) );
 
 %----------PRINT TRACE----------%
 % --- Executes on button press in btnPrint.
-function btnPrint_Callback(hObject, eventdata, handles)
+function btnPrint_Callback(~, ~, handles)
 % Opens the print system dialog to print the current trace.
 printdlg(handles.figure1);
 
@@ -925,30 +925,43 @@ nCh = numel(fluorCh);
 if ishandle(handles.axFOV),
     traceMetadata = handles.data.traceMetadata(m);
 
-    fields = fieldnames(traceMetadata);
-    xs = find(  ~cellfun( @isempty, strfind(fields,'_x') )  );
-    ys = find(  ~cellfun( @isempty, strfind(fields,'_y') )  );
-
-    x = [];  y = [];
-    for i=1:numel(xs),
-        x = [ x ; traceMetadata.(fields{xs(i)}) ];
-        y = [ y ; traceMetadata.(fields{ys(i)}) ];
-    end
-
-    % Draw markers on selection points (total intensity composite image).
-    % FIXME: try to draw a shape with scale dimensions so it gets bigger as
-    % we zoom in. Otherwise it gets lost.
-    axes(handles.axFOV);
-    delete(findobj(handles.axFOV,'type','line'));
-    line( x,y, 'LineStyle','none','marker','o','color','w' );
+    % Verify that the currently-loaded movie matches the one current molecule.
+    % They are not necessarily the same except for rawtraces files.
+    % Assumes that files have properly formatted IDs. Not in old formats?
+    output = split('#',traceMetadata.ids);
+    [movieFilename,~] = deal( output{:} );
     
-    % If available, draw a circle shape that scales with the image and is
-    % easier to see. Requires 2014.
-    if exist('viscircles','file'),
-        viscircles( gca, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
-    end
+    if ~strcmp(handles.movieFilename,movieFilename),
+        %btnGettraces_Callback(hObject, [], handles);
+        close( get(handles.axFOV,'Parent') );
     
-    figure(handles.figure1);  %return focus to main window.
+    else
+        % Get x/y location of current molecule in each fluorescence channel.
+        fields = fieldnames(traceMetadata);
+        xs = find(  ~cellfun( @isempty, strfind(fields,'_x') )  );
+        ys = find(  ~cellfun( @isempty, strfind(fields,'_y') )  );
+
+        x = [];  y = [];
+        for i=1:numel(xs),
+            x = [ x ; traceMetadata.(fields{xs(i)}) ];
+            y = [ y ; traceMetadata.(fields{ys(i)}) ];
+        end
+
+        % Draw markers on selection points (total intensity composite image).
+        % FIXME: try to draw a shape with scale dimensions so it gets bigger as
+        % we zoom in. Otherwise it gets lost.
+        axes(handles.axFOV);
+        delete(findobj(handles.axFOV,'type','line'));
+        line( x,y, 'LineStyle','none','marker','o','color','w' );
+
+        % If available, draw a circle shape that scales with the image and is
+        % easier to see. Requires 2014.
+        if exist('viscircles','file'),
+            viscircles( gca, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
+        end
+
+        figure(handles.figure1);  %return focus to main window.
+    end
 end
 
 
@@ -985,7 +998,7 @@ else
 end
 
 
-[p,name,ext] = fileparts( handles.filename );
+[~,name,ext] = fileparts( handles.filename );
 data_fname = [name ext];
 
 % Plot fluorophore traces
@@ -1062,7 +1075,7 @@ xlim([time(1) time(end)]);
 
 
 % --- Executes on button press in btnLoadDWT.
-function btnLoadDWT_Callback(hObject, eventdata, handles)
+function btnLoadDWT_Callback(hObject, ~, handles)
 % Loads an idealization (.dwt file) for later plotting in plotter().
 
 handles = loadDWT_ex( handles );
@@ -1138,7 +1151,7 @@ set(handles.btnClearIdl,'Enable','on');
 
 
 % --- Executes on button press in btnClearIdl.
-function btnClearIdl_Callback(hObject, eventdata, handles)
+function btnClearIdl_Callback(hObject, ~, handles)
 % Clear the currently loaded idealization if any.
 
 handles.dwt = [];
@@ -1156,7 +1169,7 @@ plotter(handles);
 
 
 % --- Executes on button press in btnSelAll3.
-function btnSelAll_Callback(hObject, eventdata, handles, index)
+function btnSelAll_Callback(hObject, ~, handles, index)
 % User clicked the "select all" button above one of the bins.
 % This is dangerous because all existing selections in that bin could be
 % lost if this was accidental, so a warning dialog was added.
@@ -1251,20 +1264,34 @@ end
 
 
 % --- Executes on button press in btnGettraces.
-function btnGettraces_Callback(hObject, eventdata, handles)
+function btnGettraces_Callback(hObject, ~, handles)
+% Display an image of the field-of-view from the movie that the current trace
+% came from and its physical location in each fluorescence channel. Iterating
+% over traces will then update the molecule location.
 %
+% FIXME: this works correctly for showing the current trace, but we assume all
+% traces are from the same movie, which is only the case for rawtraces files.
+% Fixing this requres some work....
+
 
 % Get the filename and movie coordinates of the selected trace.
-% FIXME: this assumes new format traces!
 m = handles.molecule_no;
 id = handles.data.traceMetadata(m).ids;
 
 if any( id=='#' ),
     output = split('#',id);
-    [movieFilename,traceID] = deal( output{:} );
+    [movieFilename,~] = deal( output{:} );
+    handles.movieFilename = movieFilename; %base name from IDs.
 else
-    warning('No gettraces metadata available. re-run gettraces!');
+    disp('No gettraces metadata available. re-run gettraces!');
     return;
+end
+
+% Sometimes the traces filename is in the ID instead of the movie.
+% Remove the file extension and add a guess.
+[p,f,e] = fileparts(movieFilename);
+if ~strcmp(e,'.stk') && ~strcmp(e,',tiff') && ~strcmp(e,'.tif'),
+    movieFilename = fullfile(p,[f '.stk']);
 end
 
 
@@ -1273,9 +1300,7 @@ end
 % FIXME: need to save this image in the metadata rather than having to find
 % the original movie file, which may not be around long.
 % FIXME: automatically split the image up into each fluorescence channel.
-if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
-    figure;
-    handles.axFOV = gca;
+if isempty(handles.axFOV) || ~ishandle(handles.axFOV),    
     
     % If the movie file doesn't exist, allow the user to look for it.
     if ~exist( movieFilename, 'file' ),
@@ -1283,10 +1308,8 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
         movieFilename = fullfile(pwd, movieFilename(idx:end));
         
         if ~exist( movieFilename, 'file' ),
-            disp( ['Unable to find associated movie file: ' movieFilename] );
-            disp( 'Please find the associated movie file manually.' )
             [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', ...
-                                    fullfile(pwd, [f e]) );
+                                    movieFilename );
             movieFilename = fullfile(p,f);
 
             % Verify the selected file exists.
@@ -1296,21 +1319,26 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
             end
         end
     end
+    
+    figure;
+    handles.axFOV = gca;
 
     % Load colormap for image viewer
     fid=fopen('colortable.txt','r');
     colortable = fscanf(fid,'%d',[3 256]);
-    handles.colortable = colortable'/255;
+    colortable = colortable'/255;
     fclose(fid);
 
-    % Load stk file
     stkData = gettraces( movieFilename );
     image_t = stkData.stk_top-stkData.background;
-    
+
+    % Display the field of view
     sort_px = sort(stkData.stk_top(:));
     val = sort_px( floor(0.98*numel(sort_px)) );
     imshow( image_t, [0 val], 'Parent',handles.axFOV );
-    colormap(handles.colortable);  zoom on;
+    colormap(colortable);
+    
+    zoom on;
     guidata(hObject,handles);
 end
 
@@ -1322,8 +1350,11 @@ plotter(handles);
 % end function btnGettraces_Callback
 
 
+
+
+
 % --- Executes when user attempts to close figure1.
-function sorttraces_CloseRequestFcn(hObject, eventdata, handles)
+function sorttraces_CloseRequestFcn(hObject, ~, handles)
 % 
 
 % TODO: ask the user if the traces should be saved before closing.
