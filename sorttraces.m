@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 20-Oct-2014 20:06:25
+% Last Modified by GUIDE v2.5 21-Oct-2014 17:55:21
 
 
 % Begin initialization code - DO NOT EDIT
@@ -176,7 +176,7 @@ end
 % Make sure time axis is in seconds (not frames)
 if handles.data.time(1)==1,
     f = inputdlg('What is the sampling interval (in ms) for this data?');
-    sampling = str2double(f)
+    sampling = str2double(f);
     handles.data.time = sampling.*(0:handles.data.nFrames-1);
 end
 
@@ -232,6 +232,7 @@ set(handles.sldGamma,     'Enable',isFret,'Value',1 );
 
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
+set(handles.btnGettraces,'Enable','on' );
 
 if isChannel(handles.data,'acceptor2') && ~isChannel(handles.data,'donor2')
     isThreeColor = 'on';
@@ -610,9 +611,36 @@ delete(data);  %clean up. not necessary, but fun.
 
 
 % --- Executes on button press in btnSaveInPlace.
-function btnSaveInPlace_Callback(~, ~, ~)
+function btnSaveInPlace_Callback(~, ~, handles)
 % Button to overwrite the current file with modifications, rather than
 % saving results to selected traces.
+
+
+% Ask the user for a target filename to save as, with the current file as the
+% default.
+[p,f,e] = fileparts(handles.filename);
+filename = fullfile(p,[f '_adjusted' e]);
+
+[inputfile,inputpath] = uiputfile('.traces','Save picked traces as:',filename);
+if inputfile==0, return; end
+
+filename=[inputpath inputfile];
+
+
+% Save the current data state to the file.
+[~,~,e] = fileparts(filename);
+if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
+    saveTraces( filename, handles.data );
+elseif strcmp(e,'.txt'),
+    saveTraces( filename, 'txt', handles.data );
+else
+    error('Unknown file format extension');
+end
+
+
+% The idealization, if any, is NOT saved by this... FIXME?
+
+set(handles.btnSaveInPlace,'Enable','off');
 
 
 % END FUNCTION savePickedTraces
@@ -893,6 +921,13 @@ end
 % Recalculate stats.
 handles.stats = traceStat( handles.data.getSubset(m) );
 
+% Since some kind of change was made, allow the user to save the file or
+% selections in their new state.
+if ~isempty(handles.NoFRETs_indexes) || ~isempty(handles.FRETs_indexes) || ...
+   ~isempty(handles.Best_indexes),
+    set(handles.btnSave,'Enable','on');
+end
+set(handles.btnSaveInPlace,'Enable','on');
 
 % END FUNCTION updateTraceData
 
@@ -1357,8 +1392,8 @@ plotter(handles);
 function sorttraces_CloseRequestFcn(hObject, ~, handles)
 % 
 
-% TODO: ask the user if the traces should be saved before closing.
-if strcmpi( get(handles.btnSave,'Enable'), 'on' )
+% Ask the user if the traces should be saved before closing.
+if strcmpi(get(handles.btnSave,'Enable'),'on') || strcmpi(get(handles.btnSaveInPlace,'Enable'),'on')
     a = questdlg( 'Are you sure you want to exit without saving selections?',...
                   'Exit without saving', 'OK','Cancel', 'OK' ); 
     if ~strcmp(a,'OK'),
