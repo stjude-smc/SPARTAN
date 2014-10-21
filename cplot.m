@@ -1,7 +1,7 @@
 function hist2d = cplot( varargin )
 % CPLOT  Draws FRET 2D contour plot
 %
-%   CPLOT( HIST, BOUNDS, CONST )
+%   CPLOT( HIST, BOUNDS, OPTIONS )
 %   Draws a contour plot from the FRET histogram (HIST)
 %   BOUNDS(1,2) define X-axis limits; BOUNDS(3,4) define Y-axis limits
 %   
@@ -18,7 +18,7 @@ cax = newplot(cax);
 if numel(args)>=1,
     hist2d = args{1};
 else
-    [histfile histpath]=uigetfile('*.txt','Choose a contour plot:');
+    [histfile,histpath] = uigetfile('*.txt','Choose a contour plot:');
     infile=strcat(histpath,histfile);
     hist2d=load(infile);
     
@@ -26,18 +26,19 @@ else
 end
 
 if numel(args)>=3,
-    constants = args{3};
+    options = args{3};
 else
-    constants = cascadeConstants();
+    c = cascadeConstants();
+    options = c.defaultMakeplotsOptions;
 end
 
 if numel(args)>=2
     bounds = args{2};
 else
-    bounds = [1 constants.defaultMakeplotsOptions.contour_length constants.defaultMakeplotsOptions.fretRange];
+    bounds = [1 options.contour_length options.fretRange];
 end
 
-scale = constants.defaultMakeplotsOptions.cplot_scale_factor;
+scale = options.cplot_scale_factor;
 
 
 % Time-bin the data if histogram axes are very long.
@@ -104,7 +105,7 @@ hist2d_n(end,end) = max_mol*2;
 
 
 % Draw the filled contour plot in current axis
-[C,hand] = contourf( cax, ...
+[~,hand] = contourf( cax, ...
         time_axis(lims), fret_axis, ...
         hist2d_n( 2:end, 2:end ), con );
 

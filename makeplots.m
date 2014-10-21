@@ -72,14 +72,19 @@ end
 % Other options (passed as a structure)
 if nargin>2,
     options = catstruct( options, varargin{3}, 'sorted' );
-    
-    if isfield(options,'constants')
-        constants = options.constants;
-    end
 end
 
-options.contour_bounds = [1 options.contour_length options.fretRange];
 
+% Declare persistent variables. If any parameters values are changed in the GUI,
+% the new value will override the default until MATLAB is restarted.
+persistent persistent_options;
+
+if ~isempty(persistent_options),
+    options = catstruct( options, persistent_options, 'sorted' );
+end
+
+
+options.contour_bounds = [1 options.contour_length options.fretRange];
 
 
 %% Process data to produce plots
@@ -150,8 +155,9 @@ end
 
 %% ===================== LOOP OVER EACH DATA FILE ====================== 
 
-% If we choose an option that needs to the number of traces in each file,
+% If we choose an option that needs the number of traces in each file,
 % we have to load that first before the main loop...
+% FIXME: need a fast script that just gets data size!
 if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
     for i=1:numel(baseFilenames),
         data = loadTraces( dataFilenames{i} );
@@ -159,10 +165,138 @@ if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
     end
 end
 
-for i=1:numel(baseFilenames),  %for each sample
+% See the end of the file. This loads the data, calculates plots, and draws
+% them.
+plotData();
+
+
+% Give a warning if using some funky normalization.
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max
+    disp('NOTE: these plots are normalized to the plot with the largest number of traces!!');
+end
+
+
+
+
+%% =============== ADD GUI CONTROLS ================ 
+% These are buttons and things to save the plots or manipulate them without
+% calling makeplots again.
+% Position from LL corner is defined as [left bottom width height].
+% FIXME: change to normalized units so the buttons are scaled?
+
+uicontrol( 'Style','pushbutton', 'String','Save files', ...
+           'Position',[20 20 80 30], 'Callback',@saveFiles, ...
+           'Parent',h1 );
+
+uicontrol( 'Style','pushbutton', 'String','Change settings', ...
+           'Position',[110 20 130 30], 'Callback',@changeDisplaySettings, ...
+           'Parent',h1 );
+       
+uicontrol( 'Style','pushbutton', 'String','Reset settings', ...
+           'Position',[250 20 120 30], 'Callback',@resetSettings, ...
+           'Parent',h1 );
+
+       
+       
+       
+                 
+                 
+%% ================ GUI CALLBACKS ================ 
+% These are defined within the main function scope so we can steal the
+% variables (data, filenames, etc).
+% FIXME: consider having a single dialog for all major settings.
+
+function saveFiles(~,~)
+% Save plot data to text files for importing and plotting in Origin.
+    
+    for k=1:numel(baseFilenames),
+        base = baseFilenames{k};
+    
+        % Save contour FRET histogram
+        dlmwrite( [base '_hist.txt'] , cplotdataAll{k}, ' ' );
         
-    data_fname  = dataFilenames{i};
-    dwt_fname   = [baseFilenames{i} '.qub.dwt'];
+        % Save display-format (time-binned) contour FRET histogram.
+        dlmwrite( [base '_displayhist.txt'], cpdataAll{k}, ' ');
+        
+        % State histogram
+        if ~isempty(shistAll{k}),
+            dlmwrite( [base '.qub_shist.txt'], shistAll{k}, ' ' );
+        end
+        
+        % TD Plot
+        if ~isempty(tdpAll{k}),
+            dlmwrite( [base '.qub_tdp.txt'], tdpAll{k}, ' ' );
+        end
+    end
+    
+end %FUNCTION saveFiles
+
+
+
+function changeDisplaySettings(~,~)
+% Changes how much (how many frames) of the movie to show in plots.
+% This is equivalent to changing pophist_sumlen in cascadeConstants.
+
+
+% 1. Get the new value from the user.
+answer = inputdlg( {'Contour length (frames):','Contour offset (frames):', ...
+                    'Contour scaling factor:','TD plot scaling factor:' }, ...
+         'Change display settings', 1, ...
+        { num2str(options.contour_length),     num2str(options.pophist_offset), ...
+          num2str(options.cplot_scale_factor), num2str(options.tdp_max) }  );
+
+if isempty(answer), return; end  %user hit cancel
+
+
+% 2. Save new parameter values from user.
+persistent_options.contour_length = str2double( answer{1} );
+persistent_options.pophist_offset = str2double( answer{2} );
+persistent_options.cplot_scale_factor = str2double( answer{3} );
+persistent_options.tdp_max            = str2double( answer{4} );
+
+options = catstruct( options, persistent_options, 'sorted' );
+options.contour_bounds = [1 options.contour_length options.fretRange];
+
+
+% 3. Redraw plots.
+plotData();
+
+
+end %FUNCTION changeDisplaySettings
+
+
+
+function resetSettings(~,~)
+% Reset all display settings to their defaults in cascadeConstants. Any
+% persistent settings will be overwritten
+
+persistent_options = [];
+
+constants = cascadeConstants;
+options = constants.defaultMakeplotsOptions;
+options.contour_bounds = [1 options.contour_length options.fretRange];
+
+plotData();
+
+end %FUNCTION changeDisplaySettings
+
+
+
+
+
+
+%% =======================================================================
+
+%% ===================== LOOP OVER EACH DATA FILE ====================== 
+
+function plotData()
+% This is the function that actually loads the data, calculates the plots,
+% and displays them.
+
+for k=1:numel(baseFilenames),  %for each sample
+        
+    data_fname  = dataFilenames{k};
+    dwt_fname   = [baseFilenames{k} '.qub.dwt'];
     
     
     % Load FRET data
@@ -183,7 +317,7 @@ for i=1:numel(baseFilenames),  %for each sample
     end
     
     clear data;
-    N(i) = size(fret,1);
+    N(k) = size(fret,1);
     
     
     
@@ -191,43 +325,44 @@ for i=1:numel(baseFilenames),  %for each sample
     
     %---- LOAD OR GENERATE FRET CONTOUR PLOT DATA
     if exist('cplotDataArray','var')
-        cplotdata = cplotDataArray{i};
+        cplotdata = cplotDataArray{k};
         % FIXME: we don't know N here!!
     
     % Generate the contour plot if not available
-    else        
+    else
         cplotdata = makecplot( fret, options );
         
         if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-            cplotdata(2:end,2:end) = cplotdata(2:end,2:end).*(N(i)/max(N));
+            cplotdata(2:end,2:end) = cplotdata(2:end,2:end).*(N(k)/max(N));
         end
-        cplotdataAll{i} = cplotdata;
+        cplotdataAll{k} = cplotdata;
     end
     
     
     %---- DRAW FRET CONTOUR PLOT ----
     if ~isfield(options,'targetAxes')
-        ax = subplot( nrows, nSamples, i );
+        ax = subplot( nrows, nSamples, k );
     else
-        ax = options.targetAxes{i,1};
+        ax = options.targetAxes{k,1};
         %axes(ax);
     end
     
     % Draw the contour plot (which may be time-binned)
-    cpdata = cplot( ax, cplotdata, options.contour_bounds, constants );
-    cpdataAll{i} = cpdata;
+    % FIXME: we are passing the default options
+    cpdata = cplot( ax, cplotdata, options.contour_bounds, options );
+    cpdataAll{k} = cpdata;
     
     % Formatting
-    title( titles{i}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
+    title( titles{k}, 'FontSize',16, 'FontWeight','bold', 'Parent',ax );
     
     if ~options.hideText,
         text( 0.90*options.contour_length, 0.94*options.contour_bounds(4), ...
-              sprintf('N=%d', N(i)), ...
+              sprintf('N=%d', N(k)), ...
               'FontWeight','bold', 'FontSize',14, ...
               'HorizontalAlignment','right', 'Parent',ax );
     end
     
-    if i==1,
+    if k==1,
          ylabel(ax,'FRET');
          xlabel(ax,'Time (frames)');
     else %i>1
@@ -245,27 +380,27 @@ for i=1:numel(baseFilenames),  %for each sample
     %% ================ DRAW STATE OCCUPANCY HISTOGRAMS ================ 
    
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
-    if ~options.no_statehist && has_dwt(i),
+    if ~options.no_statehist && has_dwt(k),
         shist = statehist( dwt_fname, fret, options );        
-        shistAll{i} = shist;
+        shistAll{k} = shist;
     end
     
     
     if ~isfield(options,'targetAxes')
-        ax = subplot( nrows, nSamples, nSamples+i );
+        ax = subplot( nrows, nSamples, nSamples+k );
     elseif size(options.targetAxes,2)>1
-        ax = options.targetAxes{i,2};
+        ax = options.targetAxes{k,2};
     else
         continue;
     end
-    histx(i) = ax;
+    histx(k) = ax;
     cla(ax);  hold(ax,'on');
     set(ax,'ColorOrder',options.colors);
     
     
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
     % ...if no dwell-time info is available.
-    if ~has_dwt(i) || options.no_statehist || isempty(shist)
+    if ~has_dwt(k) || options.no_statehist || isempty(shist)
         fretaxis = cplotdata(2:end,1);      
         histdata = cplotdata(2:end,2:options.contour_length+1)*100;
         pophist = sum(histdata,2)/options.contour_length;   %normalization
@@ -280,7 +415,7 @@ for i=1:numel(baseFilenames),  %for each sample
     else
         bins = shist(:,1);
         histdata = shist(:,2:end)*100;
-        [nBins,nStates] = size(histdata);
+        [~,nStates] = size(histdata);
         
         % If requested, remove 0-FRET peak and renormalize
         if options.ignoreState0
@@ -293,7 +428,7 @@ for i=1:numel(baseFilenames),  %for each sample
         % If the option is set, rescale so that plots with only a few
         % molecules show low occupancy in the statehist.
         if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-            histdata = histdata.*(N(i)/max(N));
+            histdata = histdata.*(N(k)/max(N));
         end
 
         % Draw translucent, filled area underneath curves
@@ -319,7 +454,7 @@ for i=1:numel(baseFilenames),  %for each sample
     
     % Formatting
     hold(ax,'off');
-    if i==1,
+    if k==1,
         ylabel( ax,'Occupancy (%)' );
         xlabel( ax,'FRET' );
     else
@@ -334,8 +469,8 @@ for i=1:numel(baseFilenames),  %for each sample
     %% ========================= DRAW TD PLOTS ========================= 
     
     % Make sure TD plot data exists
-    if ~has_dwt(i) || options.no_tdp
-        disp('TDP data missing, skipping');
+    if ~has_dwt(k) || options.no_tdp
+        %disp('TDP data missing, skipping');
         continue;
     end
     
@@ -367,56 +502,46 @@ for i=1:numel(baseFilenames),  %for each sample
     % If the option is set, rescale so that plots with only a few
     % molecules show low occupancy in the statehist.
     if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-        tdp(2:end,2:end) = tdp(2:end,2:end).*(N(i)/max(N));
+        tdp(2:end,2:end) = tdp(2:end,2:end).*(N(k)/max(N));
     end
     
-    tdpAll{i} = tdp;
+    tdpAll{k} = tdp;
     
     
     %---- DISPLAY TD PLOT ----
     if ~isfield(options,'targetAxes')
-        tdx(i) = subplot( nrows, nSamples, 2*nSamples+i );  
+        tdx(k) = subplot( nrows, nSamples, 2*nSamples+k );  
     elseif size(options.targetAxes,1)>2
-        tdx(i) = axes(options.targetAxes{i,3});
+        tdx(k) = options.targetAxes{k,3};
     else
         disp('no 3rd axis for TD plots...');
         continue;
     end
-    box(tdx(i),'on');
+    box(tdx(k),'on');
     tplot( tdp );
     
     % Formatting
     if ~options.hideText,
         text( 0.43,0.8, sprintf('N_t=%.0f',t), 'FontSize',14, ...
-              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(i) );
+              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(k) );
         text( 0.43,0.0, sprintf('t/s=%.1f',t/total_time), 'FontSize',14, ...
-              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(i) );
+              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdx(k) );
     end
-    grid(tdx(i),'on');
+    grid(tdx(k),'on');
 
-    if i==1,
-        ylabel(tdx(i),'Final FRET');
-        xlabel(tdx(i),'Inital FRET');
+    if k==1,
+        ylabel(tdx(k),'Final FRET');
+        xlabel(tdx(k),'Inital FRET');
     else %i>1,
-        set(tdx(i),'yticklabel',[]);
+        set(tdx(k),'yticklabel',[]);
     end
-    ylim(tdx(i), options.fretRange );
-    xlim(tdx(i), options.fretRange );
+    ylim(tdx(k), options.fretRange );
+    xlim(tdx(k), options.fretRange );
     
     
     drawnow;
     
-end  % for each data file
-
-
-
-
-% Give a warning if using some funky normalization.
-if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max
-    disp('NOTE: these plots are normalized to the plot with the largest number of traces!!');
-end
-
-
+end  %for each file.
 
 
 %% =================== FINISH UP =================== 
@@ -431,53 +556,19 @@ if nrows==3 && numel(tdx>1),
     linkaxes( tdx(tdx~=0), 'xy' );
 end
 
-
-
-%% =============== ADD GUI CONTROLS ================ 
-% These are buttons and things to save the plots or manipulate them without
-% calling makeplots again.
-
-
-% Button to save data
-uicontrol( 'Style','pushbutton', 'String','Save files', ...
-           'Position',[20 20 80 30], 'Callback',@saveFiles, ...
-           'Parent',h1 );
-
-
-                 
-                 
-%% ================ GUI CALLBACKS ================ 
-% These are defined within the main function scope so we can steal the
-% variables (data, filenames, etc).
-
-function saveFiles(hObject,e)
     
-    for i=1:numel(baseFilenames),
-        base = baseFilenames{i};
-    
-        % Save contour FRET histogram
-        dlmwrite( [base '_hist.txt'] , cplotdataAll{i}, ' ' );
-        
-        % Save display-format (time-binned) contour FRET histogram.
-        dlmwrite( [base '_displayhist.txt'], cpdataAll{i}, ' ');
-        
-        % State histogram
-        if ~isempty(shistAll{i}),
-            dlmwrite( [base '.qub_shist.txt'], shistAll{i}, ' ' );
-        end
-        
-        % TD Plot
-        if ~isempty(tdpAll{i}),
-            dlmwrite( [base '.qub_tdp.txt'], tdpAll{i}, ' ' );
-        end
-    end
-    
-end
 
-end %function makeplots
+end  % function plotData
 
 
 
 
 
+
+
+
+
+
+
+end %function makeplots.
 
