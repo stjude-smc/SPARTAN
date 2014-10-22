@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 20-Oct-2014 14:26:21
+% Last Modified by GUIDE v2.5 21-Oct-2014 18:55:14
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -204,6 +204,7 @@ end
 set( handles.txtFilename,          'String',fnameText);
 set( handles.txtOverlapStatus,     'String', '' );
 set( handles.txtIntegrationStatus, 'String', '' );
+set( handles.txtWindowOverlap,     'String', '' );
 set( handles.txtPSFWidth,          'String', '' );
 set( handles.txtAlignStatus,      'String', '' );
 set( handles.txtAlignWarning, 'Visible','off' );
@@ -604,6 +605,23 @@ if percentOverlap>30,
 else
     set( handles.txtOverlapStatus, 'ForegroundColor', [0 0 0] );
 end
+
+
+% Determine the fractin of integration windows that overlap, as a measure of the
+% density of molecules on the surface.
+percentWinOverlap = mean(stkData.fractionWinOverlap*100);
+% percentTracesWinOverlap = 100*sum(stkData.fractionWinOverlap>0)/numel(stkData.fractionWinOverlap);
+
+set(  handles.txtWindowOverlap, 'String', ...
+      sprintf('Win overlap: %0.1f%%', percentWinOverlap)  );
+
+if percentWinOverlap>10,
+    set( handles.txtWindowOverlap, 'ForegroundColor', [0.9 0 0] );
+else
+    set( handles.txtWindowOverlap, 'ForegroundColor', [0 0 0] );
+end
+
+
 
 
 % Get (approximate) average fraction of fluorescence collected within the
@@ -1242,16 +1260,3 @@ batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 
 
 % END FUNCTION updateFileTimer
-
-
-
-
-
-
-
-
-
-
-
-
-

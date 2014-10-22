@@ -116,12 +116,15 @@ else
     params.don_thresh = params.don_thresh-mean2(stkData.background);
 end
 
-% Find peak locations from total intensity
-[peaks,stkData.total_t,stkData.alignStatus,stkData.total_peaks,stkData.fractionOverlapped, ...
-    stkData.rejectedPicks,stkData.rejectedTotalPicks] = getPeaks( image_t, params );
+% Find peak locations from total intensity.
+% FIXME: This syntax is just terrible. getPeaks should add things to stkData or
+% output a structure with all the outputs.
+[peaks, stkData.total_t, stkData.alignStatus, stkData.total_peaks, ...
+    stkData.fractionOverlapped, stkData.rejectedPicks, ...
+    stkData.rejectedTotalPicks] = getPeaks( image_t, params );
 
 % Generate integration windows for later extracting traces.
-[stkData.regions,stkData.integrationEfficiency] = ...
+[stkData.regions, stkData.integrationEfficiency, stkData.fractionWinOverlap] = ...
                             getIntegrationWindows(image_t, peaks, params);
 
 
@@ -381,8 +384,8 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick single molecule spots ----------------- 
-function [picks,total_t,align,total_picks,fractionOverlapped,rejectedPicks,rejectedTotalPicks] ...
-             = getPeaks( image_t, params )
+function [picks, total_t, align, total_picks, fractionOverlapped, ...
+          rejectedPicks, rejectedTotalPicks] = getPeaks( image_t, params )
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments). The selection is made on the total fluorescence
 % intensity image (summing all channels into a single image) to minimize
@@ -424,7 +427,7 @@ nCh = numel(channelNames);  %# of channels TO USE.
 
 
 % Define each channel's dimensions and sum fields together.
-[nrow ncol] = size(image_t);  %full-chip size.
+[nrow,ncol] = size(image_t);  %full-chip size.
 
 if params.geometry==1,
     allFields = image_t;
@@ -1007,7 +1010,8 @@ quality = S(1) / randomScore;
 
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
-function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks, params )
+function [regions,integrationEfficiency,fractionWinOverlap] = ...
+                               getIntegrationWindows( stk_top, peaks, params )
 % For each molecule location in "peaks", find the most intense pixels in
 % its immediate neighborhood (defined by params.nPixelsToSum). These
 % regions are used by integrateAndSave() to sum most of the intensity for
@@ -1015,6 +1019,9 @@ function [regions,integrationEfficiency] = getIntegrationWindows( stk_top, peaks
 % To minimize the contribution of nearby molecules, the molecules closest to the
 % peak center are added first and progressively out to the edge.
 %
+% FIXME: instead of just returning the N best pixels, return the entire sorted
+% neighborhood and choose the highest N pixels later. This would give more
+% flexibility and information?
 
 hw = params.nhoodSize;  % distance from peak to consider (eg, 1=3x3 area)
 squarewidth = 1+2*hw;   % width of neighborhood to examine.
@@ -1031,7 +1038,7 @@ y = peaks(:,2);
 integrationEfficiency = zeros(Npeaks,squarewidth^2);
 regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
-for m=1:Npeaks    
+for m=1:Npeaks
     % Get a window of pixels around the intensity maximum (peak).
     nhood = stk_top( y(m)-hw:y(m)+hw, x(m)-hw:x(m)+hw );
     center = sort( nhood(:), 'descend' );
@@ -1047,9 +1054,34 @@ for m=1:Npeaks
     integrationEfficiency(m,:) = cumsum( center/sum(center) )';
     
     % Convert to coordinates in the full FOV image and save.
-    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
+    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];    
 end
 
+% Determine the fraction of molecules with at least one pixel in its integration
+% window shared by another molecule.
+pairs = permute(regions,[2,1,3]);
+pairs = pairs(:,:)';
+
+% Mark each integration pixel as overlapped and count for each molecule.
+% a are the unique pairs, b are indexes into "pairs" to get unique entries,
+% c are the indexes into the unique entires to get "pairs".
+[a,b,c] = unique(pairs,'rows');
+duplicateCounts = histc(c,sort(b)); %how many times each pixel is used
+duplicatePixels = a( duplicateCounts>1, : ); %pixel locations of duplicates
+% fractionWinOverlap = (size(pairs,1)-size(a,1)) / size(pairs,1);
+
+fractionWinOverlap = zeros(Npeaks,1);
+
+for m=1:Npeaks
+    N = 0;
+    for i=1:params.nPixelsToSum,
+        N = N + sum(regions(i,1,m)==duplicatePixels(:,1) & regions(i,2,m)==duplicatePixels(:,2));
+    end
+    fractionWinOverlap(m) = N/params.nPixelsToSum;
+end
+
+% ACTUALLY the most useful output would be the number of pixels, on average,
+% with contamination across traces.
 
 % end function getIntegrationWindows
 

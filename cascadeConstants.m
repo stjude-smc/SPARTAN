@@ -117,7 +117,7 @@ profiles(end+1) = p;
 
 
 p = commonParams;
-p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5)';
+p.name        = 'EMCCD 10 MHz, Dual-Cam (Cy3/Cy5)';
 p.geometry    = 2;
 p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
@@ -135,6 +135,12 @@ profiles(end+1) = p;
 
 p.name        = 'EMCCD 5MHz, Dual-Cam (Cy3/Cy5)';
 p.photonConversion = 100/2.6;   % 5MHz Evolve 512, assuming 100x gain.
+profiles(end+1) = p;
+
+
+p.name        = 'EMCCD 5MHz, Dual-Cam (Cy3/Cy5, no binning)';
+p.nhoodSize   = 2; %5x5 area
+commonParams.nPixelsToSum = 7;
 profiles(end+1) = p;
 
 
@@ -175,6 +181,12 @@ p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
 profiles(end+1) = p;
 
 
+p.name = 'Quad-View (Cy3/Cy5/Cy7, no binning)';
+p.nhoodSize = 2; %5x5 area
+commonParams.nPixelsToSum = 7;
+profiles(end+1) = p;
+
+
 p = commonParams;
 p.name        = 'Quad-View (Cy5/Cy7)';
 p.geometry    = 3;
@@ -198,12 +210,6 @@ p.nPixelsToSum = 9;   %optimum SNR from oligo/LeuT data. Depends strongly on foc
 p.nhoodSize   = 2;    %5x5 area.
 p.overlap_thresh = 3;
 p.photonConversion = 2.04; %0.49 e-/ADU
-profiles(end+1) = p;
-
-% This last one is for a few movies we took in the beginning, where the cameras
-% were reversed in metamorph (Cy5 on the left). Not needed anymore?
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
-p.idxFields   = [2 1]; %L/R; they're reversed. oops.
 profiles(end+1) = p;
 
 
