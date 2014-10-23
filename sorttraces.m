@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 21-Oct-2014 17:55:21
+% Last Modified by GUIDE v2.5 23-Oct-2014 17:13:31
 
 
 % Begin initialization code - DO NOT EDIT
@@ -227,8 +227,8 @@ set(handles.edThreshold,  'Enable',isFret );
 set(handles.sldThreshold, 'Enable',isFret );
 set(handles.edCrosstalk1, 'Enable',isFret );
 set(handles.sldCrosstalk1,'Enable',isFret );
-set(handles.edGamma,      'Enable',isFret,'String','1' );
-set(handles.sldGamma,     'Enable',isFret,'Value',1 );
+set(handles.edGamma1,     'Enable',isFret,'String','1' );
+set(handles.sldGamma1,    'Enable',isFret,'Value',1 );
 
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
@@ -240,7 +240,9 @@ else
     isThreeColor = 'off';
 end
 set(handles.edCrosstalk2, 'Enable',isThreeColor,'String','0' );
-set(handles.sldCrosstalk2,'Enable',isThreeColor,'Value',0 );
+set(handles.sldCrosstalk2,'Enable',isThreeColor,'Value',  0  );
+set(handles.edGamma2,     'Enable',isThreeColor,'String','1' );
+set(handles.sldGamma2,    'Enable',isThreeColor,'Value',  1  );
 
 
 % Initialize array for tracking FRET donor-blinking threshold value.
@@ -252,10 +254,15 @@ handles.fretThreshold = zeros( handles.data.nTraces, 1  );
 set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
 % Set data correction starting values.
-% The crosstalk value here reflects *the correction that has already been
-% made* -- the actual data are modified each time
-handles.crosstalk = zeros( handles.data.nTraces, 2  );
-handles.gamma     = ones( handles.data.nTraces, 1  );
+% The data is never modified. These parameters are used to adjust the data each
+% time it is displayed or when it is ultimately saved. They are listed in the
+% order they are applied to the trace. For now, background subtraction is the
+% exception! The trace data is directly modified in that case.
+% FIXME: intelligently choose size of these guys.
+handles.adjusted   = false( handles.data.nTraces, 1 ); %bool if trace was changed
+% handles.background = zeros( handles.data.nTraces, 3 );
+handles.gamma      = ones(  handles.data.nTraces, 3 );
+handles.crosstalk  = zeros( handles.data.nTraces, 2 );
 
 
 % Reset x-axis label to reflect time or frame-based.
@@ -359,18 +366,20 @@ handles.backgrounds = zeros( 1,numel(fluorNames) );
 
 % If no value has been calculated for FRET threshold, do it now.
 trace = handles.data.getSubset(mol);
-handles.stats = traceStat(trace);
+% handles.stats = traceStat(trace);
     
-if handles.data.isChannel('fret') && handles.fretThreshold(mol) == 0,
+if trace.isChannel('fret') && handles.fretThreshold(mol) == 0,
     total = zeros( size(trace) );
     
+    % FIXME: this should only consider channels contributing to FRET (donor,
+    % acceptor, acceptor2).
     for i=1:numel(fluorNames),
         total = total + trace.(fluorNames{i});
     end
     
     constants = cascadeConstants;
-    s = handles.stats.lifetime + 5;
-    range = s:min(s+constants.NBK,handles.data.nFrames);
+    s = max(1, calcLifetime(total) ) + 5;
+    range = s:min(s+constants.NBK,trace.nFrames);
     
     if numel(range)<10,
         handles.fretThreshold(mol) = 100; %arbitrary
@@ -399,8 +408,11 @@ set( handles.sldCrosstalk2, 'Value',  handles.crosstalk(mol,2) );
 set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
 
-set( handles.edGamma,  'String', sprintf('%.2f',handles.gamma(mol)) );
-set( handles.sldGamma, 'Value',  handles.gamma(mol) );
+set( handles.edGamma1, 'String', sprintf('%.2f',handles.gamma(mol,2)) );
+set( handles.sldGamma1, 'Value', handles.gamma(mol,2) );
+
+set( handles.edGamma2, 'String', sprintf('%.2f',handles.gamma(mol,3)) );
+set( handles.sldGamma2,'Value',  handles.gamma(mol,3) );
 
 set(handles.btnSubDonor,    'Enable','on' );
 set(handles.btnSubBoth,     'Enable','on' );
@@ -571,9 +583,11 @@ function savePickedTraces( handles, filename, indexes )
 % the order selected.
 indexes = sort(indexes);
 
-% Put together the subset of selected traces for saving.
-data = handles.data.getSubset(indexes);  %create a copy
+% Put together the subset of selected traces for saving, applying any
+% adjustments made to the trace data.
+data = adjustTraces(handles,indexes);  %creates a copy
 
+% Save the trace data to file
 [~,~,e] = fileparts(filename);
 if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
     saveTraces( filename, data );
@@ -725,7 +739,6 @@ end
 
 handles = updateTraceData( handles );
 guidata(hObject,handles);
-plotter(handles);
 
 
 
@@ -739,19 +752,19 @@ function sldCrosstalk_Callback(hObject, ~, handles, ch )
 assert( ch==1 || ch==2 );
 mol = handles.molecule_no;
 
-oldCrosstalk = handles.crosstalk(mol,ch);
+% oldCrosstalk = handles.crosstalk(mol,ch);
 handles.crosstalk(mol,ch) = get(hObject,'Value');
-delta = oldCrosstalk - handles.crosstalk(mol,ch);
+% delta = oldCrosstalk - handles.crosstalk(mol,ch);
 
 % Adjust the acceptor fluorescence to subtract donor->acceptor crosstalk
 % according to the new value. The trace has already been adjusted according
 % to the old value, so that has to be "undone" first.
-chNames = handles.data.channelNames;  %we assume these are in order of wavelength!!
-ch1 = chNames{ch};
-ch2 = chNames{ch+1};
+% chNames = handles.data.channelNames;  %we assume these are in order of wavelength!!
+% ch1 = chNames{ch};
+% ch2 = chNames{ch+1};
 
-handles.data.(ch2)(mol,:) = handles.data.(ch2)(mol,:) + ...
-                                          delta * handles.data.(ch1)(mol,:);
+% handles.data.(ch2)(mol,:) = handles.data.(ch2)(mol,:) + ...
+%                                           delta * handles.data.(ch1)(mol,:);
                          
 % Save and display the result
 name = sprintf('edCrosstalk%d',ch);
@@ -759,7 +772,6 @@ set( handles.(name), 'String',sprintf('%.3f',handles.crosstalk(mol,ch)) );
 
 handles = updateTraceData( handles );
 guidata(hObject,handles);
-plotter(handles);
 
 
 
@@ -802,7 +814,6 @@ set(handles.edThreshold,'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 % Plot data with new threshold value
 handles = updateTraceData( handles );
 guidata(hObject,handles);
-plotter(handles);
 
 
 
@@ -825,7 +836,6 @@ set( handles.sldThreshold, 'Value', handles.fretThreshold(mol) );
 % Plot data with new threshold value
 handles = updateTraceData( handles );
 guidata(hObject,handles);
-plotter(handles);
 
 
 
@@ -835,19 +845,25 @@ function edGamma_Callback(hObject, ~, handles)
 % A value of 1 means no adjustment. A value of 5 will multiply the acceptor
 % by a factor of 5.
 
+% Determine the acceptor channel number from control name
+tag = get(hObject,'Tag');
+ch = tag(end)-'0';
+assert( ch==1 | ch==2, 'Invalid acceptor channel number' );
+name = sprintf('sldGamma%d',ch);  %slider control name
+
 gamma = str2double( get(hObject,'String') );
 
 % Restrict value to the range of the slider to prevent errors.
 % FIXME: changing the box should change the scale of the slider, within reason.
-sldMax = get( handles.sldGamma, 'max' );
-sldMin = get( handles.sldGamma, 'min' );
+sldMax = get( handles.(name), 'max' );
+sldMin = get( handles.(name), 'min' );
 gamma = max(gamma,sldMin);
 gamma = min(gamma,sldMax);
 
-set( handles.sldGamma, 'Value',gamma );
+set( handles.(name), 'Value',gamma );
 
 % Make the corrections and update plots.
-sldGamma_Callback( handles.sldGamma, [], handles );
+sldGamma_Callback( handles.(name), [], handles );
 
 % END FUNCTION edGamma1_Callback
 
@@ -857,26 +873,24 @@ sldGamma_Callback( handles.sldGamma, [], handles );
 function sldGamma_Callback(hObject, ~, handles)
 % 
 
+% Determine the acceptor channel number from control name
+tag = get(hObject,'Tag');
+ch = tag(end)-'0';
+assert( ch==1 | ch==2, 'Invalid acceptor channel number' );
+name = sprintf('edGamma%d',ch);  %slider control name
+
 mol = handles.molecule_no;
-
-oldGamma = handles.gamma(mol,1);
 newGamma = get(hObject,'Value');
-handles.gamma(mol,1) = newGamma;
-
-% First, undo the correct that was previously applied, then apply the new
-% correction value.
-handles.data.acceptor(mol,:) = handles.data.acceptor(mol,:)*newGamma/oldGamma;
+handles.gamma(mol,ch+1) = newGamma;
 
 % Save and display the result
-set( handles.edGamma, 'String',sprintf('%.2f',newGamma) );
+set( handles.(name), 'String',sprintf('%.2f',newGamma) );
 
 handles = updateTraceData( handles );
 guidata(hObject,handles);
-plotter(handles);
 
 
-% END FUNCTION sldGamma1_Callback
-
+% END FUNCTION sldGamma_Callback
 
 
 
@@ -885,41 +899,7 @@ function handles = updateTraceData( handles )
 % the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
 % threshold.
 
-if ~isChannel(handles.data,'fret'),
-    return;
-end
-
-m        = handles.molecule_no;
-donor    = handles.data.donor(m,:);
-acceptor = handles.data.acceptor(m,:);
-
-% Calculate total intensity and donor lifetime.
-if isChannel(handles.data,'acceptor2') && ~isChannel(handles.data,'donor2'),
-    isThreeColor = true;
-    acceptor2 = handles.data.acceptor2(m,:);
-    total = donor+acceptor+acceptor2;
-else
-    isThreeColor = false;
-    total = donor+acceptor;
-end
-
-lt = max(1, calcLifetime(total) );
-
-% Calculate FRET
-fret = acceptor./total;
-fret( total<handles.fretThreshold(m) ) = 0;
-fret( lt:end ) = 0;
-handles.data.fret(m,:) = fret;
-
-if isThreeColor,
-    fret2 = acceptor2./total;
-    fret2( total<handles.fretThreshold(m) ) = 0;
-    fret2( lt:end ) = 0;
-    handles.data.fret2(m,:) = fret2;
-end
-
-% Recalculate stats.
-handles.stats = traceStat( handles.data.getSubset(m) );
+handles.adjusted(handles.molecule_no) = true;
 
 % Since some kind of change was made, allow the user to save the file or
 % selections in their new state.
@@ -928,8 +908,72 @@ if ~isempty(handles.NoFRETs_indexes) || ~isempty(handles.FRETs_indexes) || ...
     set(handles.btnSave,'Enable','on');
 end
 set(handles.btnSaveInPlace,'Enable','on');
+plotter(handles);
+
 
 % END FUNCTION updateTraceData
+
+
+
+
+function displayData = adjustTraces( handles, indexes )
+% Recalculate FRET and stats. This is called following any changes made to
+% the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
+% threshold.
+
+displayData = handles.data.getSubset(indexes);
+
+chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are in order of wavelength!!
+if isChannel(displayData,'acceptor2') && ~isChannel(displayData,'donor2'),
+    isThreeColor = true;
+else
+    isThreeColor = false;
+end
+
+% Make corrections for display. Crosstalk is only considered between
+% neighboring channels. Gamma is not considered for the first channel (probably
+% the donor).
+
+for i=1:numel(indexes), 
+    m = indexes(i); %i is index into data subset, m is index into all traces.
+    
+    for j=1:numel(chNames),
+        displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:)*handles.gamma(m,j);
+    end
+
+    for j=2:numel(chNames),
+        displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:) - ...
+                       handles.crosstalk(m,j-1)*displayData.(chNames{j-1})(i,:);
+    end
+
+    if ~isChannel(displayData,'fret'),
+        continue;  %nothing more to do
+    end
+
+
+    % Calculate total intensity and donor lifetime.
+    total = displayData.donor(i,:) + displayData.acceptor(i,:);
+    if isThreeColor,
+        total = total + displayData.acceptor2(i,:);
+    end
+
+    lt = max(1, calcLifetime(total) );
+
+    % Calculate FRET
+    displayData.fret(i,:) = displayData.acceptor(i,:)./total;
+    displayData.fret(i, total<handles.fretThreshold(m) ) = 0;
+    displayData.fret(i, lt:end ) = 0;
+
+    if isThreeColor,
+        displayData.fret2(i,:) = displayData.acceptor2(i,:)./total;
+        displayData.fret2(i, total<handles.fretThreshold(m) ) = 0;
+        displayData.fret2(i, lt:end ) = 0;
+    end
+    
+end %for each trace
+
+% END FUNCTION adjustTraces
+
 
 
 
@@ -949,16 +993,25 @@ printdlg(handles.figure1);
 function plotter(handles)
 % Draw traces for current molecule and update displayed stats.
 
-m     = handles.molecule_no;
-chNames = handles.data.channelNames;
-fluorCh = chNames(handles.data.idxFluor);
-nCh = numel(fluorCh);
+% Only "adjust" the data if some setting was changed. This way, the data appears
+% exactly as it is in the file unless something is changed. This also makes just
+% looking at traces somewhat faster.
+m    = handles.molecule_no;
+
+if handles.adjusted(m),
+    data = adjustTraces(handles,m);
+else
+    data = handles.data.getSubset(m);
+end
+    
+
+chNames = data.channelNames;
 
 
 % If open, show the molecule location over the field image.
 % Get the coordinates for all of the fluorescence channels.
 if ishandle(handles.axFOV),
-    traceMetadata = handles.data.traceMetadata(m);
+    traceMetadata = data.traceMetadata;
 
     % Verify that the currently-loaded movie matches the one current molecule.
     % They are not necessarily the same except for rawtraces files.
@@ -1001,9 +1054,12 @@ end
 
 
 % Determine colors to user for plotting fluorescence.
-if isfield(handles.data.fileMetadata,'wavelengths'),
-    chColors = Wavelength_to_RGB( handles.data.fileMetadata.wavelengths );
-elseif ismember('fret',handles.data.channelNames),
+fluorCh = chNames(handles.data.idxFluor);
+nCh = numel(fluorCh);
+
+if isfield(data.fileMetadata,'wavelengths'),
+    chColors = Wavelength_to_RGB( data.fileMetadata.wavelengths );
+elseif ismember('fret',data.channelNames),
     % For old FRET data (missing metadata), use the old standard colors.
     wavelengths = zeros(1,nCh);
     wavelengths( strcmp(chNames,'factor')    ) = 473;
@@ -1016,7 +1072,9 @@ else
 end
 
 % Get trace properties and reset GUI values with these results
-stats = handles.stats;
+% FIXME: traceStat is slow. Need to find a way to do this calculation ahead of
+% time so it isn't limiting the user's ability to flip through traces.
+stats = traceStat(data);
 lt = stats.lifetime;
 FRETlifetime = stats.acclife;
 snr = stats.snr;
@@ -1025,7 +1083,7 @@ CC = stats.corr;
 set(handles.editCorrelation,'String', sprintf('%.2f',CC) );
 set(handles.editSNR,'String', sprintf('%.2f',snr) );
 
-if ismember('acceptor2',handles.data.channelNames),  %isThreeColor,
+if ismember('acceptor2',data.channelNames),  %isThreeColor,
     fret2Lifetime = stats.fret2Lifetime;
     set(handles.editLifetime,'String',  sprintf('%d, %d, %d', [FRETlifetime fret2Lifetime lt]));
 else
@@ -1037,7 +1095,7 @@ end
 data_fname = [name ext];
 
 % Plot fluorophore traces
-time = handles.data.time;
+time = data.time;
 if time(1)~=1, %first time is 1 if in frame number (not ms)
     time = time/1000; %in seconds
 end
@@ -1045,7 +1103,7 @@ end
 cla( handles.axFluor );
 
 for c=1:numel(fluorCh),
-    trace = handles.data.(fluorCh{c})(m,:);
+    trace = data.(fluorCh{c});
     plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
     
     if c==1
@@ -1066,15 +1124,15 @@ axis(handles.axTotal,'auto');
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
-    plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,handles.data.nFrames), 'b-');
+    plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,data.nFrames), 'b-');
     
     mean_on_signal  = mean( total(1:lt) );
     mean_off_signal = mean( total(lt+5:end) );
 
     simplified_cy3=[mean_on_signal*ones(1,lt)...
-            mean_off_signal*ones(1,handles.data.nFrames-lt)];
+            mean_off_signal*ones(1,data.nFrames-lt)];
     simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
-            mean_off_signal*ones(1,handles.data.nFrames-FRETlifetime)];
+            mean_off_signal*ones(1,data.nFrames-FRETlifetime)];
 
     plot( handles.axTotal, time,simplified_cy5,'r' );
     plot( handles.axTotal, time,simplified_cy3,'g' );
@@ -1085,11 +1143,11 @@ end
 % Plot FRET efficiency
 cla( handles.axFret );
 if ismember('fret',chNames),
-    plot( handles.axFret, time,handles.data.fret(m,:), 'b-');
+    plot( handles.axFret, time,data.fret, 'b-');
 end
 
 if ismember('fret2',chNames),
-    plot( handles.axFret, time,handles.data.fret2(m,:), 'm-');
+    plot( handles.axFret, time,data.fret2, 'm-');
 end
 
 if isfield(handles,'idl') && ~isempty(handles.idl),
