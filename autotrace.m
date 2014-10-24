@@ -77,7 +77,7 @@ end
 
 %----------INITIALIZATION OF THE GUI----------%
 % --- Executes just before autotrace is made visible.
-function autotrace_OpeningFcn(hObject, eventdata, handles, varargin)
+function autotrace_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -198,7 +198,7 @@ guidata(hObject,handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = autotrace_OutputFcn(hObject, eventdata, handles)
+function varargout = autotrace_OutputFcn(~, ~, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -223,7 +223,7 @@ varargout{1}=handles.output;
 % This method is called when the user clicks the "Open Traces File.."
 % button in the GUI.  The trace is parsed,
 % --- Executes on button press in OpenTracesFile.
-function OpenTracesFile_Callback(hObject, eventdata, handles)
+function OpenTracesFile_Callback(hObject, ~, handles)
 % hObject    handle to OpenTracesFile (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -279,7 +279,7 @@ OpenTracesBatch( hObject, handles );
 
 %----------OPEN ALL TRACES FILES WITHIN THE SAME DIRECTORY----------%
 % --- Executes on button press in btnOpenDirectory.
-function btnOpenDirectory_Callback(hObject, eventdata, handles)
+function btnOpenDirectory_Callback(hObject, ~, handles)
 % hObject    handle to btnOpenDirectory (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -319,7 +319,7 @@ OpenTracesBatch( hObject, handles )
 
 %----------BATCH ANALYSIS----------%
 % --- Executes on button press in btnGo.
-function btnBatchMode_Callback(hObject, eventdata, handles)
+function btnBatchMode_Callback(hObject, ~, handles)
 % hObject    handle to btnGo (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -442,14 +442,14 @@ PickTraces_Callback(hObject,handles);
 
 %---------------  SAVE PICKED TRACES TO FILE (CALLBACK) ---------------%
 % --- Executes on button press in SaveTraces.
-function SaveTraces_Callback(hObject, eventdata, handles)
+function SaveTraces_Callback(hObject, ~, handles)
 % hObject    handle to SaveTraces (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 
 % Create a name for the output file
-[inputfile inputpath]=...
+[inputfile, inputpath]=...
     uiputfile('.traces','Save picked traces as:',handles.outfile);
 if inputfile==0, return; end
 
@@ -497,7 +497,7 @@ loadPickSaveTraces( handles.inputfiles, handles.criteria, options );
 %----------------  SAVE MOLECULE PROPERTIES TO FILE ----------------%
 
 % --- Executes on button press in btnSaveProperties.
-function btnSaveProperties_Callback(hObject, eventdata, handles)
+function btnSaveProperties_Callback(hObject, ~, handles)
 
 % Retrieve trace statistics, extract to matrix
 stats = getappdata(handles.figure1,'infoStruct');
@@ -531,9 +531,9 @@ guidata(hObject,handles);
 % --------------- VIEW TRACES FUNCTIONALITY --------------- %
 
 % --- Executes on button press in ViewPickedTraces.
-function ViewPickedTraces_Callback(hObject, eventdata, handles)
+function ViewPickedTraces_Callback(hObject, ~, handles)
 
-[inputfile inputpath]=...
+[inputfile, inputpath]=...
     uiputfile('.traces','Save picked traces as:',handles.outfile);
 if inputfile==0, return; end
 
@@ -660,7 +660,7 @@ function MakeContourPlot_Callback(hObject, eventdata, handles)
 SaveTraces_Callback(hObject, eventdata, handles);
 handles = guidata(hObject);
 
-[p,title] = fileparts(handles.outfile);
+[~,title] = fileparts(handles.outfile);
 title = strrep( title,'_',' ' );
 makeplots( handles.outfile, title );
 
@@ -674,7 +674,7 @@ guidata(hObject,handles);
  
 %----------SAVE CONTOUR PLOT----------
 % --- Executes on button press in SaveContourPlot.
-function SaveContourPlot_Callback(hObject, eventdata, handles)
+function SaveContourPlot_Callback(~, ~, ~)
 
 warning('This function currently disabled...');
 
@@ -706,14 +706,14 @@ warning('This function currently disabled...');
 
 %----------MENU OF CONTOUR PLOT SETTINGS----------
 % --- Executes on selection change in popupmenu1.
-function popupmenu1_Callback(hObject, eventdata, handles)
+function popupmenu1_Callback(hObject, ~, handles)
 opt=get(hObject,'Value');
 choices = 'nsyi';
 handles.sync = choices(opt);
 guidata(hObject,handles);
 
 
-function FRETBinSize_Callback(hObject, eventdata, handles)
+function FRETBinSize_Callback(hObject, ~, handles)
 handles.contour_bin_size=str2double(get(hObject,'String'));
 guidata(hObject,handles);
 
@@ -721,7 +721,7 @@ guidata(hObject,handles);
 
 % --- Executes on selection change in any of the drop down boxes above each
 %     of the trace statistic histogram plots.
-function cboStat_Callback(hObject, eventdata, handles)
+function cboStat_Callback(hObject, ~, handles)
 % 
 
 % Get ID of this combo control
@@ -744,8 +744,10 @@ end
 % Define bin positions for certain parameters.
 if strcmp(statToPlot,'corr'),
     bins = -1:0.1:1;
+    statDecimals = '%.2f';
 else
      bins = handles.nHistBins; %let hist choose N bin centers.
+    statDecimals = '%.1f';
 end
 
 % Plot the distribution of the statistic
@@ -779,7 +781,8 @@ if length(stats)>=1,
 end
 
 % Display a mean value for easier interpretation.
-legend(  sprintf( 'Mean: %.2f', mean([stats.(statToPlot)]) )  );
+set(  handles.(['txtStat' num2str(id)]), 'String', ...
+             sprintf(['Mean: ' statDecimals],nanmean([stats.(statToPlot)]))  );
 
 
 guidata(hObject,handles);
