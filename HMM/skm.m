@@ -89,9 +89,8 @@ data(data<-1) = -1;
 
 if isfield(params,'seperately') && params.seperately==1,
     % Start the matlab thread pool if not already running. perfor below will
-    % run the calculations of the available processors. The speed up is not
-    % that significant (2.5-fold for 4 cores), but useful.
-    if matlabpool('size')==0,  matlabpool;  end
+    % run the calculations of the available processors.
+    if isempty( gcp('nocreate') ),   parpool;   end
     
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);

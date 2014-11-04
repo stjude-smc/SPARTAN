@@ -55,8 +55,8 @@ for i=1:nFiles
     data.fret = fret_corrected;
      
     % Save resulting data
-    [p,f] = fileparts( files{i} );
-    outFilename = fullfile(p, [f '_gammacorrect.traces']);
+    [p,f,e] = fileparts( files{i} );
+    outFilename = fullfile(p, [f '_gammacorrect' e]);
     saveTraces( outFilename, 'traces', data );
 
 end %for each file

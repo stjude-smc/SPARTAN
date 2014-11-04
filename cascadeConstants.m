@@ -305,13 +305,6 @@ end
 warning off MATLAB:maxNumCompThreads:Deprecated
 constants.nProcessors = maxNumCompThreads;
 
-% matlabpool is depricated in 2014a, but parpool is not supported in
-% older versions. For now, keep using matlabpool and silence the warnings.
-% Eventually we'll have to transition to parpool.
-warning off parallel:lang:matlabpool:SizeDeprecation
-warning off parallel:lang:matlabpool:OpenDeprecation
-warning off parallel:lang:matlabpool:CloseDeprecation
-
 
 
 

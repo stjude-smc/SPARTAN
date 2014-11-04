@@ -518,7 +518,7 @@ for k=1:numel(baseFilenames),  %for each sample
         continue;
     end
     box(tdx(k),'on');
-    tplot( tdp );
+    tplot( tdp, options );
     
     % Formatting
     if ~options.hideText,

@@ -28,7 +28,7 @@ end
 % Load TD Plot data
 tdpfile=0;
 if nargin==0
-    [tdpfile tdppath]=uigetfile('*_tdp.txt','Choose tdplot:');
+    [tdpfile, tdppath]=uigetfile('*_tdp.txt','Choose tdplot:');
     if tdpfile==0
         disp('No File Selected.')
         return
@@ -52,7 +52,7 @@ tdp(end,end) = 10;  % hack to make colorscale fixed
 
 % draw contour plot
 % figure;
-[C,hand]=contourf(i_axis,f_axis,tdp(2:end,2:end),con);
+[~,hand]=contourf(i_axis,f_axis,tdp(2:end,2:end),con);
 
 % Extra formatting
 if tdpfile~=0

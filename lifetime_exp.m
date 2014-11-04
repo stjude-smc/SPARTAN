@@ -59,7 +59,7 @@ nFiles = numel(dwtfilename);
 %% Load segment files
 
 % Get number of states..
-[dwells,sampling,offsets,model] = LoadDWT( dwtfilename{1} );
+[~,~,~,model] = loadDWT( dwtfilename{1} );
 nStates = numel(model)/2;
 clear dwells; clear offsets;
 

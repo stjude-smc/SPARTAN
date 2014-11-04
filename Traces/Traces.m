@@ -302,7 +302,7 @@ methods
     function this = truncate( this, nFrames )
         assert( nargin>1 );
         assert( all(nFrames>=1 & nFrames<=this.nFrames), 'Invalid frame indexes' );
-        assert( numel(idxFrames)>1, 'Cannot create empty Traces objects' );
+        %assert( numel(idxFrames)>1, 'Cannot create empty Traces objects' );
 
         % Truncate traces in all channels.
         for c=1:this.nChannels,

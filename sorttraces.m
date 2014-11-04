@@ -641,12 +641,16 @@ if inputfile==0, return; end
 filename=[inputpath inputfile];
 
 
+% Put together the subset of selected traces for saving, applying any
+% adjustments made to the trace data.
+data = adjustTraces(handles);  %creates a copy
+
 % Save the current data state to the file.
 [~,~,e] = fileparts(filename);
 if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
-    saveTraces( filename, handles.data );
+    saveTraces( filename, data );
 elseif strcmp(e,'.txt'),
-    saveTraces( filename, 'txt', handles.data );
+    saveTraces( filename, 'txt', data );
 else
     error('Unknown file format extension');
 end
@@ -921,6 +925,10 @@ function displayData = adjustTraces( handles, indexes )
 % the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
 % threshold.
 
+if nargin<2,
+    indexes = 1:handles.data.nTraces;
+end
+
 displayData = handles.data.getSubset(indexes);
 
 chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are in order of wavelength!!
@@ -933,7 +941,6 @@ end
 % Make corrections for display. Crosstalk is only considered between
 % neighboring channels. Gamma is not considered for the first channel (probably
 % the donor).
-
 for i=1:numel(indexes), 
     m = indexes(i); %i is index into data subset, m is index into all traces.
     

@@ -54,8 +54,8 @@ for i=1:nFiles
     data.fret = fret_corrected;
      
     % Save resulting data
-    [p,f] = fileparts( files{i} );
-    outFilename = fullfile(p, [f '_crosstalkcorrect.traces']);
+    [p,f,e] = fileparts( files{i} );
+    outFilename = fullfile(p, [f '_crosstalkcorrect' e]);
 %     outFilename = files{i};
     saveTraces( outFilename, 'traces', data );
 
