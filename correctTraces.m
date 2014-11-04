@@ -8,20 +8,34 @@ function data = correctTraces( data, constants )
 %   
 
 % TODO: gamma correction (whole pipeline), background drift correction?
+% Consider splitting this into several functions for different types of data,
+% doing background subtraction for all channels, but calculating FRET only where
+% it makes sense.
 
 if nargin<2,
     constants = cascadeConstants;
 end
 
-% If the acceptor is a cell array, this is a three-color FRET experiment
-% and we have two acceptor signals.
-assert( data.isChannel('donor') && data.isChannel('acceptor') && ...
-        ~isempty(data.donor) && ~isempty(data.acceptor) );
+
+% Determine the type of experiment so we know how to process the data, and
+% insure that the fields make sense.
+assert( data.isChannel('donor'), 'Unregonized trace data (no donor channel)' );
+
+if data.isChannel('acceptor2') && ~data.isChannel('acceptor'),
+    error('Found acceptor2 but not acceptor1');
+end
+
+isFret       = data.isChannel('acceptor');
 isThreeColor = data.isChannel('acceptor2');
 
 if data.isChannel('donor2'),
     warning('correctTraces:multiDonor','This function is not designed for multiple donors');
 end
+
+if data.isChannel('factor'),
+    disp('Warning: handling of factor signals is in an early stage and may be incomplete.');
+end
+
 
 
 % Calculate donor lifetime
@@ -45,31 +59,33 @@ for m=1:nTraces,
     end
 
     % Make background correction
-    data.donor(m,:)    = data.donor(m,:)    - mean( data.donor(m,range) );
-    data.acceptor(m,:) = data.acceptor(m,:) - mean( data.acceptor(m,range) );
+    data.donor(m,:) = data.donor(m,:)- mean( data.donor(m,range) );
+    
+    if isFret,
+        data.acceptor(m,:) = data.acceptor(m,:) - mean( data.acceptor(m,range) );
+    end
     
     if isThreeColor,
         data.acceptor2(m,:) = data.acceptor2(m,:) - mean( data.acceptor2(m,range) );
     end
 end
 
+
+
 % Calculate FRET efficiencies. For three-color, these could be the fraction
 % of all energy (emitted directly or indirectly from the donor) that is
-% emitted by one specific acceptor. In that case, FRET1+FRET2=1 always.
-% Here I calculate FRET as the fraction of energy transferred to one
-% acceptor as if the other acceptor were not there -- we only consider the
-% not transferred to the other acceptor. In this case, FRET1+FRET2 can be
-% more than 1. This has the advantage that the FRET signals can be
-% semi-independent.
+% emitted by one specific acceptor. To get true FRET efficiencies, we will need
+% to integrate data from alternating excitations (ALEX).
 total = data.total;
 
-if isThreeColor,
-    %fret  = acceptor  ./ (donor+acceptor);
-    %fret2 = acceptor2 ./ (donor+acceptor2);
+if isFret,
     data.fret  = data.acceptor  ./ total;
-    data.fret2 = data.acceptor2 ./ total;
 else
-    data.fret  = data.acceptor ./ total;
+    return;  %nothing more to do.
+end
+
+if isThreeColor,
+    data.fret2 = data.acceptor2 ./ total;
 end
 
 
@@ -96,6 +112,8 @@ for m=1:nTraces,
         data.fret2(m,darkRange) = 0;
     end
 end
+
+
 
 
 

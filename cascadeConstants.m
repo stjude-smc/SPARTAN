@@ -199,18 +199,44 @@ profiles(end+1) = p;
 
 
 p = commonParams;
+p.name        = 'sCMOS, Single-channel (Cy3)';
+p.geometry    = 1;
+p.idxFields   = 1; %only one channel
+p.chNames     = {'donor'};
+p.chDesc      = {'Cy3'};
+p.wavelengths = 532;
+p.nPixelsToSum = 9;   %optimum SNR from oligo/LeuT data. Depends strongly on focus!
+p.nhoodSize   = 2;    %5x5 area.
+p.overlap_thresh = 3;
+p.photonConversion = 2.04; %0.49 e-/ADU
+profiles(end+1) = p;
+
+
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5)';
 p.geometry    = 2;
 p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
-p.crosstalk   = 0.115;  %donor->acceptor
-p.nPixelsToSum = 9;   %optimum SNR from oligo/LeuT data. Depends strongly on focus!
-p.nhoodSize   = 2;    %5x5 area.
-p.overlap_thresh = 3;
-p.photonConversion = 2.04; %0.49 e-/ADU
+p.crosstalk   = 0.11;  %donor->acceptor
 profiles(end+1) = p;
+
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
+p.idxFields   = [2 1]; %R/L
+profiles(end+1) = p;
+
+
+p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7 bandpass) / TEMP';
+p.geometry    = 3;
+p.idxFields   = [3 2 1]; % field order: UL,UR,LR. This will change
+p.chNames     = {'donor','acceptor','acceptor2'};
+p.chDesc      = {'Cy3','Cy5','Cy7'};
+p.wavelengths = [532 640 730];
+p.crosstalk   = zeros(4);
+p.crosstalk(1,2) = 0.066;   %Cy3->Cy5
+p.crosstalk(2,3) = 0.015;   %Cy5->Cy7 (is this correct???)
+profiles(end+1) = p;
+
 
 
 % Set the default settings profile.
@@ -304,6 +330,7 @@ end
 % For MIL (batch kinetics).
 warning off MATLAB:maxNumCompThreads:Deprecated
 constants.nProcessors = maxNumCompThreads;
+
 
 
 

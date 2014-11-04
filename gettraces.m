@@ -1038,6 +1038,10 @@ y = peaks(:,2);
 integrationEfficiency = zeros(Npeaks,squarewidth^2);
 regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
+imgReused = zeros( size(stk_top) );  %marks where pixels are re-used
+idxs = zeros( params.nPixelsToSum, Npeaks );
+fractionWinOverlap = zeros(Npeaks,1);
+
 for m=1:Npeaks
     % Get a window of pixels around the intensity maximum (peak).
     nhood = stk_top( y(m)-hw:y(m)+hw, x(m)-hw:x(m)+hw );
@@ -1054,34 +1058,19 @@ for m=1:Npeaks
     integrationEfficiency(m,:) = cumsum( center/sum(center) )';
     
     % Convert to coordinates in the full FOV image and save.
-    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];    
+    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
+    
+    % Note where pixels are being reused for later calculation.
+    idxs(:,m) = sub2ind( size(stk_top), regions(:,1,m), regions(:,2,m) );
+    imgReused(idxs(:,m)) = imgReused(idxs(:,m)) +1;
 end
 
-% Determine the fraction of molecules with at least one pixel in its integration
-% window shared by another molecule.
-pairs = permute(regions,[2,1,3]);
-pairs = pairs(:,:)';
-
-% Mark each integration pixel as overlapped and count for each molecule.
-% a are the unique pairs, b are indexes into "pairs" to get unique entries,
-% c are the indexes into the unique entires to get "pairs".
-[a,b,c] = unique(pairs,'rows');
-duplicateCounts = histc(c,sort(b)); %how many times each pixel is used
-duplicatePixels = a( duplicateCounts>1, : ); %pixel locations of duplicates
-% fractionWinOverlap = (size(pairs,1)-size(a,1)) / size(pairs,1);
-
-fractionWinOverlap = zeros(Npeaks,1);
-
-for m=1:Npeaks
-    N = 0;
-    for i=1:params.nPixelsToSum,
-        N = N + sum(regions(i,1,m)==duplicatePixels(:,1) & regions(i,2,m)==duplicatePixels(:,2));
-    end
-    fractionWinOverlap(m) = N/params.nPixelsToSum;
+% For each peak, get the fraction of re-used pixels.
+% FIXME: idxs could be used to construct regions to save time/memory.
+for m=1:Npeaks,
+    fractionWinOverlap(m) = sum(imgReused(idxs(:,m))-1) / params.nPixelsToSum;
 end
 
-% ACTUALLY the most useful output would be the number of pixels, on average,
-% with contamination across traces.
 
 % end function getIntegrationWindows
 
