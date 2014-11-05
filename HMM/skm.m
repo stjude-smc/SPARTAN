@@ -90,7 +90,7 @@ data(data<-1) = -1;
 if isfield(params,'seperately') && params.seperately==1,
     % Start the matlab thread pool if not already running. perfor below will
     % run the calculations of the available processors.
-    if isempty( gcp('nocreate') ),   parpool;   end
+    if isempty( gcp('nocreate') ),   parpool('IdleTimeout',120);   end
     
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);

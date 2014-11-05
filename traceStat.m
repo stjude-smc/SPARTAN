@@ -187,7 +187,7 @@ retval = struct( ...
 
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors.
-if isempty( gcp('nocreate') ),   parpool;   end
+if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
 
 
 parfor i=1:Ntraces

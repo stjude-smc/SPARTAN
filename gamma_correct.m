@@ -6,10 +6,13 @@ function mean_gamma = gamma_correct(files,mean_gamma)
 % adjust gamma to 1. Then it recalculates FRET using the scaled donor intensity
 % and saves the traces as _gammacorrect.traces files. 
 % --RK
+% FIXME: this should scale the acceptor instead of the donor. This will be more
+% consistent with sorttraces and makes more sense given the acceptor is usually
+% the dim one.
 
 
 % If no files given, obtain a list from the user.
-if nargin<1,
+if nargin<1 || isempty(files),
     filter = {'*.*traces','Traces files (*.traces,*.rawtraces)'; ...
               '*.txt','Old format traces files (*.txt)'; ...
               '*.*','All files (*.*)'};
@@ -57,6 +60,7 @@ for i=1:nFiles
     % Save resulting data
     [p,f,e] = fileparts( files{i} );
     outFilename = fullfile(p, [f '_gammacorrect' e]);
+    %FIXME: ask user for output filename, particularly if only one file is given.
     saveTraces( outFilename, 'traces', data );
 
 end %for each file
@@ -137,9 +141,20 @@ gamma = gamma( gamma>0 & gamma<10 );
 % median_gamma = median(gamma);
 % std_gamma = std(gamma);
 % gamma = gamma(gamma < (median_gamma + 2*std_gamma) & gamma > (median_gamma - 2*std_gamma));
-mean_gamma_file = median(gamma);
 
-% fprintf('%.0f%% selected\n\n', 100*numel(gamma)/nTraces );
+% Show what fraction of traces could be used to calculate gamma.
+assert( ~isempty(gamma), 'No useful traces found for calculating gamma' );
+
+percentUsed = 100*numel(gamma)/nTraces;
+if percentUsed<5,
+    warning('Only a few traces (%d, %.0f%%) could be used for correction! May not be accurate.', ...
+            numel(gamma),percentUsed );
+else
+    fprintf('\n%.0f%% of traces were used to calculate gamma.\n',percentUsed);
+end
+
+% Return an average value for apparent gamma.
+mean_gamma_file = median(gamma);
 
 
 end %function calc_gamma

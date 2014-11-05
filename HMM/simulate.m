@@ -152,7 +152,7 @@ end
 % run the calculations of the available processors.
 % If a random seed is used, the results will no longer be deterministic.
 % Use for (not parfor) to get the predictable behavior.
-% if isempty( gcp('nocreate') ),   parpool;   end
+% if isempty( gcp('nocreate') ),   parpool('IdleTimeout',120);   end
 
 
 %--- Generate noiseless state trajectory at 1 ms

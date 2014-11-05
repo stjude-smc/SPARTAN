@@ -873,6 +873,9 @@ if ~params.quiet && ntheta>1,
     h = waitbar(0,'Searching for the optimal alignment');
 end
 
+% Start the matlab thread pool if not already running. perfor below will
+% run the calculations of the available processors. Required for parfor.
+% if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
 
 % Reserve space for the best alignment for each possible rotation value.
 % This is required for parfor to work correctly because all threads must be

@@ -8,7 +8,7 @@ function [mean_crosstalk] = crosstalk_correct(files,mean_crosstalk)
 %
 
 % If no files given, obtain a list from the user.
-if nargin<1,
+if nargin<1 || isempty(files),
     filter = {'*.*traces','Traces files (*.traces,*.rawtraces)'; ...
               '*.txt','Old format traces files (*.txt)'; ...
               '*.*','All files (*.*)'};
@@ -57,6 +57,7 @@ for i=1:nFiles
     [p,f,e] = fileparts( files{i} );
     outFilename = fullfile(p, [f '_crosstalkcorrect' e]);
 %     outFilename = files{i};
+    %FIXME: ask user for output filename, particularly if only one file is given.
     saveTraces( outFilename, 'traces', data );
 
 end %for each file
@@ -129,6 +130,20 @@ crosstalk = crosstalk( crosstalk<1 & crosstalk>-1 );
 % median_crosstalk = median(crosstalk);
 % std_crosstalk = std(crosstalk);
 % crosstalk = crosstalk(crosstalk < (median_crosstalk + 2*std_crosstalk) & crosstalk > (median_crosstalk - 2*std_crosstalk));
+
+
+% Show what fraction of traces could be used to calculate gamma.
+assert( ~isempty(crosstalk), 'No useful traces found for calculating gamma' );
+
+percentUsed = 100*numel(crosstalk)/nTraces;
+if percentUsed<5,
+    warning('Only a few traces (%d, %.0f%%) could be used for correction! May not be accurate.', ...
+            numel(crosstalk),percentUsed );
+else
+    fprintf('\n%.0f%% of traces were used to calculate crosstalk.\n',percentUsed);
+end
+
+% Return an average value for apparent crosstalk value.
 mean_crosstalk_file = median(crosstalk);
 
 
