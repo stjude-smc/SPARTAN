@@ -81,7 +81,7 @@ if ~isfield(handles,'constants')
 
     xlabel( handles.axFret, 'Frame Number' );
     ylabel( handles.axFret, 'FRET Efficiency' );
-    %ylim( handles.axFret, [-0.1 1] );
+    ylim( handles.axFret, [-0.1 1] );
     grid( handles.axFret, 'on' );
     zoom( handles.axFret, 'on' );
     hold( handles.axFret, 'on' );
@@ -366,7 +366,8 @@ handles.backgrounds = zeros( 1,numel(fluorNames) );
 
 % If no value has been calculated for FRET threshold, do it now.
 trace = handles.data.getSubset(mol);
-% handles.stats = traceStat(trace);
+handles.stats = traceStat(trace);
+handles.trace = trace;
     
 if trace.isChannel('fret') && handles.fretThreshold(mol) == 0,
     total = zeros( size(trace) );
@@ -377,14 +378,13 @@ if trace.isChannel('fret') && handles.fretThreshold(mol) == 0,
         total = total + trace.(fluorNames{i});
     end
     
-    constants = cascadeConstants;
-    s = max(1, calcLifetime(total) ) + 5;
-    range = s:min(s+constants.NBK,trace.nFrames);
+    s = handles.stats.lifetime + 5;
+    range = s:min(s+handles.constants.NBK,trace.nFrames);
     
     if numel(range)<10,
         handles.fretThreshold(mol) = 100; %arbitrary
     else
-        handles.fretThreshold(mol) = constants.blink_nstd * std(total(range));
+        handles.fretThreshold(mol) = handles.constants.blink_nstd * std(total(range));
     end
     
     % Adjust scroll bar range if the new value falls outside of it.
@@ -758,17 +758,6 @@ mol = handles.molecule_no;
 
 % oldCrosstalk = handles.crosstalk(mol,ch);
 handles.crosstalk(mol,ch) = get(hObject,'Value');
-% delta = oldCrosstalk - handles.crosstalk(mol,ch);
-
-% Adjust the acceptor fluorescence to subtract donor->acceptor crosstalk
-% according to the new value. The trace has already been adjusted according
-% to the old value, so that has to be "undone" first.
-% chNames = handles.data.channelNames;  %we assume these are in order of wavelength!!
-% ch1 = chNames{ch};
-% ch2 = chNames{ch+1};
-
-% handles.data.(ch2)(mol,:) = handles.data.(ch2)(mol,:) + ...
-%                                           delta * handles.data.(ch1)(mol,:);
                          
 % Save and display the result
 name = sprintf('edCrosstalk%d',ch);
@@ -1008,7 +997,7 @@ m    = handles.molecule_no;
 if handles.adjusted(m),
     data = adjustTraces(handles,m);
 else
-    data = handles.data.getSubset(m);
+    data = handles.trace;
 end
     
 
@@ -1041,6 +1030,7 @@ if ishandle(handles.axFOV),
             x = [ x ; traceMetadata.(fields{xs(i)}) ];
             y = [ y ; traceMetadata.(fields{ys(i)}) ];
         end
+        disp([x y]);
 
         % Draw markers on selection points (total intensity composite image).
         % FIXME: try to draw a shape with scale dimensions so it gets bigger as
@@ -1081,7 +1071,7 @@ end
 % Get trace properties and reset GUI values with these results
 % FIXME: traceStat is slow. Need to find a way to do this calculation ahead of
 % time so it isn't limiting the user's ability to flip through traces.
-stats = traceStat(data);
+stats = handles.stats;
 lt = stats.lifetime;
 FRETlifetime = stats.acclife;
 snr = stats.snr;
@@ -1161,10 +1151,10 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
     stairs( handles.axFret, time, handles.idl(m,:), 'r-', 'LineWidth',1 );
 end
 
+xlim(handles.axFret, [time(1) time(end)]);
+ylim(handles.axFret, [-0.1 1]);
 
-xlim([time(1) time(end)]);
-
-
+drawnow;
 
 % end function plotter.
 

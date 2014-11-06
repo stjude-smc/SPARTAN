@@ -654,6 +654,7 @@ nhood = params.nhoodSize;  %rough size of peak area (1=>3x3 pixels,2=>5x5,etc)
 
 % Detect molecules as fluorescence maxima over local 3x3 regions,
 % ignoring any that are below the detection threshold or near the edges.
+% FIXME: may want to remove edges at the end, after overlap detection.
 kernel = [0 1 0 ; 1 1 1; 0 1 0];
 
 maxima = imregionalmax(image_t,kernel) & image_t>threshold;
@@ -706,8 +707,8 @@ for i=1:nMol,
     
     % Calculate an intensity-weighted average position of molecule w/i window.
     tot = sum(block(:));
-    x = sum( x_window .* sum(block,2)'/tot );
-    y = sum( y_window .* sum(block,1)/tot  );
+    x = sum( x_window .* sum(block,1)/tot );
+    y = sum( y_window .* sum(block,2)'/tot  );
     
     centroids(i,:) = [x y];
 end
