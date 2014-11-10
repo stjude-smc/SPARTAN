@@ -8,7 +8,7 @@ function output = avgFretTime( files )
 
 
 % Settings
-truncateLen = 100;  %frames to calculate over
+truncateLen = 300;  %frames to calculate over
 constants.min_fret = 0.2;  % minimum fret value, below which we assume there is no FRET.
 
 
@@ -17,6 +17,7 @@ if nargin<1 || isempty(files),
     files = getFiles;
 end
 
+if isempty(files), return; end
 if ~iscell(files), files = {files}; end
 
 nFiles = numel(files);

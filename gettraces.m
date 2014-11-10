@@ -7,7 +7,8 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %    [STK,PEAKS,IMG] = GETTRACES( FILENAME, PARAMS )
 %    Loads a movie from FILENAME, finds fluorescence peaks, and returns
 %    their locations (PEAKS) as a Nx2 matrix (x,y).  IMG is the image used
-%    for selecting intensity peaks.
+%    for selecting intensity peaks (sum of aligned fluorescence channels).
+%    STK is the stkData structure containing the internal state.
 %
 %    [STK,PEAKS,IMG] = gettraces( FILENAME, PARAMS, OUTFILE )
 %    As above, but also extracts traces from the PEAKS locations and saves
@@ -17,34 +18,45 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %    been loaded by gettraces. This saves on load time.
 %
 %    GETTRACES( DIRECTORY, PARAMS )
-%    For each filename in DIRECTORY, the movie is loaded, processed, and
-%    a .rawtraces file is saved automatically. No data is returned.
-%    This is "batch mode".  Additional (optional) fields in PARAMS include
-%    option to check all child folders (recursive) and option to skip
-%    movies that have already been processed (skipExisting).
+%    This is "batch mode".  For each filename in DIRECTORY, the movie is loaded,
+%    processed, and a .rawtraces file is saved automatically. Additional
+%    (optional) fields in PARAMS include option to check all child folders
+%    (recursive) and option to skip processed movies (skipExisting).
 %
-%    PARAMS is a struct with any of the following options:
-%     - don_thresh:     total (D+A) intensity threshold for pick selection
-%                       (if 0, threshold is automatically selected).
-%     - overlap_thresh: peaks are rejected if they are closer than this radius.
-%     - nPixelsIntegrated: number of pixels proximal to each peak to sum
-%          to produce fluorescence traces. Higher values capture more
-%          intensity, but also capture more noise...
-%     - saveLocations: write a text file with the locations of each peak to
-%          file.
-%     - geometry: imaging geometry can be single-channel/full-chip (1), 
-%                 dual-channel/left-right (2), or quad-channel (3/4).
-%                 Default: dual-channel (2).
-%     - crosstalk: donor-to-acceptor channel fluorescence channel
-%                  bleedthrough (crosstalk) as a fraction. For correction.
-%     - photonConversion: fluorescence AU/photon conversion factor.
-%     - fieldNames: cell array of assignments of fluorescence field names
-%                     (e.g., donor, acceptor, factor). If one is left blank
-%                     that field is disregarded. OPTIONAL.
 %
+%  PARAMS is a struct with any of the following options:
+% 
+% - don_thresh:     total (D+A) intensity threshold for pick selection
+%                   (if 0, threshold is automatically selected).
+% 
+% - overlap_thresh: peaks are rejected if they are closer than this radius.
+% 
+% - nPixelsIntegrated: number of pixels proximal to each peak to sum
+%      to produce fluorescence traces. Higher values capture more
+%      intensity, but also capture more noise...
+% 
+% - saveLocations: write a text file with the locations of each peak to
+%      file.
+% 
+% - geometry: imaging geometry can be single-channel/full-chip (1), 
+%             dual-channel/left-right (2), or quad-channel (3/4).
+%             Default: dual-channel (2).
+% 
+% - crosstalk: donor-to-acceptor channel fluorescence channel
+%              bleedthrough (crosstalk) as a fraction. For correction.
+% 
+% - photonConversion: fluorescence ADU/photon conversion factor.
+% 
+% - fieldNames: cell array of assignments of fluorescence field names
+%                 (e.g., donor, acceptor, factor). If one is left blank
+%                 that field is disregarded. OPTIONAL.
+% 
 
-
-constants = cascadeConstants;
+% NOTE: because of the structure of this file, all variables defined in this
+% initial section are global to the other sub-functions in the file. This way,
+% common parameters (params, stkData, constants) do not have to be passed
+% around. FIXME: avoid using common names where possible to pervent confusion,
+% including image_t, peaks, and picks.
 
 
 % If calling directly from command line, launch the GUI.
@@ -55,11 +67,9 @@ end
 
 
 %------ Load parameter values (always second parameter!)
-global params;
-
-
 % Set default parameter values and merge with user-specified values.
 % The user's options will override any existing defaults.
+constants = cascadeConstants;
 params = constants.gettracesDefaultParams;
 
 if nargin>=2,
@@ -100,59 +110,43 @@ end
 % Generate image that will be used to select peaks
 image_t = stkData.stk_top - stkData.background;
 
-if ~params.don_thresh
-    if ~isfield(params,'thresh_std')
-        thresh_std = constants.gettracesThresholdStd;
-    else
-        thresh_std = params.thresh_std;
-    end
-
-    % Automatically threshold setting based on variance of
-    % background intensity at end of movie.
-    endBG = sort( stkData.endBackground(:) );
-    endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
-    params.don_thresh = thresh_std*std( endBG_lowerHalf );
-else
-    params.don_thresh = params.don_thresh-mean2(stkData.background);
-end
-
 % Find peak locations from total intensity.
-% FIXME: This syntax is just terrible. getPeaks should add things to stkData or
-% output a structure with all the outputs.
-[peaks, stkData.total_t, stkData.alignStatus, stkData.total_peaks, ...
-    stkData.fractionOverlapped, stkData.rejectedPicks, ...
-    stkData.rejectedTotalPicks] = getPeaks( image_t, params );
+% outputs: total_t, alignStatus, total_peaks, fractionOverlapped, 
+%    rejectedPicks, rejectedTotalPicks
+peaks = getPeaks( image_t );
 
 % Generate integration windows for later extracting traces.
-[stkData.regions, stkData.integrationEfficiency, stkData.fractionWinOverlap] = ...
-                            getIntegrationWindows(image_t, peaks, params);
+% outputs: regions, integrationEfficiency, fractionOverlap
+getIntegrationWindows(image_t, peaks);
 
 
 %------ Extract traces using peak locations
 if nargin>=3 && ischar(varargin{3}),
     outputFilename = varargin{3};
-    integrateAndSave( stkData, peaks, outputFilename );
+    integrateAndSave( peaks, outputFilename );
 end
     
 return;
 
 
+
+
+
+
+
+
+
 %% --------------------- OPEN STK MOVIE (CALLBACK) --------------------- %
-
-
 
 function [stkData] = OpenStk(filename)
 
-global params;
-
-if nargin<2,
-    params.geometry=2;
-end
+% if nargin<2,
+%     params.geometry=2;
+% end
 
 if ~iscell(filename),  filename = {filename};  end
 
 [~,~,ext] = fileparts(filename{1});
-% tic
 % Load movie data from file.
 if ~isempty( strfind(ext,'.stk') ),
     movie = Movie_STK( filename );
@@ -161,7 +155,6 @@ elseif ~isempty( strfind(ext,'.tif') ),
 else
     error('Unrecognized file type');
 end
-% disp(toc);
 time = movie.timeAxis;
 stkX = movie.nX;
 stkY = movie.nY;
@@ -205,8 +198,6 @@ background=imresize(temp,[stkY stkX],'bicubic');
 
 % Also create a background image from the last few frames;
 % useful for defining a threshold.
-% FIXME: this causes problems in experiments where the background at the
-% end of the movies is higher than at the beginning: tRNA selection.
 endBackground = movie.readFrames(nFrames-11:nFrames-1);
 
 if params.geometry==1,
@@ -217,8 +208,7 @@ elseif params.geometry==2,
     endBackground = endBackground(:,1:stkX/2,:) + endBackground(:,(1+stkX/2):end,:);
     stkData.nChannels = 2;
 elseif params.geometry>2,
-    % Combine fluorescence from the four quadrants. For 3-color imaging, one
-    % should be left out. FIXME
+    % Combine fluorescence from the four quadrants.
     endBackground = endBackground(1:stkY/2,1:stkX/2,:) + endBackground(1:stkY/2,(1+stkX/2):end,:) + ...
                     endBackground((1+stkY/2):end,1:stkX/2,:) + endBackground((1+stkY/2):end,(1+stkX/2):end,:);
     stkData.nChannels = 4;
@@ -236,7 +226,7 @@ stkData.stkY=stkY;
 stkData.stkX=stkX;
 stkData.nFrames=nFrames;
 
-% END FUNCTION OpenStk
+end %FUNCTION OpenStk
 
 
 
@@ -244,8 +234,6 @@ stkData.nFrames=nFrames;
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
 
 function batchmode(direct)
-
-global params;
 
 % Get list of files in current directory (option: and all subdirectories)
 if params.recursive
@@ -283,8 +271,8 @@ for i=1:nFiles,
         continue;
     end
     
-    % Poll the file size to make sure it isn't changing.^M
-    % This could happen when a file is being saved during acquisition.^M
+    % Poll the file size to make sure it isn't changing.
+    % This could happen when a file is being saved during acquisition.
     d = dir(movieFilenames(i).name);
     if movieFilenames(i).bytes ~= d(1).bytes,
         disp( ['Skipping (save in process?): ' movieFilenames(i).name] );
@@ -299,47 +287,13 @@ for i=1:nFiles,
     
     % Load STK file
     try
-        stkData = OpenStk( movieFilenames(i).name );
+        [stkData,peaks,image_t] = gettraces( movieFilenames(i).name, params, traceFname );
     catch e
         disp(e);
         disp('Skipping file: corrupted, missing, or not completely saved.');
         existing(i) = 1;
         continue;
     end
-    
-    % Pick molecules using default parameter values
-    image_t = stkData.stk_top - stkData.background;
-
-    if ~params.don_thresh
-        if ~isfield(params,'thresh_std')
-            constants = cascadeConstants;
-            thresh_std = constants.gettracesThresholdStd;
-        else
-            thresh_std = params.thresh_std;
-        end
-        
-        % Automatically threshold setting based on variance of
-        % background intensity at end of movie.
-        endBG = sort( stkData.background(:) );
-        endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
-        don_thresh = thresh_std*std( endBG_lowerHalf );
-    else
-        don_thresh = params.don_thresh-mean2(stkData.background);
-    end
-
-    % Find peak locations from total intensity
-    params2 = params;
-    params2.don_thresh = don_thresh;
-    
-    peaks = getPeaks( image_t, params2 );
-    nTraces(i) = size(peaks,1);
-    
-    % Generate integration windows for later extracting traces.
-    [stkData.regions,stkData.integrationEfficiency] = ...
-                                getIntegrationWindows(image_t, peaks, params);
-    
-    % Save the traces to file
-    integrateAndSave( stkData, peaks, traceFname );
     
     waitbar(i/nFiles, h); drawnow;
 end
@@ -375,7 +329,7 @@ end
 % Clean up
 fclose(log_fid);
 
-
+end %FUNCTION batchmode
 
 
 
@@ -384,8 +338,7 @@ fclose(log_fid);
 % --------------- PICK MOLECULES CALLBACKS --------------- %
 
 %------------- Pick single molecule spots ----------------- 
-function [picks, total_t, align, total_picks, fractionOverlapped, ...
-          rejectedPicks, rejectedTotalPicks] = getPeaks( image_t, params )
+function picks = getPeaks( image_t )
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments). The selection is made on the total fluorescence
 % intensity image (summing all channels into a single image) to minimize
@@ -417,6 +370,28 @@ function [picks, total_t, align, total_picks, fractionOverlapped, ...
 %    rejectedTotalPicks = rejected peaks in total intensity image.
 % 
 
+
+% If the threshold for detecting intensity peaks is not given, calculate it
+% automatically from the std of background regions at the end of the movie.
+% FIXME: This must be recalcualted after software alignment, if applicable.
+if ~params.don_thresh
+    if ~isfield(params,'thresh_std')
+        thresh_std = constants.gettracesThresholdStd;
+    else
+        thresh_std = params.thresh_std;
+    end
+
+    % Calculate threshold from variance in background intensity at end of movie.
+    % FIXME: this does not work well when background levels change during the
+    % movie, for example with injection of Cy5-labeled tRNA.
+    endBG = sort( stkData.endBackground(:) );
+    endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
+    params.don_thresh = thresh_std*std( endBG_lowerHalf );
+else
+    params.don_thresh = params.don_thresh-mean2(stkData.background);
+end
+
+
 % A note on notation: i, indD, indA, etc are indexes into the list of channels
 % as they will appear in the output data (donor,acceptor). params.idxFields and
 % quadrants identify the physical position of each channel on the camera chip.
@@ -447,13 +422,16 @@ elseif params.geometry>2,
 end
 
 % Sum fields to get a total intensity image for finding molecules.
+% For now, we assume everything is aligned. FIXME: if an alignment file is
+% loaded, there's no need to check first.
 total_t = sum( allFields(:,:,quadrants), 3 );
 [nrow,ncol] = size(total_t); %from now on, this is the size of subfields.
 
 
 
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
-[total_picks,rejected] = pickPeaks( total_t, params );
+[total_picks,rejected] = pickPeaks( total_t, params.don_thresh, ...
+                                     params.nhoodSize, params.overlap_thresh );
 nPicked = size(total_picks,1);
 
 assert( all(total_picks(:))>0, 'bad peak locations' );
@@ -478,6 +456,7 @@ end
 %%%%% Estimation of misalignment (for dual or multi-color)
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{});
 indD = find( strcmp(channelNames,'donor') ); %donor channel to align to.
+quality = zeros(nCh,1);
 
 if params.geometry>1,
     % Refine peak locations and how much they deviate. This helps determine
@@ -490,6 +469,7 @@ if params.geometry>1,
     % For each channel, find a crude alignment using control points. This
     % helps determine if software alignment is needed.
     d = r_mod(indD:nCh:end,:);  %donor (reference) points
+    donor_t = allFields( :,:, params.idxFields(indD) ); %target field to align to
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
@@ -512,7 +492,8 @@ if params.geometry>1,
         
         % Measure the "quality" of the alignment as the magnitude increase in
         % score compared to a "random" alignment.
-        %quality =  weberQuality(ref_img,reg_img,params.don_thresh)
+        target_t = allFields(:,:,params.idxFields(i));
+        quality(i) =  weberQuality(donor_t,target_t,0.7*params.don_thresh);
     end
 end
 
@@ -531,7 +512,6 @@ if params.geometry>1 && params.alignMethod>1,
     % the best donor-acceptor intensity overlap. The quality score is the
     % mean aligned peak magnitude vs random alignment. If the score is low,
     % reject it and just say "we don't know".
-    quality = zeros(nCh,1);
     registered_t = cell(nCh,1);
     newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     tform = cell(nCh,1);
@@ -552,13 +532,11 @@ if params.geometry>1 && params.alignMethod>1,
             
         elseif params.alignMethod==3,
             % Use peaks of fluorescence as control points.
-            [newAlign(i),registered_t{i}] = alignSearch_cpt( ...
-                                                   donor_t, target_t, params );
+            [newAlign(i),registered_t{i}] = alignSearch_cpt( donor_t, target_t );
                                  
         elseif params.alignMethod==4,
             % Old, slow brute force method.
-            [newAlign(i),registered_t{i}] = alignSearch_weber( ...
-                                                   donor_t, target_t, params );
+            [newAlign(i),registered_t{i}] = alignSearch_weber( donor_t, target_t );
         end
         
         total_t = total_t + registered_t{i};
@@ -566,7 +544,10 @@ if params.geometry>1 && params.alignMethod>1,
         
         % Measure the "quality" of the alignment as the magnitude increase in
         % score compared to a "random" alignment.
-        quality(i) =  weberQuality(donor_t,registered_t{i},params.don_thresh);
+        % FIXME: the threshold here is for total intensity, which may be much
+        % brighter than the combination of any two channels. This could give 
+        % low quality scores even when the alignment is good.
+        quality(i) =  weberQuality(donor_t,registered_t{i},0.7*params.don_thresh);
     end
     
     % If the optimal alignment is not trivial, re-pick molecule locations and
@@ -576,11 +557,11 @@ if params.geometry>1 && params.alignMethod>1,
         if any( quality<1.1 & quality>0 ),
             warning('gettraces:lowConfidenceAlignment', ...
                     'Low confidence alignment. Parameters are out of range or data quality is poor.');
-            disp(quality);
         end
         
         % Pick peaks from the aligned, total intensity image.
-        [total_picks,rejected] = pickPeaks( total_t, params );
+        [total_picks,rejected] = pickPeaks( total_t, params.don_thresh, ...
+                                     params.nhoodSize, params.overlap_thresh );
 
         % For each channel, predict peak locations as straight translations 
         % from the peak locations in the total intensity image.
@@ -621,23 +602,29 @@ if params.geometry>1 && params.alignMethod>1,
     end
 end
 
+if ~params.quiet && nCh>1,
+    disp('Weber contrast alignment quality score:');
+    disp( quality(2:end) );
+end
 
 % Save output
-rejectedTotalPicks = total_picks(rejected,:);
-total_picks = total_picks(~rejected,:);
+stkData.rejectedTotalPicks = total_picks(rejected,:);
+stkData.total_peaks = total_picks(~rejected,:);
 
 good = repmat( ~rejected, [nCh,1] ); good=logical(good(:));
-rejectedPicks = picks( ~good,: );
+stkData.rejectedPicks = picks( ~good,: );
 picks = picks( good,: );
 
-fractionOverlapped = size(rejectedTotalPicks,1) / nPicked;
+stkData.fractionOverlapped = size(stkData.rejectedTotalPicks,1) / nPicked;
+
+stkData.total_t = total_t;
+stkData.alignStatus = align;
+
+end %function getPeaks
 
 
-% end function getTraces
 
-
-
-function [picks,boolRejected,centroids] = pickPeaks( image_t, params )
+function [picks,boolRejected,centroids] = pickPeaks( image_t, threshold, nhood, overlap_thresh )
 % Localizes the peaks of fluorescence.
 %   picks = locations (x,y) of all molecules selected.
 %   rejectedPicks = locations of molecules that are too close to a neighbor
@@ -645,12 +632,6 @@ function [picks,boolRejected,centroids] = pickPeaks( image_t, params )
 %
 
 [nrow,ncol] = size(image_t);
-
-
-threshold = params.don_thresh;
-overlap_thresh = params.overlap_thresh;
-nhood = params.nhoodSize;  %rough size of peak area (1=>3x3 pixels,2=>5x5,etc)
-
 
 % Detect molecules as fluorescence maxima over local 3x3 regions,
 % ignoring any that are below the detection threshold or near the edges.
@@ -684,7 +665,7 @@ end
 
 
 
-% END FUNCTION pickPeaks
+end %FUNCTION pickPeaks
 
 
 
@@ -713,12 +694,12 @@ for i=1:nMol,
     centroids(i,:) = [x y];
 end
 
-% END FUNCTION getCentroids
+end %FUNCTION getCentroids
 
 
 
 
-function [align,reg_img] = alignSearch_cpt( ref_img, target_img, params )
+function [align,reg_img] = alignSearch_cpt( ref_img, target_img )
 % ALIGNSEARCH    Align two images using a simple control point algorithm.
 %
 %    [bestAlign,bestReg,quality] = alignSearch( REF, TARGET, params)
@@ -737,17 +718,13 @@ function [align,reg_img] = alignSearch_cpt( ref_img, target_img, params )
 [nrow,ncol] = size(ref_img);
 assert( all(size(ref_img)==size(target_img)) );
 
-% 1) Detect beads as brights spots above background.
-% Since we are picking on the individual fields, the threshold is lowered. I
-% have no really optimized this factor (0.7). This will only work well if there
-% is a strong signal on all channels -- beads.
-pickParams = params;
-pickParams.don_thresh = 0.7*params.don_thresh;
 
-[~,reject,ref_peaks]    = pickPeaks( ref_img,    pickParams );
+% 1) Detect beads as brights spots above background.
+% A lower threshold is used to better detect dim channels (Cy7).
+[~,reject,ref_peaks]    = pickPeaks( ref_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
 ref_peaks = ref_peaks(~reject,:);
 
-[~,reject,target_peaks] = pickPeaks( target_img, pickParams );
+[~,reject,target_peaks] = pickPeaks( target_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
 target_peaks = target_peaks(~reject,:);
 
 
@@ -801,18 +778,12 @@ theta = atan2(ss,sc)*180/pi;
 align = struct( 'dx',tx,'dy',ty, 'theta',theta, 'sx',scale,'sy',scale, ...
                 'abs_dev',0, 'tform',tform );
 
-% Measure the "quality" of the alignment as the magnitude increase in
-% score compared to a "random" alignment.
-%quality =  weberQuality(ref_img,reg_img,params.don_thresh);
-
-
-
-% END FUNCTION %function alignSearch_cpt
+end %FUNCTION %function alignSearch_cpt
 
 
 
 
-function [bestAlign,bestReg] = alignSearch_weber( donor_t, acceptor_t, params )
+function [bestAlign,bestReg] = alignSearch_weber( donor_t, acceptor_t )
 % ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
 %
 %    [bestAlign,bestReg] = alignSearch( image_t, params, [forceAlign] )
@@ -886,8 +857,6 @@ bestScores = zeros(ntheta,1);
 bestAligns = cell(ntheta,1);
 bestRegs = cell(ntheta,1);
 
-don_thresh = params.don_thresh;
-
 for t=1:ntheta,  %use this for single-threaded
 % parfor t=1:ntheta,
     theta = theta_range(t);
@@ -919,7 +888,7 @@ for t=1:ntheta,  %use this for single-threaded
             % aligned, the peak intensities go down and some peaks fall
             % below the threshold of background, lowering contrast.
             total = donor_t+registered;
-            picks = total>don_thresh;    %pixels above background
+            picks = total>params.don_thresh;    %pixels above background
             Ib = mean( total(~picks) );  %background intensity
             S = ( mean(total(picks)) -Ib ) / Ib;  %Weber contrast score
             
@@ -960,18 +929,11 @@ T = T.*Ts;
 bestAlign.tform = fliptform( maketform('affine',T) );
 
 
-% Measure the "quality" of the alignment as the magnitude increase in
-% score compared to a "random" alignment.
-% quality = max(bestScores) / weberRandom(donor_t,acceptor_t,don_thresh);
-%quality =  weberQuality(donor_t,bestReg,don_thresh);
-
-
 if ~params.quiet && ntheta>1,
     close(h);
 end
 
-
-% END FUNCTION alignSearch
+end %FUNCTION alignSearch
 
 
 
@@ -1007,15 +969,14 @@ randomScore = mean(S(2:end));
 quality = S(1) / randomScore;
 
 
-% END FUNCTION weberRandom
+end %FUNCTION weberRandom
 
 
 
 
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
-function [regions,integrationEfficiency,fractionWinOverlap] = ...
-                               getIntegrationWindows( stk_top, peaks, params )
+function getIntegrationWindows( stk_top, peaks )
 % For each molecule location in "peaks", find the most intense pixels in
 % its immediate neighborhood (defined by params.nPixelsToSum). These
 % regions are used by integrateAndSave() to sum most of the intensity for
@@ -1039,12 +1000,12 @@ y = peaks(:,2);
 
 % Define regions over which to integrate each peak --
 % Done separately for each channel!
-integrationEfficiency = zeros(Npeaks,squarewidth^2);
+stkData.integrationEfficiency = zeros(Npeaks,squarewidth^2);
 regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
 
 imgReused = zeros( size(stk_top) );  %marks where pixels are re-used
 idxs = zeros( params.nPixelsToSum, Npeaks );
-fractionWinOverlap = zeros(Npeaks,1);
+stkData.fractionWinOverlap = zeros(Npeaks,1);
 
 for m=1:Npeaks
     % Get a window of pixels around the intensity maximum (peak).
@@ -1059,7 +1020,7 @@ for m=1:Npeaks
     % relative to the total intensity in the full window region around the peak.
     % This is just an estimate and depends on the window size.
     % High molecule density can also distort this if there are overlapping PSFs.
-    integrationEfficiency(m,:) = cumsum( center/sum(center) )';
+    stkData.integrationEfficiency(m,:) = cumsum( center/sum(center) )';
     
     % Convert to coordinates in the full FOV image and save.
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
@@ -1072,24 +1033,24 @@ end
 % For each peak, get the fraction of re-used pixels.
 % FIXME: idxs could be used to construct regions to save time/memory.
 for m=1:Npeaks,
-    fractionWinOverlap(m) = sum(imgReused(idxs(:,m))-1) / params.nPixelsToSum;
+    stkData.fractionWinOverlap(m) = sum(imgReused(idxs(:,m))-1) / params.nPixelsToSum;
 end
 
-
-% end function getIntegrationWindows
-
+stkData.regions = regions;
 
 
+end %function getIntegrationWindows
 
-function integrateAndSave( stkData, peaks, stk_fname )
+
+
+
+function integrateAndSave( peaks, stk_fname )
 % For each location in "peaks", sum a region that includes most of the
 % intensity for that spot and repeat for each time point to get a
 % fluorescence-time trace for each peak. Background subtraction, crosstalk
 % correction, and calculation of derived signals (FRET traces) is all done
 % here. Then the result is saved as a .rawtraces file with metadata.
 %
-
-global params;
 
 movie = stkData.movie;
 nFrames = movie.nFrames;
@@ -1277,6 +1238,13 @@ saveTraces( save_fname, 'traces', data );
 
 close( wbh );
 
-% end function integrateAndSave
+end %function integrateAndSave
+
+
+
+
+end %FUNCTION gettraces
+
+
 
 

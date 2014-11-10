@@ -81,10 +81,6 @@ guidata(hObject, handles);
 % gettraces may be called from sorttraces to load the movie associated with
 % a particular trace. The first argument is then the filename of the movie
 % file and the second argument is the x-y coordinate of the trace.
-% FIXME: this still doesn't work very well. And we don't have enough
-% information to determine which profile to load, so we default to
-% something simple that will work (1 big field). We may need more from
-% fileMetadata to figure it out.
 if numel(varargin) > 0,
     handles.stkfile = varargin{1};
     traceMetadata = varargin{2};
@@ -151,7 +147,7 @@ function openstk_Callback(hObject, ~, handles)
 % Get filename of input data from user. If multiple files are selected,
 % they are considered sections (groups of frames) from a larger movie.
 % This happens with very large (sCMOS) movies > 2GB in size.
-[datafile,datapath] = uigetfile( '*.stk;*.tif*', 'Choose a movie file', ...
+[datafile,datapath] = uigetfile( '*.stk;*.tif;*.tiff', 'Choose a movie file', ...
                                  'MultiSelect','on' );
 
 if ~iscell(datafile),
@@ -218,7 +214,7 @@ if isappdata(handles.figure1,'stkData')
 end
 
 % Load movie data
-[stkData] = gettraces( filename );
+[stkData] = gettraces( filename, handles.params );
 handles.stk_top = stkData.stk_top;
 
 % Since the image stack is very large, it is stored in ApplicationData
@@ -300,8 +296,6 @@ for i=1:numel(fields),
     idxCh = find( handles.params.idxFields==i ); 
         
     imshow( fields{i}, [low val], 'Parent',ax(i) );
-%     colormap(ax(i),handles.colortable);
-%     zoom(ax(i),'on');
 
     if ~isempty(idxCh) && ~isempty(chNames{idxCh}),
         % Give each field a title with the background color matching the
@@ -377,31 +371,19 @@ end
 
 % Get list of files in current directory (option: and all subdirectories)
 if recursive
-    movieFilenames  = rdir( [direct filesep '**' filesep '*.stk'] );
-    movieFilenames  = [ movieFilenames ; rdir([direct filesep '**' filesep '*.tif*']) ];
+    movieFiles  = rdir( [direct filesep '**' filesep '*.stk'] );
+    movieFiles  = [ movieFiles ; rdir([direct filesep '**' filesep '*.tif*']) ];
 else
-    movieFilenames  = rdir( [direct filesep '*.stk'] );
-    movieFilenames  = [ movieFilenames ; rdir([direct filesep '*.tif*']) ];
+    movieFiles  = rdir( [direct filesep '*.stk'] );
+    movieFiles  = [ movieFiles ; rdir([direct filesep '*.tif*']) ];
 end
 
+nFiles = length(movieFiles);
+movieFilenames = {movieFiles.name};
 
-% Get the base filename (no extension or -file00x).
-% Because this only matches TIFF files, other file formats are left alone.
-d = {movieFilenames.name};
-fr = regexprep( d, '(-file[0-9]*)?\.tiff?$', '' );
-
-% Find clusters of filenames with the same base name (presumably the same movie)
-[names,~,assignment] = unique(fr);
-
-% Build a nested cell array from the clusters
-movieFilenames = cell( 1, numel(names) );
-for i=1:numel(names)
-    movieFilenames{i} = d(assignment==i);
-end
-
-
-nFiles = length(movieFilenames);
-
+% Wait for 100ms to give sufficient time for polling file sizes in the
+% main loop below.
+pause(0.1);
 
 
 % ---- For each file in the user-selected directory
@@ -432,6 +414,15 @@ for i=1:nFiles
     
     if skipExisting && exist(traceFname,'file'),
         %disp( ['Skipping (already processed): ' stk_fname] );
+        existing(i) = 1;
+        continue;
+    end
+    
+    % Poll the file size to make sure it isn't changing.
+    % This could happen when a file is being saved during acquisition.
+    d = dir(stk_fname);
+    if movieFiles(i).bytes ~= d(1).bytes,
+        disp( ['Skipping (save in process?): ' stk_fname] );
         existing(i) = 1;
         continue;
     end
@@ -519,7 +510,6 @@ stkData = getappdata(handles.figure1,'stkData');
 % params = handles.params;
 % params.alignment = handles.alignment; %apply loaded alignment if any
 [stkData,peaks] = gettraces( stkData, handles.params );
-% axes( handles.axTotal );
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -573,6 +563,7 @@ else
     set( handles.txtAlignStatus, 'String', text );
 
     % Color the text to draw attention to it if the alignment is bad.
+    % FIXME: this should depend on the nhood/window size. 1 px may be small.
     if any( [a.abs_dev] > 0.25 ),
         d = max( [a.abs_dev] );
         set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
@@ -917,6 +908,15 @@ guidata(hObject,handles);
 function handles = cboGeometry_Callback(hObject, ~, handles)
 %
 
+% If running, stop the "auto detect" timer. Otherwise, it may be triggered by
+% the change in settings.
+fileTimer = timerfind('Name','gettraces_fileTimer');
+if ~isempty(fileTimer),
+    stop(fileTimer);
+    delete(fileTimer);
+    set(handles.chkAutoBatch,'Value',0);
+end
+
 % Get parameter values associated with the selected profile.
 % Warning: if cascadeConstants is changed to add a new profile or rearrange
 % profiles, this can have unpredictable effects...
@@ -1191,7 +1191,7 @@ end
 
 
 % --- Executes on button press in btnHidePicks.
-function btnHidePicks_Callback(hObject, eventdata, handles)
+function btnHidePicks_Callback(~, ~, handles)
 % Hide the circles drawn to indicate molecule locations so the field of
 % view image is more visible. They will show up again if the "Pick Peaks"
 % button is clicked.
@@ -1200,7 +1200,7 @@ delete(findobj(handles.figure1,'type','line'));
 
 
 % --- Executes on button press in chkAutoBatch.
-function chkAutoBatch_Callback(hObject, eventdata, handles)
+function chkAutoBatch_Callback(hObject, ~, handles)
 % 
     
 % If another timer is running, stop it.

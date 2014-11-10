@@ -4,6 +4,10 @@ function constants = cascadeConstants()
 constants.version = '2.8';  %pipeline release version number
 
 
+% FIXME: this script is called many times and is getting large enough to add
+% time to some function calls. Consider using a static version of the return
+% parameters. Problem: result is not updated when the file is changed.
+
 
 %% ======================  Global Algorithm Settings ====================== %%
 % ---- Algorithm constants that rarely need to be adjusted.
@@ -55,59 +59,120 @@ constants.gamma = 1.0;
 
 
 %% ======================  Gettraces Default Settings ====================== %%
-% The first group of settings below will overwrite the ones in the
-% profiles, so don't put anything here unless it isn't specified in the
-% profile settings!!!
+% Create gettraces parameter profiles for various imaging geometries and
+% fluorophores. Some parameters, especially crosstalk, may depend on the
+% specific biological system, fluorophores, and filters used. Others, like
+% photonConversion, nPixelsToSum, nHoodSize, and overlap_thresh depend on the
+% cameras used, level of binning, magnification, etc.
+% 
+% Channel names must be listed in spectral order (blue, green, red, IR).
+% The order these channels appear in the movie is specified by the "idxFields"
+% property. The order is: UL, UR, LL, LR.   (For two fields: L, R).
+% For example a value of [2 4 1] specifies gives a field order of: UR,LR,UL.
+% 
+% See gettraces.m for definitions for these parameters. Acceptable channel
+% names include: donor, acceptor, acceptor2, and factor.
+% This allows for 2- or 3-color FRET (but not four-color with two FRET pairs).
+% Factor is a fluorescence channel that is not part of any FRET pair.
+%
 
-% Placeholders
-commonParams = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
+%------------------------
+% Default settings are given here. Unless another value is given in the profile
+% definition, these values are used.
+
+cmosCommon = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
                        'chDesc',{}, 'wavelengths',[], 'crosstalk',[], ...
                        'biasCorrection',{} );
 
-% ADU (arbitrary camera intensity units) to photon conversion factor in
-% units of ADU/photon. See camera calibration data sheet. This may depend
-% on which digitizer is selected! Check camera documentation.
+% Gettraces GUI settings:
+cmosCommon(1).alignMethod = 1;  %disabled, assume aligned.
+cmosCommon.skipExisting   = 0;  %batch mode: skip files already processed.
+cmosCommon.recursive      = 0;  %batch mode: search recursively.
+cmosCommon.quiet          = 0;  %don't output debug messages.
+cmosCommon.saveLocations  = 0;  %save molecule locations to a text file
+
+% Conversion from camera units (ADU) to photons (photoelectrons).
+% See camera calibration datasheet. May depend on which digitizer is selected!
 % If no information is available, comment this line out.
-commonParams(1).photonConversion = 100/3.1;   % 10MHz Evolve 512
-%commonParams(1).photonConversion = 100/2.6;   % 5MHz Evolve 512
+cmosCommon.photonConversion = 2.04;   % 0.49 e-/ADU  (manual says 0.46?)
 
 % Algorithm settings:
-commonParams.don_thresh     = 0;   %molecule detection threshold (0=automatic)
-commonParams.overlap_thresh = 2.3; %remove molecules that are w/i X pixels.
-commonParams.nPixelsToSum   = 4;   %number of pixels to sum per trace
-commonParams.nhoodSize      = 1;   %integrate within this neighborhood (px distance from peak)
+% These depend on the PSF size relative to pixel size and must be optimized.
+cmosCommon.don_thresh     = 0;   %molecule detection threshold (0=automatic)
+cmosCommon.overlap_thresh = 3;   %remove molecules that are w/i X pixels.
+cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
+cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
-commonParams.alignMethod    = 1;   %disabled, assume aligned.
-
-% Other options:
-commonParams.skipExisting  = 0; %batch mode: skip files already processed.
-commonParams.recursive     = 0; %batch mode: search recursively.
-commonParams.quiet         = 0; %don't output debug messages.
-commonParams.saveLocations = 0; %save molecule locations to a text file
 
 
-% Create gettraces parameter profiles for various imaging geometries and
-% fluorophores. For the quad-view, the order is UL, UR, LL, LR. These will
-% become the items in the drop-down menu at the top of gettraces, with the
-% "name" field being the text in the dropdown list.
-% See gettraces.m for definitions for these parameters. Acceptable channel
-% names include: donor, acceptor, donor2, acceptor2, factor. Factor is a
-% fluorescence channel that is not part of any FRET pair.
-% idxFields specifies the mapping between channel names and the physical
-% position on the CCD chip. For the Quad-View the order is UL/UR/LL/LR.
-% For all parametes, only list channels that will be used.
-% NOTE: you must put the channels in their spectral order.
+% Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.
+emccdCommon = cmosCommon;
+emccdCommon.photonConversion = 100/3.1;  % 10MHz chipset, gain 4 (3x), 100x EM gain
+emccdCommon.overlap_thresh   = 2.3;      % 
+emccdCommon.nPixelsToSum     = 4;        % optimal SNR
+emccdCommon.nhoodSize        = 1;        % 3x3 area
+
+
+
+%------------------------
+% Settings for particular setups are listed here. Each entry is concatinated
+% onto the end of the list (profiles).
+
 clear p; clear profiles
 
+%------  sCMOS cameras  -------
+p = cmosCommon;
+p.name         = 'sCMOS, Single-channel (Cy3)';
+p.geometry     = 1;
+p.idxFields    = 1; %only one channel
+p.chNames      = {'donor'};
+p.chDesc       = {'Cy3'};
+p.wavelengths  = 532;
+profiles(1)    = p;
 
-p = commonParams;
+
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5)';
+p.geometry    = 2;
+p.idxFields   = [1 2]; %L/R
+p.chNames     = {'donor','acceptor'};
+p.chDesc      = {'Cy3','Cy5'};
+p.wavelengths = [532 640];
+p.crosstalk   = 0.115;  %donor->acceptor
+profiles(end+1) = p;
+
+% For a few movies taken with old versions of Flash Gordon
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
+p.idxFields   = [2 1]; %R/L
+profiles(end+1) = p;
+
+
+p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
+p.geometry    = 3;
+p.idxFields   = [1 2 4]; % field order: UL,UR,LR.
+p.chNames     = {'donor','acceptor','acceptor2'};
+p.chDesc      = {'Cy3','Cy5','Cy7'};
+p.wavelengths = [532 640 730];
+p.crosstalk   = zeros(4);
+p.crosstalk(1,2) = 0.066;   %Cy3->Cy5
+p.crosstalk(2,3) = 0.015;   %Cy5->Cy7 (is this correct???)
+profiles(end+1) = p;
+
+% For a few movies taken with old versions of Flash Gordon
+p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7) OLD ORDER';
+p.idxFields   = [3 2 1]; % field order: LL, UR, UL
+profiles(end+1) = p;
+
+
+
+%------  EMCCD cameras  ------
+p = emccdCommon;
 p.name        = 'EMCCD, Single-channel (Cy3)';
 p.geometry    = 1;
 p.idxFields   = 1; %only one channel
 p.chNames     = {'donor'};
 p.chDesc      = {'Cy3'};
 p.wavelengths = 532;
-profiles(1) = p;
+profiles(end+1) = p;
 
 
 p.name        = 'EMCCD, Single-channel (Cy5)';
@@ -116,8 +181,8 @@ p.chDesc      = {'Cy5'};
 profiles(end+1) = p;
 
 
-p = commonParams;
-p.name        = 'EMCCD 10 MHz, Dual-Cam (Cy3/Cy5)';
+p = emccdCommon;
+p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5)';
 p.geometry    = 2;
 p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
@@ -133,31 +198,13 @@ p.biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
 profiles(end+1) = p;
 
 
-p.name        = 'EMCCD 5MHz, Dual-Cam (Cy3/Cy5)';
-p.photonConversion = 100/2.6;   % 5MHz Evolve 512, assuming 100x gain.
-profiles(end+1) = p;
-
-
-p.name        = 'EMCCD 5MHz, Dual-Cam (Cy3/Cy5, no binning)';
+p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5, no binning)';
 p.nhoodSize   = 2; %5x5 area
-commonParams.nPixelsToSum = 7;
+p.nPixelsToSum = 7;
 profiles(end+1) = p;
 
 
-p = commonParams;
-p.name        = 'Quad-View (Cy2/Cy3/Cy5/Cy7)';
-p.geometry    = 3;
-p.idxFields   = [4 3 1 2];  %field order: LR/LL/UL/UR
-p.chNames     = {'donor','acceptor','donor2','acceptor2'};
-p.chDesc      = {'Cy2','Cy3','Cy5','Cy7'};
-p.wavelengths = [473 532 640 730];
-p.crosstalk   = zeros(4);
-p.crosstalk(2,3) = 0.13;   %Cy3->Cy5
-p.crosstalk(3,4) = 0.06;   %Cy5->Cy7 (is this correct???)
-profiles(end+1) = p;
-
-
-p = commonParams;
+p = emccdCommon;
 p.name        = 'Quad-View (Cy3/Cy5 only)';
 p.geometry    = 3;
 p.idxFields   = [3 1]; %field order: LL/UL
@@ -168,7 +215,7 @@ p.crosstalk   = 0.13;   %Cy3->Cy5
 profiles(end+1) = p;
 
 
-p = commonParams;
+p = emccdCommon;
 p.name        = 'Quad-View (Cy3/Cy5/Cy7)';
 p.geometry    = 3;
 p.idxFields   = [3 1 2]; % field order: LL/UL/LL
@@ -183,11 +230,11 @@ profiles(end+1) = p;
 
 p.name = 'Quad-View (Cy3/Cy5/Cy7, no binning)';
 p.nhoodSize = 2; %5x5 area
-commonParams.nPixelsToSum = 7;
+p.nPixelsToSum = 7;
 profiles(end+1) = p;
 
 
-p = commonParams;
+p = emccdCommon;
 p.name        = 'Quad-View (Cy5/Cy7)';
 p.geometry    = 3;
 p.idxFields   = [1 2]; % field order: LL/UL/LL
@@ -198,50 +245,9 @@ p.crosstalk   = 0.11;
 profiles(end+1) = p;
 
 
-p = commonParams;
-p.name        = 'sCMOS, Single-channel (Cy3)';
-p.geometry    = 1;
-p.idxFields   = 1; %only one channel
-p.chNames     = {'donor'};
-p.chDesc      = {'Cy3'};
-p.wavelengths = 532;
-p.nPixelsToSum = 9;   %optimum SNR from oligo/LeuT data. Depends strongly on focus!
-p.nhoodSize   = 2;    %5x5 area.
-p.overlap_thresh = 3;
-p.photonConversion = 2.04; %0.49 e-/ADU
-profiles(end+1) = p;
-
-
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5)';
-p.geometry    = 2;
-p.idxFields   = [1 2]; %L/R
-p.chNames     = {'donor','acceptor'};
-p.chDesc      = {'Cy3','Cy5'};
-p.wavelengths = [532 640];
-p.crosstalk   = 0.11;  %donor->acceptor
-profiles(end+1) = p;
-
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
-p.idxFields   = [2 1]; %R/L
-profiles(end+1) = p;
-
-
-p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7 bandpass) / TEMP';
-p.geometry    = 3;
-p.idxFields   = [3 2 1]; % field order: UL,UR,LR. This will change
-p.chNames     = {'donor','acceptor','acceptor2'};
-p.chDesc      = {'Cy3','Cy5','Cy7'};
-p.wavelengths = [532 640 730];
-p.crosstalk   = zeros(4);
-p.crosstalk(1,2) = 0.066;   %Cy3->Cy5
-p.crosstalk(2,3) = 0.015;   %Cy5->Cy7 (is this correct???)
-profiles(end+1) = p;
-
-
-
 % Set the default settings profile.
 constants.gettraces_profiles = profiles;
-constants.gettraces_defaultProfile = 3;   %Dual-View (Cy3/Cy5)
+constants.gettraces_defaultProfile = 2;   %sCMOS Cy3/Cy5
 constants.gettracesDefaultParams = profiles( constants.gettraces_defaultProfile );
 
 
