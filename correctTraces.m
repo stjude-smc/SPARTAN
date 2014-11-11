@@ -53,20 +53,21 @@ for m=1:nTraces,
 
     s = lt(m)+5;  %ignore the frames around the photobleaching event
     range = s:min(s+constants.NBK,len);
+    nRange = numel(range);
     
-    if numel(range)<10,
+    if nRange<10,
         continue; %not enough baseline to calculate background. skip trace.
     end
 
     % Make background correction
-    data.donor(m,:) = data.donor(m,:)- mean( data.donor(m,range) );
+    data.donor(m,:) = data.donor(m,:)- sum( data.donor(m,range) )/nRange;
     
     if isFret,
-        data.acceptor(m,:) = data.acceptor(m,:) - mean( data.acceptor(m,range) );
+        data.acceptor(m,:) = data.acceptor(m,:) - sum( data.acceptor(m,range) )/nRange;
     end
     
     if isThreeColor,
-        data.acceptor2(m,:) = data.acceptor2(m,:) - mean( data.acceptor2(m,range) );
+        data.acceptor2(m,:) = data.acceptor2(m,:) - sum( data.acceptor2(m,range) )/nRange;
     end
 end
 

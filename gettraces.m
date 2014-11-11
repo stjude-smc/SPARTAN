@@ -140,9 +140,6 @@ return;
 
 function [stkData] = OpenStk(filename)
 
-% if nargin<2,
-%     params.geometry=2;
-% end
 
 if ~iscell(filename),  filename = {filename};  end
 
@@ -1051,6 +1048,7 @@ function integrateAndSave( peaks, stk_fname )
 % correction, and calculation of derived signals (FRET traces) is all done
 % here. Then the result is saved as a .rawtraces file with metadata.
 %
+tic;
 
 movie = stkData.movie;
 nFrames = movie.nFrames;
@@ -1104,26 +1102,34 @@ if ~params.quiet && data.time(1)==1,
     end
 end
 
+% Start the matlab thread pool if not already running. parfor below will
+% run the calculations of the available processors.
+% NOTE: For TIFF movies, which are standard now with sCMOS, this process is CPU
+% limited because reading TIFF tags is slow. With MetaMorph STK files, it is
+% disk limited, so the parfor may do more harm than good.
+if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
 
 % Create a trace for each molecule across the entire movie.
 % The estimated background image is also subtracted to help with molecules
-% that do not photobleaching during the movie.
+% that do not photobleach during the movie.
 traces = zeros(Npeaks,nFrames,'single');
 
 idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
+bg = stkData.background;
+nPx = params.nPixelsToSum;
 
-for k=1:nFrames,
-    frame = single( movie.readFrame(k) )  -stkData.background;
+parfor k=1:nFrames,
+    frame = single( movie.readFrame(k) )  -bg;
     
-    if params.nPixelsToSum>1
+    if nPx>1,
         traces(:,k) = sum( frame(idx) );
     else
         traces(:,k) = diag( frame(y,x) );
     end
     
-    if mod(k,100)==0,
-        waitbar( 0.9*k/nFrames, wbh );
-    end
+%     if mod(k,100)==0,
+%         waitbar( 0.9*k/nFrames, wbh );
+%     end
 end
 
 
@@ -1237,6 +1243,7 @@ saveTraces( save_fname, 'traces', data );
 
 
 close( wbh );
+disp(toc);
 
 end %function integrateAndSave
 

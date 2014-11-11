@@ -8,8 +8,8 @@ function life = calcLifetime(total,TAU,NSTD)
 %   window size of TAU to reduce the effect of noise. DATA is typically the
 %   sum of donor and acceptor intensities in FRET experiments.
 
-[Ntraces,len] = size(total);
-life = repmat(len,[Ntraces 1]);  %default value = maximum trace length
+Ntraces = size(total,1);
+life = zeros(Ntraces,1);  %default value = maximum trace length
 
 if nargin<3,
     constants = cascadeConstants();
@@ -17,13 +17,29 @@ if nargin<3,
     NSTD = constants.NSTD;
 end
 
-total = double(total);
+total = double(total');
 
 % For each trace, calc Cy3 lifetime
-for i=1:Ntraces
-    
+if Ntraces>100,
+    parfor i=1:Ntraces
+        life(i) = calLifetime2( total(:,i)', TAU, NSTD );
+    end
+else
+    for i=1:Ntraces
+        life(i) = calLifetime2( total(:,i)', TAU, NSTD );
+    end
+end
+
+end %FUNCTION calcLifetime
+
+
+
+%%
+function lt = calLifetime2( total, TAU, NSTD )
+
+
     % Median filter traces to remove high frequency noise.
-    dfilt_total = gradient( medianfilter(total(i,:),TAU) );
+    dfilt_total = gradient( medianfilter(total,TAU) );
     thresh = mean(dfilt_total) - NSTD*std(dfilt_total);
     
     % Find Cy3 photobleaching event by finding *last* large drop in total
@@ -31,7 +47,9 @@ for i=1:Ntraces
     lt = find( dfilt_total<=thresh, 1,'last' );
     
     if ~isempty(lt)
-        life(i) = max(2,lt);
+        lt = max(2,lt);
+    else
+        lt = numel(total);
     end
     
 end % for each trace
