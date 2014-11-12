@@ -233,16 +233,8 @@ end %FUNCTION OpenStk
 function batchmode(direct)
 
 % Get list of files in current directory (option: and all subdirectories)
-if params.recursive
-    movieFilenames  = rdir([direct filesep '**' filesep '*.stk']);
-    movieFilenames  = [ movieFilenames ; rdir([direct filesep '**' filesep '*.tif*']) ];
-else
-    movieFilenames  = rdir([direct filesep '*.stk']);
-    movieFilenames  = [ movieFilenames ; rdir([direct filesep '*.tif*']) ];
-end
-
-
-nFiles = length(movieFilenames);
+movieFiles = regexpdir(direct,'^.*\.(tiff?|stk)$',params.recursive);
+nFiles = length(movieFiles);
 
 % Wait for 100ms to give sufficient time for polling file sizes in the
 % main loop below.
@@ -256,7 +248,7 @@ existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
 for i=1:nFiles,
     
     % Skip if previously processed (.rawtraces file exists)
-    stk_fname = movieFilenames(i).name;
+    stk_fname = movieFiles(i).name;
     [p,name]=fileparts(stk_fname);
     traceFname = fullfile(p, [name '.rawtraces']);
     
@@ -268,31 +260,34 @@ for i=1:nFiles,
         continue;
     end
     
-    % Poll the file size to make sure it isn't changing.
+    % Poll the file to make sure it isn't changing.
     % This could happen when a file is being saved during acquisition.
-    d = dir(movieFilenames(i).name);
-    if movieFilenames(i).bytes ~= d(1).bytes,
-        disp( ['Skipping (save in process?): ' movieFilenames(i).name] );
+    d = dir(movieFiles(i).name);
+    if movieFiles(i).datenum ~= d(1).datenum,
+        disp( ['Skipping (save in process?): ' movieFiles(i).name] );
         existing(i) = 1;
         continue;
     end
     
     % Show waitbar only when new data must be loaded.
-    if ~exist('h','var'),
+    if ~exist('h','var') && ~params.quiet,
         h = waitbar( (i-1)/nFiles,'Extracting traces from movies...');
     end
     
     % Load STK file
     try
-        [stkData,peaks,image_t] = gettraces( movieFilenames(i).name, params, traceFname );
+        [stkData,peaks,image_t] = gettraces( movieFiles(i).name, params, traceFname );
     catch e
-        disp(e);
         disp('Skipping file: corrupted, missing, or not completely saved.');
+        disp(movieFiles(i).name);
+        disp(e);
         existing(i) = 1;
         continue;
     end
     
-    waitbar(i/nFiles, h); drawnow;
+    if exist('h','var'),
+        waitbar(i/nFiles, h); drawnow;
+    end
 end
 
 if exist('h','var'),  close(h);  end
@@ -316,9 +311,9 @@ fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
 
 for i=1:nFiles
     if existing(i),
-        fprintf(log_fid, 'SKIP %s\n', movieFilenames(i).name);
+        fprintf(log_fid, 'SKIP %s\n', movieFiles(i).name);
     else
-        fprintf(log_fid, '%.0f %s\n', nTraces(i)/2, movieFilenames(i).name);
+        fprintf(log_fid, '%.0f %s\n', nTraces(i)/2, movieFiles(i).name);
     end
 end
 
@@ -1048,11 +1043,14 @@ function integrateAndSave( peaks, stk_fname )
 % correction, and calculation of derived signals (FRET traces) is all done
 % here. Then the result is saved as a .rawtraces file with metadata.
 %
-tic;
+% tic;
 
 movie = stkData.movie;
 nFrames = movie.nFrames;
-wbh = waitbar(0,'Extracting traces from movie data');
+
+if ~params.quiet,
+    wbh = waitbar(0,'Extracting traces from movie data');
+end
 
 % Get x,y coordinates of picked peaks
 Npeaks = size(peaks,1);
@@ -1127,7 +1125,7 @@ parfor k=1:nFrames,
         traces(:,k) = diag( frame(y,x) );
     end
     
-%     if mod(k,100)==0,
+%     if mod(k,100)==0,  %not compatible with parfor
 %         waitbar( 0.9*k/nFrames, wbh );
 %     end
 end
@@ -1241,9 +1239,10 @@ save_fname = fullfile(p, [name '.rawtraces']);
 
 saveTraces( save_fname, 'traces', data );
 
-
-close( wbh );
-disp(toc);
+if ~params.quiet,
+    close( wbh );
+end
+% disp(toc);
 
 end %function integrateAndSave
 

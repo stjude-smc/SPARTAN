@@ -370,16 +370,8 @@ else
 end
 
 % Get list of files in current directory (option: and all subdirectories)
-if recursive
-    movieFiles  = rdir( [direct filesep '**' filesep '*.stk'] );
-    movieFiles  = [ movieFiles ; rdir([direct filesep '**' filesep '*.tif*']) ];
-else
-    movieFiles  = rdir( [direct filesep '*.stk'] );
-    movieFiles  = [ movieFiles ; rdir([direct filesep '*.tif*']) ];
-end
-
+movieFiles = regexpdir(direct,'^.*\.(tiff?|stk)$',recursive);
 nFiles = length(movieFiles);
-movieFilenames = {movieFiles.name};
 
 % Wait for 100ms to give sufficient time for polling file sizes in the
 % main loop below.
@@ -387,7 +379,6 @@ pause(0.1);
 
 
 % ---- For each file in the user-selected directory
-
 nTraces  = zeros(nFiles,1); % number of peaks found in file X
 existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
 
@@ -397,19 +388,11 @@ set(handles.txtProgress,'String','Creating traces, please wait...');
 
 % For each file...
 for i=1:nFiles
-    stk_fname = movieFilenames{i}; %movieFilenames(i).name;
+    stk_fname = movieFiles(i).name;
     handles.stkfile = stk_fname;
     
-    % Get base filename for multi-file TIFFs
-    if iscell(stk_fname),
-        [p,name] = fileparts(stk_fname{end});
-    else
-        [p,name] = fileparts(stk_fname);
-    end
-    
-    name = regexprep(name,'-file[0-9]*$','');
-    
     % Skip if previously processed (.traces file exists)
+    [p,name] = fileparts(stk_fname);
     traceFname = fullfile(p, [name '.rawtraces']);
     
     if skipExisting && exist(traceFname,'file'),
@@ -418,10 +401,10 @@ for i=1:nFiles
         continue;
     end
     
-    % Poll the file size to make sure it isn't changing.
+    % Poll the file to make sure it isn't changing.
     % This could happen when a file is being saved during acquisition.
     d = dir(stk_fname);
-    if movieFiles(i).bytes ~= d(1).bytes,
+    if movieFiles(i).datenum ~= d(1).datenum,
         disp( ['Skipping (save in process?): ' stk_fname] );
         existing(i) = 1;
         continue;
@@ -462,17 +445,10 @@ fprintf(log_fid, '%s', output);
 fprintf(log_fid,'\n%s\n\n%s\n%s\n\n%s\n',date,'DIRECTORY',direct,'FILES');
 
 for i=1:nFiles
-    % Get a single file name for multi-file TIFF movies.
-    if iscell(movieFilenames{i}),
-        name = [movieFilenames{i}{end} ' (multiple files)'];
-    else
-        name = movieFilenames{i};
-    end
-    
     if existing(i),
-        fprintf(log_fid, 'SKIP %s\n', name);
+        fprintf(log_fid, 'SKIP %s\n', movieFiles(i).name);
     else
-        fprintf(log_fid, '%.0f %s\n', nTraces(i), name);
+        fprintf(log_fid, '%.0f %s\n', nTraces(i), movieFiles(i).name);
     end
 end
 
