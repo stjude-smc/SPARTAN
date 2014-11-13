@@ -443,14 +443,12 @@ elseif params.geometry>1,
     end
 end
 
-
-
 %%%%% Estimation of misalignment (for dual or multi-color)
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{});
 indD = find( strcmp(channelNames,'donor') ); %donor channel to align to.
 quality = zeros(nCh,1);
 
-if params.geometry>1,
+if params.geometry>1 && numel(picks)>0,
     % Refine peak locations and how much they deviate. This helps determine
     % if realignment is needed. FIXME: this could be improved (?) by using
     % centroid locations for translatePeaks above?
@@ -493,7 +491,7 @@ end
 %%%%% Optional software alignment algorithm (for dual-color only!)
 % If the alignment is close, no need to adjust.
 % Just give a warning unless asked to do software alignment in settings.
-if params.geometry>1 && params.alignMethod>1,
+if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
     % FIXME (?): the user may expect the alignment to be applied even if
     % the deviation is small when a specific alignment is loaded!
     
@@ -664,6 +662,8 @@ end %FUNCTION pickPeaks
 function centroids = getCentroids( image_t, picks, nhood )
 % Find weighted center of each peak for more accurate PSF overlap detection.
 % imdilate+regionprops works for this, but tends to merge nearby peaks.
+% FIXME: when operating on a flat (zero) signal, gives NaN values. This should
+% instead just return the input, possibly with a warning.
 
 if nargin<3,
     nhood=1;  %3x3 region.
@@ -684,6 +684,15 @@ for i=1:nMol,
     y = sum( y_window .* sum(block,2)'/tot  );
     
     centroids(i,:) = [x y];
+end
+
+% NaN values may appear for regions that are entirely black (zero) due to
+% division by zero. Replace these values with the input and give a warning.
+badPicks = isnan(centroids);
+if any( badPicks(:) ),
+    centroids(badPicks) = picks(badPicks);
+    warning('gettraces:getCentroids:NaN','NaN values found when searching for centroids (%d, %.0f%%). This can happen when a field is empty (zero). Using input molecule locations instead for these molecules.', ...
+            sum(badPicks(:)), 100*sum(badPicks(:))/numel(badPicks) );
 end
 
 end %FUNCTION getCentroids
@@ -750,6 +759,7 @@ end
 
 % 3) Generate the transformation matrix from control points
 assert( all(size(ref_peaks)==size(target_peaks)) );
+assert( size(ref_peaks,1)>3, 'Not enough control points to create an alignment' );
 tform = cp2tform( target_peaks, ref_peaks, 'nonreflective similarity' );
 
 
@@ -1021,7 +1031,17 @@ for m=1:Npeaks
     idxs(:,m) = sub2ind( size(stk_top), regions(:,1,m), regions(:,2,m) );
     imgReused(idxs(:,m)) = imgReused(idxs(:,m)) +1;
 end
+    
+% If this entire neighborhood is empty, integrationEfficiency will be NaN.
+% Give a warning, but leave the NaN.
+badWindows = isnan(stkData.integrationEfficiency);
+badWindows = any(badWindows'); %select if any entry per molecule is NaN.
 
+if any(badWindows),
+    warning('gettraces:getIntegrationWindows:NaN','NaN values found when getting integration windows (%d, %.0f%%). This can happen when a field is empty (zero).', ...
+        sum(badWindows), 100*sum(badWindows)/Npeaks );
+end
+    
 % For each peak, get the fraction of re-used pixels.
 % FIXME: idxs could be used to construct regions to save time/memory.
 for m=1:Npeaks,

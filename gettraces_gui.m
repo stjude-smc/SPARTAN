@@ -595,7 +595,7 @@ end
 % integration window of each molecule. Set the text color to red where the
 % intensity is not well collected at the current integration window size.
 eff = 100*stkData.integrationEfficiency(:,handles.params.nPixelsToSum);
-eff = mean(eff);
+eff = nanmean(eff);
 set(  handles.txtIntegrationStatus, 'String', ...
       sprintf('%0.0f%% intensity collected', eff)  );
 
@@ -608,6 +608,7 @@ end
 
 % Estimate the peak width from pixel intensity distribution.
 eff = stkData.integrationEfficiency;
+eff = eff( ~any(isnan(eff')), : );  %ignore NaN values, which can happen in with empty fields.
 decay = zeros( size(eff,1), 1 ); %number pixels to integrate to get 70% intensity integrated.
 
 for i=1:size(eff,1),
