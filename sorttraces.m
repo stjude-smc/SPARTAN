@@ -918,18 +918,13 @@ if nargin<2,
     indexes = 1:handles.data.nTraces;
 end
 
+% Extract traces of interest, without modifying the input argument.
 displayData = handles.data.getSubset(indexes);
 
-chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are in order of wavelength!!
-if isChannel(displayData,'acceptor2') && ~isChannel(displayData,'donor2'),
-    isThreeColor = true;
-else
-    isThreeColor = false;
-end
-
 % Make corrections for display. Crosstalk is only considered between
-% neighboring channels. Gamma is not considered for the first channel (probably
-% the donor).
+% neighboring channels.
+chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are in order of wavelength!!
+
 for i=1:numel(indexes), 
     m = indexes(i); %i is index into data subset, m is index into all traces.
     
@@ -941,34 +936,15 @@ for i=1:numel(indexes),
         displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:) - ...
                        handles.crosstalk(m,j-1)*displayData.(chNames{j-1})(i,:);
     end
-
-    if ~isChannel(displayData,'fret'),
-        continue;  %nothing more to do
-    end
-
-
+    
     % Calculate total intensity and donor lifetime.
-    total = displayData.donor(i,:) + displayData.acceptor(i,:);
-    if isThreeColor,
-        total = total + displayData.acceptor2(i,:);
-    end
-
-    lt = max(1, calcLifetime(total) );
-
-    % Calculate FRET
-    displayData.fret(i,:) = displayData.acceptor(i,:)./total;
-    displayData.fret(i, total<handles.fretThreshold(m) ) = 0;
-    displayData.fret(i, lt:end ) = 0;
-
-    if isThreeColor,
-        displayData.fret2(i,:) = displayData.acceptor2(i,:)./total;
-        displayData.fret2(i, total<handles.fretThreshold(m) ) = 0;
-        displayData.fret2(i, lt:end ) = 0;
-    end
+    % FIXME: should thresholds be specified in metadata?
+    displayData.recalculateFret( handles.fretThreshold(indexes) );
     
 end %for each trace
 
 % END FUNCTION adjustTraces
+
 
 
 

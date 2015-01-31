@@ -96,6 +96,66 @@ methods
         end
     end
     
+    
+    %% ================ DATA MANIPULATION ================ %%
+    % These are shortcut functions for common tasks of manipulating fluorescence
+    % and FRET data, in particular to make corrections for crosstalk and gamma.
+    % The data stored in the Traces object is always corrected, and we assume
+    % that any correcctions are stored in traceMetadata correctly, but this
+    % might not be the case... FIXME: is there anything we can do about that??
+    
+    function this = recalculateFret( this, thresholds )
+    % Recalculate FRET efficiencies (all fields) using fluorescence. 
+    %    data.recalculateFret( THRESH );
+    % Replaces the current "fret" property with the newly calculated traces.
+    % Thresholds of total intensity below which FRET is set to zero can be given
+    % as the extra parameter (THRESH, Nx1 array, one per trace). Otherwise, they
+    % calculated from the data as a few standard deviations above background.
+    %
+    % FIXME: would this require that fretThreshold (manually tuned) be included
+    % in traceMetadata??? Is that value even relevant after doing the
+    % corrections?
+    
+        if ~isChannel(this,'fret'), warning('Not FRET data?'); end
+        assert( ~isChannel(this,'acceptor2') & ~isChannel(this,'donor2'), ...
+                'Not valid for 3-color data (yet, FIXME)' );
+        
+        constants = cascadeConstants;
+        
+        if nargin<2,
+            thresholds = zeros(data.nTraces,1);
+        end
+        
+        % Determine the end of each trace (donor bleaching event.
+        total = this.donor+this.acceptor;
+        lt = max(1, calcLifetime(total) );
+        
+        % Calculate FRET for each trace.
+        this.fret = this.acceptor./total;
+        
+        for i=1:this.nTraces,
+            % Set FRET to zero after donor photobleaching.
+            this.fret(i, lt:end ) = 0;
+            
+            % Set FRET to zero in areas where the donor is dark (blinking).
+            % ie, when FRET is below a calculated threshold = 4*std(background)
+            % This was taken from correctTraces.m
+            % FIXME: what happens to manual FRET threshold adjustments??
+            %        Should they be saved in traceMetadata?
+            s = lt(i)+5;
+            range = s:min(s+constants.NBK,this.nFrames);
+            if numel(range)>=10,
+                if nargin<2, 
+                    thresholds(i) = constants.blink_nstd*std(total(i,range));
+                end
+                darkRange = total( i, 1:lt(i) ) <= thresholds(i);
+                this.fret(i,darkRange) = 0;
+            end            
+        end
+    end
+    
+    
+    
 end %public methods
 
 end %class Traces
