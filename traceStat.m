@@ -151,6 +151,7 @@ fretAll     = data.fret;
 % Add second acceptor FRET channel if available.
 if data.isChannel('fret2'),
     fret2All = data.fret2;
+    acceptor2All = data.acceptor2;
     isThreeColor = true;
 else
     fret2All = zeros( size(fretAll) );
@@ -189,7 +190,6 @@ retval = struct( ...
 % run the calculations of the available processors.
 if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
 
-
 parfor i=1:Ntraces
 % for i=1:Ntraces   %use this instead to disable parallel operation.
     
@@ -198,6 +198,7 @@ parfor i=1:Ntraces
     fret     = fretAll(i,:);
     total    = donor+acceptor;
     
+    if isThreeColor,  total=total+acceptor2All(i,:);  end
     
     %---- Calculate donor lifetime
     % Find donor photobleaching event by finding *last* large drop in total
@@ -205,13 +206,16 @@ parfor i=1:Ntraces
     % better than diff for finding the drops. The value of NSTD is optimal
     % with our data (~300 photons/frame), but another value may be needed
     % with very low intensity data?
-    total2 = constants.gamma*donor + acceptor;
-    filt_total  = medianfilter(total2,constants.TAU);
+    filt_total  = medianfilter(total,constants.TAU);
     dfilt_total = gradient(filt_total);
     mean_dfilt_total = mean( dfilt_total );
     std_dfilt_total  = std( dfilt_total );
     
-    thresh = mean_dfilt_total - constants.NSTD*std_dfilt_total;
+    % Exclude "outliers" from std (including bleaching steps). The std is meant
+    % to measure noise, not also signal.
+    outliers = abs(dfilt_total) > mean_dfilt_total + 6*std_dfilt_total;    
+    thresh = mean_dfilt_total - constants.NSTD*std( dfilt_total(~outliers) );  %this slows things down a bit...
+    
     lt = find( dfilt_total<=thresh, 1,'last' );
 
     if ~isempty(lt) && lt<len,

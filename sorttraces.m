@@ -164,21 +164,37 @@ function handles = OpenTracesFile( filename, handles )
 % Called from btnOpen_Callback and sorttraces_OpeningFcn.
 % Setting guidata is done there.
 
-handles.filename = filename;
 
 % Load the file
-handles.data = loadTraces( filename );
+data = loadTraces( filename );
 
-if isempty(handles.data),
-    error('File is empty');
+if isempty(data),
+    warndlg('File is empty, so it cannot be loaded');
+    return;
 end
 
 % Make sure time axis is in seconds (not frames)
-if handles.data.time(1)==1,
+if data.time(1)==1,
     f = inputdlg('What is the sampling interval (in ms) for this data?');
-    sampling = str2double(f);
-    handles.data.time = sampling.*(0:handles.data.nFrames-1);
+    if ~isempty(f),
+        sampling = str2double(f);
+        data.time = sampling.*(0:handles.data.nFrames-1);
+    end
 end
+
+% If this is multi-color FRET data and the metadata doesn't specify how FRET
+% should be calculated, ask the user for clarification.
+if isa(data,'TracesFret4') && ~isfield(data.fileMetadata,'isTandem3'),
+    result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
+                    '3-color FRET calculation','Yes','No','Cancel','No');
+    if strcmp(result,'Cancel'),  return;  end
+    data.fileMetadata.isTandem3 = double( strcmp(result,'Yes') );
+end
+
+
+% Can't cancel after this point.
+handles.filename = filename;
+handles.data = data;
 
 
 % Trace indexes of binned molecules
@@ -314,7 +330,12 @@ end
 
 % Adjust bottom axis, depending on the type of data.
 if ismember('fret',handles.data.channelNames),
-    ylabel(handles.axFret, 'FRET');
+    if isa(data,'TracesFret4') && ~data.fileMetadata.isTandem3,
+        ylabel(handles.axFret, 'Acceptor/Total');
+    else
+        ylabel(handles.axFret, 'FRET');
+    end
+    
     ylim(handles.axFret, [-0.1 1]);
 else
     ylabel(handles.axFret, '');
@@ -365,6 +386,7 @@ fluorNames = handles.data.channelNames( handles.data.idxFluor );
 handles.backgrounds = zeros( 1,numel(fluorNames) );
 
 % If no value has been calculated for FRET threshold, do it now.
+% FIXME: this calculation is duplicated from TracesFret*.
 trace = handles.data.getSubset(mol);
 handles.stats = traceStat(trace);
 handles.trace = trace;
@@ -579,12 +601,15 @@ set(hObject,'Enable','off');
 function savePickedTraces( handles, filename, indexes )
 % Save picked traces and idealizations to file.
 
+set(handles.figure1,'pointer','watch'); drawnow;
+
 % Sort indexes so they are in the same order as in the file, rather than in
 % the order selected.
 indexes = sort(indexes);
 
 % Put together the subset of selected traces for saving, applying any
 % adjustments made to the trace data.
+% FIXME: this will recalculate FRET even for traces that were not adjusted!
 data = adjustTraces(handles,indexes);  %creates a copy
 
 % Save the trace data to file
@@ -619,6 +644,7 @@ if isfield(handles,'idl') && ~isempty(handles.idl),
 end
 
 delete(data);  %clean up. not necessary, but fun.
+set(handles.figure1,'pointer','arrow');
 
 % end function savePickedTraces
 
@@ -936,12 +962,11 @@ for i=1:numel(indexes),
         displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:) - ...
                        handles.crosstalk(m,j-1)*displayData.(chNames{j-1})(i,:);
     end
-    
-    % Calculate total intensity and donor lifetime.
-    % FIXME: should thresholds be specified in metadata?
-    displayData.recalculateFret( handles.fretThreshold(indexes) );
-    
 end %for each trace
+    
+% Calculate total intensity and donor lifetime.
+% FIXME: should thresholds be specified in metadata?
+displayData.recalculateFret( handles.fretThreshold(indexes) );
 
 % END FUNCTION adjustTraces
 

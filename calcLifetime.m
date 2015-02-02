@@ -38,13 +38,21 @@ end %FUNCTION calcLifetime
 function lt = calLifetime2( total, TAU, NSTD )
 
 
-    % Median filter traces to remove high frequency noise.
+    % Median filter traces to remove high frequency noise and find drops in
+    % total intensity to detect bleaching steps (or blinking).
     dfilt_total = gradient( medianfilter(total,TAU) );
-    thresh = mean(dfilt_total) - NSTD*std(dfilt_total);
+    
+    % Exclude "outliers" from std (including bleaching steps). The std is meant
+    % to measure noise, not also signal.
+    outlier_thresh = mean(dfilt_total) + 6*std(dfilt_total);
+    outliers = abs(dfilt_total)>outlier_thresh;
+    
+    thresh = mean( dfilt_total(~outliers) ) - NSTD*std( dfilt_total(~outliers) );
     
     % Find Cy3 photobleaching event by finding *last* large drop in total
-    % fluorescence in the median filtered trace
-    lt = find( dfilt_total<=thresh, 1,'last' );
+    % fluorescence in the median filtered trace. The last frame can have
+    % artifacts from medianfiltering, so it is ignored?
+    lt = find( dfilt_total(1:end-1)<=thresh, 1,'last' );
     
     if ~isempty(lt)
         lt = max(2,lt);

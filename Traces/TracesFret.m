@@ -14,6 +14,11 @@ classdef TracesFret < Traces
 %
 %          traces = Traces(nTraces,nFrames,channelNames);
 %
+%    If corrections have been made to the fluorescence data and you want to
+%    recalculate FRET values, use this method. Thresholds of total intensity
+%    below which FRET is defined as zero can be given as a parameter (optional).
+%
+%         data.recalculateFret( thresholds );
 %
 %    See Traces.m for more information on Traces objects.
 % 
