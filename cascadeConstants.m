@@ -337,6 +337,9 @@ end
 warning off MATLAB:maxNumCompThreads:Deprecated
 constants.nProcessors = maxNumCompThreads;
 
+% Set to false to disable parfor, which is slow on some older computers.
+constants.enable_parfor = true;
+
 
 
 

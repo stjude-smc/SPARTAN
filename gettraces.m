@@ -1120,12 +1120,22 @@ if ~params.quiet && data.time(1)==1,
     end
 end
 
-% Start the matlab thread pool if not already running. parfor below will
-% run the calculations of the available processors.
-% NOTE: For TIFF movies, which are standard now with sCMOS, this process is CPU
-% limited because reading TIFF tags is slow. With MetaMorph STK files, it is
-% disk limited, so the parfor may do more harm than good.
-if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
+% For very large TIFF movies, reading the headers can be rate limiting.
+% In only such cases, parallelize the process using parfor.
+% FIXME: need to actually benchmark this process to know cutoff.
+if nTraces*nFrames/2000 > 1500 && constants.enable_parfor && isa(movie,'Movie_TIFF'),
+    % If there is a lot of data and the calculations will take a long time,
+    % distribute the work over a number of worker threads.
+    pool = gcp('nocreate');
+    if isempty(pool),
+        pool=parpool('IdleTimeout',360,'SpmdEnabled',false);
+    end
+    M = pool.NumWorkers;
+else
+    % For <1000 average length traces, running locally can be faster,
+    % particularly if parpool hasn't already been started.
+    M = 0;
+end
 
 % Create a trace for each molecule across the entire movie.
 % The estimated background image is also subtracted to help with molecules
@@ -1136,7 +1146,7 @@ idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 bg = stkData.background;
 nPx = params.nPixelsToSum;
 
-parfor k=1:nFrames,
+parfor (k=1:nFrames, M)
     frame = single( movie.readFrame(k) )  -bg;
     
     if nPx>1,
@@ -1145,9 +1155,9 @@ parfor k=1:nFrames,
         traces(:,k) = diag( frame(y,x) );
     end
     
-%     if mod(k,100)==0,  %not compatible with parfor
-%         waitbar( 0.9*k/nFrames, wbh );
-%     end
+    %if M==0 && mod(k,200)==0,
+    %    waitbar( 0.9*k/nFrames, wbh );
+    %end
 end
 
 

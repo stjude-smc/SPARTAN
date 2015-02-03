@@ -128,7 +128,7 @@ methods
         constants = cascadeConstants;
         
         if nargin<2,
-            thresholds = zeros(data.nTraces,1);
+            thresholds = zeros(this.nTraces,1);
         end
         
         % Determine the end of each trace (donor bleaching event.
@@ -140,7 +140,7 @@ methods
         
         for i=1:this.nTraces,
             % Set FRET to zero after donor photobleaching.
-            this.fret(i, lt:end ) = 0;
+            this.fret(i, lt(i):end ) = 0;
             
             % Set FRET to zero in areas where the donor is dark (blinking).
             % ie, when FRET is below a calculated threshold = 4*std(background)
@@ -157,6 +157,9 @@ methods
                 this.fret(i,darkRange) = 0;
             end            
         end
+        
+        % Remove any NaN values; can happen in low SNR regions (rare).
+        this.fret( isnan(this.fret) ) = 0;
     end
     
     

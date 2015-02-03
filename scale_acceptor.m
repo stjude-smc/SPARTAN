@@ -40,13 +40,16 @@ else
     data = varargin{1};
 end
 
-% Get scale factor. If none given, use a default of 5, which is common for
-% Cy3/Cy7 FRET, which is the main reason you would use this script.
+% Get scale factor from the user if not given on the command prompt.
 if nargin>=2,
     scale_factor = varargin{2};
 else
-    answer = inputdlg( 'Enter factor by which to scale the acceptor:', ...
-                       'scale_acceptor: enter scale factor', 1, {'5'} );
+    ch = ~cellfun( @isempty, strfind(data.channelNames,'acceptor') );
+    nCh = sum(ch);
+    prompts = strcat( 'Scale factor for ', data.channelNames(ch), ':' );
+    
+    answer = inputdlg( prompts, 'scale_acceptor: enter scale factor', 1, ...
+                                                       repmat({'1'},[nCh 1]) );
     if isempty(answer) || isempty(answer{1}),
         return;  %user hit cancel.
     end
@@ -57,13 +60,30 @@ end
 
 
 %% Scale acceptor channel and recalculate fret
-data.acceptor = scale_factor*data.acceptor;
 
-fret = data.acceptor ./ (data.acceptor+data.donor);
-fret( data.fret==0 ) = 0;  %copy marker for when donor is dark from original data.
-data.fret = fret;
+% Scale each acceptor channel by the gamma factor from the user.
+for i=1:numel(scale_factor),
+    if i==1,
+        ch = 'acceptor';
+    else
+        ch = sprintf('acceptor%d',i);
+    end
+    data.(ch) = scale_factor(i)*data.(ch);
+end
 
-clear fret;
+% If 3-color and fret calculation method isn't known, ask the user.
+if data.isChannel('fret2') && ~isfield(data.fileMetadata,'isTandem3'),
+    result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
+                    '3-color FRET calculation','Yes','No','Cancel','No');
+    if strcmp(result,'Cancel'),  return;  end
+    data.fileMetadata.isTandem3 = double( strcmp(result,'Yes') );
+end
+
+% Calculate total intensity and donor lifetime.
+% Fret thresholds are recalculated at this step.
+% Any earlier fine-tuning in sorttraces will be lost.
+data.recalculateFret();
+
 
 
 %% Save the result

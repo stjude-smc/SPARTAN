@@ -141,21 +141,23 @@ if ~data.isChannel('acceptor'),
     data.fret     = zeros( size(data.donor) );
 end
 
+[Ntraces,len] = size(data.fret);
+
 % Extract data matrices to variables to make parfor happy.
 donorAll    = data.donor;
 acceptorAll = data.acceptor;
 fretAll     = data.fret;
 
-[Ntraces,len] = size(fretAll);
-
 % Add second acceptor FRET channel if available.
-if data.isChannel('fret2'),
+isThreeColor = data.isChannel('fret2');
+if isThreeColor,
     fret2All = data.fret2;
     acceptor2All = data.acceptor2;
-    isThreeColor = true;
 else
-    fret2All = zeros( size(fretAll) );
-    isThreeColor = false;
+    % Even if unused, parfor requires these to be made.
+    % FIXME?: put fret2 elements in a separate loop to avoid parfor.
+    fret2All = zeros(size(fretAll));
+    acceptor2All = zeros(size(acceptorAll));
 end
 
 
@@ -184,21 +186,33 @@ retval = struct( ...
     
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
-% figure;
+if numel(fretAll)/2000 > 1000 && constants.enable_parfor,
+    % If there is a lot of data and the calculations will take a long time,
+    % distribute the work over a number of worker threads.
+    pool = gcp('nocreate');
+    if isempty(pool),
+        pool=parpool('IdleTimeout',360,'SpmdEnabled',false);
+    end
+    M = pool.NumWorkers;
+else
+    % For <1000 average length traces, running locally can be faster,
+    % particularly if parpool hasn't already been started.
+    M = 0;
+end
 
-% Start the matlab thread pool if not already running. perfor below will
-% run the calculations of the available processors.
-if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
-
-parfor i=1:Ntraces
-% for i=1:Ntraces   %use this instead to disable parallel operation.
-    
+%for i=1:Ntraces,
+parfor (i=1:Ntraces, M)
+    % Extract trace in a way that makes parpool happy.
     donor    = donorAll(i,:);
     acceptor = acceptorAll(i,:);
     fret     = fretAll(i,:);
     total    = donor+acceptor;
     
-    if isThreeColor,  total=total+acceptor2All(i,:);  end
+    fret2 = fret2All(i,:);
+    
+    if isThreeColor,
+        total = total + acceptor2All(i,:);
+    end
     
     %---- Calculate donor lifetime
     % Find donor photobleaching event by finding *last* large drop in total
@@ -345,8 +359,6 @@ parfor i=1:Ntraces
         
         % Similar calculations when there is a second acceptor (3/4-color).
         if isThreeColor,
-            fret2 = fret2All(i,:);
-            
             fretRange = fret2(1:lt) >= constants.min_fret;
             fretRange = rleFilter( fretRange, constants.rle_min );
 

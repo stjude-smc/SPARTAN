@@ -8,42 +8,42 @@ function life = calcLifetime(total,TAU,NSTD)
 %   window size of TAU to reduce the effect of noise. DATA is typically the
 %   sum of donor and acceptor intensities in FRET experiments.
 
-Ntraces = size(total,1);
-life = zeros(Ntraces,1);  %default value = maximum trace length
+[Ntraces,nFrames] = size(total);
+life = repmat( nFrames, [Ntraces,1] );  %default value = maximum trace length
 
+constants = cascadeConstants();
+    
 if nargin<3,
-    constants = cascadeConstants();
     TAU  = constants.TAU;
     NSTD = constants.NSTD;
 end
 
-total = double(total');
+total = double(total'); %makes medianfilter.mex happy.
 
-% For each trace, calc Cy3 lifetime
-if Ntraces>100,
-    parfor i=1:Ntraces
-        life(i) = calLifetime2( total(:,i)', TAU, NSTD );
+
+if numel(total)/2000 > 1000 && constants.enable_parfor,
+    % If there is a lot of data and the calculations will take a long time,
+    % distribute the work over a number of worker threads.
+    pool = gcp('nocreate');
+    if isempty(pool),
+        pool=parpool('IdleTimeout',360,'SpmdEnabled',false);
     end
+    M = pool.NumWorkers;
 else
-    for i=1:Ntraces
-        life(i) = calLifetime2( total(:,i)', TAU, NSTD );
-    end
+    % For <1000 average length traces, running locally can be faster,
+    % particularly if parpool hasn't already been started.
+    M = 0;
 end
 
-end %FUNCTION calcLifetime
 
-
-
-%%
-function lt = calLifetime2( total, TAU, NSTD )
-
-
+% For each trace, calc Cy3 lifetime
+parfor (i=1:Ntraces, M)
     % Median filter traces to remove high frequency noise and find drops in
     % total intensity to detect bleaching steps (or blinking).
-    dfilt_total = gradient( medianfilter(total,TAU) );
+    dfilt_total = gradient( medianfilter(total(:,i)',TAU) );
     
-    % Exclude "outliers" from std (including bleaching steps). The std is meant
-    % to measure noise, not also signal.
+    % Exclude "outliers" from std (including bleaching steps).
+    % std() should only consider noise, not blinking/bleaching steps.
     outlier_thresh = mean(dfilt_total) + 6*std(dfilt_total);
     outliers = abs(dfilt_total)>outlier_thresh;
     
@@ -55,12 +55,10 @@ function lt = calLifetime2( total, TAU, NSTD )
     lt = find( dfilt_total(1:end-1)<=thresh, 1,'last' );
     
     if ~isempty(lt)
-        lt = max(2,lt);
-    else
-        lt = numel(total);
+        life(i) = max(2,lt);
     end
-    
-end % for each trace
+end
 
-% END FUNCTION CalcLifetime
+end %FUNCTION calcLifetime
+
 
