@@ -1144,20 +1144,22 @@ end
 traces = zeros(Npeaks,nFrames,'single');
 
 idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
-bg = stkData.background;
+bg = single(stkData.background);
 nPx = params.nPixelsToSum;
 
 parfor (k=1:nFrames, M)
-    frame = single( movie.readFrame(k) )  -bg;
+    % NOTE: 25% faster by converting to int16, with no change to sCMOS data.
+    % But EMCCD have slight differences due to 15-bit overflows?
+    frame = single(movie.readFrame(k)) - bg;
     
     if nPx>1,
         traces(:,k) = sum( frame(idx) );
     else
-        traces(:,k) = diag( frame(y,x) );
+        traces(:,k) = frame(idx);
     end
     
-    % Update waitbar.
-    % (loop order is not predictable, so mod isn't the greatest idea here).
+    % Update waitbar. Using mod speeds up the loop, but isn't ideal because
+    % indexes are executed somewhat randomly. Reasonably accurate despite this.
     if mod(k,10)==0 && ~quiet,
         parfor_progress();
     end
@@ -1222,7 +1224,7 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
 end
 
 
-% Subtract background, correct for crosstalk, and calculate FRET
+% Subtract background and calculate FRET
 data = correctTraces(data);
 
 

@@ -133,6 +133,14 @@ if ~exist(filename,'file'),
     stop(timer_handle);
 end
 
+% Verify waitbar hasn't been closed. Usually happens when something crashed.
+if ~ishandle(wbh),
+    warning('Parfor_progress waitbar closed unexpectedly. Stopping timer.');
+    stop(timer_handle);
+    delete(timer_handle);
+    return;
+end
+
 % Load IPC file and count the fraction of iterations that have completed.
 f = fopen( filename, 'r' );
 progress = fscanf(f, '%d');

@@ -27,6 +27,8 @@ properties (SetAccess=protected, GetAccess=public)
     nY=0;       % size (in pixels) of y dimension (rows)
     nFrames=0;  % number of images in the stack
     
+    precision='';  %pixel data format and bitrate (usually uint16)
+    
     timeAxis=[];     % uniform time axis in ms, relative to start.
     timestamps = []; % actual movie timestamps in ms, relative to start.
     
@@ -67,7 +69,7 @@ methods
             obj.nFramesPerMovie(i) = numel(info);
             
             % FIXME: verify all required field names are present.
-            
+            assert( info(1).SamplesPerPixel==1, 'Processing of multiple channels per pixel is not implemented' );
             
             % Process time axis information.
             if isfield( info,'DateTime' )
@@ -108,6 +110,8 @@ methods
                 
                 obj.nX = info(1).Width;
                 obj.nY = info(1).Height;
+                
+                obj.precision = sprintf('uint%d',info(1).BitsPerSample);
             else
                 % Verify dimensions are the same
                 assert( info(1).Width==obj.nX && info(1).Height==obj.nY, ...
@@ -191,27 +195,36 @@ methods
         idx = reshape(idx, [1 numel(idx)]);
         assert( min(idx)>=1 && max(idx)<=obj.nFrames, 'Invalid indexes' );
         
-        % Preallocate space for the output data.
-        data = zeros( obj.nY,obj.nX,numel(idx), 'uint16' );
+        % Preallocate space for the output data. (Removing star in precision)
+        data = zeros( obj.nY,obj.nX,numel(idx), obj.precision );
         
-        framesRead=0;
-        for i=idx,
-            data(:,:,framesRead+1) = obj.readFrame(i);
-            framesRead=framesRead+1;
+        for i=1:numel(idx),
+            data(:,:,i) = obj.readFrame( idx(i) );
         end
     end
     
     
     function data = readFrame( obj, idx )
-        assert( numel(idx)==1 && idx>=1 && idx<=obj.nFrames, 'Invalid indexes' );
+        assert( numel(idx)==1 && idx>=1 && idx<=obj.nFrames, 'Invalid index' ); 
         
         % Determine which file this frame number belongs to.
         movieFirstFrame = 1+cumsum([0 obj.nFramesPerMovie]);
         idxFile = find( idx>=movieFirstFrame, 1, 'last' );
         idx = idx - movieFirstFrame(idxFile)+1;
-
-        data = imread( obj.filenames{idxFile}, ...
-                          'Info',obj.movieHeaders{idxFile}, 'Index',idx );
+        
+        offsets = obj.movieHeaders{idxFile}(idx).StripOffsets;
+        
+        if numel(offsets)>1,
+            % Slower version that can read frames broken up into strips.
+            data = imread( obj.filenames{idxFile}, ...
+                     'Info',obj.movieHeaders{idxFile}, 'Index',idx );
+        else
+            % Fast version for optimized TIFF stacks.
+            fid = fopen( obj.filenames{idxFile}, 'r' );
+            fseek( fid, offsets, -1 );
+            data = fread( fid, [obj.nX obj.nY], ['*' obj.precision] )';
+            fclose(fid);
+        end
     end
     
 end %public methods
