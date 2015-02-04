@@ -1068,8 +1068,9 @@ function integrateAndSave( peaks, stk_fname )
 movie = stkData.movie;
 nFrames = movie.nFrames;
 
-if ~params.quiet,
-    wbh = waitbar(0,'Extracting traces from movie data');
+quiet = params.quiet;
+if ~quiet,
+    parfor_progress(nFrames/10,'Extracting traces from movie data');
 end
 
 % Get x,y coordinates of picked peaks
@@ -1109,7 +1110,7 @@ end
 data.time = movie.timeAxis;
 
 % Ask the user
-if ~params.quiet && data.time(1)==1,
+if ~quiet && data.time(1)==1,
     disp('Time axis information is not present in movie!');
     a = inputdlg('Time resolution (ms):','No time axis in movie!');
     a = str2double(a);
@@ -1155,9 +1156,11 @@ parfor (k=1:nFrames, M)
         traces(:,k) = diag( frame(y,x) );
     end
     
-    %if M==0 && mod(k,200)==0,
-    %    waitbar( 0.9*k/nFrames, wbh );
-    %end
+    % Update waitbar.
+    % (loop order is not predictable, so mod isn't the greatest idea here).
+    if mod(k,10)==0 && ~quiet,
+        parfor_progress();
+    end
 end
 
 
@@ -1269,8 +1272,8 @@ save_fname = fullfile(p, [name '.rawtraces']);
 
 saveTraces( save_fname, 'traces', data );
 
-if ~params.quiet,
-    close( wbh );
+if ~quiet,
+    parfor_progress('close');
 end
 % disp(toc);
 
