@@ -1,4 +1,4 @@
-classdef Traces < handle %& matlab.mixin.Copyable  %R2011b required!
+classdef Traces < handle & matlab.mixin.Copyable
 % Traces: abstract class defining the interface for Traces classes
 %
 %    You can create instances of this abstract class, but they will have no
@@ -9,12 +9,13 @@ classdef Traces < handle %& matlab.mixin.Copyable  %R2011b required!
 %    A new traces object, with no data, can be created as follows:
 % 
 %          traces = Traces(nTraces,nFrames);
+%          traces = Traces(nTraces,nFrames,channelNames);  %optional
 % 
 %    This class defines a handle object, which means there is only ever one copy
-%    of the data. Changes to any reference to the object will not create a copy;
-%    they will change all objects referencing the data. This prevents
-%    unnecessary (and potentially dangerous) copying of massive datasets. This
-%    behavior also allows subclassing with memory-mapped files.
+%    of the data. Unlike normal Matlab variables, if you make several copies of
+%    a handle object and change one, all copies are updated simultaneously
+%    This prevents unnecessary (and potentially dangerous) copying of massive
+%    datasets. This behavior might also allow memory-mapped channel data.
 %
 %    To create a copy of an existing object, use the copy() method instead:
 %
@@ -22,34 +23,34 @@ classdef Traces < handle %& matlab.mixin.Copyable  %R2011b required!
 %
 %    Some methods used to manipulate the size and shape of the data in place:
 %
-%       data.subset(idxTraces,idxFrames)   keeps only the specified traces (frames)
-%       data.truncate(N)                   truncates all traces to N frames.
+%       data.subset(idxTraces)             %keeps only the specified traces
+%       data.subset(idxTraces,idxFrames)   %keeps only the specified traces and frames
+%       data.truncate(N)                   %truncates all traces to N frames.
 %
 %    Other methods create a new instance:
 %
-%       smallData = data.getSubset(idxTraces,idxFrames) create a new instances with only the selected traces (frames)
-%       bigData = combine(data,data2,...)   combines all data from multiple instances
+%       smallData = data.getSubset(idxTraces,idxFrames)  %create a new instances with only the selected traces (frames)
+%       bigData   = combine(data,data2,...)              %combines all data from multiple instances
 % 
-%
-%    NOTE: for performance reasons, changes to the data fields are not monitored
-%    for internal consistency. You can easily create invalid objects without an
-%    error. You can even assign and access channels that exist but are not in
-%    channelNames (which should mean they are not used), which can confuse other
-%    programs. Try to be responsible.
+% See also: TracesFret, TracesFret4, TracesAlex, etc.
 %
 
 % ====== IMPLEMENTATION NOTES =====
-% This was not implemented as a Trace class that can be a structure array so
-% that the data can be easily memory mapped.
+% NOTE: for performance reasons, changes to the data fields are not monitored
+% for internal consistency, so it is possible to create Traces objects that are
+% invalid if you are careless. Maintaining internal consistency is the
+% responsibility of the user. This may change in the future if Matlab's get/set
+% function performance improves.
+% 
+% I came to this implementation after trying many others, including overriding
+% structure-array-like syntax, but all other possible ways have significant
+% overhead and are not feasible. In this implementation, the channel data are
+% transparent property variables that can be manipulated by the use at will.
 %
-% I tried using get/set functions to abstract an underlying cell array of fields
-% or a multi-dimensional array, but the overhead is significant and copying is a
-% problem in set methods. Overloading subsref/subsagn works and is fast, but
-% accessing the traceMetadata fields doesn't act right -- you cannot do this:
+% Overloading subsref/subsagn works and is fast, but accessing the traceMetadata
+% fields doesn't act right -- for example you cannot do this:
 %    donor_x = [data.traceMetadata.donor_x]
 % This may be solvable with a better-written subsref....
-% The advantage of doing that would be a way to iterate over fluorescence
-% channels without caring about their names, simplifying some code.
 %
 
 
@@ -208,7 +209,6 @@ methods
         end
     end
     
-    
     % Make the class act like a struct for convenience with older code.
     function out = isfield(this,fieldname)
         out = ismember( fieldname, properties(this) );
@@ -319,47 +319,6 @@ methods
         % memory until they are modified during subset.
         data = copy(this);
         data.subset(varargin{:});
-    end
-    
-    
-    % Copy all internal data from some other Traces object into this one.
-    % This is useful in constructors, where class type must be preserved.
-    % Only copies channels that are common to BOTH objects.
-    function copyDataFrom(this,source)
-        chNames = {};
-        
-        % Copy all data channels in common with other object to this one.
-        for c=1:source.nChannels,
-            ch = source.channelNames{c};
-            
-            if this.isfield(ch),
-                this.(ch) = source.(ch);
-                
-                % If this channel is valid, but not used, add it.
-                if ~ismember(ch,chNames)
-                    chNames = [chNames ch];
-                end
-            end
-        end
-        
-        % Copy parameters common to all Traces classes.
-        this.channelNames = chNames;
-        this.nTraces = source.nTraces;
-        this.traceMetadata = source.traceMetadata;
-        this.fileMetadata = source.fileMetadata;
-        this.time = source.time;
-    end
-    
-    
-    % Create a new object as a shallow copy of this one.
-    % This is normally implemented by subclassing matlab.mixin.Copyable, but
-    % that requires MATLAB 2011a and up, but many clients here have 2010b.
-    % As a compromise, I have implemented my own copy function instead.
-    function newObj = copy(this)
-        % Create a new Traces object and copy all of the internal data from this
-        % object to that one.
-        newObj = eval(  [class(this) '()']  );
-        newObj.copyDataFrom(this);
     end
     
     

@@ -40,6 +40,8 @@ end %end public properties
 properties (SetAccess=protected, GetAccess=protected),
     movieHeaders = [];  %metadata for all frames across all files (struct).
     nFramesPerMovie = [];
+    
+    offsets = {};  %for each file, list of byte offsets to binary frame data.
 end
 
 
@@ -67,6 +69,10 @@ methods
             info = imfinfo( filenames{i} );
             headers{i} = info;
             obj.nFramesPerMovie(i) = numel(info);
+            
+            if numel(info(1).StripOffsets)==1
+                obj.offsets{i} = [info.StripOffsets];
+            end
             
             % FIXME: verify all required field names are present.
             assert( info(1).SamplesPerPixel==1, 'Processing of multiple channels per pixel is not implemented' );
@@ -183,6 +189,12 @@ methods
             % TODO
         end
         
+        % If using fread for optimized files, no need to keep headers. This can
+        % speed up the parfor loop in gettraces by minimizing data transfers.
+        if all( ~cellfun(@isempty,obj.offsets) ),
+            obj.movieHeaders = {};
+        end
+        
     end %constructor
     
     
@@ -212,16 +224,16 @@ methods
         idxFile = find( idx>=movieFirstFrame, 1, 'last' );
         idx = idx - movieFirstFrame(idxFile)+1;
         
-        offsets = obj.movieHeaders{idxFile}(idx).StripOffsets;
+        %offsets = obj.movieHeaders{idxFile}(idx).StripOffsets;
         
-        if numel(offsets)>1,
+        if isempty( obj.offsets{idxFile} ),
             % Slower version that can read frames broken up into strips.
             data = imread( obj.filenames{idxFile}, ...
                      'Info',obj.movieHeaders{idxFile}, 'Index',idx );
         else
             % Fast version for optimized TIFF stacks.
             fid = fopen( obj.filenames{idxFile}, 'r' );
-            fseek( fid, offsets, -1 );
+            fseek( fid, obj.offsets{idxFile}(idx), -1 );
             data = fread( fid, [obj.nX obj.nY], ['*' obj.precision] )';
             fclose(fid);
         end

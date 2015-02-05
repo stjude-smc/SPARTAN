@@ -1,4 +1,4 @@
-function parfor_progress(N_init,title,wbh_init)
+function parfor_progress(N_init,title)
 % This function is designed to monitor the progress of parfor exactly like
 % having a normal waitbar. But because parfor workers can't use the display
 % or directly communicate, a timer is launched to monitor the progress and
@@ -11,19 +11,21 @@ function parfor_progress(N_init,title,wbh_init)
 % Example:
 %
 %    N=100;    %total number of parfor iterations
-%    parfor_progress(100,'Please wait...'); %initialize
+%    parfor_progress(100,'Please wait...'); %create the progress bar
 %    parfor i=1:N
 %        sleep(rand/2);    %computation
-%        parfor_progress;  %update progress
+%        parfor_progress;  %update progress (one iteration)
 %    end
 %    parfor_progress(0);   %close waitbar and clean up
 %
+% The title can be updated during the loop by passing a string. Note that this
+% will not increase the progress level!
 %
-% NOTE: only works if all workers are on the current host.
+%    parfor_progress( 'Starting the next step...' );
 %
 % NOTE: If there are many iterations that are fairly short, calling this
 % function for every iteration may add significantly to execution time. TO
-% avoid this, consider calling on every 10th or 100th (etc) iteration.
+% avoid this, consider calling on every 10th iteration, etc.
 % Just be sure the number of steps in initialization is also reduced!
 %
 % Created by: Daniel Terry. Copyright 2015, Weill-Cornell Medical College
@@ -31,18 +33,11 @@ function parfor_progress(N_init,title,wbh_init)
 % http://www.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
 % 
 
-% TODO: allow user to pass a starting (minimum) progres value and a waitbar
-% handle so that a waitbar used as part of a larger block of code can be
-% updated within the parfor loop seamlessly.
-% Look for progress bars that are not closed before starting the next one
-% and give a warning?
-% Also want to allow the progress bar title to be updated somehow.
-
 
 % This is the file used for interprocess communication (IPC).
-% Workers must agree on tempdir! This is for local execution only!
-% Replace tempdir with a place the GUI and workers will agree on if trying
-% to execute on a cluster. Using the current directory usually works.
+% WARNING: WORKS FOR LOCAL EXECUTION ONLY! (workers must agree on tempdir)
+% If using a cluster use the current directory or a place all workers and the
+% GUI thread can agree on.
 filename = [tempdir 'parfor_progress.txt'];
 
 
@@ -68,6 +63,14 @@ end
 persistent timer_handle;  
 persistent wbh;
 
+% If just text is given, update the waitbar title.
+if nargin==1 && ischar(N_init) && ~isempty(timer_handle) ...
+             && isvalid(timer_handle) && ishandle(wbh),
+    timer_update(timer_handle,N_init);
+    return;
+end
+    
+
 % Whether we are closing the progress bar or opening a new one,
 % need to close and clean up the previous progress bar.
 if ~isempty(timer_handle) && isvalid(timer_handle),
@@ -82,9 +85,9 @@ if exist(filename,'file'),
     delete(filename);
 end
     
-% User asked to close the progress bar.
-if strcmp(N_init,'close') || N_init==0,
-    return;  %nothing more to do
+% User asked to close the progress bar. Since it was already closed above, exit.
+if N_init==0,
+    return;
 end
 
 
@@ -113,7 +116,7 @@ end %function parfor_process
 
 
 
-function timer_update(timer_handle,~)
+function timer_update(timer_handle,title)
 % This function is called at regular intervals by a timer. Each time, it
 % looks for more progress indicators written to the 'parfor_progress.txt'
 % file and updates the waitbar to reflect how many iterations of parfor
@@ -131,6 +134,8 @@ if ~exist(filename,'file'),
         close(wbh);
     end
     stop(timer_handle);
+    delete(timer_handle);
+    return;
 end
 
 % Verify waitbar hasn't been closed. Usually happens when something crashed.
@@ -146,11 +151,14 @@ f = fopen( filename, 'r' );
 progress = fscanf(f, '%d');
 fclose(f);
 percent = (length(progress)-1)/progress(1);
-assert( percent>=0 && percent<=1, 'Invalid progress' );
+percent = max(0, min(1,percent) );
 
 % Update the waitbar.
-waitbar( percent, wbh );
-
+if nargin>1 && ischar(title),
+    waitbar( percent, wbh, title );
+else
+    waitbar( percent, wbh );
 end
 
+end
 

@@ -1068,9 +1068,10 @@ function integrateAndSave( peaks, stk_fname )
 movie = stkData.movie;
 nFrames = movie.nFrames;
 
+% Start the progress bar before initial setup; indicate something is happening.
 quiet = params.quiet;
 if ~quiet,
-    parfor_progress(nFrames/10,'Extracting traces from movie data');
+    parfor_progress( nFrames/10,'Extracting traces from movie data');
 end
 
 % Get x,y coordinates of picked peaks
@@ -1164,6 +1165,7 @@ parfor (k=1:nFrames, M)
         parfor_progress();
     end
 end
+parfor_progress('Correcting traces and calculating FRET...');
 
 
 % Convert fluorescence to arbitrary units to photon counts.
@@ -1230,6 +1232,7 @@ data = correctTraces(data);
 
 
 % ---- Metadata: save various metadata parameters from movie here.
+parfor_progress('Saving traces...');
 
 % Keep only parameters for channels that are being analyzed, not all
 % possible channels in the configuration.
@@ -1275,7 +1278,7 @@ save_fname = fullfile(p, [name '.rawtraces']);
 saveTraces( save_fname, 'traces', data );
 
 if ~quiet,
-    parfor_progress('close');
+    parfor_progress(0);
 end
 % disp(toc);
 
