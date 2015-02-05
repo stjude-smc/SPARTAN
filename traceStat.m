@@ -1,15 +1,15 @@
 function [retval,nTraces] = traceStat( varargin )
 % LOADTRACES  Loads fluorescence trace files
 %
-%   [NAMES] = TRACESTAT;
+%   NAMES = traceStat;
 %   Returns the names of each trace statistic as a structure.
 %
-%   STATS = TRACESTAT( DONOR,ACCEPTOR,FRET, const )
+%   STATS = traceStat( DONOR,ACCEPTOR,FRET, const )
 %   Calculates metadata from fluorescence/FRET traces that can be
 %   used as picking criteria to filter a set of traces.
 %   Primarily used in autotrace.m
 %
-%   STATS = TRACESTAT( FILES, const )
+%   STATS = traceStat( FILES, const )
 %   Same as above, but loads trace data from FILES, which may be a single
 %   filename of a cell array of file names. In the latter case, properties from 
 %   all files are combined as a single output result.
@@ -30,8 +30,13 @@ function [retval,nTraces] = traceStat( varargin )
 %     avgfret       average FRET value
 %     fretEvents    number of FRET events crossing E=0.14
 %
-%   snr,snr_s,t are all corrected for gamma (sensitivity/quantum yield ratio)
-%
+
+
+% PARAMETERS:
+constants = cascadeConstants;  %get from varargin?
+chunkSize = 5000;  %maximum number of traces to load at once
+useWaitbar = ~( isfield(constants,'quiet') && constants.quiet );
+
 
 % If no data given, return names of filtering criteria.
 % TODO: also return comments describing each criteria
@@ -79,42 +84,39 @@ end
 if isstruct( varargin{1} ) || isa(varargin{1},'Traces'),
     data = varargin{1};
     nTraces = size( data.donor, 1 );
-    retval = traceStat_data( data );
+    
+    % Create a waitbar if this will take awhile.
+    if useWaitbar && nTraces>400,
+        parfor_progress( ceil(sum(nTraces)/100), 'Loading traces and calculating properties...' );
+    end
+    
+    retval = traceStat_data( data,constants );
 
 % If the user gave filenames, load stats from each and combine them.
 elseif iscell( varargin{1} ),
     files = varargin{1};
+    nTraces = sizeTraces(files);
     retval = struct([]);
-    nTraces = zeros( numel(files),1 );
     
-    h = waitbar(0, 'Loading traces and calculating properties...');
-    
-    for i=1:numel(files),
-        % TODO: if the number of traces is huge (>10,000), try to load it
-        % in pieces to prevent memory overflows, specifically in autotrace.
-        offset = 0; chunkSize = 5000;
-        nTraces(i) = 0;
-        
-        while 1,
-            data = loadTraces( files{i}, offset+(1:chunkSize) );
-            if size(data.donor,1)==0,  break;   end
-            
-            retval = [retval  traceStat_data( data )  ];
-            nTraces(i) = nTraces(i) + size(data.donor,1);
-            
-            if size(data.donor,1)<chunkSize,
-                break; %no more traces to load.
-            end
-            clear data;
-            offset = offset+chunkSize;
-        end
-
-        waitbar(i/numel(files),h);
+    % Create a waitbar if this will take awhile.
+    if useWaitbar && sum(nTraces)>400,
+        parfor_progress( ceil(sum(nTraces)/100), 'Loading traces and calculating properties...' );
     end
-    close(h);
+    
+    % Load each file and calculate statistics. If files have >5000 traces, they
+    % are loaded in chunks to reduce memory usage.
+    for i=1:numel(files),        
+        for k=1:chunkSize:nTraces(i)
+            data = loadTraces( files{i}, (k-1)+(1:chunkSize) );
+            retval = [ retval traceStat_data( data,constants ) ];
+        end
+        
+    end
    
 % Assume the user passed trace data directly.
 else
+    warning('This syntax is depricated and will not be avilable in future versions');
+    
     % Passing in donor/acceptor/fret traces separately.
     if nargin>=3,
         data.donor    = varargin{1};
@@ -126,12 +128,14 @@ else
     end
 end
     
+% Close the waitbar, if it was created.
+parfor_progress(0);
 
 
 end
 
 
-
+%%
 function retval = traceStat_data( data, constants )
 %
 
@@ -200,7 +204,7 @@ else
     M = 0;
 end
 
-%for i=1:Ntraces,
+% for i=1:Ntraces,
 parfor (i=1:Ntraces, M)
     % Extract trace in a way that makes parpool happy.
     donor    = donorAll(i,:);
@@ -305,7 +309,7 @@ parfor (i=1:Ntraces, M)
         % Calculate average amplitudes
         retval(i).d = mean( donor(donorRange) );
         retval(i).a = mean( acceptor(donorRange) );
-        retval(i).t = constants.gamma*retval(i).d + retval(i).a;
+        retval(i).t = retval(i).d + retval(i).a;
         
     end
     
@@ -322,19 +326,19 @@ parfor (i=1:Ntraces, M)
     
     if sum(donorRange) > 2
         % Calculate gradients (derivatives) for correlation.
-        del_donor    = gradient(donor);
-        del_acceptor = gradient(acceptor);
+        del_donor    = gradient( donor(donorRange) );
+        del_acceptor = gradient( acceptor(donorRange) );
     
         % Calculate correlation of derivitive of donor/acceptor signals.
         % This is the method used by {Fei & Gonzalez, 2008}
-        ccd = corrcoef( del_donor(donorRange), del_acceptor(donorRange) );
+        ccd = corrcoef( del_donor, del_acceptor );
         retval(i).corrd = ccd(1,2);
         
         % Calcualte correlation coefficient
         cc = corrcoef( donor(donorRange), acceptor(donorRange) );
         retval(i).corr = cc(1,2);
         
-        total_noise = std( constants.gamma*donor(donorRange)+acceptor(donorRange) );
+        total_noise = std( donor(donorRange)+acceptor(donorRange) );
         
         retval(i).snr_s = retval(i).t ./ total_noise;
                       
@@ -380,8 +384,15 @@ parfor (i=1:Ntraces, M)
     % TODO?: additional filtering to detect only anticorrelated events?
     [result] = RLEncode( fret > constants.fretEventTreshold );
     retval(i).fretEvents = sum( result(:,1)==1 );
+    
+    
+    % Update waitbar, once every 10 traces to reduce overhead.
+    if mod(i,100)==0 && Ntraces>400,
+        parfor_progress();
+    end
 end
 
 
-% END FUNCTION infoCalc
-end
+end %function traceStat_data
+
+

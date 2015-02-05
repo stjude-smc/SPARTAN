@@ -100,7 +100,7 @@ wbh = waitbar( 0, title );
 
 % Initialize the thread communication file.
 f = fopen(filename, 'w');
-fprintf(f, '%d\n', N_init); % Save N at the top of file
+fprintf(f, '%d\n', ceil(N_init)); % Save N at the top of file
 fclose(f);
 
 % Start a timer that will update the progress bar every second, reading the
@@ -140,7 +140,7 @@ end
 
 % Verify waitbar hasn't been closed. Usually happens when something crashed.
 if ~ishandle(wbh),
-    warning('Parfor_progress waitbar closed unexpectedly. Stopping timer.');
+    %warning('Parfor_progress waitbar closed unexpectedly. Stopping timer.');
     stop(timer_handle);
     delete(timer_handle);
     return;
