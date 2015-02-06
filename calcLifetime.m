@@ -22,16 +22,11 @@ total = double(total'); %makes medianfilter.mex happy.
 
 
 if numel(total)/2000 > 1000 && constants.enable_parfor,
-    % If there is a lot of data and the calculations will take a long time,
-    % distribute the work over a number of worker threads.
-    pool = gcp('nocreate');
-    if isempty(pool),
-        pool=parpool('IdleTimeout',360,'SpmdEnabled',false);
-    end
+    % For large computations, parallelize computation across threads.
+    pool = gcp;
     M = pool.NumWorkers;
 else
-    % For <1000 average length traces, running locally can be faster,
-    % particularly if parpool hasn't already been started.
+    % For small datasets, do everything in the GUI thread (regular for loop).
     M = 0;
 end
 

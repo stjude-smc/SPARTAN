@@ -45,7 +45,7 @@ end
 
 % Cut off first few frames to get rid of gain drift.
 fret = fret( :, 1+options.pophist_offset:end );
-[Nmol len] = size(fret);
+[Nmol,len] = size(fret);
 
 % Remove traces with NaN values
 bad = isnan( fret(:) );

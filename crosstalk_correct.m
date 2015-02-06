@@ -1,11 +1,32 @@
 function [mean_crosstalk] = crosstalk_correct(files,mean_crosstalk)
-% This function calculates a single average crosstalk value across the traces
-% in a set of files. The files should be from the same day/experiment so it is
-% expected they would have the same crosstalk.  Then it corrects the acceptor
-% intensity to adjust crosstalk to 0. Then it recalculates FRET and saves the
-% traces as _crosstalk_correct.traces files. 
-% --RK
+%CROSSTALK_CORRECT: subtract spectral crosstalk from fluorescence signals.
 %
+%  Fluorescence emission from one fluorophore can be detected on channels of
+%  other fluorophores as an elevated baseline when the first fluorophore.
+%  This elevated baseline is only present when the first fluorophore is
+%  fluorescent and not after it photobleaches. For FRET traces, the crosstalk
+%  value can be calculated as the residual acceptor intensity, if not zero,
+%  after the acceptor photobleaches.
+%
+%  A single, average crosstalk value per file is used to make the correction.
+%
+%       CROSSTALK = crosstalk_correct;   %will ask for files to process
+%       CROSSTALK = crosstalk_correct( FILENAME );
+% 
+%   To instead use a known crosstalk value:
+%
+%       gamma_correct( FILENAME, GAMMA );
+%
+%   If more than one file is given, file names are chosen automatically as
+%   "xxx_crosstalkcorrect.traces" without an opportunity to change the name.
+%   
+%   NOTE: this may not work correctly with >15% crosstalk. Consider using an
+%   initial correction with an approximate value to get it close and use the
+%   script again to make a fine-tuned correction.
+%
+% See also: scale_acceptor, gamma_correct.
+% 
+
 
 % If no files given, obtain a list from the user.
 if nargin<1 || isempty(files),
@@ -41,24 +62,30 @@ for i=1:nFiles
     % Load the file and estimate crosstalk
     data = loadTraces( files{i} );
     
+    if isChannel(data,'acceptor2'),
+        warning('This function may not work correctly with multi-color FRET');
+    end
+    
     % Estimate the crosstalk if not given by the user.
-    if nargin<2
+    if nargin<2 && ~isempty(mean_crosstalk),
         mean_crosstalk(i) = calc_crosstalk(data);
     end
     
     % Make the crosstalk correction and recalculate FRET
     data.acceptor = data.acceptor - mean_crosstalk(i) * data.donor;
-    
-    fret_corrected = data.acceptor./(data.donor + data.acceptor);
-    fret_corrected(data.fret == 0) = 0;  %fret undefined after donor bleaching.
-    data.fret = fret_corrected;
+    data.recalculateFret();
      
     % Save resulting data
     [p,f,e] = fileparts( files{i} );
     outFilename = fullfile(p, [f '_crosstalkcorrect' e]);
-%     outFilename = files{i};
-    %FIXME: ask user for output filename, particularly if only one file is given.
-    saveTraces( outFilename, 'traces', data );
+    
+    if nFiles==1,
+        [f,p] = uiputfile(outFilename,'Save corrected file');
+        if ~ischar(f), return; end
+        outFilename = fullfile(p,f);
+    end
+    
+    saveTraces( outFilename, data );
 
 end %for each file
 

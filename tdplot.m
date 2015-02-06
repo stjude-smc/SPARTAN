@@ -19,13 +19,13 @@ function tdp=tdplot(dwtfilename,traces_input,varargin)
 % Get filenames from user if not passed
 if nargin<2
      %---Open the QuB dwt file from idealization
-    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
+    [dwtfile,dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     if dwtfile==0, return;  end
         
     dwtfilename = strcat(dwtpath,dwtfile);
 
     %---Open the corresonding traces file
-    [tracefile tracepath]=uigetfile('*.traces','Choose an traces file:');
+    [tracefile,tracepath]=uigetfile('*.traces','Choose an traces file:');
     if tracefile==0, return;  end
     
     traces_input = strcat(tracepath,tracefile);

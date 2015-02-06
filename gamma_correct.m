@@ -1,14 +1,25 @@
 function mean_gamma = gamma_correct(files,mean_gamma)
-% This function calculates a single average gamma value (delta donor/delta acc)
-% across the traces in a set of files. The files should be from the same 
-% day/experiment so it is expected they would have the same gamma. Then it
-% divides the donor intensity of all the traces by this value in order to
-% adjust gamma to 1. Then it recalculates FRET using the scaled donor intensity
-% and saves the traces as _gammacorrect.traces files. 
-% --RK
-% FIXME: this should scale the acceptor instead of the donor. This will be more
-% consistent with sorttraces and makes more sense given the acceptor is usually
-% the dim one.
+%gamma_correct: scale acceptor intensity by estimated gamma values.
+%
+%   Corrects for unequal sensitivity and/or quantum yield of donor and acceptor
+%   fluorophores in two-color FRET traces. A gamma value (ratio of donor to
+%   acceptor apparent brightness) is calculated from traces where the acceptor
+%   photobleaches first as the ratio of the magnitude of change in donor vs
+%   acceptor fluorophores -- these ideally should be identical. See TJ Ha, 2004.
+%   The output is saved to a new file specified by the user.
+%
+%       GAMMA = gamma_correct;   %will ask for files to process
+%       GAMMA = gamma_correct( FILENAME );
+% 
+%   To use a known gamma value, rather than calculate from the data:
+%
+%       gamma_correct( FILENAME, GAMMA );
+%
+%   If more than one file is given, file names are chosen automatically as
+%   "xxx_gammacorrect.traces" without an opportunity to change the name.
+% 
+% See also: scale_acceptor, crosstalk_correct.
+% 
 
 
 % If no files given, obtain a list from the user.
@@ -44,24 +55,31 @@ for i=1:nFiles
 
     % Load fluorescence data
     data = loadTraces( files{i} );
+    
+    if isChannel(data,'acceptor2'),
+        warning('This function may not work correctly with multi-color FRET');
+    end
   
     % Estimate the mean gamma value across all traces in the file
-    if nargin<2,
+    if nargin<2 && ~isempty(mean_gamma),
         mean_gamma(i) = calc_gamma(data);
     end
     
     % Scale donor intensity by gamma estimate (so final gamma=1)
-    data.donor = data.donor/mean_gamma(i);
-    
-    fret_corrected = data.acceptor ./ (data.donor+data.acceptor);
-    fret_corrected(data.fret==0) = 0;    
-    data.fret = fret_corrected;
+    data.acceptor = data.acceptor*mean_gamma(i);
+    data.recalculateFret();
      
     % Save resulting data
     [p,f,e] = fileparts( files{i} );
     outFilename = fullfile(p, [f '_gammacorrect' e]);
-    %FIXME: ask user for output filename, particularly if only one file is given.
-    saveTraces( outFilename, 'traces', data );
+    
+    if nFiles==1,
+        [f,p] = uiputfile(outFilename,'Save corrected file');
+        if ~ischar(f), return; end
+        outFilename = fullfile(p,f);
+    end
+    
+    saveTraces( outFilename, data );
 
 end %for each file
 

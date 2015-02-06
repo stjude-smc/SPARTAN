@@ -124,12 +124,8 @@ methods
                 'Invalid Traces constructor parameters; sizes must be scalar' );
             
         % Generate IDs for each trace.
-        ids = cellfun(@num2str,num2cell(1:varargin{1}),'UniformOutput',false)';
-        if numel(ids)>0
-            ids = strcat('Trace#',ids);
-        end
-        
-        this.traceMetadata = struct('ids',ids);
+        ids = strsplit( sprintf('Trace#%d ',1:3000) );
+        this.traceMetadata = struct( 'ids', ids(1:end-1) );
         
         % 
         if nargin>=3 && iscell(varargin{3}),
@@ -298,20 +294,32 @@ methods
     end %function subset
     
     
-    % Truncate all traces up 
+    % Truncate all traces up so that the final length is nFrames
     function this = truncate( this, nFrames )
-        assert( nargin>1 );
-        assert( all(nFrames>=1 & nFrames<=this.nFrames), 'Invalid frame indexes' );
-        %assert( numel(idxFrames)>1, 'Cannot create empty Traces objects' );
+        assert( nargin>1 && ~isempty(nFrames) && numel(nFrames)==1 && ...
+                isnumeric(nFrames) && nFrames<=this.nFrames, 'Invalid final trace length' );
+        this.subset(1:this.nTraces,1:nFrames);
+    end %function truncate
+    
+    
+    % Extend traces (using the last value) so that the final length is nFrames
+    function this = extend( this, nFrames )
+        assert( nargin>1 && ~isempty(nFrames) && numel(nFrames)==1 && ...
+                isnumeric(nFrames) && nFrames>this.nFrames, 'Invalid final trace length' );
 
-        % Truncate traces in all channels.
+        % Extend all channels with the last datapoint as padding.
+        delta = nFrames-this.nFrames;
+        
         for c=1:this.nChannels,
-            this.(this.channelNames{c}) = this.(this.channelNames{c})(:,1:nFrames);
+            this.(this.channelNames{c}) = [  this.(this.channelNames{c}) ...
+                  repmat( this.(this.channelNames{c})(:,end), [1 delta])  ];
         end
         
-        this.time = this.time(1:nFrames);
-    end %function truncate
-        
+        % Extend time axis.
+        this.time = this.sampling*(1:nFrames);
+    end
+    
+    
     % Extract a subset of traces from the data. This actually creates a copy of
     % the traces object!
     function data = getSubset(this,varargin)
@@ -336,34 +344,27 @@ methods
         mode = 'truncate';
         if nargin>1 && ischar(varargin{end}),
             if ismember(varargin{end},{'extend','truncate'}),
-                mode = varargin{end};
+                mode = lower( varargin{end} );
             else
-                warning('Invalid option for combining traces files');
+                error('Invalid option for combining traces files.');
             end
             
-            objects = varargin{1:end-1};
+            objects = varargin(1:end-1);
         else
             objects = varargin;
         end
         
-        % Save a copy of the current state. Otherwise we will accedentally
-        % overwrite the data when new objects are allocated.
-        assert(  all( cellfun(@(x) isa(x,'Traces'), varargin) )  );
-        this = objects{1};
-        
-        for i=1:nargin,
-            if objects{i}==this,
-                objects{i} = copy(this);
-            end
-        end
+        % Create a copy of the first object as a template for output.
+        assert(  all( cellfun(@(x) isa(x,'Traces'), objects) )  );
+        this = copy(objects{1});
         
         % Determine the total number of traces and verify all the Traces
         % objects are compatible
         traceMetadataFields = fieldnames(this.traceMetadata);
-        nTracesEach = zeros(nargin,1);
-        nFramesEach = zeros(nargin,1);
+        nTracesEach = zeros(numel(objects),1);
+        nFramesEach = zeros(numel(objects),1);
         
-        for i=1:nargin,
+        for i=1:numel(objects),
             obj = objects{i};
             
             nTracesEach(i) = obj.nTraces;
@@ -381,17 +382,17 @@ methods
         % Determine number of frames to save. If the traces are not all the
         % same length, they must be trunctated.
         nFrames = min(nFramesEach);
+        assert( nFrames>0 );
                 
         if min(nFramesEach)~=max(nFramesEach),
             if strcmp(mode,'truncate'),
-                disp('Traces are not the same length! Truncating so they match.');
+                this.time = this.time(1:nFrames);
             elseif strcmp(mode,'extend')
-                disp('Traces are not the same length! Extending so they match.');
                 nFrames = max(nFramesEach);
+                this.time = this.sampling*(1:nFrames);
             end
         end
         this.nTraces = sum(nTracesEach);
-        this.time = this.time(1:nFrames);
         
         % Allocate space for new arrays
         for c=1:this.nChannels,
@@ -401,28 +402,30 @@ methods
         % Copy data from each instance into the (now expanded) output.
         traceSoFar = 0;
         
-        for i=1:nargin,
+        for i=1:numel(objects),
             obj = objects{i};
+            tm = obj.traceMetadata;
             idx = traceSoFar + (1:obj.nTraces);
             
             % Remove metadatafields that are not in common.
-            fieldsToRemove = setdiff( fieldnames(obj.traceMetadata), traceMetadataFields );
-    
-            if ~isempty(fieldsToRemove),
-                obj.traceMetadata = rmfield( obj.traceMetadata, fieldsToRemove );
-                disp('Some metadata fields were removed because they were not found in all Traces instances.');
-                %text = sprintf( '%s, ',fieldsToRemove{:} );
-            end
+            fieldsToRemove = setdiff( fieldnames(tm), traceMetadataFields );
+            tm = rmfield( tm, fieldsToRemove );
             
             % Combine metadata
             if i>1,
-                this.traceMetadata = [this.traceMetadata obj.traceMetadata];
+                this.traceMetadata = [this.traceMetadata tm];
             end
             
             % Combine data
             for c=1:this.nChannels,
                 ch = obj.channelNames{c};
-                this.(ch)(idx,1:nFrames) = obj.(ch)(:,1:nFrames);
+                nf = min(nFrames,obj.nFrames); %non-extended number of frames.
+                this.(ch)(idx,1:nf) = obj.(ch)(:,1:nf);
+                
+                % If necessary, pad with last data value in every trace.
+                if nFrames>obj.nFrames
+                    this.(ch)(idx,(nf+1):nFrames) = repmat( obj.(ch)(:,nf), [1 nFrames-obj.nFrames] );
+                end
             end
             traceSoFar = traceSoFar+obj.nTraces;
         end

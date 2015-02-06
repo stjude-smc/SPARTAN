@@ -47,7 +47,7 @@ cmap=dlmread(CMAP_PATH,' ')/255;
 
 % Setup contour levels
 top = options.tdp_max;
-con=0:(top/13):top;
+con=0:(top/size(cmap,1)):top;
 tdp(end,end) = 10;  % hack to make colorscale fixed
 
 % draw contour plot

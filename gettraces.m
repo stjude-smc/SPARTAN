@@ -1122,20 +1122,14 @@ if ~quiet && data.time(1)==1,
     end
 end
 
-% For very large TIFF movies, reading the headers can be rate limiting.
-% In only such cases, parallelize the process using parfor.
-% FIXME: need to actually benchmark this process to know cutoff.
+% Parallelize very large TIFF movies, where disk access is quick compared to
+% image processing. 
 if nTraces*nFrames/2000 > 1500 && constants.enable_parfor && isa(movie,'Movie_TIFF'),
-    % If there is a lot of data and the calculations will take a long time,
-    % distribute the work over a number of worker threads.
-    pool = gcp('nocreate');
-    if isempty(pool),
-        pool=parpool('IdleTimeout',360,'SpmdEnabled',false);
-    end
+    % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
+    pool = gcp;
     M = pool.NumWorkers;
 else
-    % For <1000 average length traces, running locally can be faster,
-    % particularly if parpool hasn't already been started.
+    % For small datasets, do everything in the GUI thread (regular for loop).
     M = 0;
 end
 
@@ -1165,7 +1159,9 @@ parfor (k=1:nFrames, M)
         parfor_progress();
     end
 end
-parfor_progress('Correcting traces and calculating FRET...');
+if ~quiet,
+    parfor_progress('Correcting traces and calculating FRET...');
+end
 
 
 % Convert fluorescence to arbitrary units to photon counts.

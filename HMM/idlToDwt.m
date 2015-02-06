@@ -42,7 +42,7 @@ for i=1:nSeg,
     
     % Save the dwt, removing zero-state dwells, which are actually regions
     % that were not idealized.
-    dwt{seg} = [ states(states>0) times(states>0) ];
+    dwt{i} = [ states(states>0) times(states>0) ];
     
 end %for each trace
 

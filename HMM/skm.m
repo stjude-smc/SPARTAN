@@ -88,28 +88,34 @@ data(data<-1) = -1;
 %      and a single idealization combining all results.
 
 if isfield(params,'seperately') && params.seperately==1,
-    % Start the matlab thread pool if not already running. perfor below will
-    % run the calculations of the available processors.
-    if isempty( gcp('nocreate') ),   parpool('IdleTimeout',120);   end
+    constants = cascadeConstants;
+    
+    % For large computations, parallelize computation across threads.
+    if nTraces > 400 && constants.enable_parfor,
+        pool = gcp;
+        M = pool.NumWorkers;
+    else
+        % Single-thread execution, if the dataset is small.
+        M = 0;
+    end
+    parfor_progress(nTraces/10,'Idealizing traces seperately,..');
     
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
     
-    % Optimize each trace seperately, using the 
-    wbh = waitbar(0,'Idealizing traces seperately,..');
-    
-    parfor n=1:nTraces,
-    %for n=1:nTraces,   %use this line instead of single-thread.
+    % Optimize each trace seperately.
+    parfor (n=1:nTraces,M)
+%     for n=1:nTraces,
         [newDWT,model(n),newLL] = runSKM( data(n,:), ...
                                      sampling, initialModel, params );
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
         
-        %if mod(n,25)==0,
-        %    waitbar(n/nTraces,wbh);
-        %end
+        if mod(n,10)==0,
+            parfor_progress();
+        end
     end
-    close(wbh);
+    parfor_progress(0);
     
     offsets = nFrames*((1:nTraces)-1);
 else

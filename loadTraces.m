@@ -272,7 +272,6 @@ end
 % Remove empty (trailing) channel names. This might happen if extra
 % delimiters are added to the end to pad to word boundries.
 channelNames = channelNames( ~cellfun(@isempty,channelNames) );
-% data.channelNames = channelNames;
 
 % Select subset of traces if indexes are given.
 if nargin<2 || isempty(indexes),
@@ -372,10 +371,10 @@ while 1,
         if isempty(indexes), continue; end
         
         if iscell(m),
-            [traceMetadata.(title)] = deal( m{indexes} );
+            [traceMetadata.(title)] = m{indexes};
         elseif isnumeric(m),
             d = num2cell(m(indexes));
-            [traceMetadata.(title)] = deal( d{:} );
+            [traceMetadata.(title)] = d{:};
         end
     
     % Simply add fields (which may be arrays) for fileMetadata.

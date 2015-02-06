@@ -191,20 +191,14 @@ retval = struct( ...
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
 if numel(fretAll)/2000 > 1000 && constants.enable_parfor,
-    % If there is a lot of data and the calculations will take a long time,
-    % distribute the work over a number of worker threads.
-    pool = gcp('nocreate');
-    if isempty(pool),
-        pool=parpool('IdleTimeout',360,'SpmdEnabled',false);
-    end
+    % For large computations, parallelize computation across threads.
+    pool = gcp;
     M = pool.NumWorkers;
 else
-    % For <1000 average length traces, running locally can be faster,
-    % particularly if parpool hasn't already been started.
+    % For small datasets, do everything in the GUI thread (regular for loop).
     M = 0;
 end
 
-% for i=1:Ntraces,
 parfor (i=1:Ntraces, M)
     % Extract trace in a way that makes parpool happy.
     donor    = donorAll(i,:);
@@ -239,6 +233,7 @@ parfor (i=1:Ntraces, M)
     if ~isempty(lt) && lt<len,
         retval(i).lifetime = max(2,lt);
     else
+        if mod(i,100)==0, parfor_progress(); end
         continue; %everything else is hard to calc w/o lifetime!
     end
     
@@ -387,7 +382,7 @@ parfor (i=1:Ntraces, M)
     
     
     % Update waitbar, once every 10 traces to reduce overhead.
-    if mod(i,100)==0 && Ntraces>400,
+    if mod(i,100)==0,
         parfor_progress();
     end
 end

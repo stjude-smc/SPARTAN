@@ -23,13 +23,13 @@ function shist=statehist(dwtfilename, traces_input, options)
 % Get filenames from user if not passed
 if nargin<2
      %---Open the QuB dwt file from idealization
-    [dwtfile dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
+    [dwtfile,dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
     if dwtfile==0, return;  end
         
     dwtfilename=strcat(dwtpath,dwtfile);
 
     %---Open the corresonding qub data file
-    [tracefile tracepath]=uigetfile('*.traces','Choose data file:');
+    [tracefile,tracepath]=uigetfile('*.traces','Choose data file:');
     if tracefile==0, return;  end
     
     tracefilename=strcat(tracepath,tracefile);
@@ -62,7 +62,7 @@ end
 
 
 % --- Load the dwell-time data and create an idealization
-[dwt,sampling,offsets,model] = loadDWT(dwtfilename);
+[dwt,~,offsets,model] = loadDWT(dwtfilename);
 idl = dwtToIdl(dwt,traceLen,offsets);
 
 % If the last few traces are not idealized, idl will be short.
@@ -80,8 +80,6 @@ if isfield(options,'contour_length') && isfield(options,'truncate_statehist') &&
     idl  = idl(:,1:traceLen);
     fret = fret(:,1:traceLen);
 end
-
-disp(options);
 
 
 % --- Create normalized histograms for each state.

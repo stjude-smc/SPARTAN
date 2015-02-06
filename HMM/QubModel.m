@@ -294,6 +294,12 @@ methods
         states = tree.Rates.Rate(i).States.data+1; %state numbers are zero-based.
         k0  = [ model.rates(states(1),states(2)) model.rates(states(2),states(1)) ];
 
+        % Some new models made by QuB have a second column, unknown purpose!
+        if any( size(states)~=1 ),
+            assert( all(size(states)==2) );
+            states = states(:,1);
+        end
+        
         state_x = x(states);
         state_y = y(states);
 

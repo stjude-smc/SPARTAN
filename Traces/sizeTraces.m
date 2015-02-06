@@ -1,4 +1,4 @@
-function [nTraces,nFrames,channelNames] = sizeTraces( filenames )
+function [nTraces,nFrames,channelNames] = sizeTraces( filenames, dim )
 % Given a file name or cell array of filenames, load only the header of traces
 % files to determine the 
 %
@@ -58,6 +58,14 @@ for i=1:numel(filenames)
         % Remove empty (trailing) channel names. This might happen if extra
         % delimiters are added to the end to pad to word boundries.
         channelNames{i} = ch( ~cellfun(@isempty,ch) );
+    end
+end
+
+% Allow the user to specify the dimension to get, like size().
+if nargin>1,
+    assert( isnumeric(dim) && numel(dim)==1 && dim>=1 && dim<=2, 'Invalid size dimension' );
+    if dim==2,
+        nTraces=nFrames;
     end
 end
 

@@ -1,79 +1,70 @@
-function resizeTraces( traceLen, files )
+function resizeTraces( finalLen, files, mode )
 % resizeTraces   Change length of a .traces files
 %
 %   resizeTraces( TRACE_LEN )
-%   loads all .traces files in the directory specified by the user,
-%   resizes them to the TRACE_LEN, saves them back to their original
-%   filenames. This ensures that all files will be the same length.
+%   prompts the user for files and resizes all traces to TRACE_LEN.
 %
-%   If traceLen < actual, the traces will be cropped.
-%   If traceLen > actual, the last data value will be appended
+%   resizeTraces( TRACE_LEN, FILES )
+%   resizes all traces to TRACE_LEN in the specified files.
+%
+%   If TRACE_LEN is empty (or the user hits cancel when asked), all traces will
+%   be truncated to the same length. To extend instead:
+%      resizeTraces( ..., 'extend' );
+%
+%   If traceLen > actual, the last data value is repeated at the end of every
+%   trace.
 % 
 
+
+% Parse input arguments, asking the user for any that are missing.
 if nargin<1,
-    f = inputdlg('How many frames to keep?');
-    if isempty(f), return; end
-    traceLen = str2double(f);
+    f = inputdlg('Final trace length (optional):');
+    finalLen = str2double(f);
 end
 
 if nargin<2,
-    filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces)'; ...
-              '*.*','All Files (*.*)'};
+    filter = {'*.traces','Binary Traces Files (*.traces)'; ...
+              '*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
+              '*.*','All Files (*.*)' };
     files = getFiles(filter);
 end
+if ischar(files),
+    files = {files};
+end
+if numel(files)==0, return; end
 
-constants = cascadeConstants();
+% If no final trace length given, choose a size so all traces match.
+% By default truncate, or extend if the option is given.
+if isempty(finalLen),
+    if nargin<3 || strcmp(mode,'truncate')
+        finalLen = min( sizeTraces(files,2) );
+    elseif strcmp(mode,'extend')
+        finalLen = max( sizeTraces(files,2) );
+    else
+        error('Invalid resize mode');
+    end
+end
 
 
 % For each file in the user-selected directory
-for i=1:numel(files),
+for i=1:numel(files),    
+    % Read traces file
+    data = loadTraces( files{i} );
+    originalLen = data.nFrames;
     
-    % ---- Read traces file
-    filename = files{i};
-    data = loadTraces( filename );
-    [nTraces,actualLen] = size( data.donor );
-    
-    % ---- Reconstruct time axis (assuming linear, contiguous acquisition)
-    dt = data.time(2)-data.time(1);
-    data.time = cumsum( [data.time(1) repmat(dt,1,traceLen-1)] );
-    
-    % ---- Undo crosstalk correction (otherwise it will be done twice).
-    % FIXME: old format traces files will have the crosstalk substracted
-    % twice, but it is not simple (anymore) to determine if this is an old
-    % format traces file!
-    
-    % ---- Modify traces, if they do not match the target trace length.
-    if traceLen == actualLen,
-        %no changes needed
-        continue;
-    
-    elseif traceLen > actualLen,
-        % Expand traces using last value
-        delta = traceLen-actualLen;
-        data.donor    = [data.donor    repmat( data.donor(:,end), 1, delta )];
-        data.acceptor = [data.acceptor repmat( data.acceptor(:,end), 1, delta )];
-        data.fret     = [data.fret     zeros( nTraces, delta )];
-    
+    % Modify, if they do not match the target trace length, and save.
+    if finalLen == originalLen,
+        disp( ['Skipping ' files{i}] );
+        continue;  %nothing to do
+    elseif finalLen > originalLen,
+        saveTraces(files{i}, data.extend(finalLen) );
     else
-        % Truncate traces
-        data.donor    = data.donor(:,1:traceLen);
-        data.acceptor = data.acceptor(:,1:traceLen);
-        data.fret     = data.fret(:,1:traceLen);
+        saveTraces(files{i}, data.truncate(finalLen) );
     end
     
-    disp( sprintf('Resizing %.0f to %.0f: %s',actualLen,traceLen,filename) );
-    
-    % ---- Save the results.
-    [p,f,e] = fileparts(filename);
-    if ~isempty(strfind(e,'traces')),
-        saveTraces( filename, 'traces', data );
-    elseif ~isempty(strfind(e,'txt')),
-        saveTraces( filename, 'txt', data );
-    end
-    
+    fprintf('Resized %.0f to %.0f: %s\n',originalLen,finalLen,files{i});
 end
 
-disp('Finished.');
 
 
 
