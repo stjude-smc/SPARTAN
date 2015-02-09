@@ -77,6 +77,7 @@ methods
             this = copy(varargin{1});
             
         elseif nargin==1 && isa(varargin{1},'Traces')
+            % FIXME: this is broken. But unused?
             this.copyDataFrom(varargin{1});
         end
     end

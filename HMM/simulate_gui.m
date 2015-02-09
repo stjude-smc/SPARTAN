@@ -50,7 +50,7 @@ end
 
 
 % --- Executes just before simulate_gui is made visible.
-function simulate_gui_OpeningFcn(hObject, eventdata, handles, varargin)
+function simulate_gui_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -69,7 +69,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = simulate_gui_OutputFcn(hObject, eventdata, handles) 
+function varargout = simulate_gui_OutputFcn(~, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -84,7 +84,7 @@ varargout{1} = handles.output;
 %% -------------------  EXECUTION FUNCTIONS  -------------------
 
 % --- Executes on button press in btnSimulate.
-function btnSimulate_Callback(hObject, eventdata, handles)
+function btnSimulate_Callback(~, ~, handles)   %#ok<DEFNU>
 % hObject    handle to btnSimulate (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -109,8 +109,8 @@ if simMovies
     if ~ischar(bgMovieDir), return; end
 
     % Verify there are background movies to use.
-    d = dir( [bgMovieDir filesep '*.stk'] );
-    bgMovieFilenames = strcat( [bgMovieDir filesep], {d.name} );
+    d = regexpdir(bgMovieDir,'^.*\.(tiff?|stk)$',false);
+    bgMovieFilenames = {d.name};
     
     if numel(bgMovieFilenames)<1,
         error('No movies found');
@@ -143,15 +143,14 @@ m.sigma = reshape( m.sigma, [numel(m.sigma),1] );
 dataSize = [nTraces traceLen];
 fretModel = [m.mu m.sigma];
 
-data.nChannels=3;
-data.channelNames = {'donor','acceptor','fret'};
+data = TracesFret(nTraces,traceLen);
 
 [dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, m, options );
 data.time = 1000*sampling*( 0:(traceLen-1) );
-data.fileMetadata.wavelengths = [532 640];
+data.fileMetadata(1).wavelengths = [532 640];
 
 % Save resulting raw traces files
-saveTraces( fname_output, 'traces', data );
+saveTraces( fname_output, data );
 
 % Save the underlying state trajectory.
 % Only traces passing autotrace are saved so that the "true" idealization
@@ -159,21 +158,19 @@ saveTraces( fname_output, 'traces', data );
 % dwt = dwt(sel);
 offsets = (0:(numel(dwt)-1))*traceLen * (sampling*1000);
 
-[p f] = fileparts(fname_output);
+[p,f] = fileparts(fname_output);
 fname_idl = fullfile(p, [f '.sim.dwt']);
 saveDWT( fname_idl, dwt, offsets, fretModel, 1 );
 
 
 %----- Simulate wide-field fluroescence movies using simulated trajectories.
 if simMovies
-     simulateMovie( fname_output, bgMovieFilenames, options );
+     simulateMovie( data, bgMovieFilenames, fullfile(p,[f '.tif']), options );
 end
 
 
 %----- Save a log file detailing the input parameters...
 constants = cascadeConstants;
-
-[p f] = fileparts(fname_output);
 fid = fopen( fullfile(p,[f '.sim.log']), 'w' );
 
 t = clock;
@@ -217,7 +214,7 @@ fclose(fid);
 
 %% -------------------  GUI CALLBACK FUNCTIONS  -------------------
 
-function fieldChanged_Callback(hObject,fieldName)
+function fieldChanged_Callback(hObject,fieldName)   %#ok<DEFNU>
 % This function is called whenever a GUI textbox's value is updated.
 % The value extracted from the current control and saved into the
 % options structure, using the given fieldName.
@@ -226,14 +223,14 @@ function fieldChanged_Callback(hObject,fieldName)
 handles = guidata(hObject);
 
 value = get(hObject,'String');
-handles.options.(fieldName) = str2num(value);
+handles.options.(fieldName) = str2double(value);
 
 % Update handles structure
 guidata(hObject, handles);
 
 
 % --- Executes on button press in chkSimFluorescence.
-function chkSimFluorescence_Callback(hObject, eventdata, handles)
+function chkSimFluorescence_Callback(hObject, ~, handles)   %#ok<DEFNU>
 controls = {'edTotalItensity','edStdTotalItensity','edSNR','edStdPhoton','edGamma'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
 
@@ -242,7 +239,7 @@ handles.options.simFluorscence = get(hObject,'Value');
 guidata(hObject, handles);
 
 % --- Executes on button press in chkSimulateMovies.
-function chkSimulateMovies_Callback(hObject, eventdata, handles)
+function chkSimulateMovies_Callback(hObject, ~, handles)   %#ok<DEFNU>
 controls = {'edDensity','edSigmaPSF','chkGrid','edAlignX','edAlignY','edAlignTheta'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
 
@@ -252,7 +249,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in chkGrid.
-function chkGrid_Callback(hObject, eventdata, handles)
+function chkGrid_Callback(hObject, ~, handles)   %#ok<DEFNU>
 % Save selection in parameter list.
 if get(hObject,'Value'),
     handles.options.grid = 1;
@@ -277,7 +274,7 @@ if val, state='on'; else state='off'; end
  
 
 % --- Executes on button press in btnLoadModel.
-function btnLoadModel_Callback(hObject, eventdata, handles)
+function btnLoadModel_Callback(hObject, ~, handles)   %#ok<DEFNU>
 %
 
 % Try to send the user to the model location which may be far away from
@@ -317,7 +314,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in btnSaveModel.
-function btnSaveModel_Callback(hObject, eventdata, handles)
+function btnSaveModel_Callback(~, ~, handles)   %#ok<DEFNU>
 %  Save the currently loaded model to file.
 
 if ~isfield(handles,'model') || isempty(handles.model),

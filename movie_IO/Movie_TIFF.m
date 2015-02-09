@@ -191,7 +191,7 @@ methods
         
         % If using fread for optimized files, no need to keep headers. This can
         % speed up the parfor loop in gettraces by minimizing data transfers.
-        if all( ~cellfun(@isempty,obj.offsets) ),
+        if ~isempty(obj.offsets) && all( ~cellfun(@isempty,obj.offsets) ),
             obj.movieHeaders = {};
         end
         
@@ -226,7 +226,7 @@ methods
         
         %offsets = obj.movieHeaders{idxFile}(idx).StripOffsets;
         
-        if isempty( obj.offsets{idxFile} ),
+        if isempty(obj.offsets) || isempty(obj.offsets{idxFile}),
             % Slower version that can read frames broken up into strips.
             data = imread( obj.filenames{idxFile}, ...
                      'Info',obj.movieHeaders{idxFile}, 'Index',idx );

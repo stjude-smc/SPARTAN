@@ -25,27 +25,44 @@ properties (SetAccess=protected, GetAccess=public)
 end %end public properties
 
 
-methods (Abstract)  
-    
-    % Constructor
-    %obj = Movie( filename );
+methods (Abstract)
     
     % Data access methods. Data are only loaded when needed by these functions.
     data = readFrames( obj, idxStart, idxEnd );
     data = readFrame(  obj, idx );
     
-    % Metadata access.
-    % Returns a structure: field names and data types are format-specific.
-    %metadata = readMetadata(obj);
-    
-    % Returns a structure array in cases where metadata are defined for each
-    % frame seperately, as is the case with TIFF stacks (eg, from MetaMorph).
-    %metadata = readMetadataArray(obj);
-    
     
 end %public methods
 
 
+
+methods (Static)
     
+    % Movie-making factory method.
+    function obj = load( filename )
+        % Ask the user for a file if none given.
+        if nargin<1 || isempty(filename),
+            [f,p] = uigetfile( '*.stk;*.tif;*.tiff', 'Choose a movie file' );
+            if f==0,
+                obj = []; %user hit cancel
+                return;
+            end
+            filename = fullfile(p,f);
+        end
+
+        % Load the movie with the appropriate subclass
+        [~,~,ext] = fileparts(filename);
+        if ~isempty( strfind(ext,'tif') ),
+            obj = Movie_TIFF(filename);
+        elseif strcmp(ext,'stk'),
+            obj = Movie_STK(filename);
+        else
+            error('Unrecognized movie type');
+        end
+    end
     
+end
+
+
+
 end %class Movie.

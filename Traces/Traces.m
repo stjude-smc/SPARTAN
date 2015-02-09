@@ -124,7 +124,7 @@ methods
                 'Invalid Traces constructor parameters; sizes must be scalar' );
             
         % Generate IDs for each trace.
-        ids = strsplit( sprintf('Trace#%d ',1:3000) );
+        ids = strsplit( sprintf('Trace#%d ',1:this.nTraces) );
         this.traceMetadata = struct( 'ids', ids(1:end-1) );
         
         % 
