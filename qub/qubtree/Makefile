@@ -1,7 +1,11 @@
+# Makefile to compile libqubtree, which includes functions for reading and 
+# saving QuB-format files. The source code was provided by SUNY Buffalo.
+# Although this makes both static and dynamic libraries, it is best to use the
+# static library because sometimes the dynamic one isn't found.
 CC = gcc
 CCFLAGS = 
 CCP = g++
-CCPFLAGS = -fPIC -Iinclude
+CCPFLAGS = -fPIC -Iinclude -Wno-deprecated
 #-O2
 LN = g++
 LNFLAGS = -shared -fPIC -lpthread -g
@@ -14,19 +18,19 @@ OBJS =  ${OBJ}/QUB_QTR_Impl.o \
 	${OBJ}/QTR_NodeFunc.o \
 	${OBJ}/QUB_Tree_text.o
 
-LIBRARY = ../../../cascade_binary/
+LIBRARY = .
 
 
-default: libqubtree_static.a ${LIBRARY}/libqubtree.so
+default: ${LIBRARY}/libqubtree_static.a ${LIBRARY}/libqubtree.so
 
-libqubtree_static.a: ${OBJS}
+${LIBRARY}/libqubtree_static.a: ${OBJS}
 	ar rcs libqubtree_static.a ${OBJS}
 
 ${LIBRARY}/libqubtree.so: ${OBJS}
 	${LN} ${LNFLAGS} -o $@ ${OBJS}
 
 clean:
-	rm -f ${OBJ}/* libqubtree_static.a ${LIBRARY}/libqubtree.so
+	rm -f ${OBJ}/* ${LIBRARY}/libqubtree_static.a ${LIBRARY}/libqubtree.so
 
 
 ${OBJ}/QUB_QTR_Impl.o: QUB_QTR_Impl.cpp QUB_QTR_Impl.h StringsInterned.h

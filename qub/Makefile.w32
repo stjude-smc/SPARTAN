@@ -1,3 +1,0 @@
-mex -v -O -win32 -L..\binary -lqubtree -outdir ..\binary qub_loadTree.cpp treestruct.cpp
-mex -v -O -win32 -L..\binary -lqubtree -outdir ..\binary qub_saveTree.cpp treestruct.cpp
-

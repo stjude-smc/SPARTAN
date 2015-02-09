@@ -1,0 +1,14 @@
+The code in this directory is derived from the freely-available source code for
+the QuB software suite for ion channel recordings. Only a minimal set of files
+is included that are necessary for loading and saving QuB-format files. The
+version used was 1.5.0.15.
+
+To compile the library, run make (Linux/Unix/MacOSX) or use the Visual Studio
+project files for Winodws. For *nix systems, only the static library is used.
+
+qub@www.qub.buffalo.edu
+http://www.qub.buffalo.edu/#classic
+http://www.qub.buffalo.edu/wiki/index.php/Developers
+
+
+

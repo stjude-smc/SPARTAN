@@ -1,0 +1,14 @@
+The C/C++ files in this directory are for compiling MEX functions for loading
+and saving QuB files -- specifically .qmf model files. To recompile the MEX
+files, you will need to first compile the qubtree library in the qubtree
+directory a Makefile and Visual Studio project files are there for compiling on
+Linux/Unix/MacOSX and Windows, respectively. Once this is done, run 
+qub_compile_mex.m from within matlab in this directory. The new MEX files will
+be placed in the "binary" directory.
+
+
+
+
+
+
+

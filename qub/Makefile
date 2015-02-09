@@ -1,15 +1,21 @@
-# THIS VERSION does not depend on QuB directly -- 
-# MIL is run using a .exe interface program instead that is directly linked.
+# Compiles the qub_loadTree and qub_saveTree MEX files for loading and saving
+# QuB-format files -- specifically qmf model files.
+# Requires mex be in the path and will not work with Windows.
+# Use qubtree_compile_mex.m instead.
+
+# Uncomment the line that corresponds to your system architecture.
+#MEX_EXT = $(shell mexext)
+#MEX_EXT = mexw32  #32-bit Windows
+MEX_EXT = mexw64  #64-bit Windows
+#MEX_EXT = mexglx  #32-bit linux
+#MEX_EXT = mexa64  #64-bit linux
+#MEX_EXT = mexmaci64  #64-bit Mac
+
 
 # Primary target: make all MEX functions
-TARGET_DIR = ../../cascade_binary
+TARGET_DIR = ../binary
 TARGETS = ${TARGET_DIR}/qub_loadTree.${MEX_EXT} ${TARGET_DIR}/qub_saveTree.${MEX_EXT}
 
-
-#MEX_EXT = $(shell mexext)
-#MEX_EXT = .mexw32  #32-bit Windows
-#MEX_EXT = .mexglx  #32-bit linux
-MEX_EXT = mexa64  #64-bit linux
 
 # Compiler flags
 MEX = mex

@@ -11,7 +11,7 @@ MEX_EXT = mexa64  #64-bit linux
 DEPS = 
 
 # Primary target: make all MEX functions
-TARGET_DIR = ../../cascade_binary
+TARGET_DIR = ../binary
 TARGET = ${TARGET_DIR}/medianfilterx.${MEX_EXT}
 
 
