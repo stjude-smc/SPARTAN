@@ -8,8 +8,16 @@ function model = qub_loadModel(modelFilenameInput)
 %
 %  http://www.qub.buffalo.edu
 
+% Disable these pointless warnings in qubtree/treestruct.cpp.
+warning off qubtree:PointerFieldsNotSupported
+warning off qubtree:MatrixFieldsNotSupported
+
+
+
 persistent modelFilename;
 
+% If no model filename is given, prompt the user for it.
+% The selection will be remembered because modelFilename is persistent.
 if nargin<1,
     [f,p] = uigetfile('*.qmf','Select a model file...',modelFilename);
     if f==0,

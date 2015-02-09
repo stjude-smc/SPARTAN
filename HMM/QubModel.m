@@ -281,7 +281,7 @@ methods
         y(i) = tree.States.State(i).y.data;
     end
 
-    textFormat = {'Parent',parent,'FontSize',24, 'FontWeight','bold', ...
+    textFormat = {'Parent',parent,'FontSize',14, 'FontWeight','bold', ...
               'HorizontalAlignment','center', 'VerticalAlignment','middle' };
     lineFormat = {'Parent',parent, 'Color','k', 'LineWidth',2 };
 
@@ -295,7 +295,7 @@ methods
         k0  = [ model.rates(states(1),states(2)) model.rates(states(2),states(1)) ];
 
         % Some new models made by QuB have a second column, unknown purpose!
-        if any( size(states)~=1 ),
+        if all( size(states)>1 ),
             assert( all(size(states)==2) );
             states = states(:,1);
         end
@@ -361,7 +361,7 @@ methods
 
     %%%%------  GUI CALLBACK FUNCTIONS   ------%%%%
 
-    function editRate( hObject, eventdata, rateID )
+    function editRate( hObject, ~, rateID )
     % Called whenever one of the rate labels is clicked.
     % NOTE: this does not update the qubTree object!!
 
@@ -383,7 +383,7 @@ methods
     end %function editRate
 
 
-    function editState( hObject, eventdata, stateID )
+    function editState( ~, ~, stateID )
     % Called whenever one of state boxes is clicked.
     % NOTE: this does not update the qubTree object!!
 

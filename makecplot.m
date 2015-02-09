@@ -72,7 +72,13 @@ nFrames = size(fret,2);
 
 for i=1:1000:nFrames,
     t_range = i:min(i+1000-1,nFrames);
-    hist2d(2:end,1+t_range) = hist( fret(:,t_range), fret_axis  );
+    
+    % Pad the data with NaN values (which do not contribute to the histogram) so
+    % that hist() acts the same if there is only one trace. Without this, hist
+    % with produce a single histogram for the entire trace.
+    padded = [  fret(:,t_range) ;  NaN(1,numel(t_range))  ];
+    
+    hist2d(2:end,1+t_range) = hist( padded, fret_axis  );
 end
 
 

@@ -136,7 +136,7 @@ mxArray* treeToStruct( QUB_Tree node, int depth )
         break; //no data
         
     case QTR_TYPE_POINTER:
-        mexWarnMsgTxt("Pointer fields not supported.");
+        mexWarnMsgIdAndTxt("qubtree:PointerFieldsNotSupported","Pointer fields not supported.");
         break;
         
     case QTR_TYPE_STRING:
@@ -163,7 +163,7 @@ mxArray* treeToStruct( QUB_Tree node, int depth )
             break;
         }
         if( !(M==1 || N==1) )
-            mexWarnMsgTxt("Matrix data not supported!");
+            mexWarnMsgIdAndTxt("qubtree:MatrixFieldsNotSupported","Matrix data not supported!");
         
         mxtype = mxTypeLookup[node.dataType()];
         data = mxCreateNumericMatrix( M,N,mxtype,mxREAL );

@@ -13,8 +13,8 @@
 
 if strcmp(mexext,'mexw64'),
     % Windows 64-bit, DLL
-    mex -v -O -win64 -Lqubtree\ -lqubtree_w64 -outdir ..\binary qub_loadTree.cpp treestruct.cpp
-    mex -v -O -win64 -Lqubtree\ -lqubtree_w64 -outdir ..\binary qub_saveTree.cpp treestruct.cpp
+    mex -v -O -win64 -largeArrayDims -L..\binary\ -lqubtree64 -outdir ..\binary\ qub_loadTree.cpp treestruct.cpp
+    mex -v -O -win64 -largeArrayDims -L..\binary\ -lqubtree64 -outdir ..\binary\ qub_saveTree.cpp treestruct.cpp
 
 
 elseif strcmp(mexext,'mexw64'),
