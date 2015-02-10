@@ -42,7 +42,7 @@ if ~exist(filename,'file'),
 end
 
 % Load trace data, using distinct functions for each file format.
-[p,n,ext]=fileparts(filename);
+[~,~,ext]=fileparts(filename);
 
 if strcmp(ext,'.txt')
     data = LoadTracesTxt( filename, indexes );

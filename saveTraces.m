@@ -74,21 +74,17 @@ function saveTracesTxt( filename, data )
 %   ...
 % 
 
-[p,f,e] = fileparts(filename);
+[~,~,e] = fileparts(filename);
 assert( ~isempty(strcmp(e,'.txt')), 'TXT format traces files must have a ".txt" extension' );
 
 assert( isfield(data,'donor') & isfield(data,'acceptor') & isfield(data,'fret'), ...
         'Data to save must include, donor, acceptor, and fret traces' );
 
-[Ntraces,tlen] = size(data.donor);
-
-if ~isfield(data,'time'),
-    time = 1:tlen; %in frames
-end
+Ntraces = size(data.donor,1);
 
 % Create IDs if not specified
 if ~isfield(data,'ids'),
-    [p,name] = fileparts(filename);
+    [~,name] = fileparts(filename);
     
     ids = cell(Ntraces,1);
     for j=1:Ntraces;
@@ -163,7 +159,7 @@ function saveTracesQUB( filename, fret )
 %   each datapoint is on a new line.
 %
 
-[p,f,e] = fileparts(filename);
+[~,~,e] = fileparts(filename);
 assert( ~isempty(strcmp(e,'.txt')), 'QuB TXT format traces files must have a ".txt" extension' );
 
 fret = fret';
@@ -252,7 +248,7 @@ for i=1:nChannels,
 end
 
 
-[p,f,e] = fileparts(filename);
+[~,~,e] = fileparts(filename);
 assert( ~isempty(strfind(e,'traces')), 'Binary format traces files must have a ".*traces" extension' );
 
 

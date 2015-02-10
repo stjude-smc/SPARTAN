@@ -17,7 +17,7 @@ if strcmp(mexext,'mexw64'),
     mex -v -O -win64 -largeArrayDims -L..\binary\ -lqubtree64 -outdir ..\binary\ qub_saveTree.cpp treestruct.cpp
 
 
-elseif strcmp(mexext,'mexw64'),
+elseif strcmp(mexext,'mexmaci64'),
     % Mac OSX, Intel 64-bit, static
     mex -v -O -largeArrayDims -Lqubtree/ -lqubtree_static -outdir ../binary qub_loadTree.cpp treestruct.cpp
     mex -v -O -largeArrayDims -Lqubtree/ -lqubtree_static -outdir ../binary qub_saveTree.cpp treestruct.cpp
