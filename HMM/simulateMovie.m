@@ -51,6 +51,7 @@ defaultParams.density = 5500;
 defaultParams.alignX = 0;
 defaultParams.alignY = 0;
 defaultParams.alignTheta = 0;
+defaultParams.aduPhoton = 1;
 
 % Parameters actually specified (second argument) take precedence
 if nargin>=4,
@@ -59,9 +60,8 @@ else
     params = defaultParams;
 end
 
-sigmaPSF = params.sigmaPSF;
 if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
-    params.edgeBuffer = 4+ceil(sigmaPSF*4);
+    params.edgeBuffer = 4+ceil(params.sigmaPSF*4);
 end
 
 
@@ -84,13 +84,13 @@ assert( mod(stkX,2)==0, 'Movie widths must be even!' );
 
 
 % --- 2. Select fluorophore centroid positions randomly.
-border = 20;%ceil(8*sigmaPSF);%params.edgeBuffer;
+border = 20;%ceil(8*params.sigmaPSF);%params.edgeBuffer;
 
 % If user requests a regular grid of positions, add some small
 % variability (up to 1 pixel) to approximate random placement.
 if isfield(params,'grid') && ~isempty(params.grid) && params.grid,
     % Assign a minimal spacing between peaks (3 std's on each side).
-    minSpacing = ceil(8*sigmaPSF);
+    minSpacing = ceil(8*params.sigmaPSF);
 
     % Calculate a spacing that best approximates the requested density.
     % If the spacing is too small to avoid overlap, reassign.
@@ -118,6 +118,7 @@ else
 end
 
 % Construct a transformation to mimic field misalignment.
+% FIXME: something is wrong here. values in gettraces do not match.
 % FIXME: add scale!
 dx = params.alignX; dy = params.alignY; % translation factors
 sx = 1; sy = 1; % scaling (magnification) factors
@@ -125,13 +126,13 @@ theta = params.alignTheta*pi/180; % degrees of rotation about center.
 T = [ sx*cos(theta)     sin(theta)  0 ; ...
         -sin(theta)  sy*cos(theta)  0 ; ...
                dx             dy    1 ];
-tform = maketform('affine',T);
+tform = affine2d(T);
 
 % Tranform acceptor side positions accordingly.
 % Assumes the field image is symmetric. The image is shifted so the
 % center is 0 so that the rotation happens about the origin.
-acceptorPos(:,[2,1]) = tformfwd( tform, donorPos(:,[2,1])-(stkY/2) ) + (stkY/2);
-
+acceptorPos(:,[2,1]) = transformPointsForward( tform, ...
+                                    donorPos(:,[2,1])-(stkY/2) ) + (stkY/2);
 
 % Save peak locations for later comparison (Dy,Dx,Ay,Ax).
 peakLocations = [donorPos acceptorPos];  %return parameter
@@ -140,26 +141,17 @@ peakLocations = [donorPos acceptorPos];  %return parameter
 % scatter( acceptorPos(:,2), acceptorPos(:,1), 'ro' );
 % title('Simulated molecule locations');
 
-
-% FIXME: here, combine donor/acceptor points and data so that they can
-% be indexed as one big array to simplify the code below.
+% Translate acceptor to neighboring field (camera) and combining locations and
+% fluorescence into an interleaved list for each processing.
 acceptorPos(:,2) = acceptorPos(:,2)+stkX/2;  %translate
-
-peaks = zeros( size(donorPos,1)*2, 2 );
-peaks(1:2:end,:) = donorPos;
-peaks(2:2:end,:) = acceptorPos;
+peaks = [donorPos; acceptorPos];
 nPeaks = size(peaks,1);
-
-
-% Crop data so we only keep the traces we care about. FIXME
-fluor = zeros( nPeaks, stkNFrames );
-fluor(1:2:end,:) = data.donor(1:nPeaks/2,1:stkNFrames);
-fluor(2:2:end,:) = data.acceptor(1:nPeaks/2,1:stkNFrames);
+fluor = [data.donor(1:nPeaks/2,1:stkNFrames) ; data.acceptor(1:nPeaks/2,1:stkNFrames)];
 
 % --- 3. Estimate Gaussian PDF for each peak.
 % FIXME: create a grid with 10x the density and sum to better
 % estimate the PSF. -limit:0.1:limit...
-limit = ceil(4*sigmaPSF);  %half-width of window
+limit = ceil(4*params.sigmaPSF);  %half-width of window
 nw = 2*limit+1;
 psfs = zeros( nw,nw, nPeaks );
 
@@ -174,11 +166,11 @@ cx = peaks(:,2)-origins(:,2);
 
 for i=1:nPeaks,
     % Estimate the Gaussian PDF over the pixel grid.
-    psfs(:,:,i) = exp( -0.5* ((x-cx(i)).^2+(y-cy(i)).^2)/(sigmaPSF^2) );
+    psfs(:,:,i) = exp( -0.5* ((x-cx(i)).^2+(y-cy(i)).^2)/(params.sigmaPSF^2) );
 end
 
 % 2D Gaussian normalization factor
-psfs = psfs/(2*pi* sigmaPSF^2);
+psfs = psfs/(2*pi* params.sigmaPSF^2);
 
 
 % --- 4. Distribute fluorescence intensities into each PSF
@@ -210,15 +202,17 @@ for k=1:chunkSize:stkNFrames,
     % Load the background movie data
     fidx = k:min(k+chunkSize-1,stkNFrames);
     frames = movie.readFrames(fidx);
-
-    % For each peak, add fluorescence onto the frames
+    
+    % For each peak, add fluorescence onto the frames.
+    % bsxfun multiplies the fluorescence (f) into each pixel of the PSF (psfs).
+    % poissrnd simulates shot noise from these values (must be in photons!)
     f = reshape( fluor(:,fidx), [1 nPeaks chunkSize] );
     
     for i=1:nPeaks,
         yl = origins(i,1)+(-limit:limit);
         xl = origins(i,2)+(-limit:limit);
-        frames(yl,xl,:) = frames(yl,xl,:) + uint16( ...
-                                     bsxfun( @times, psfs(:,:,i), f(1,i,:) )  );
+        fluorframes = poissrnd(  bsxfun( @times, psfs(:,:,i), f(1,i,:) )  );
+        frames(yl,xl,:) = frames(yl,xl,:) + uint16( params.aduPhoton*fluorframes );
     end
 
     % Write the finished frame to disk.

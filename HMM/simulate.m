@@ -95,6 +95,23 @@ else
     gamma = 1;
 end
 
+if isfield(optargs,'shotNoise') && ~isempty(optargs.shotNoise)
+    shotNoise = optargs.shotNoise;
+    assert( shotNoise==0 | shotNoise==1, 'Shot noise must be true or false' );
+else
+    shotNoise = false;
+end
+
+if isfield(optargs,'emNoise') && ~isempty(optargs.emNoise)
+    emNoise = optargs.shotNoise;
+    assert( emNoise==0 | emNoise==1, 'EM noise must be true or false' );
+    if emNoise
+        error('EM noise simulation not yet supported');
+    end
+else
+    emNoise = false;
+end
+
 %random number generator seed value
 % if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
 %     randomSeed = optargs.randomSeed;
@@ -136,8 +153,7 @@ mu = mu ./ ( mu + gamma - gamma*mu );
 %%
 
 % Generate a set of uniform random numbers for choosing states
-h = waitbar(0,'Simulating...');
-
+parfor_progress(1.1*nTraces/50,'Simulating state sequences...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
@@ -147,12 +163,17 @@ if kBleach > 0,
 end
 
 
-
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors.
-% If a random seed is used, the results will no longer be deterministic.
-% Use for (not parfor) to get the predictable behavior.
-% if isempty( gcp('nocreate') ),   parpool('IdleTimeout',120);   end
+constants = cascadeConstants;
+if nTraces > 1000 && constants.enable_parfor,
+    % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
+    pool = gcp;
+    M = pool.NumWorkers;
+else
+    % For small datasets, do everything in the GUI thread (regular for loop).
+    M = 0;
+end
 
 
 %--- Generate noiseless state trajectory at 1 ms
@@ -160,12 +181,9 @@ dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
 
-% parfor i=1:nTraces,
-for i=1:nTraces,   %use this instead to turn off multi-threading
-    
+parfor (i=1:nTraces,M)
     % Choose the initial state
     curState = find( rand <= cumsum(p0), 1, 'first' );
-    
     
     endTime = 1000*(traceLen*sampling); %in ms
     states = [];
@@ -239,18 +257,17 @@ for i=1:nTraces,   %use this instead to turn off multi-threading
     
     noiseless_fret(i,:) = trace;
     
-    if mod(i,25)==0,
-        waitbar( 0.9*i/nTraces, h );  %crashes with parfor
+    if mod(i,50)==0,
+        parfor_progress;
     end
 end
 
 
 %--- Simulate fluorescence traces, adding gaussian read noise
-
-waitbar( 0.9, h, 'Adding noise...' );
+parfor_progress('Simulating noise...');
 
 % Add read/background noise to fluorescence and recalculate FRET
-if stdBackground~=0 || stdPhoton ~=0
+% if stdBackground~=0 || stdPhoton ~=0
     % Generate total intensity profile
     variation = stdTotalIntensity*randn( nTraces,1 );
     intensity = totalIntensity + variation;
@@ -290,6 +307,13 @@ if stdBackground~=0 || stdPhoton ~=0
     % is propotional to the intensity of the signal.
     donor    = donor    .*  (1+ stdPhoton*randn(size(donor))    );
     acceptor = acceptor .*  (1+ stdPhoton*randn(size(acceptor)) );
+        
+    % Simulate Poisson shot "noise" or the variance of signal intensity simply
+    % due to photon statistics. Note that this also discretizes the data.
+    if shotNoise
+        donor    = poissrnd(donor);
+        acceptor = poissrnd(acceptor);
+    end
     
     % Add background and read noise to fluorescence traces. Here the
     % variance is invariant of the signal.
@@ -300,25 +324,21 @@ if stdBackground~=0 || stdPhoton ~=0
     % Recalculate FRET from fluorescence traces
     fret = acceptor./(donor+acceptor);
     fret(~alive) = 0; %set undefined values to zero
-    assert( ~any(isnan( fret(:) )) );
-    
-    
+    %assert( ~any(isnan( fret(:) )) );
+    fret( isnan(fret) ) = 0;
+        
 % If fluorescence noise is not specified, add noise directly to fret
 % and generate perfectly correlated donor/acceptor fluorescence traces.
 % THIS DOES NOT WORK!
-else
-    error('Direct FRET simulation not supported');
+% else
+%     error('Direct FRET simulation not supported');
     %fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
     %donor    = (1-fret).*totalIntensity;
     %acceptor = totalIntensity-donor;
-end
+% end
 
 
-
-close(h);
-
-
-
+parfor_progress(0);
 disp(toc);
 
 

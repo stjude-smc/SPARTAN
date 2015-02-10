@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 
 % Edit the above text to modify the response to help simulate_gui
 
-% Last Modified by GUIDE v2.5 18-Jul-2013 16:00:13
+% Last Modified by GUIDE v2.5 10-Feb-2015 16:02:38
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -129,10 +129,13 @@ options.kBleach = 1/options.totalTimeOn;
 
 %----- Run simulate and save results
 
-% If background movies will be simulated, we don't want to
-% add background noise twice.
+% If background movies are being used, shot noise and background noise are added
+% at that stage instead of in simulate(). This alters the input to simulate().
+options2 = options;
 if simMovies
-    options.stdBackground = 0;
+    options2.stdBackground = 0;
+    options2.shotNoise = false;
+    options2.emNoise = false;
 end
 
 % Ensure model dimensions for saving
@@ -145,7 +148,7 @@ fretModel = [m.mu m.sigma];
 
 data = TracesFret(nTraces,traceLen);
 
-[dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, m, options );
+[dwt,data.fret,data.donor,data.acceptor] = simulate( dataSize, sampling, m, options2 );
 data.time = 1000*sampling*( 0:(traceLen-1) );
 data.fileMetadata(1).wavelengths = [532 640];
 
@@ -221,9 +224,16 @@ function fieldChanged_Callback(hObject,fieldName)   %#ok<DEFNU>
 % If the value in the GUI is invalid, an error will be raised in str2num.
 
 handles = guidata(hObject);
+style = get(hObject,'Style');
 
-value = get(hObject,'String');
-handles.options.(fieldName) = str2double(value);
+if strcmp(style,'checkbox'),
+    handles.options.(fieldName) = get(hObject,'Value');
+elseif strcmp(style,'edit')
+    value = get(hObject,'String');
+    handles.options.(fieldName) = str2double(value);
+else
+    error('Invalid field');
+end
 
 % Update handles structure
 guidata(hObject, handles);
@@ -231,7 +241,7 @@ guidata(hObject, handles);
 
 % --- Executes on button press in chkSimFluorescence.
 function chkSimFluorescence_Callback(hObject, ~, handles)   %#ok<DEFNU>
-controls = {'edTotalItensity','edStdTotalItensity','edSNR','edStdPhoton','edGamma'};
+controls = {'edTotalItensity','edStdTotalItensity','edSNR','edStdPhoton','edGamma','chkShotNoise','chkEMNoise'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
 
 % Update handles structure
@@ -240,7 +250,7 @@ guidata(hObject, handles);
 
 % --- Executes on button press in chkSimulateMovies.
 function chkSimulateMovies_Callback(hObject, ~, handles)   %#ok<DEFNU>
-controls = {'edDensity','edSigmaPSF','chkGrid','edAlignX','edAlignY','edAlignTheta'};
+controls = {'edDensity','edSigmaPSF','chkGrid','edAlignX','edAlignY','edAlignTheta','edADUPhoton'};  %,'edAlignMag'};
 handleCheckbox( get(hObject,'Value'), controls, handles );
 
 % Update handles structure
@@ -310,9 +320,6 @@ set( handles.btnSaveModel, 'Enable','on' );
 guidata(hObject, handles);
 
 
-
-
-
 % --- Executes on button press in btnSaveModel.
 function btnSaveModel_Callback(~, ~, handles)   %#ok<DEFNU>
 %  Save the currently loaded model to file.
@@ -329,3 +336,5 @@ if f~=0,
     handles.model.save( fname );
     set( handles.txtModelFilename, 'String',['...' fname(max(1,end-50):end)] );
 end
+
+
