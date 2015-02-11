@@ -1,7 +1,7 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.8';  %pipeline release version number
+constants.version = '2.9';  %pipeline release version number
 
 
 % FIXME: this script is called many times and is getting large enough to add
@@ -39,21 +39,6 @@ constants.overlap_nstd=5;
 constants.gettracesThresholdStd = 8;
 
 constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
-
-
-
-% ---- Variable values that are specific to your experimental setup.
-
-% Correction factor for fluorophore brightness and detection efficiency.
-%   gamma = apparent acceptor brightness / apparent donor brightness.
-% This will depend on your specific setup and the fluorophores used. Not
-% necessary to change, but some criteria are less biased if this is set
-% correctly.
-% 
-% This is only used in autorace for calculating unbiased criteria.
-% THIS WILL NOT CORRECT YOUR DATA. Use gamma_correct to do that.
-constants.gamma = 1.0;
-
 
 
 

@@ -65,6 +65,16 @@ if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
 end
 
 
+constants = cascadeConstants;
+if data.nTraces > 2000 && constants.enable_parfor,
+    % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
+    pool = gcp;
+    M = pool.NumWorkers;
+else
+    % For small datasets, do everything in the GUI thread (regular for loop).
+    M = 0;
+end
+
 
 %% Simulate Wide-field Fluorescence Movies.
 tic;
@@ -77,6 +87,9 @@ stkNFrames = min(movie.nFrames,data.nFrames);
 
 if data.nFrames>movie.nFrames,
     disp('Truncating traces to fit in the movie.');
+elseif data.nTraces<params.density,
+    warning('Not enough traces to fill the movie to desired density');
+    params.density = data.nTraces;
 end
 
 assert( mod(stkX,2)==0, 'Movie widths must be even!' );
@@ -149,31 +162,62 @@ nPeaks = size(peaks,1);
 fluor = [data.donor(1:nPeaks/2,1:stkNFrames) ; data.acceptor(1:nPeaks/2,1:stkNFrames)];
 
 % --- 3. Estimate Gaussian PDF for each peak.
-% FIXME: create a grid with 10x the density and sum to better
-% estimate the PSF. -limit:0.1:limit...
+wbh = waitbar(0,'Estimating point-spread functions...'); 
+% tic;
+
 limit = ceil(4*params.sigmaPSF);  %half-width of window
+bins = -limit:limit;  %Pixel edges within window for evaluating 2D Gaussians
 nw = 2*limit+1;
 psfs = zeros( nw,nw, nPeaks );
 
-% Movie coordinates for each windows origin (0,0), which mol's center
+% Coordinates of pixel closest to actual molecule position.
 origins = round(peaks);
 
 % Peak locations relative to window centers.
 cy = peaks(:,1)-origins(:,1);
 cx = peaks(:,2)-origins(:,2);
 
-[y,x] = meshgrid(-limit:limit,-limit:limit);
+% Crude but fast approximation to the area under the Gaussian in each pixel.
+% [y,x] = meshgrid(-limit:limit,-limit:limit);
+% for i=1:nPeaks,
+%     % Estimate the Gaussian PDF over the pixel grid.
+%     psfs(:,:,i) = exp( -0.5* ((x-cx(i)).^2+(y-cy(i)).^2)/(params.sigmaPSF^2) );
+% end
 
-for i=1:nPeaks,
-    % Estimate the Gaussian PDF over the pixel grid.
-    psfs(:,:,i) = exp( -0.5* ((x-cx(i)).^2+(y-cy(i)).^2)/(params.sigmaPSF^2) );
+% Use a Riemann integral to get the area under the 2D Gaussian PDF for each
+% pixel. x,y define the partitions in the subpixel array for the sum.
+delta = 0.1;  %sub-pixel integration step size
+[y,x] = meshgrid( (0:delta:0.9)+delta/2, (0:delta:0.9)+delta/2 );  %subpixel bin centers
+prefactor = -0.5/(params.sigmaPSF^2);
+
+parfor (i=1:nPeaks,M)
+    for xx=1:nw,
+        dx2 = (bins(xx)+x-cx(i)).^2;   %#ok<PFBNS>
+        for yy=1:nw,
+            % 2D Gaussian evaluated at the partition points
+            dy2 = (bins(yy)+y-cy(i)).^2;
+            val = exp( prefactor*(dx2+dy2) );
+
+            % Riemann sum to approximate the integral.
+            psfs(yy,xx,i) = sum( val(:) );
+        end
+    end
+
+    % Update waitbar
+%     if mod(i,300)==0,
+%         waitbar(0.15*i/nPeaks,wbh);
+%         drawnow;
+%     end
 end
 
-% 2D Gaussian normalization factor
-psfs = psfs/(2*pi* params.sigmaPSF^2);
-
+% Normalization
+psfs = psfs*(delta^2)/(2*pi* params.sigmaPSF^2);
+% disp( mean(psfs,3) );
+% disp(toc);
 
 % --- 4. Distribute fluorescence intensities into each PSF
+waitbar(0.15,wbh,'Distributing fluorescence information...');
+
 % Create TIFF tag structure. FIXME: insure these match the movie.
 constants = cascadeConstants();
 tags.ImageLength = movie.nY;
@@ -196,7 +240,6 @@ tags.Software = ['simulateMovie (ver. movie' constants.version ')'];
 hTiff = Tiff(outFilename,'w8');  % w=tiff, w8=bigtiff
 
 chunkSize = 100;  %number of frames to process at once.
-wbh = waitbar(0,'Distributing fluorescence information...'); 
 
 for k=1:chunkSize:stkNFrames,
     % Load the background movie data
@@ -212,7 +255,7 @@ for k=1:chunkSize:stkNFrames,
         yl = origins(i,1)+(-limit:limit);
         xl = origins(i,2)+(-limit:limit);
         fluorframes = poissrnd(  bsxfun( @times, psfs(:,:,i), f(1,i,:) )  );
-        frames(yl,xl,:) = frames(yl,xl,:) + uint16( params.aduPhoton*fluorframes );
+        frames(yl,xl,:) = frames(yl,xl,:) + uint16(params.aduPhoton*fluorframes);
     end
 
     % Write the finished frame to disk.
@@ -226,7 +269,7 @@ for k=1:chunkSize:stkNFrames,
     end
 
     % Update waitbar
-    waitbar(k/stkNFrames,wbh);
+    waitbar(0.15+0.85*(k/stkNFrames),wbh);
 end
 
 close(hTiff);
@@ -235,3 +278,5 @@ disp(toc);
 
 
 end
+
+
