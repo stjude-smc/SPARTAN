@@ -109,7 +109,7 @@ end
 
 
 
-%--- END FUNCTIN sorttraces_OpeningFcn
+%--- END FUNCTION sorttraces_OpeningFcn
 
 
 
@@ -184,7 +184,9 @@ end
 
 % If this is multi-color FRET data and the metadata doesn't specify how FRET
 % should be calculated, ask the user for clarification.
-if isa(data,'TracesFret4') && ~isfield(data.fileMetadata,'isTandem3'),
+% NOTE: this is a temporary field and will be replaced by something more general
+% in a future version.
+if isChannel(data,'acceptor2') && ~isfield(data.fileMetadata,'isTandem3'),
     result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
                     '3-color FRET calculation','Yes','No','Cancel','No');
     if strcmp(result,'Cancel'),  return;  end
@@ -954,14 +956,15 @@ chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are 
 for i=1:numel(indexes), 
     m = indexes(i); %i is index into data subset, m is index into all traces.
     
-    for j=1:numel(chNames),
-        displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:)*handles.gamma(m,j);
-    end
-
     for j=2:numel(chNames),
         displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:) - ...
                        handles.crosstalk(m,j-1)*displayData.(chNames{j-1})(i,:);
     end
+    
+    for j=1:numel(chNames),
+        displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:)*handles.gamma(m,j);
+    end
+
 end %for each trace
     
 % Calculate total intensity and donor lifetime.

@@ -517,17 +517,26 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         if params.alignMethod==2,
             % Nothing to search, just apply the alignment.
             newAlign(i) = params.alignment(i);
-            registered_t{i} = imtransform( target_t, newAlign(i).tform, ...
-                                'bicubic', 'XData',[1 ncol], 'YData',[1 nrow]);
-            
+        
         elseif params.alignMethod==3,
             % Use peaks of fluorescence as control points.
-            [newAlign(i),registered_t{i}] = alignSearch_cpt( donor_t, target_t );
-                                 
+            % Repeat a few times to walk towards far-off solutions.
+            % FIXME: doesn't work so well aligning with actual molecules when
+            % iterating multiple times. Why? Do we need multiple settings?
+            a = [];
+            for itr=1:3,
+                a = alignSearch_cpt( donor_t, target_t, a );
+            end
+            newAlign(i) = a;
+        
         elseif params.alignMethod==4,
             % Old, slow brute force method.
-            [newAlign(i),registered_t{i}] = alignSearch_weber( donor_t, target_t );
+            newAlign(i) = alignSearch_weber( donor_t, target_t );
         end
+        
+        % Register acceptor side so that it is lined up with the donor.
+        registered_t{i} = imtransform( target_t, newAlign(i).tform, ...
+                           'bicubic', 'XData',[1 ncol], 'YData',[1 nrow]);
         
         total_t = total_t + registered_t{i};
         tform{i} = newAlign(i).tform;
@@ -700,7 +709,7 @@ end %FUNCTION getCentroids
 
 
 
-function [align,reg_img] = alignSearch_cpt( ref_img, target_img )
+function align = alignSearch_cpt( ref_img, target_img, initAlign )
 % ALIGNSEARCH    Align two images using a simple control point algorithm.
 %
 %    [bestAlign,bestReg,quality] = alignSearch( REF, TARGET, params)
@@ -731,12 +740,23 @@ target_peaks = target_peaks(~reject,:);
 
 % 2) For each peak in the reference, find the corresponding peak in the target.
 % K-nearest neighbor search (Statistics toolbox), where K=1. Using K>1 could be
-% used to verify there is no uncertainty (other pints are far away).
+% used to verify there is no uncertainty (other points are far away).
 % This will not work if the beads are too dense or if the distortion is too
 % severe -- the "correct" choice has to be closer than nearby beads.
-[idx,dist] = knnsearch( target_peaks, ref_peaks );
+if nargin>=3 && ~isempty(initAlign),
+    % Pre-align the target side if an initial guess is provided. This allows an
+    % iterative search for the correct alignment if it is far off.
+    temp = [target_peaks(:,1)-(ncol/2) target_peaks(:,2)-(nrow/2)];
+    temp = tformfwd(initAlign.tform, temp);
+    temp = [temp(:,1)+(ncol/2) temp(:,2)+(nrow/2)];
+    
+    [idx,dist] = knnsearch( temp, ref_peaks );
+else
+    [idx,dist] = knnsearch( target_peaks, ref_peaks );
+end
+
 target_peaks = target_peaks(idx,:);
-sel = dist<params.nPixelsToSum;
+sel = dist<params.nPixelsToSum;  %/2 may work better with dense, but close alignment.
 
 idx = idx(sel);
 target_peaks = target_peaks(sel,:);
@@ -762,14 +782,8 @@ assert( all(size(ref_peaks)==size(target_peaks)) );
 assert( size(ref_peaks,1)>3, 'Not enough control points to create an alignment' );
 tform = cp2tform( target_peaks, ref_peaks, 'nonreflective similarity' );
 
-
-% 4) Transform the target field image so it is aligned with the reference.
-% X/YData are needed so imtransform crops the output to the size of the input.
-reg_img = imtransform( target_img, tform, 'bicubic', ...
-                          'XData',[1 ncol], 'YData',[1 nrow]);
                       
-                      
-% 5) Calculate distortion parameters from tform.
+% 4) Calculate distortion parameters from tform.
 ss = tform.tdata.Tinv(2,1);
 sc = tform.tdata.Tinv(1,1);
 tx = tform.tdata.Tinv(3,1);
@@ -780,7 +794,7 @@ theta = atan2(ss,sc)*180/pi;
 align = struct( 'dx',tx,'dy',ty, 'theta',theta, 'sx',scale,'sy',scale, ...
                 'abs_dev',0, 'tform',tform );
 
-end %FUNCTION %function alignSearch_cpt
+end %FUNCTION alignSearch_cpt
 
 
 
@@ -801,9 +815,9 @@ function [bestAlign,bestReg] = alignSearch_weber( donor_t, acceptor_t )
 % These parameters used to be in cascadeConstants, but since they are very
 % specific to this algorithm, I moved them here. This makes some of the code
 % below redundant!
-params.alignment.theta = -4:0.1:4;
-params.alignment.dx    = -4:1:4;
-params.alignment.dy    = -4:1:4;  %all dx and dy must be integers
+params.alignment.theta = -1:0.1:1;
+params.alignment.dx    = -8:1:8;
+params.alignment.dy    = params.alignment.dx;  %all dx and dy must be integers
 params.alignment.sx    = 1;  %magnification (x)
 params.alignment.sy    = 1;  %magnification (y)
 params.alignRotate    = true;
@@ -844,12 +858,16 @@ ndx = numel(dx_range);
 ndy = numel(dy_range);
 
 if ~params.quiet && ntheta>1,
-    h = waitbar(0,'Searching for the optimal alignment');
+    parfor_progress( ntheta,'Searching for the optimal alignment');
 end
 
-% Start the matlab thread pool if not already running. perfor below will
-% run the calculations of the available processors. Required for parfor.
-% if isempty( gcp('nocreate') ),    parpool('IdleTimeout',120);   end
+% Start the matlab thread pool if not already running, unless disabled.
+if constants.enable_parfor,
+    pool = gcp;
+    M = pool.NumWorkers;
+else
+    M = 0;
+end
 
 % Reserve space for the best alignment for each possible rotation value.
 % This is required for parfor to work correctly because all threads must be
@@ -859,8 +877,7 @@ bestScores = zeros(ntheta,1);
 bestAligns = cell(ntheta,1);
 bestRegs = cell(ntheta,1);
 
-for t=1:ntheta,  %use this for single-threaded
-% parfor t=1:ntheta,
+parfor (t=1:ntheta,M)
     theta = theta_range(t);
     scoreTemp = zeros(ndx,ndy); %contrast scores for all translations.
     
@@ -881,6 +898,7 @@ for t=1:ntheta,  %use this for single-threaded
             dy = dy_range(j);
             
             % Translate the image, also removing the excess.
+            % FIXME: biased against moving too far because edges are zero?
             registered = zeros( size(acceptor_t) );
 
             registered( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) ) = ...
@@ -908,7 +926,8 @@ for t=1:ntheta,  %use this for single-threaded
     %scores(t,:,:) = scoreTemp;
     
     if ~params.quiet && ntheta>1,  %do not use with parfor
-        waitbar( t/ntheta, h );
+        %waitbar( t/ntheta, h );
+        parfor_progress();
     end
 end
 
@@ -932,7 +951,7 @@ bestAlign.tform = fliptform( maketform('affine',T) );
 
 
 if ~params.quiet && ntheta>1,
-    close(h);
+    parfor_progress(0);
 end
 
 end %FUNCTION alignSearch
@@ -1212,7 +1231,6 @@ end
 % this, find functions that give a flat response profile. The elements in
 % the lamba function cell array are in the same order as the channels.
 if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
-    
     for i=1:nCh,
         chName = data.channelNames{i};
         corr = params.biasCorrection{i}( x(i:nCh:end), y(i:nCh:end) );
@@ -1221,10 +1239,19 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     
 end
 
+% If this is multi-color FRET data and the metadata doesn't specify how FRET
+% should be calculated, ask the user for clarification.
+% NOTE: this is a temporary field and will be replaced by something more general
+% in a future version.
+if data.isChannel('acceptor2'),
+    result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
+                    '3-color FRET calculation','Yes','No','Cancel','No');
+    if strcmp(result,'Cancel'),  return;  end
+    data.fileMetadata(1).isTandem3 = double( strcmp(result,'Yes') );
+end
 
 % Subtract background and calculate FRET
 data = correctTraces(data);
-
 
 
 % ---- Metadata: save various metadata parameters from movie here.

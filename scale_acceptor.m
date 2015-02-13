@@ -92,8 +92,8 @@ data.recalculateFret();
 if nargin>=3,
     out_filename = varargin{3};
 else
-    [p,f] = fileparts(filename);    
-    [f,p] = uiputfile( '*.traces', 'Select output filename', fullfile(p,f) );
+    [p,f,e] = fileparts(filename);    
+    [f,p] = uiputfile( '*.traces', 'Select output filename', fullfile(p,[f '_corr' e]) );
     if ischar(f),
         out_filename = fullfile(p,f);
     else

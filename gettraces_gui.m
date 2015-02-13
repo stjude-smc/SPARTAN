@@ -139,7 +139,7 @@ varargout{1} = handles.output;
 % --------------- OPEN SINGLE MOVIE (CALLBACK) ---------------- %
 
 % --- Executes on button press in openstk.
-function openstk_Callback(hObject, ~, handles)
+function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % hObject    handle to openstk (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -532,7 +532,7 @@ else
     % If the alignment quality (confidence) is low, warn the user.
     if isfield(a,'quality'),
         if any( [a.quality]<1.1 & [a.quality]>0 ),
-            text = [text sprintf('\nLow quality alignment!')];
+            text = [text sprintf('\nLow confidence alignment!')];
         end
     end
     
@@ -761,7 +761,7 @@ clear stkData;
 % --------------------- MISC. GUI CALLBACK FUNCTIONS --------------------- %
 
 % --- Executes on slider movement.
-function scaleSlider_Callback(hObject, ~, handles)
+function scaleSlider_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update axes color limits from new slider value
 val = get(hObject,'value');
 minimum = get(hObject,'min');
@@ -789,7 +789,7 @@ guidata(hObject,handles);
 
 
 % --- Peak selection total intensity threshold specification
-function txtIntensityThreshold_Callback(hObject, ~, handles)
+function txtIntensityThreshold_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update gettraces parameters using specified values
 text = get(hObject,'String');
 if ~isempty( text )
@@ -804,7 +804,7 @@ guidata(hObject,handles);
 
 
 % --- Overlap rejection threshold specification
-function txtOverlap_Callback(hObject, ~, handles)
+function txtOverlap_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update gettraces parameters using specified values
 handles.params.overlap_thresh = 0;
 
@@ -819,7 +819,7 @@ guidata(hObject,handles);
 
 
 % --- Integration window size specification
-function txtIntegrationWindow_Callback(hObject, ~, handles)
+function txtIntegrationWindow_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update gettraces parameters using specified values
 text = get(hObject,'String');
 if ~isempty( text )
@@ -838,7 +838,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in chkSaveLocations.
-function chkSaveLocations_Callback(hObject, ~, handles)
+function chkSaveLocations_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update gettraces parameters using specified values
 handles.params.saveLocations = get(handles.chkSaveLocations,'Value');
 guidata(hObject,handles);
@@ -846,7 +846,7 @@ guidata(hObject,handles);
 
 
 
-function txtMaxIntensity_Callback(hObject, ~, handles)
+function txtMaxIntensity_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update axes color limits from new slider value
 val = str2double( get(hObject,'String') );
 minimum = get(handles.scaleSlider,'min');
@@ -951,7 +951,7 @@ guidata(hObject,handles);
 
 
 
-function txtDACrosstalk_Callback(hObject, ~, handles)
+function txtDACrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
 handles.params.crosstalk = str2double( get(hObject,'String') );
 guidata(hObject,handles);
@@ -960,7 +960,7 @@ guidata(hObject,handles);
 
 
 
-function txtPhotonConversion_Callback(hObject, ~, handles)
+function txtPhotonConversion_Callback(hObject, ~, handles)  %#ok<DEFNU>
 %
 handles.params.photonConversion = str2double( get(hObject,'String') );
 guidata(hObject,handles);
@@ -968,7 +968,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in btnMetadata.
-function btnMetadata_Callback(hObject, ~, handles)
+function btnMetadata_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Display a simple diaglog with the MetaMorph metadata for the first frame.
 % 
 
@@ -1025,9 +1025,13 @@ function btnLoadAlignment_Callback(hObject, ~, handles)
 % the "align" structure defined in gettraces, including dx, dy, theta, etc.
 %
 
+% Reset to disabled until an alignment file is correctly loaded.
+% Otherwise the GUI state will not match the program state.
+handles.params.alignMethod = 1;
+set( handles.cboAlignMethod, 'Value',1 );
+
 % This should only be used in multi-color experiments.
 assert( handles.params.geometry>1 );
-
 
 % Load an alignment file
 [f,p] = uigetfile('*.mat','Select an alignment settings file');
@@ -1062,7 +1066,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in btnSaveAlignment.
-function btnSaveAlignment_Callback(~, ~, handles)
+function btnSaveAlignment_Callback(~, ~, handles)  %#ok<DEFNU>
 % Save current software alignment settings (which may be set to do nothing
 % at all) to file so they can be reloaded later.
 %
@@ -1089,7 +1093,7 @@ end
 
 
 % --- Executes on button press in btnCrosstalk.
-function btnCrosstalk_Callback(hObject, ~, handles)
+function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % When there are more than 2 channels, the crosstalk is more than just a
 % scalar and can't be represented in the text box easily, so this button
 % will launch a dialog to show all the possible parameter values and allow
@@ -1142,7 +1146,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on selection change in cboAlignMethod.
-function cboAlignMethod_Callback(hObject, ~, handles)
+function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
 
 % methods = contents = cellstr(get(hObject,'String'));
@@ -1168,7 +1172,7 @@ end
 
 
 % --- Executes on button press in btnHidePicks.
-function btnHidePicks_Callback(~, ~, handles)
+function btnHidePicks_Callback(~, ~, handles)  %#ok<DEFNU>
 % Hide the circles drawn to indicate molecule locations so the field of
 % view image is more visible. They will show up again if the "Pick Peaks"
 % button is clicked.
@@ -1177,7 +1181,7 @@ delete(findobj(handles.figure1,'type','line'));
 
 
 % --- Executes on button press in chkAutoBatch.
-function chkAutoBatch_Callback(hObject, ~, handles)
+function chkAutoBatch_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
     
 % If another timer is running, stop it.

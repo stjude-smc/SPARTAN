@@ -84,7 +84,7 @@ cmosCommon.photonConversion = 2.04;   % 0.49 e-/ADU  (manual says 0.46?)
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.
 cmosCommon.don_thresh     = 0;   %molecule detection threshold (0=automatic)
-cmosCommon.overlap_thresh = 3;   %remove molecules that are w/i X pixels.
+cmosCommon.overlap_thresh = 3.5; %remove molecules that are w/i X pixels.
 cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
 cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
@@ -122,30 +122,30 @@ p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
-p.crosstalk   = 0.115;  %donor->acceptor
+p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
 profiles(end+1) = p;
 
-% For a few movies taken with old versions of Flash Gordon
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
-p.idxFields   = [2 1]; %R/L
-profiles(end+1) = p;
+% % For a few movies taken with old versions of Flash Gordon
+% p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
+% p.idxFields   = [2 1]; %R/L
+% profiles(end+1) = p;
 
 
-p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
+p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7, NO bandpass)';
 p.geometry    = 3;
 p.idxFields   = [1 2 4]; % field order: UL,UR,LR.
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
 p.wavelengths = [532 640 730];
 p.crosstalk   = zeros(4);
-p.crosstalk(1,2) = 0.066;   %Cy3->Cy5
-p.crosstalk(2,3) = 0.015;   %Cy5->Cy7 (is this correct???)
+p.crosstalk(1,2) = 0.11;   %Cy3->Cy5 (same as 2-color; was 0.066 with bandpasses in?)
+p.crosstalk(2,3) = 0.04;   %Cy5->Cy7 (0.015 with bandpasses in?)
 profiles(end+1) = p;
 
-% For a few movies taken with old versions of Flash Gordon
-p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7) OLD ORDER';
-p.idxFields   = [3 2 1]; % field order: LL, UR, UL
-profiles(end+1) = p;
+% % For a few movies taken with old versions of Flash Gordon
+% p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7) OLD ORDER';
+% p.idxFields   = [3 2 1]; % field order: LL, UR, UL
+% profiles(end+1) = p;
 
 
 
