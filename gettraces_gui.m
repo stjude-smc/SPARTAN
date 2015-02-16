@@ -1025,10 +1025,8 @@ function btnLoadAlignment_Callback(hObject, ~, handles)
 % the "align" structure defined in gettraces, including dx, dy, theta, etc.
 %
 
-% Reset to disabled until an alignment file is correctly loaded.
-% Otherwise the GUI state will not match the program state.
-handles.params.alignMethod = 1;
-set( handles.cboAlignMethod, 'Value',1 );
+% Reset the GUI to its previous state until alignment file is correctly loaded.
+set( handles.cboAlignMethod, 'Value',handles.params.alignMethod );
 
 % This should only be used in multi-color experiments.
 assert( handles.params.geometry>1 );
@@ -1039,23 +1037,31 @@ alignFilename = [p f];
 if f==0, return; end
 
 try
-    % Overwrite alignment settings with those in the file.
     input = load(alignFilename);
+    
+    % If the alignment was made with version 2.8 or earlier, transformations are
+    % not about the center of the image (as they are in 2.9 and greater).
+    % This is a big difference. Old alignments will not work correctly.
+    if isfield(input.alignment(2).tform,'tdata'),
+        error('gettraces:oldAlignment','Alignment files from version 2.8 and earlier are not supported.');
+    elseif ~isa(input.alignment(2).tform,'affine2d'),
+        error('gettraces:badAlignTform','Unrecognized tform class');
+    end
+    
+    % Overwrite alignment settings with those in the file.
     handles.params.alignment = input.alignment;
     handles.alignment = input.alignment; %???
 catch e,
     % If the file is invalid, give a warning and reset the button so
     % that is as if nothing happened.
-    disp( ['Invalid alignment file: ' e.message] );
+    warning('gettraces:invalidAlignFile', ['Invalid alignment file: ' e.message]);
     return;
 end
 
-% 4) Disable alignment controls and set to checked.
+% Update GUI (alignment was successfully loaded) and pick molecules again.
 handles.params.alignMethod = 2;
 set( handles.cboAlignMethod, 'Value',2 );
-    
 
-% Re-pick molecules with new settings.
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
@@ -1153,8 +1159,6 @@ function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 sel = get(hObject,'Value');
 % method = contents{sel};
 
-handles.params.alignMethod = sel;
-
 if sel==2
     % Load alignment from file.
     % FIXME: if this fails or the user hits cancel, the dropdown has "load
@@ -1162,6 +1166,7 @@ if sel==2
     btnLoadAlignment_Callback(hObject, [], handles);
 else
     % Re-pick molecules with new settings.
+    handles.params.alignMethod = sel;
     handles = getTraces_Callback(hObject, [], handles);
     guidata(hObject,handles);
 end
