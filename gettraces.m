@@ -143,15 +143,8 @@ function [stkData] = OpenStk(filename)
 
 if ~iscell(filename),  filename = {filename};  end
 
-[~,~,ext] = fileparts(filename{1});
 % Load movie data from file.
-if ~isempty( strfind(ext,'.stk') ),
-    movie = Movie_STK( filename );
-elseif ~isempty( strfind(ext,'.tif') ),
-    movie = Movie_TIFF( filename );    
-else
-    error('Unrecognized file type');
-end
+movie = Movie.load(filename{1});
 time = movie.timeAxis;
 stkX = movie.nX;
 stkY = movie.nY;
@@ -473,13 +466,15 @@ if params.geometry>1 && numel(picks)>0,
         % each of the other fields.
         a = r_mod(i:nCh:end,:);
 
-        tform = cp2tform( d(~rejected,:), a(~rejected,:), 'nonreflective similarity' );
-        T = tform.tdata.T;
-        theta = asind( T(1,2) );
-        align(i) = struct( 'dx',T(3,1), 'dy',T(3,2), 'theta',theta, ...
-                           'sx',T(1,1)/cosd(theta), 'sy',T(2,2)/cosd(theta), ...
-                           'abs_dev',abs_dev );
+        tform = fitgeotrans( d(~rejected,:), a(~rejected,:), 'NonreflectiveSimilarity' );
+        ss = tform.T(2,1);
+        sc = tform.T(1,1);
+        scale = sqrt(ss*ss + sc*sc);
+        theta = atan2(ss,sc)*180/pi;
+        align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), ...
+                'theta',theta, 'sx',scale, 'sy',scale, 'abs_dev',abs_dev );
         
+                       
         % Measure the "quality" of the alignment as the magnitude increase in
         % score compared to a "random" alignment.
         target_t = allFields(:,:,params.idxFields(i));
@@ -513,30 +508,26 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         if i==indD, continue; end %don't try to align donor to itself.
         target_t = allFields(:,:,params.idxFields(i));
         
-        % Search for an optimal alignment of the selected field vs donor.        
+        % Search for an optimal alignment of the selected field vs donor.
+        % tform moves the acceptor field to be aligned with the donor.
         if params.alignMethod==2,
             % Nothing to search, just apply the alignment.
             newAlign(i) = params.alignment(i);
         
         elseif params.alignMethod==3,
-            % Use peaks of fluorescence as control points.
-            % Repeat a few times to walk towards far-off solutions.
-            % FIXME: doesn't work so well aligning with actual molecules when
-            % iterating multiple times. Why? Do we need multiple settings?
-            a = [];
-            for itr=1:3,
-                a = alignSearch_cpt( donor_t, target_t, a );
-            end
-            newAlign(i) = a;
+            % Iterative closest point algorithm.
+            newAlign(i) = icpalign( donor_t, target_t );
         
         elseif params.alignMethod==4,
             % Old, slow brute force method.
-            newAlign(i) = alignSearch_weber( donor_t, target_t );
+            newAlign(i) = weberalign( donor_t, target_t );
         end
         
         % Register acceptor side so that it is lined up with the donor.
-        registered_t{i} = imtransform( target_t, newAlign(i).tform, ...
-                           'bicubic', 'XData',[1 ncol], 'YData',[1 nrow]);
+        % imref2d specifies the center of the image is the origin (0,0).
+        R = imref2d( size(target_t), [-1 1]*nrow/2, [-1 1]*ncol/2 );
+        registered_t{i} = imwarp( target_t,R, newAlign(i).tform,...
+                                    'Interp','cubic', 'OutputView',R );
         
         total_t = total_t + registered_t{i};
         tform{i} = newAlign(i).tform;
@@ -546,7 +537,7 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         % FIXME: the threshold here is for total intensity, which may be much
         % brighter than the combination of any two channels. This could give 
         % low quality scores even when the alignment is good.
-        quality(i) =  weberQuality(donor_t,registered_t{i},0.7*params.don_thresh);
+        quality(i) = weberQuality(donor_t,registered_t{i},0.7*params.don_thresh);
     end
     
     % If the optimal alignment is not trivial, re-pick molecule locations and
@@ -602,8 +593,8 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
 end
 
 if ~params.quiet && nCh>1,
-    disp('Weber contrast alignment quality score:');
-    disp( quality(2:end) );
+    text = sprintf(' %.3f',quality(2:end));
+    disp([ 'Weber contrast alignment confidence score:' text] );
 end
 
 % Save output
@@ -709,20 +700,24 @@ end %FUNCTION getCentroids
 
 
 
-function align = alignSearch_cpt( ref_img, target_img, initAlign )
-% ALIGNSEARCH    Align two images using a simple control point algorithm.
+function align = icpalign( ref_img, target_img, maxitr )
+% icpalign Align images using the iterative closest point algorithm
 %
-%    [bestAlign,bestReg,quality] = alignSearch( REF, TARGET, params)
+%   ALIGN = icpalign( REFERRENCE, TARGET )
+%   detects molecules as maxima above a threshold spots in each image
+%   separately. For each point in the reference (fixed points), find the
+%   closest point in the target ("moving" points) and use these pairs as
+%   control points to estimate a transformation matrix. Target points are
+%   moved using the transformation toward (hopefully) the reference points.
+%   The process is iterated several times until convergence, allowing the
+%   algorithm to "walk" toward the correction solution.
 %
-% Finds all bright spots in the field-of-view, picking on each field separately,
-% then uses nearest neighbors in each field as control points for creating a
-% transformation matrix. This allows translation, rotation, scaling, and some
-% non-linear distortions. Generally this is only possible with beads samples,
-% where there is a high SNR signal on all channels and no background junk to
-% confuse the algorithm. This will not work well for single fluorophores.
+%   The algorithm is robust to uncertainty in coordinates, missing points
+%   (donor-only or high-FRET), and spurious points, but it is best suited
+%   to beads or patterned arrays that have high SNR and identical points
+%   on all channels.
 %
-% TODO: allow multiple arguments for aligning multiple fields. The first image
-% will be the reference.
+% See also: WEBERALIGN
 %
 
 [nrow,ncol] = size(ref_img);
@@ -731,127 +726,140 @@ assert( all(size(ref_img)==size(target_img)) );
 
 % 1) Detect beads as brights spots above background.
 % A lower threshold is used to better detect dim channels (Cy7).
-[~,reject,ref_peaks]    = pickPeaks( ref_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
-ref_peaks = ref_peaks(~reject,:);
+% NOTE: All coordinates are X,Y, but indexing in images is X,Y
+[~,reject,fixed] = pickPeaks( ref_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
+fixed = fixed(~reject,:);
 
-[~,reject,target_peaks] = pickPeaks( target_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
-target_peaks = target_peaks(~reject,:);
+[~,reject,moving] = pickPeaks( target_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
+moving = moving(~reject,:);
+
+% Translate coordinates so the center of the image is (0,0), so that
+% rotation and scale will be about the center of the image.
+% NOTE: a correct imref2d must be used with tform as a result.
+fixed  = [ fixed(:,1)-(ncol/2)  fixed(:,2)-(nrow/2)  ];
+moving = [ moving(:,1)-(ncol/2) moving(:,2)-(nrow/2) ];
 
 
-% 2) For each peak in the reference, find the corresponding peak in the target.
-% K-nearest neighbor search (Statistics toolbox), where K=1. Using K>1 could be
-% used to verify there is no uncertainty (other points are far away).
-% This will not work if the beads are too dense or if the distortion is too
-% severe -- the "correct" choice has to be closer than nearby beads.
-if nargin>=3 && ~isempty(initAlign),
-    % Pre-align the target side if an initial guess is provided. This allows an
-    % iterative search for the correct alignment if it is far off.
-    temp = [target_peaks(:,1)-(ncol/2) target_peaks(:,2)-(nrow/2)];
-    temp = tformfwd(initAlign.tform, temp);
-    temp = [temp(:,1)+(ncol/2) temp(:,2)+(nrow/2)];
+% 2) Iterative closest point algorithm to estimate alignment transformation
+% Parameters
+if nargin<3, maxitr = 200; end
+errtol  = 1e-3; %<1px error for the 1% most uncertain points.
+gradtol = 1e-6; %minimum change in error before we assume convergence.
+
+% Initialization
+registered = moving;
+err = zeros(maxitr,1);
+minerror = Inf;  %minimum residual error seen so far.
+
+for itr=1:maxitr,
+    % For each "fixed" spot, find the nearest neighbor.
+    [idx,dist] = knnsearch( registered, fixed );
     
-    [idx,dist] = knnsearch( temp, ref_peaks );
-else
-    [idx,dist] = knnsearch( target_peaks, ref_peaks );
+    % Remove pairs with large separations, which are probably just noise.
+    % FIXME: find a better filter. This doesn't help.
+    % moving = moving(idx,:);
+    % sel = dist<params.nPixelsToSum;
+    % 
+    % idx = idx(sel);
+    % moving = moving(sel,:);
+    % fixed  = fixed(sel,:);
+    
+    % Use point pairs to estimate an optimal transformation.
+    tform = fitgeotrans( moving(idx,:), fixed, 'nonreflectivesimilarity' );
+
+    % Forward transform (about center of image) to see how we did.
+    registered = transformPointsForward( tform, moving );
+
+    % Estimated error: residual distance between nearest neighbors.
+    delta = (fixed-registered(idx,:)).^2;
+    err(itr) = sum(  sqrt( delta(:,1)+delta(:,2) )  )/size(delta,1);
+    minerror = min( err(itr), minerror );
+    
+    % Termination: test for convergance
+    if itr>1 && abs(err(itr)-err(itr-1)) < gradtol,
+        break;
+    end
+    
+    if err(itr)<errtol, %only terminates this way with beads.
+        break;
+    end
+end
+err = err(1:itr);
+
+% Display minimization of error and convergence of fit.
+% figure;
+% plot(err);
+% title('ICP algorithm iterations');
+% xlabel('Iteration number');
+% ylabel('Average residual error (pixels)');
+
+if itr==maxitr && maxitr>1,
+    warning('ICP:ExceededMaxIterations','Did not converge within maximum number of iterations');
 end
 
-target_peaks = target_peaks(idx,:);
-sel = dist<params.nPixelsToSum;  %/2 may work better with dense, but close alignment.
+if err(itr)-minerror > 1,
+    warning('ICP:Diverged','Fitting may have diverged.');
+end
 
-idx = idx(sel);
-target_peaks = target_peaks(sel,:);
-ref_peaks    = ref_peaks(sel,:);
+% Display final alignment.
+% figure;
+% scatter( fixed(:,1),fixed(:,2),'bo' );
+% hold on;
+% scatter( moving(:,1),moving(:,2),'ro' );
+% scatter( registered(:,1),registered(:,2),'gx' );
+% hold off;
 
-% Find any reference peaks that use the same target peak multiple times. Such
-% points clearly have some uncertainty and should be thrown out.
-% Apparently this does not help. 
+
+% Document the degree of residual error. FIXME
 if ~params.quiet,
+    fprintf('ICP converged after %d iterations (residual error %.2f px)\n',itr,err(itr));
+    
     u = unique(idx);
     n = histc(idx,u); %count how many times each index is used
-    fprintf('alignSearch_cpt: %.0f (%0.0f%%) were used; of those %.0f (%.0f%%) are ambiguous\n', ...
+    fprintf('ICP: %.0f (%0.0f%%) were used; of those %.0f (%.0f%%) are ambiguous\n', ...
              numel(idx), 100*numel(idx)/numel(dist), sum(n>1), 100*sum(n>1)/numel(n) );
 end
 
-% idx = u(n==1);
-% ref_peaks    = ref_peaks(idx,:);
-% target_peaks = target_peaks(idx,:);
-
-
-% 3) Generate the transformation matrix from control points
-assert( all(size(ref_peaks)==size(target_peaks)) );
-assert( size(ref_peaks,1)>3, 'Not enough control points to create an alignment' );
-tform = cp2tform( target_peaks, ref_peaks, 'nonreflective similarity' );
-
-                      
 % 4) Calculate distortion parameters from tform.
-ss = tform.tdata.Tinv(2,1);
-sc = tform.tdata.Tinv(1,1);
-tx = tform.tdata.Tinv(3,1);
-ty = tform.tdata.Tinv(3,2);
+% These parameters describe the distortion that created the misalignment,
+% which is the inverse of the tform to align the acceptor (moving) to donor (fixed).
+tinv = invert(tform);
+ss = tinv.T(2,1);
+sc = tinv.T(1,1);
+tx = tinv.T(3,1);
+ty = tinv.T(3,2);
 scale = sqrt(ss*ss + sc*sc);
 theta = atan2(ss,sc)*180/pi;
 
 align = struct( 'dx',tx,'dy',ty, 'theta',theta, 'sx',scale,'sy',scale, ...
                 'abs_dev',0, 'tform',tform );
 
+
 end %FUNCTION alignSearch_cpt
 
 
 
 
-function [bestAlign,bestReg] = alignSearch_weber( donor_t, acceptor_t )
-% ALIGNSEARCH    Aligns two wide-field images (donor+acceptor in FRET)
+function [bestAlign,bestReg] = weberalign( donor, acceptor )
+% weberalign Exhaustive alignment search, optimizing image Weber contrast.
 %
-%    [bestAlign,bestReg] = alignSearch( image_t, params, [forceAlign] )
+%   ALIGN = weberalign( REFERENCE, TARGET )
+%   performes a full search for a transformation (rotation+translation) of
+%   the acceptor side relative to the donor. For each combination of dx,
+%   dy, and dtheta (across a range in each), transform the acceptor side
+%   image, sum the donor and acceptor images, and calculate a contrast
+%   score. The one with the brightest, sharpest peaks wins.
 %
-% Full search for a transformation (rotation+translation) of the acceptor
-% side relative to the donor. For each combination of dx, dy, and dtheta
-% (across a range in each), transform the acceptor side image, sum the
-% donor and acceptor images, and calculate a contrast score. The one with
-% the brightest, sharpest peaks wins.
+% See also: icpalign, weberQuality.
 %
 
 
-% These parameters used to be in cascadeConstants, but since they are very
-% specific to this algorithm, I moved them here. This makes some of the code
-% below redundant!
-params.alignment.theta = -1:0.1:1;
-params.alignment.dx    = -8:1:8;
-params.alignment.dy    = params.alignment.dx;  %all dx and dy must be integers
-params.alignment.sx    = 1;  %magnification (x)
-params.alignment.sy    = 1;  %magnification (y)
-params.alignRotate    = true;
-params.alignTranslate = true;
+[nrow,ncol] = size(donor);
 
-[nrow,ncol] = size(donor_t);
-
-
-% Get parameter search ranges from input arguments, if available.
-if isfield(params,'alignment') && ~isempty(params.alignment),
-    dx_range = params.alignment.dx;
-    dy_range = params.alignment.dy;
-    theta_range = params.alignment.theta;
-else
-    % If no parameters given, disable search.
-    theta_range = 0;
-    dx_range = 0;
-    dy_range = 0;
-end
-
-% Disable search for parameters if the settings say not to search.
-if ~isfield(params,'alignRotate') || ~params.alignRotate,
-    theta_range = 0;
-end
-
-if ~isfield(params,'alignTranslate') || ~params.alignTranslate,
-    dx_range = 0;
-    dy_range = 0;
-end
-
-
-% Round translation to integers; the algorithm do subpixel shifts.
-dx_range = round(dx_range);
-dy_range = round(dy_range);
+% Search parameters (dx and dy must be whole numbers):
+dx_range = -8:1:8;
+dy_range = -8:1:8;
+theta_range = -1:0.1:1;
 
 ntheta = numel(theta_range);
 ndx = numel(dx_range);
@@ -877,7 +885,7 @@ bestScores = zeros(ntheta,1);
 bestAligns = cell(ntheta,1);
 bestRegs = cell(ntheta,1);
 
-parfor (t=1:ntheta,M)
+parfor (t=1:ntheta, M)
     theta = theta_range(t);
     scoreTemp = zeros(ndx,ndy); %contrast scores for all translations.
     
@@ -889,17 +897,17 @@ parfor (t=1:ntheta,M)
     % range can remove the bias, but in practice this isn't necessary.
     % There may also be a minor bias toward low FRET using this since the
     % acceptor side will have weaker intensity.
-    rot_a = imrotate( acceptor_t, theta, 'bicubic', 'crop' );
+    rot_a = imrotate( acceptor, theta, 'bicubic', 'crop' );
     
     for i=1:ndx,
-        dx = dx_range(i);
+        dx = dx_range(i); %#ok<PFBNS>
             
         for j=1:ndy,
-            dy = dy_range(j);
+            dy = dy_range(j); %#ok<PFBNS>
             
             % Translate the image, also removing the excess.
             % FIXME: biased against moving too far because edges are zero?
-            registered = zeros( size(acceptor_t) );
+            registered = zeros( size(acceptor) );
 
             registered( max(1,1-dy):min(nrow,nrow-dy), max(1,1-dx):min(ncol,ncol-dx) ) = ...
                 rot_a( max(1,1+dy):min(nrow,nrow+dy), max(1,1+dx):min(ncol,ncol+dx) );
@@ -907,7 +915,7 @@ parfor (t=1:ntheta,M)
             % Calculate Weber contrast as a score. When the fields are not
             % aligned, the peak intensities go down and some peaks fall
             % below the threshold of background, lowering contrast.
-            total = donor_t+registered;
+            total = donor+registered;
             picks = total>params.don_thresh;    %pixels above background
             Ib = mean( total(~picks) );  %background intensity
             S = ( mean(total(picks)) -Ib ) / Ib;  %Weber contrast score
@@ -925,8 +933,7 @@ parfor (t=1:ntheta,M)
     
     %scores(t,:,:) = scoreTemp;
     
-    if ~params.quiet && ntheta>1,  %do not use with parfor
-        %waitbar( t/ntheta, h );
+    if ~params.quiet && ntheta>1,
         parfor_progress();
     end
 end
@@ -939,15 +946,13 @@ bestReg   = bestRegs{bestIdx};
         
 
 % Create a transformation matrix from the alignment parameters.
-Ts = ones(3);
-Ts(1,1) = 1;  % x scaling
-Ts(2,2) = 1;  % y scaling
-
-T = [  cosd(bestAlign.theta)  sind(bestAlign.theta)  0 ; ...
-      -sind(bestAlign.theta)  cosd(bestAlign.theta)  0 ; ...
-            bestAlign.dx           bestAlign.dy      1 ];
-T = T.*Ts;
-bestAlign.tform = fliptform( maketform('affine',T) );
+scale=1; %FIXME: should be optimized also.
+sc = scale*cosd(bestAlign.theta);
+ss = scale*sind(bestAlign.theta);
+T = [ sc           -ss            0;
+      ss            sc            0;
+      bestAlign.dx  bestAlign.dy  1];
+bestAlign.tform = affine2d(T);
 
 
 if ~params.quiet && ntheta>1,

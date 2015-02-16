@@ -1,4 +1,4 @@
-function [picks,rejects] = splitPeaks2( total_picks, fieldSize, quadrant, tform )
+function [picks,rejects] = translatePeaks( total_picks, fieldSize, quadrant, tform )
 % Predict peak locations for a specific fluorescence field given the
 % locations of the peaks in the total fluorescence intensity image.
 % This involves translating the image into the target quadrant and 
@@ -45,12 +45,8 @@ if nargin>3 && ~isempty(tform),
     % We have to first center the peak locations at (0,0) so the rotation is
     % about the center of the image, then put it back afterward.
     % Peak (maxima) locations must be integers, so they are rounded.
-    % FIXME: this may be required for alignSearch_weber!
-%     picks = tformfwd(  tform,  [total_picks(:,1)-(ncol/2) total_picks(:,2)-(nrow/2)]  );
-%     picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
-    
-    % Centering isn't required (it actually breaks it) for a real tform.
-    picks = round( tforminv( tform, total_picks ) );
+    picks = transformPointsInverse(  tform,  [total_picks(:,1)-(ncol/2) total_picks(:,2)-(nrow/2)]  );
+    picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
     
     % Mark any peaks that now fall outside the field limits.
     rejects = picks(:,1)<3      | picks(:,2)<3       | ...

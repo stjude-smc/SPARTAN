@@ -131,14 +131,12 @@ else
 end
 
 % Construct a transformation to mimic field misalignment.
-% FIXME: something is wrong here. values in gettraces do not match.
-% FIXME: add scale!
-dx = params.alignX; dy = params.alignY; % translation factors
-sx = 1; sy = 1; % scaling (magnification) factors
-theta = params.alignTheta*pi/180; % degrees of rotation about center.
-T = [ sx*cos(theta)     sin(theta)  0 ; ...
-        -sin(theta)  sy*cos(theta)  0 ; ...
-               dx             dy    1 ];
+scale = 1;  %FIXME: should be a parameter.
+sc = scale*cosd(params.alignTheta);
+ss = scale*sind(params.alignTheta);
+T = [ sc -ss  0;
+      ss  sc  0;
+      params.alignX  params.alignY  1];
 tform = affine2d(T);
 
 % Tranform acceptor side positions accordingly.
