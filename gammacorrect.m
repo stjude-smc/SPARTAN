@@ -1,5 +1,5 @@
-function mean_gamma = gamma_correct(files,mean_gamma)
-%gamma_correct: scale acceptor intensity by estimated gamma values.
+function mean_gamma = gammacorrect(files,mean_gamma)
+% gammacorrect scale acceptor intensity by estimated gamma values.
 %
 %   Corrects for unequal sensitivity and/or quantum yield of donor and acceptor
 %   fluorophores in two-color FRET traces. A gamma value (ratio of donor to
@@ -8,17 +8,17 @@ function mean_gamma = gamma_correct(files,mean_gamma)
 %   acceptor fluorophores -- these ideally should be identical. See TJ Ha, 2004.
 %   The output is saved to a new file specified by the user.
 %
-%       GAMMA = gamma_correct;   %will ask for files to process
-%       GAMMA = gamma_correct( FILENAME );
+%       GAMMA = gammacorrect;   %will ask for files to process
+%       GAMMA = gammacorrect( FILENAME );
 % 
 %   To use a known gamma value, rather than calculate from the data:
 %
-%       gamma_correct( FILENAME, GAMMA );
+%       gammacorrect( FILENAME, GAMMA );
 %
 %   If more than one file is given, file names are chosen automatically as
 %   "xxx_gammacorrect.traces" without an opportunity to change the name.
 % 
-% See also: scale_acceptor, crosstalk_correct.
+% See also: scaleacceptor, crosstalkcorrect.
 % 
 
 
@@ -71,7 +71,7 @@ for i=1:nFiles
      
     % Save resulting data
     [p,f,e] = fileparts( files{i} );
-    outFilename = fullfile(p, [f '_gammacorrect' e]);
+    outFilename = fullfile(p, [f '_gcorr' e]);
     
     if nFiles==1,
         [f,p] = uiputfile(outFilename,'Save corrected file');
@@ -84,7 +84,7 @@ for i=1:nFiles
 end %for each file
 
 
-end %function gamma_correct
+end %function gammacorrect
 
 
 
@@ -118,7 +118,7 @@ for i = 1:nTraces
     % Determine the points at which the donor and acceptor photobleach.
     % To reduce spurious "events", ignore runs of <5 frames above background.
     fretRange = fret >= 0.2;  %constants.min_fret;
-    fretRange = rleFilter( fretRange, constants.rle_min );    
+    fretRange = rleFilter( fretRange, constants.rle_min );
     acc_lt = find( fretRange, 1, 'last');
     
     % Use only when the region is long enough for calculation.

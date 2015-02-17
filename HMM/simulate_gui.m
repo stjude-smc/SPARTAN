@@ -292,8 +292,7 @@ function btnLoadModel_Callback(hObject, ~, handles)   %#ok<DEFNU>
 persistent modelLoc;
 
 if isempty(modelLoc),
-    constants = cascadeConstants;
-    modelLoc = constants.modelLocation;
+    modelLoc = pwd;
 end
 
 [p] = fileparts(modelLoc);

@@ -161,7 +161,7 @@ for i=1:nFiles,
     if i==1,
         dataAll = data;
     else
-        dataAll.combine(data);
+        dataAll = combine(dataAll,data);
     end
     
     % Update status bar
@@ -187,12 +187,11 @@ end
 
 
 %% ---- Save log file
-[p,n,ext] = fileparts(outFilename);
+[p,n] = fileparts(outFilename);
 if isempty(p)
     p = pwd;
 end
-    
-% logFilename = strrep(outFilename,'.traces','.log');
+
 logFilename = fullfile(p, [n '.log']);
 fid = fopen(logFilename,'w');
 
@@ -205,26 +204,23 @@ for i=1:numel(files)
     fprintf(fid,' %5d: %s\n',nTracesPerFile(i),shortName);
 end
 
-% nPicked = numel(picks);
 nPicked = size( data.donor,1 );
-nTotalTraces = sum(nTracesPerFile);
+stats = allStats;
 
 fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
-            nPicked, nTotalTraces, 100*nPicked/nTotalTraces );  
+            nPicked, numel(stats), 100*nPicked/numel(stats) );
 
         
-% Descriptive statistics about dataset
-stats = allStats;
+% Descriptive statistics about dataset.
 isMolecule      = sum( [stats.snr]>0 );
 singleMolecule  = sum( [stats.snr]>0 & [stats.overlap]==0 );
 hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 );
-other           = nPicked;
 
 fprintf(fid,'PICKING RESULTS\n');
-fprintf(fid, '  %20s:  %-5d (%.1f%% of total)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/nTotalTraces);
-fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET,        100*hasFRET/singleMolecule);
-fprintf(fid, '  %20s:  %-5d (%.1f%% of above)\n', 'Pass all criteria',   other,          100*other/hasFRET);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of total)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/numel(stats));
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET,        100*hasFRET/singleMolecule);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Pass all criteria',   nPicked,        100*nPicked/hasFRET);
 fprintf(fid, '\n\n');
 
 
@@ -282,7 +278,7 @@ for i=1:nFiles,
 end
 
 % Concatinate all pathnames into a single string matrix.
-files = strvcat(files);
+files = char(files);
 
 % Find any differences
 diffs = zeros(1,size(files,2));

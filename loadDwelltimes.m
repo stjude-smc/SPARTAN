@@ -7,7 +7,7 @@ if nargin<2,
 end
 
 % Load dwell times
-[idl,sampling,offsets,model] = LoadDWT( dwtfilename );
+[idl,sampling,~,model] = loadDWT( dwtfilename );
 nStates = numel(model)/2;
 nTraces = numel(idl);
 

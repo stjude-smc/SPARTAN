@@ -1,5 +1,5 @@
-function data = scale_acceptor( varargin )
-% SCALE_ACCEPTOR:  Scale acceptor fluorescence so that gamma is ~1.
+function data = scaleacceptor( varargin )
+% scaleacceptor Scale acceptor fluorescence so that gamma is ~1.
 %
 %    The FRET-distance relationship is generally defined assuming that the donor
 %    and acceptor intensities have roughly the same apparent brightness
@@ -8,12 +8,12 @@ function data = scale_acceptor( varargin )
 %
 %    To scale acceptor intensity of all traces in a file:
 %    
-%       data = SCALE_ACCEPTOR( filename, scale_factor, output_filename );
+%       data = SCALEACCEPTOR( filename, scale_factor, output_filename );
 %
 %    If any of these parameters are not specified, you will be prompted for
 %    them.
 %
-%    See also GAMMA_CORRECT.
+%    See also gammacorrect.
 %
 
 
@@ -48,7 +48,7 @@ else
     nCh = sum(ch);
     prompts = strcat( 'Scale factor for ', data.channelNames(ch), ':' );
     
-    answer = inputdlg( prompts, 'scale_acceptor: enter scale factor', 1, ...
+    answer = inputdlg( prompts, 'Enter factor to scale acceptor intensity', 1, ...
                                                        repmat({'1'},[nCh 1]) );
     if isempty(answer) || isempty(answer{1}),
         return;  %user hit cancel.
@@ -92,7 +92,7 @@ data.recalculateFret();
 if nargin>=3,
     out_filename = varargin{3};
 else
-    [p,f,e] = fileparts(filename);    
+    [p,f,e] = fileparts(filename);
     [f,p] = uiputfile( '*.traces', 'Select output filename', fullfile(p,[f '_corr' e]) );
     if ischar(f),
         out_filename = fullfile(p,f);
@@ -108,7 +108,7 @@ saveTraces( out_filename, data );
 
 
 
-end %function scale_acceptor
+end %function scaleacceptor
 
 
 

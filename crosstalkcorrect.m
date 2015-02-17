@@ -1,5 +1,5 @@
-function [mean_crosstalk] = crosstalk_correct(files,mean_crosstalk)
-%CROSSTALK_CORRECT: subtract spectral crosstalk from fluorescence signals.
+function [mean_crosstalk] = crosstalkcorrect(files,mean_crosstalk)
+% crosstalkcorrect subtract spectral crosstalk from fluorescence signals.
 %
 %  Fluorescence emission from one fluorophore can be detected on channels of
 %  other fluorophores as an elevated baseline when the first fluorophore.
@@ -10,21 +10,21 @@ function [mean_crosstalk] = crosstalk_correct(files,mean_crosstalk)
 %
 %  A single, average crosstalk value per file is used to make the correction.
 %
-%       CROSSTALK = crosstalk_correct;   %will ask for files to process
-%       CROSSTALK = crosstalk_correct( FILENAME );
+%       CROSSTALK = crosstalkcorrect;   %will ask for files to process
+%       CROSSTALK = crosstalkcorrect( FILENAME );
 % 
 %   To instead use a known crosstalk value:
 %
-%       gamma_correct( FILENAME, GAMMA );
+%       crosstalkcorrect( FILENAME, CROSSTALK );
 %
 %   If more than one file is given, file names are chosen automatically as
-%   "xxx_crosstalkcorrect.traces" without an opportunity to change the name.
+%   "xxx_ccorr.traces" without an opportunity to change the name.
 %   
 %   NOTE: this may not work correctly with >15% crosstalk. Consider using an
 %   initial correction with an approximate value to get it close and use the
 %   script again to make a fine-tuned correction.
 %
-% See also: scale_acceptor, gamma_correct.
+% See also: scaleacceptor, gammacorrect.
 % 
 
 
@@ -77,7 +77,7 @@ for i=1:nFiles
      
     % Save resulting data
     [p,f,e] = fileparts( files{i} );
-    outFilename = fullfile(p, [f '_crosstalkcorrect' e]);
+    outFilename = fullfile(p, [f '_ccorr' e]);
     
     if nFiles==1,
         [f,p] = uiputfile(outFilename,'Save corrected file');
@@ -91,7 +91,7 @@ end %for each file
 
 
 
-end %function crosstalk_correct
+end %function crosstalkcorrect
 
 
 
