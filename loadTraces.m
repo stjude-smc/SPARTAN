@@ -23,7 +23,7 @@ function data = loadTraces( filename, indexes )
 %   Four-color FRET and more complex experiments are not supported. FIXME
 %
 
-data = struct();
+data = [];
 
 % If no file is specified, ask for one from the user.
 if nargin<1 || isempty(filename),
@@ -299,7 +299,7 @@ end
 % 4) Read fluorescence and FRET data.
 assert( dataType==9, 'Only single values are supported.');
 
-data.time = fread( fid, [traceLen,1], dataTypes{dataType+1} ); %time axis (in seconds)
+data.time = fread( fid, [1,traceLen], dataTypes{dataType+1} ); %time axis (in seconds)
 
 % Many matlab functions (like std) will not work on integer data types,
 % so loading as an integer (or whatever) will cause all sorts of
@@ -331,7 +331,7 @@ section = '';
 
 % Adding this just to give the traceMetadata struct a basic structure,
 % which is needed for building structure arrays. 'temp' is removed later.
-traceMetadata = struct( 'temp', num2cell(indexes) );
+traceMetadata = struct( 'temp', num2cell(indexes)' );
 
 while 1,
     % Read the page header.
@@ -355,8 +355,7 @@ while 1,
     % Extract ids (delimited text).
     % FIXME: do this for any field with char(31) -- delimited text.
     if strcmp(title,'ids'),
-        c = textscan(m, '%s', nTraces, 'Delimiter',char(31));
-        m = c{1}';
+        m = strsplit(m,char(31), 'CollapseDelimiters',false);
     end
     
     % Look for section markers that delimit traceMetadata from fileMetadata
@@ -369,6 +368,7 @@ while 1,
     % Convert into structure array for traceMetadata.
     if strcmp(section,'traceMetadata'),
         if isempty(indexes), continue; end
+        assert( numel(m)==nTraces, 'Metadata size mismatch' );
         
         if iscell(m),
             [traceMetadata.(title)] = m{indexes};

@@ -157,11 +157,9 @@ end
 
 % If we choose an option that needs the number of traces in each file,
 % we have to load that first before the main loop...
-% FIXME: need a fast script that just gets data size!
 if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
     for i=1:numel(baseFilenames),
-        data = loadTraces( dataFilenames{i} );
-        N(i) = size( data.fret, 1 );
+        N(i) = sizeTraces( dataFilenames{i} );
     end
 end
 

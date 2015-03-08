@@ -54,7 +54,7 @@ methods (Static)
         [~,~,ext] = fileparts(filename);
         if ~isempty( strfind(ext,'tif') ),
             obj = Movie_TIFF(filename);
-        elseif strcmp(ext,'stk'),
+        elseif strcmp(ext,'.stk'),
             obj = Movie_STK(filename);
         else
             error('Unrecognized movie type');

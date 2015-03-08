@@ -18,6 +18,11 @@ assert( nargin==2, 'Invalid input arguments' );
 assert( rem(n,2)==1, 'Window size must be odd!!' );
 
 if exist('medianfilterx','file')==3,
+    if any(isnan(input(:))),
+        % FIXME: add support for NaN in mex code?
+        %warning('NaN values not supported');
+        input(isnan(input)) = 0;
+    end
     output = medianfilterx(double(input),n);
     return;
 end

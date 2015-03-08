@@ -59,6 +59,8 @@ for i=1:numel(filenames)
         % delimiters are added to the end to pad to word boundries.
         channelNames{i} = ch( ~cellfun(@isempty,ch) );
     end
+    
+    fclose(fid);
 end
 
 % Allow the user to specify the dimension to get, like size().

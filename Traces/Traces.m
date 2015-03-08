@@ -1,4 +1,4 @@
-classdef Traces < handle & matlab.mixin.Copyable
+classdef Traces < matlab.mixin.Copyable
 % Traces: abstract class defining the interface for Traces classes
 %
 %    You can create instances of this abstract class, but they will have no
@@ -64,24 +64,24 @@ properties (Access=public)
     
     time = [];      %time axis in ms or frames
     
-    fileMetadata  = struct([]);  %struct array, one per trace.
-    traceMetadata = struct([]);
+    fileMetadata  = struct([]);  % Properties that apply to all traces
+    
+    traceMetadata = struct([]);  % Properties that apply to only one trace
+                                 %    (struct array, one per trace)
 
 end %end public properties
 
 
 % Properties calculated as needed, but not actually saved in the class.
 properties (Dependent)
-    nChannels; %calculated from channelNames/data
-    nFrames;   %calculated from time
-    sampling;  %time resolution in milliseconds.
+    nChannels;  % Number of data channels, calculated from channelNames
+    nTraces;    % Number of traces, calculated from trace data
+    nFrames;    % Number of frames in each trace, calculated from time
+    sampling;   % Time resolution in milliseconds (time step first two frames)
 end
 
 % Protected properties set in the constructor and never modified.
-% nTraces/nFrames could be Dependent and calculated from the size of the data
-% channels, but this implementation solves some other problems.
 properties( SetAccess=protected, GetAccess=public );
-    nTraces = 0;
     channelNames = {};    % short names for each channel (donor, acceptor, etc)
 end
 
@@ -110,22 +110,24 @@ methods
         end
         
         % -------- Constructor with defined traces sizes --------
-        % NOTE: get methods for nTraces and nFrames check internal consistency.
-        % Until the instance is fully built, do not access those methods!!
+        % NOTE: accessors for nTraces and nFrames may check internal consistency.
+        % Until the instance is fully built, do not access those methods!
         assert( nargin>=2 & isscalar(varargin{1}) & isscalar(varargin{2}), ...
                           'Invalid constructor parameters for class Traces' );
         assert( varargin{1}>=0 & varargin{2}>=0, 'Data size must be positive integers' );
         
-        this.nTraces = varargin{1};
+        nTraces = varargin{1};
         nFrames = varargin{2};
-        this.time = 1:nFrames;
+        this.time = 1:nFrames;  %time axis in frames
         
-        assert( isscalar(this.nTraces) && isscalar(nFrames), ...
+        assert( isscalar(nTraces) && isscalar(nFrames), ...
                 'Invalid Traces constructor parameters; sizes must be scalar' );
             
         % Generate IDs for each trace.
-        ids = strsplit( sprintf('Trace#%d ',1:this.nTraces) );
-        this.traceMetadata = struct( 'ids', ids(1:end-1) );
+        if nTraces>0,
+            ids = strsplit( sprintf('Trace#%d ',1:nTraces) );
+            this.traceMetadata = struct( 'ids', ids(1:end-1)' );
+        end
         
         % 
         if nargin>=3 && iscell(varargin{3}),
@@ -136,7 +138,7 @@ methods
 
         % Allocate space for the data channels.
         for i=1:numel(this.channelNames),
-            this.( this.channelNames{i} ) = zeros(varargin{1},nFrames);
+            this.( this.channelNames{i} ) = zeros(nTraces,nFrames);
         end
     end
     
@@ -144,25 +146,34 @@ methods
     
     %% ==============  CHANNEL LIST MANIPULATION and CHECKS  ============== %%
     
-    % Verify the object is valid and throw errors if not. This can be called in
-    % every set method instead of having a distinct test in each one.
-    function checkValid(this)
+    % Verify the object is valid and throw errors if not.
+    % If invalid, an error is raised, unless errorIfNotValid is false.
+    % This function should be named "isvalid", but that conflicts with handle.
+    % NOTE: this does not verify every field in traceMetadata.
+    function [valid,reason] = checkValid(this, errorIfNotValid)
+        if nargin<2, errorIfNotValid=true; end
+        reason = '';
+        
+        % Verify channel names are all allowed and there are no duplicates.
+        if ~isempty( setdiff(this.channelNames,properties(this)) )  ||  ...
+                             numel(unique(this.channelNames))~=this.nChannels,
+        	reason = 'Invalid or duplicate channel names';
+        end
+        
+        % Verify all channels are the same size.
         sz = [this.nTraces this.nFrames];
-        valid = 1;
-        
-        if ~isempty( setdiff(this.channelNames,properties(this)) ),
-            error('Invalid channel names');
+        if ~all( cellfun( @(ch) all(size(this.(ch))==sz), this.channelNames ) ),
+            reason = 'Data size mismatch';
+        end
+        if numel(this.traceMetadata)~=sz(1),
+            reason = 'Metadata size mismatch';
         end
         
-        for c=1:this.nChannels,
-            ch = this.channelNames{c};
-            valid = valid & all(size(this.(ch))==sz);
-        end
+        valid = isempty(reason);
         
-        valid = valid & numel(this.traceMetadata)==this.nTraces;
-        
-        if ~valid,
-            error('Channel data dimensions not consistent');
+        % Raise an error, unless disabled.
+        if ~valid && errorIfNotValid,
+            error(reason);
         end
     end
     
@@ -228,12 +239,20 @@ methods
     
     %% ================  GET/SET METHODS  ================ %%
     
+    function N = get.nTraces(this)
+        if this.nChannels>1,
+            N = size( this.(this.channelNames{1}), 1 );
+        else
+            N = 0;
+        end
+    end
+    
     function M = get.nFrames(this)
         M = numel(this.time);
     end
     
-    function set.nFrames(this,N)
-        this.truncate(N);
+    function set.nFrames(this,M)
+        this.truncate(M);
     end
     
     function C = get.nChannels(this)
@@ -259,9 +278,9 @@ methods
     % NOTE: these will be used by inheriting classes, where channels are
     % defined, but they have no meaning here and will do nothing.
     
-    
     % Select a subset of traces (and/or frames)
     function this = subset( this, idxTraces, idxFrames )
+        checkValid(this);
         assert( nargin>=2, 'Not enough input arguments' );
         
         % If a logical array is given, convert it into a list of indexes
@@ -290,7 +309,6 @@ methods
         
         this.traceMetadata = this.traceMetadata(idxTraces);
         this.time = this.time(idxFrames);
-        this.nTraces = numel(idxTraces);
     end %function subset
     
     
@@ -304,6 +322,7 @@ methods
     
     % Extend traces (using the last value) so that the final length is nFrames
     function this = extend( this, nFrames )
+        checkValid(this);
         assert( nargin>1 && ~isempty(nFrames) && numel(nFrames)==1 && ...
                 isnumeric(nFrames) && nFrames>this.nFrames, 'Invalid final trace length' );
 
@@ -354,8 +373,15 @@ methods
             objects = varargin;
         end
         
+        % Verify inputs are Traces objects and are valid.
+        for i=1:numel(objects),
+            if ~isa(objects{i},'Traces'),
+                error('Invalid input data structure. Must be a Traces object');
+            end
+            checkValid(objects{i});
+        end
+        
         % Create a copy of the first object as a template for output.
-        assert(  all( cellfun(@(x) isa(x,'Traces'), objects) )  );
         this = copy(objects{1});
         
         % Determine the total number of traces and verify all the Traces
@@ -392,28 +418,27 @@ methods
                 this.time = this.sampling*(1:nFrames);
             end
         end
-        this.nTraces = sum(nTracesEach);
+        nTraces = sum(nTracesEach);
         
         % Allocate space for new arrays
         for c=1:this.nChannels,
-            this.(this.channelNames{c}) = zeros(this.nTraces,nFrames);
+            this.(this.channelNames{c}) = zeros(nTraces,nFrames);
         end
                 
         % Copy data from each instance into the (now expanded) output.
+        this.traceMetadata = to_col(this.traceMetadata);
         traceSoFar = 0;
         
         for i=1:numel(objects),
             obj = objects{i};
-            tm = obj.traceMetadata;
             idx = traceSoFar + (1:obj.nTraces);
+            tm = to_col(obj.traceMetadata);
             
-            % Remove metadatafields that are not in common.
-            fieldsToRemove = setdiff( fieldnames(tm), traceMetadataFields );
-            tm = rmfield( tm, fieldsToRemove );
-            
-            % Combine metadata
+            % Combine metadata, removing field names that are not shared.
             if i>1,
-                this.traceMetadata = [this.traceMetadata tm];
+                fieldsToRemove = setdiff( fieldnames(tm), traceMetadataFields );
+                tm = rmfield( tm, fieldsToRemove );
+                this.traceMetadata = [ this.traceMetadata ; tm ];
             end
             
             % Combine data

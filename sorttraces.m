@@ -178,7 +178,7 @@ if data.time(1)==1,
     f = inputdlg('What is the sampling interval (in ms) for this data?');
     if ~isempty(f),
         sampling = str2double(f);
-        data.time = sampling.*(0:handles.data.nFrames-1);
+        data.time = sampling.*(0:data.nFrames-1);
     end
 end
 
@@ -1370,7 +1370,14 @@ function btnGettraces_Callback(hObject, ~, handles)
 
 % Get the filename and movie coordinates of the selected trace.
 m = handles.molecule_no;
-id = handles.data.traceMetadata(m).ids;
+
+if isfield(handles.data.traceMetadata,'ids'),
+    id = handles.data.traceMetadata(m).ids;
+else
+    % TODO: disable the metadata button for visual feedback.
+    disp('No gettraces metadata available for finding the original movie file.');
+    return;
+end
 
 if any( id=='#' ),
     output = split('#',id);

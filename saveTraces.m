@@ -26,18 +26,22 @@ function saveTraces( filename, varargin )
 % For 'qub' files, data may just be the FRET traces
 % 
 
-% If no format name given, assume traces file.
+
+% Determine the file format to use.
+% FIXME: check the extension.
 if nargin==2 && ( isstruct(varargin{1}) || isa(varargin{1},'Traces') ),
-    saveTracesBinary( filename, varargin{1} );
-    return;
+    format = 'traces';
+    data = varargin{1};
+else
+    assert( nargin==3, 'Invalid number of arguments' );
+    format = varargin{1};
+    data   = varargin{2};
 end
 
-assert( nargin==3, 'Invalid number of arguments' );
+% Verify the data is internally consistent and valid.
+if isa(data,'Traces'), checkValid(data); end
 
 % Otherwise, determine the data type by the format.
-format = varargin{1};
-data   = varargin{2};
-
 switch format
     case 'txt'
         warning( 'saveTraces:txtFormatDepricated',...
@@ -221,29 +225,33 @@ dataTypes = {'char','uint8','uint16','uint32','uint16', ...
                     'single','double'};  %zero-based
 
 [nTraces,traceLen] = size(data.donor);
-
-if ~isfield(data,'time'),
-    data.time = 1:traceLen; %in frames
-end
-
-
-% Legacy code (or laziness) support. If no channel names are given, try to
-% guess based on what data are present.
-if ~isfield(data,'channelNames'),
-    data.channelNames = {'donor','acceptor','fret'};
-end
-
-
-% Verify input arguments
 nChannels = numel(data.channelNames);
 
-for i=1:nChannels,
-    ch = data.( data.channelNames{i} );
-    if any( size(ch) ~= size(data.donor) ),
-        error('Data matrix dimensions must agree');
+
+% Legacy support for a struct with similar structure to Traces class.
+if ~isa(data,'Traces'),
+    warning('Unsupported input data structure. This will not be allowed in the future.');
+    
+    if ~isfield(data,'time'),
+        data.time = 1:traceLen; %in frames
     end
-    if any( isnan(ch) )
-        error('Cannot save NaN values!');
+    
+    % Legacy code (or laziness) support. If no channel names are given, try to
+    % guess based on what data are present.
+    if ~isfield(data,'channelNames'),
+        data.channelNames = {'donor','acceptor','fret'};
+    end
+    
+    % Verify trace sizes
+    for i=1:nChannels,
+        ch = data.( data.channelNames{i} );
+        if any( size(ch) ~= size(data.donor) ),
+            error('Data matrix dimensions must agree');
+        end
+    end
+    
+    if ~isfield(data,'traceMetadata');
+        data.traceMetadata = struct();
     end
 end
 
@@ -253,17 +261,12 @@ assert( ~isempty(strfind(e,'traces')), 'Binary format traces files must have a "
 
 
 % 1) Create IDs if not specified and add to the metadata list
-if ~isfield(data,'traceMetadata');
-    data.traceMetadata = struct();
-end
-
 if ~isfield(data.traceMetadata,'ids'),
     disp('saveTraces: no ids detected. Recreating them.');
     for i=1:nTraces;
         data.traceMetadata(i).ids = sprintf('%s#%d', filename, i);
     end
 end
-
 
 % 2) Open file to save data to
 fid=fopen(filename,'w');
@@ -306,15 +309,28 @@ end
 for i=1:numel(fnames),
     fname = fnames{i};
     m = data.traceMetadata(1).(fname); %just get first element for determining data type
-    tm = data.traceMetadata; %HACK for class Traces access.
+    tm = data.traceMetadata;
     
-    % Collapse strucutre array into a single field for serialization.
+    % Collapse structure array into a single field for serialization.
     if isnumeric(m),
         metadata = [tm.(fname)];
+        if ~isvector(metadata) || numel(metadata)~=data.nTraces,
+            % TODO: consider using NaN to mark empty metadata pages and
+            % convert back into empty fields in loadTraces.
+            warning( 'saveTraces:metadataSizeMismatch', ['Metadata size mismatch, possibly due to empty fields. Ignoring this field: ' fname] );
+            continue;
+        end
+        
     elseif ischar(m),
-        metadata = strcat( {tm.(fname)}, char(31) );
+        metadata = {tm.(fname)};
+        if ~all(  cellfun( @(x) all(x>31), metadata )  ),
+            warning( 'saveTraces:invalidMetadataCharacters', ['Non-printable ASCII characters are not supported. Ignoring this field: ' fname ' (' class(m) ')'] );
+            continue;
+        end
+        metadata = strcat( metadata, char(31) );
         metadata = [ metadata{:} ];
         metadata = metadata(1:end-1); %removing trailing seperator
+        
     else
         warning( 'saveTraces:badMetadataType', ['Unsupported metadata field type: ' fname ' (' class(m) ')'] );
         continue;

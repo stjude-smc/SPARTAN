@@ -78,7 +78,7 @@ methods
             
         elseif nargin==1 && isa(varargin{1},'Traces')
             % FIXME: this is broken. But unused?
-            this.copyDataFrom(varargin{1});
+            this = copy(varargin{1});
         end
     end
     
@@ -109,6 +109,42 @@ methods
     % The data stored in the Traces object is always corrected, and we assume
     % that any correcctions are stored in traceMetadata correctly, but this
     % might not be the case... FIXME: is there anything we can do about that??
+    
+    % Add trace data to the current object, modifying it in place.
+    function this = appendTraces( this, donor, acceptor, fret, traceMetadata )
+        % Make sure all inputs are valid and compatible
+        checkValid(this);
+        assert( all([size(donor,2),size(acceptor,2),size(fret,2)]==this.nFrames) & ...
+                all([size(acceptor,1),size(fret,1)]==size(donor,1)), 'Trace size mismatch' );
+        
+        % Append new data fields
+        this.donor    = vertcat(this.donor,donor);
+        this.acceptor = vertcat(this.acceptor,acceptor);
+        this.fret     = vertcat(this.fret,fret);
+        
+        % Append new metadata fields, if possible.
+        if nargin>=5,
+            if numel(this.traceMetadata)~=size(donor,1),
+                warning('Trace metadata size mismatch. Ignoring');
+            elseif ~isempty(setdiff( fieldnames(this.traceMetadata), traceMetadata )),
+                % FIXME: allow partial metadata list of metadata fields.
+                warning('Trace metadata field mismatch. Ignoring' );
+            else
+                this.traceMetadata = vertcat( to_col(this.traceMetadata), to_col(traceMetadata) );
+            end
+        end
+        
+        % If traceMetadata is missing values, pad the end with empty values.
+        nPad = this.nTraces - numel(this.traceMetadata);
+        if nPad > 0,
+            [this.traceMetadata(end+1:end+nPad).ids] = deal('');
+            if ~iscolumn(this.traceMetadata),
+                this.traceMetadata = reshape(this.traceMetadata,[this.nTraces 1]);
+            end
+        end
+        
+        checkValid(this);
+    end
     
     function this = recalculateFret( this, thresholds )
     % Recalculate FRET efficiencies (all fields) using fluorescence. 
