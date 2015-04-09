@@ -290,7 +290,7 @@ if all(existing),  return;  end
 
 
 % ----- Create log file with results
-log_fid = fopen( fullfile(direct,'gettraces.log'), 'w' );
+log_fid = fopen( fullfile(direct,'gettraces.log'), 'wt' );
 
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');

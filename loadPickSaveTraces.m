@@ -197,7 +197,7 @@ if isempty(p)
 end
 
 logFilename = fullfile(p, [n '.log']);
-fid = fopen(logFilename,'w');
+fid = fopen(logFilename,'wt');
 
 % Save header, with filenames and the number of traces picked.
 fprintf(fid,'%s\n\n%s\n',date,'DIRECTORY');
