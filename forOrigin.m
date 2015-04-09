@@ -4,6 +4,9 @@ function forOrigin( filename, dwtFilename, outputFilename )
 % (donor, acceptor, fret, and idealization).
 %
 
+% OPTIONS:
+REESTIMATE = true; 
+
 
 % If no file is specified, ask for one from the user.
 if nargin<1 || isempty(filename),
@@ -49,12 +52,31 @@ idl = zeros( nTraces,traceLen );
 
 if ~isempty( dwtFilename ),
     [dwells,sampling,offsets,model] = loadDWT(dwtFilename);
-
     fretValues = model(:,1);
+    nStates = numel(fretValues);
 
     idl = dwtToIdl( dwells, traceLen,offsets );
-    idl( idl==0 ) = 1;  %assign no-data (no donor) regions to the dark state.
-    idl = fretValues(idl);
+    
+    % Convert state sequence to idealization (fret values).
+    if REESTIMATE,  % estimate idealization fret values from each trace
+        for i=1:size(idl,1),
+            % For each state, idealization fret value is average of observed.
+            for s=1:nStates,
+                fretValues(s) = mean( data.fret(i,idl(i,:)==s) );
+            end
+            
+            % For any states with no dwells, use the global model default
+            %fretValues(isnan(fretValues)) = model(isnan(fretValues),1);
+            
+            % Convert idealization from state number to FRET value.
+            idl(i, idl(i,:)==0 ) = 1;
+            idl(i,:) = fretValues(idl(i,:));
+        end
+    else
+        % Use global FRET values from QuB to create idealization.
+        idl( idl==0 ) = 1;
+        idl = fretValues(idl);
+    end
 
     % Make sure dimensions are correct for a single trace
     if any( size(idl)==1 ),
@@ -65,8 +87,6 @@ if ~isempty( dwtFilename ),
         idl((size(idl,1)+1):nTraces,:) = 0;
     end
 end
-
-% data.idl = idl;
 
 
 % Set time axis if not available,
