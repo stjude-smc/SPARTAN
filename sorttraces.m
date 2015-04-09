@@ -268,7 +268,7 @@ set(handles.sldGamma2,    'Enable',isThreeColor,'Value',  1  );
 % calculated yet (but should be using traceStat).
 % We don't calculate it here because then there would a long delay loading
 % the file; small delays for each trace are not perceptible. 
-handles.fretThreshold = zeros( handles.data.nTraces, 1  );
+handles.fretThreshold = NaN( handles.data.nTraces, 1  );
 set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
 % Set data correction starting values.
@@ -393,7 +393,7 @@ trace = handles.data.getSubset(mol);
 handles.stats = traceStat(trace);
 handles.trace = trace;
     
-if trace.isChannel('fret') && handles.fretThreshold(mol) == 0,
+if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
     total = zeros( size(trace) );
     
     % FIXME: this should only consider channels contributing to FRET (donor,
