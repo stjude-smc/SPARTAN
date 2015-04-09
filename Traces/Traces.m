@@ -240,7 +240,7 @@ methods
     %% ================  GET/SET METHODS  ================ %%
     
     function N = get.nTraces(this)
-        if this.nChannels>1,
+        if this.nChannels>=1,
             N = size( this.(this.channelNames{1}), 1 );
         else
             N = 0;

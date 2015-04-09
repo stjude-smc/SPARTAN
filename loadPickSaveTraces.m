@@ -107,6 +107,7 @@ end
 
 
 % Ideally, space should be pre-allocated. TODO.
+dataAll = [];
 allStats = struct( [] );
 picks = [];
 nTracesPerFile = zeros(nFiles,1);
@@ -116,13 +117,16 @@ for i=1:nFiles,
     % Load traces file data. Load only the useful subset if indexes are
     % given to save memory.
     if isfield(options,'indexes'),
+        % Nothing to do if we're not loading any traces from this file.
+        if isempty( options.indexes{i}), continue; end
+        
         data = loadTraces( files{i}, options.indexes{i} );
     else
         data = loadTraces( files{i} );
     end
     
     % Verify that all files have the same imaging geometry/channel definitions.
-    if i==1,
+    if isempty(channelNames),
         channelNames = data.channelNames;
     else
         assert( all(strcmp(sort(channelNames),sort(data.channelNames))), 'Traces data format mismatch (different geometry?)' );
@@ -150,7 +154,7 @@ for i=1:nFiles,
         data = data.subset(indexes);
         
         % Save stats info for logging.
-        if i==1
+        if isempty(allStats),
             allStats = stats;
         else
             allStats = cat(2, allStats, stats);
@@ -158,7 +162,7 @@ for i=1:nFiles,
     end
     
     % Add selected traces from the current file to the output
-    if i==1,
+    if isempty(dataAll),
         dataAll = data;
     else
         dataAll = combine(dataAll,data);
@@ -204,7 +208,7 @@ for i=1:numel(files)
     fprintf(fid,' %5d: %s\n',nTracesPerFile(i),shortName);
 end
 
-nPicked = size( data.donor,1 );
+nPicked = sum(nTracesPerFile);
 stats = allStats;
 
 fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...

@@ -1336,15 +1336,15 @@ switch ch
         lta = handles.stats.acclife*dt;
         x = xlim();  x = x(end);
 
-        if x==lt+15,
+        if x==lt+15*dt,
             % User already zoomed once; zoom in further.
-            xlim( handles.axFluor, [0,lta+10] );
-        elseif x==lta+10,
+            xlim( handles.axFluor, [0,lta+10*dt] );
+        elseif x==lta+10*dt,
             % User already zoomed twice; zoom out.
             xlim( handles.axFluor, 'auto' );
         else
             % Zoom in to show full trace.
-            xlim( handles.axFluor, [0,lt+15] );
+            xlim( handles.axFluor, [0,lt+15*dt] );
         end
         
 %     otherwise

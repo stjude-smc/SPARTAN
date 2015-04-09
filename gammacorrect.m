@@ -40,7 +40,7 @@ nFiles = numel(files);
 
 if nargin>1 && isscalar(mean_gamma) && nFiles>1,
     % If a single gamma value is given, apply it to all traces.
-    mean_gamma = repmat(mean_crosstalk,[nFiles,1]);
+    mean_gamma = repmat(mean_gamma,[nFiles,1]);
 elseif nargin>1,
     assert( numel(mean_gamma)==nFiles );
 else

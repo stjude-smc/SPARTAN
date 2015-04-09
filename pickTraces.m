@@ -83,7 +83,7 @@ if isfield(criteria,'maxTotalSigma')
     [histdata] = hist( t(t>0), bins );
     histdata = histdata / sum(histdata);
     
-    f = fit( bins',histdata', 'gauss1' );
+    f = fit( double(bins'),double(histdata'), 'gauss1' );
     mu = f.b1;
     sigma = f.c1;
     
