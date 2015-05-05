@@ -146,7 +146,7 @@ methods
         checkValid(this);
     end
     
-    function this = recalculateFret( this, thresholds )
+    function this = recalculateFret( this, thresholds, indexes )
     % Recalculate FRET efficiencies (all fields) using fluorescence. 
     %    data.recalculateFret( THRESH );
     % Replaces the current "fret" property with the newly calculated traces.
@@ -168,16 +168,24 @@ methods
             thresholds = zeros(this.nTraces,1);
         end
         
+        % Get list of traces to correct; correct all if not specified.
+        if nargin<3,
+            indexes = 1:this.nTraces;
+        end
+        if islogical(indexes),  indexes = find(indexes);  end
+        assert( isvector(indexes) );
+        indexes = to_row(indexes);
+        
         % Determine the end of each trace (donor bleaching event.
         total = this.donor+this.acceptor;
         lt = max(1, calcLifetime(total) );
         
-        % Calculate FRET for each trace.
-        this.fret = this.acceptor./total;
+        for i=indexes,
+            % Calculate FRET for each trace.
+            this.fret(i,:) = this.acceptor(i,:)./total(i,:);
         
-        for i=1:this.nTraces,
             % Set FRET to zero after donor photobleaching.
-            this.fret(i, lt(i):end ) = 0;
+            this.fret( i, lt(i):end ) = 0;
             
             % Set FRET to zero in areas where the donor is dark (blinking).
             % ie, when FRET is below a calculated threshold = 4*std(background)
@@ -192,7 +200,7 @@ methods
                 end
                 darkRange = total( i, 1:lt(i) ) <= thresholds(i);
                 this.fret(i,darkRange) = 0;
-            end            
+            end
         end
         
         % Remove any NaN values; can happen in low SNR regions (rare).

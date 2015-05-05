@@ -611,7 +611,6 @@ indexes = sort(indexes);
 
 % Put together the subset of selected traces for saving, applying any
 % adjustments made to the trace data.
-% FIXME: this will recalculate FRET even for traces that were not adjusted!
 data = adjustTraces(handles,indexes);  %creates a copy
 
 % Save the trace data to file
@@ -956,6 +955,8 @@ chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are 
 for i=1:numel(indexes), 
     m = indexes(i); %i is index into data subset, m is index into all traces.
     
+    if ~handles.adjusted(m), continue; end
+    
     for j=2:numel(chNames),
         displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:) - ...
                        handles.crosstalk(m,j-1)*displayData.(chNames{j-1})(i,:);
@@ -969,7 +970,7 @@ end %for each trace
     
 % Calculate total intensity and donor lifetime.
 % FIXME: should thresholds be specified in metadata?
-displayData.recalculateFret( handles.fretThreshold(indexes) );
+displayData.recalculateFret( handles.fretThreshold(indexes), handles.adjusted(indexes) );
 
 % END FUNCTION adjustTraces
 
@@ -1341,7 +1342,7 @@ switch ch
             xlim( handles.axFluor, [0,lta+10*dt] );
         elseif x==lta+10*dt,
             % User already zoomed twice; zoom out.
-            xlim( handles.axFluor, 'auto' );
+            xlim( handles.axFluor, [0 handles.data.time(end)/1000] );
         else
             % Zoom in to show full trace.
             xlim( handles.axFluor, [0,lt+15*dt] );
