@@ -1218,7 +1218,7 @@ elseif offsets(end)>(nTraces*traceLen)
 
 else
     % Convert DWT to idealization (state sequence).
-    [idl,handles.dwtIDs] = dwtToIdl( dwt, traceLen, offsets );
+    [idl,handles.dwtIDs] = dwtToIdl( dwt, traceLen, offsets, nTraces );
     
     % Convert state sequence to idealized FRET trace.
     for i=1:size(idl,1),

@@ -1,23 +1,23 @@
-function [idl,dwtIDs] = dwtToIdl( dwt, traceLen, offsets )
-% dwtToIdl  Converts a list of dwell times to state assignment (idealization)
+function [idl,dwtIDs] = dwtToIdl( dwt, traceLen, offsets, nTraces )
+% dwtToIdl  Convert dwell-time list to state assignment traces (idealization)
 %
-%    IDL = dwtToIdl( DWT, LEN, OFFSETS )
+%    IDL = dwtToIdl( DWT, LEN, OFFSETS, NTRACES ) creates an idealization (state
+%    assignment trace, IDL) from a cell array of state-dwelltime pairs (DWT).
+%    LEN is the trace length (in frames). OFFSETS are the zero-based offsets
+%    indicating the start (in frames) of each idealized segment.
+%    States are numbered 1..N, with zero indicating no idealization information.
 % 
-%    Expands the cell array list of state-dwelltime pairs (DWT) into an
-%    idealization (state number assignment at each point in time. LEN is
-%    the trace length (in frames). OFFSETS are the zero-based offsets
-%    indicating the start (in frames) of each trace. See loadDWT and
-%    saveDWT for more information. States are numbered 1..N, with zero
-%    indicating areas without idealization information in DWT.
-%
-%    dwtIDs is an array of indexes into dwt that correspond to each trace.
-%    This assumes at most one dwt per trace.
-%
+%    IDL = dwtToIdl( DWT, LEN, OFFSETS ) will create an idealization that
+%    includes all idealized traces, 
+% 
+%    IDL = dwtToIdl( DWT, LEN ) returns an idealization assuming that each
+%    segment (element in DWT) is at the beginning of sequential traces
+% 
+%    [IDL,IDS] = dwtToIdl( ... ) returns a list of the DWT segement number
+%    associated with each trace.
+% 
 %    See also idlToDwt, loadDWT, saveDWT.
 %
-% NOTE: if the last trace(s) are not idealized, idl will have a different
-% (slightly smaller) size than the trace data because the last trace(s) are
-% not represented!
 %
 
 % If not offsets are provided, we assume all traces have an idealization,
@@ -26,8 +26,14 @@ if nargin<3,
     offsets = traceLen*( 0:1:numel(dwt)-1 );
 end
 
-
-nTraces = ceil(offsets(end)/traceLen)+1;
+if nargin<4,
+    % If the number of traces is not specified, create an idealization that is
+    % long enough to cover all idealized traces. 
+    % WARNING: If there are some traces at the end that are not idealized,
+    %idl will not be the same size as fret!
+    nTraces = ceil(offsets(end)/traceLen)+1;
+    assert( numel(dwt)<=nTraces );
+end
 
 idl = zeros(nTraces,traceLen);
 dwtIDs = zeros( 1, nTraces );

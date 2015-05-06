@@ -49,13 +49,17 @@ end
 % Load idealization data (.DWT)
 % TODO: what if there are idealizations for multiple FRET traces?
 idl = zeros( nTraces,traceLen );
+dwells = {};
 
 if ~isempty( dwtFilename ),
     [dwells,sampling,offsets,model] = loadDWT(dwtFilename);
+end
+
+if ~isempty( dwells )
     fretValues = model(:,1);
     nStates = numel(fretValues);
 
-    idl = dwtToIdl( dwells, traceLen,offsets );
+    idl = dwtToIdl( dwells, traceLen,offsets, nTraces );
     
     % Convert state sequence to idealization (fret values).
     if REESTIMATE,  % estimate idealization fret values from each trace
@@ -66,7 +70,7 @@ if ~isempty( dwtFilename ),
             end
             
             % For any states with no dwells, use the global model default
-            %fretValues(isnan(fretValues)) = model(isnan(fretValues),1);
+            fretValues(isnan(fretValues)) = model(isnan(fretValues),1);
             
             % Convert idealization from state number to FRET value.
             idl(i, idl(i,:)==0 ) = 1;
@@ -81,10 +85,6 @@ if ~isempty( dwtFilename ),
     % Make sure dimensions are correct for a single trace
     if any( size(idl)==1 ),
         idl = reshape(idl, 1, numel(idl) );
-    end
-
-    if size(idl,1)<nTraces,
-        idl((size(idl,1)+1):nTraces,:) = 0;
     end
 end
 
