@@ -50,8 +50,12 @@ methods (Static)
             filename = fullfile(p,f);
         end
 
+        if ~iscell(filename),
+            filename = {filename};
+        end
+
         % Load the movie with the appropriate subclass
-        [~,~,ext] = fileparts(filename);
+        [~,~,ext] = fileparts(filename{1});
         if ~isempty( strfind(ext,'tif') ),
             obj = Movie_TIFF(filename);
         elseif strcmp(ext,'.stk'),

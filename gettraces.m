@@ -140,11 +140,8 @@ return;
 
 function [stkData] = OpenStk(filename)
 
-
-if ~iscell(filename),  filename = {filename};  end
-
 % Load movie data from file.
-movie = Movie.load(filename{1});
+movie = Movie.load(filename);
 time = movie.timeAxis;
 stkX = movie.nX;
 stkY = movie.nY;
