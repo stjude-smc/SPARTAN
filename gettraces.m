@@ -437,7 +437,7 @@ elseif params.geometry>1,
 end
 
 %%%%% Estimation of misalignment (for dual or multi-color)
-align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{});
+align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'quality',{});
 indD = find( strcmp(channelNames,'donor') ); %donor channel to align to.
 quality = zeros(nCh,1);
 
@@ -471,14 +471,14 @@ if params.geometry>1 && numel(picks)>0,
         sc = tform.T(1,1);
         scale = sqrt(ss*ss + sc*sc);
         theta = atan2(ss,sc)*180/pi;
-        align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), ...
-                'theta',theta, 'sx',scale, 'sy',scale, 'abs_dev',abs_dev );
-        
-                       
+
         % Measure the "quality" of the alignment as the magnitude increase in
         % score compared to a "random" alignment.
         target_t = allFields(:,:,params.idxFields(i));
         quality(i) =  weberQuality(donor_t,target_t,0.7*params.don_thresh);
+
+        align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), 'theta',theta, ...
+                'sx',scale, 'sy',scale, 'abs_dev',abs_dev, 'quality',quality(i) );
     end
 end
 
@@ -592,11 +592,6 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
     end
 end
 
-if ~params.quiet && nCh>1,
-    text = sprintf(' %.3f',quality(2:end));
-    disp([ 'Weber contrast alignment confidence score:' text] );
-end
-
 % Save output
 stkData.rejectedTotalPicks = total_picks(rejected,:);
 stkData.total_peaks = total_picks(~rejected,:);
@@ -700,7 +695,7 @@ end %FUNCTION getCentroids
 
 
 
-function align = icpalign( ref_img, target_img, maxitr )
+function align = icpalign( ref_img, target_img )
 % icpalign Align images using the iterative closest point algorithm
 %
 %   ALIGN = icpalign( REFERRENCE, TARGET )
@@ -726,11 +721,12 @@ assert( all(size(ref_img)==size(target_img)) );
 
 % 1) Detect beads as brights spots above background.
 % A lower threshold is used to better detect dim channels (Cy7).
-% NOTE: All coordinates are X,Y, but indexing in images is X,Y
-[~,reject,fixed] = pickPeaks( ref_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
+% NOTE: All coordinates are X,Y, but indexing in images is Y,X
+% FIXME: use per-channel thresholds to better handle intensity mismatches (Cy7).
+[~,reject,fixed] = pickPeaks( ref_img, 0.5*params.don_thresh, params.nhoodSize, params.overlap_thresh );
 fixed = fixed(~reject,:);
 
-[~,reject,moving] = pickPeaks( target_img, 0.7*params.don_thresh, params.nhoodSize, params.overlap_thresh );
+[~,reject,moving] = pickPeaks( target_img, 0.5*params.don_thresh, params.nhoodSize, params.overlap_thresh );
 moving = moving(~reject,:);
 
 % Translate coordinates so the center of the image is (0,0), so that
@@ -742,30 +738,30 @@ moving = [ moving(:,1)-(ncol/2) moving(:,2)-(nrow/2) ];
 
 % 2) Iterative closest point algorithm to estimate alignment transformation
 % Parameters
-if nargin<3, maxitr = 200; end
-errtol  = 1e-3; %<1px error for the 1% most uncertain points.
+maxitr = 200;   %maximum number of iterations to converge
 gradtol = 1e-6; %minimum change in error before we assume convergence.
 
 % Initialization
 registered = moving;
 err = zeros(maxitr,1);
-minerror = Inf;  %minimum residual error seen so far.
 
 for itr=1:maxitr,
     % For each "fixed" spot, find the nearest neighbor.
+    % registered(idx) or moving(idx) gives list of spots corresponding to fixed.
     [idx,dist] = knnsearch( registered, fixed );
     
-    % Remove pairs with large separations, which are probably just noise.
-    % FIXME: find a better filter. This doesn't help.
-    % moving = moving(idx,:);
-    % sel = dist<params.nPixelsToSum;
-    % 
-    % idx = idx(sel);
-    % moving = moving(sel,:);
-    % fixed  = fixed(sel,:);
+    % Initial error estimate before optimization:
+    if itr==1,
+        delta = (fixed-moving(idx,:)).^2;
+        err0 = sum(  sqrt( delta(:,1)+delta(:,2) )  )/size(delta,1);
+    end
     
     % Use point pairs to estimate an optimal transformation.
-    tform = fitgeotrans( moving(idx,:), fixed, 'nonreflectivesimilarity' );
+    % Points with a very large deviation, which may have no corresponding point
+    % on the other side at all, are removed.
+    sel = dist<params.nPixelsToSum;
+    m = moving(idx,:);
+    tform = fitgeotrans( m(sel,:), fixed(sel,:), 'nonreflectivesimilarity' );
 
     % Forward transform (about center of image) to see how we did.
     registered = transformPointsForward( tform, moving );
@@ -773,22 +769,17 @@ for itr=1:maxitr,
     % Estimated error: residual distance between nearest neighbors.
     delta = (fixed-registered(idx,:)).^2;
     err(itr) = sum(  sqrt( delta(:,1)+delta(:,2) )  )/size(delta,1);
-    minerror = min( err(itr), minerror );
     
     % Termination: test for convergance
     if itr>1 && abs(err(itr)-err(itr-1)) < gradtol,
         break;
     end
-    
-    if err(itr)<errtol, %only terminates this way with beads.
-        break;
-    end
 end
-err = err(1:itr);
+err = [err0; err(1:itr)];
 
 % Display minimization of error and convergence of fit.
 % figure;
-% plot(err);
+% plot( 0:itr, err );
 % title('ICP algorithm iterations');
 % xlabel('Iteration number');
 % ylabel('Average residual error (pixels)');
@@ -797,8 +788,8 @@ if itr==maxitr && maxitr>1,
     warning('ICP:ExceededMaxIterations','Did not converge within maximum number of iterations');
 end
 
-if err(itr)-minerror > 1,
-    warning('ICP:Diverged','Fitting may have diverged.');
+if err(itr+1)-min(err) > 1,
+    warning('ICP:Diverged','Fitting diverged; may not have detected peaks on all channels properly');
 end
 
 % Display final alignment.
@@ -808,15 +799,16 @@ end
 % scatter( moving(:,1),moving(:,2),'ro' );
 % scatter( registered(:,1),registered(:,2),'gx' );
 % hold off;
+% legend( {'Fixed','Moving','Registered'} );
 
 
 % Document the degree of residual error. FIXME
 if ~params.quiet,
-    fprintf('ICP converged after %d iterations (residual error %.2f px)\n',itr,err(itr));
+    fprintf('ICP converged after %d iterations (residual error %.2f px)\n',itr,err(itr+1));
     
     u = unique(idx);
     n = histc(idx,u); %count how many times each index is used
-    fprintf('ICP: %.0f (%0.0f%%) were used; of those %.0f (%.0f%%) are ambiguous\n', ...
+    fprintf('ICP: %.0f (%0.0f%%) were used; of those %.0f (%.0f%%) are ambiguous\n\n', ...
              numel(idx), 100*numel(idx)/numel(dist), sum(n>1), 100*sum(n>1)/numel(n) );
 end
 

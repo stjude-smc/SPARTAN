@@ -514,25 +514,36 @@ else
     a = stkData.alignStatus;
     handles.alignment = a;
     
-    if isfield(a,'quality'),
-        text = 'Alignment applied:';
-    else
+    if handles.params.alignMethod==1,
         text = 'Alignment deviation:';
+    else
+        text = 'Alignment applied:';
     end
+    
+    tableData = get(handles.tblAlignment,'Data');
+    fmt = {'% 0.2f','% 0.2f','% 0.2f °','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
     
     for i=1:numel(a),
-        if isempty(a(i).theta),
-           continue;   %ignore donor field alignment to itself
+        if ~isempty(a(i).theta),
+            %FIXME: quality is not defined for all alignments (!)
+            %FIXME: indexing here assumes donor is first; it may not be!
+            row = [a(i).dx a(i).dy a(i).theta 100*(a(i).sx-1) a(i).quality a(i).abs_dev];
+            tableData(i-1,:) = arrayfun( @(i) sprintf(fmt{i},row(i)), 1:numel(fmt), 'Unif',false );
+            
+            if a(i).quality==0,
+                tableData{i-1,5}='';
+            end
         end
-        
-        text = [text sprintf('\n%0.1f (x), %0.1f (y), %0.2f (rot), %.1f%% (s), %0.1f (dev)', ...
-                       [a(i).dx a(i).dy a(i).theta 100*(a(i).sx-1) a(i).abs_dev] )  ];
     end
     
+    set( handles.tblAlignment, 'Data',tableData(1:numel(a)-1,:) );
+    set( handles.tblAlignment, 'RowName',handles.params.chDesc(2:end) );
+    
     % If the alignment quality (confidence) is low, warn the user.
+    % FIXME: 
     if isfield(a,'quality'),
         if any( [a.quality]<1.1 & [a.quality]>0 ),
-            text = [text sprintf('\nLow confidence alignment!')];
+            text = [text sprintf(' (low confidence!)')];
         end
     end
     
@@ -540,10 +551,15 @@ else
 
     % Color the text to draw attention to it if the alignment is bad.
     % FIXME: this should depend on the nhood/window size. 1 px may be small.
+    % FIXME: try to color individual rows according to degree of misalignment,
+    % for example using HTML tags in text (rg, <html><b><font color='red',
+    % or color="#FF00FF"). <center> tag might also be useful.
     if any( [a.abs_dev] > 0.25 ),
         d = max( [a.abs_dev] );
+        set( handles.tblAlignment,   'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
         set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
     else
+        set( handles.tblAlignment,   'ForegroundColor', [0 0 0] );
         set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
     end
     
@@ -1088,6 +1104,7 @@ assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.p
 [f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
 
 if f,
+    % FIXME: should also remove abs_dev.
     alignment = rmfield( handles.alignment, {'quality'} );
     save( [p f], 'alignment' );
 end

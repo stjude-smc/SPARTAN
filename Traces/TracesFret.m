@@ -173,6 +173,7 @@ methods
             indexes = 1:this.nTraces;
         end
         if islogical(indexes),  indexes = find(indexes);  end
+        if isempty(indexes), return; end
         assert( isvector(indexes) );
         indexes = to_row(indexes);
         
