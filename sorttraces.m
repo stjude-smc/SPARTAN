@@ -199,41 +199,60 @@ handles.filename = filename;
 handles.data = data;
 
 
-% Trace indexes of binned molecules
-handles.NoFRETs_indexes=[];
-handles.FRETs_indexes=[];
-handles.Best_indexes=[];
+% Initialize array for tracking FRET donor-blinking threshold value.
+% The default value of NaN is a marker that the value hasn't been
+% calculated yet (but should be using traceStat).
+% We don't calculate it here because then there would a long delay loading
+% the file; small delays for each trace are not perceptible.
+handles.fretThreshold = NaN( handles.data.nTraces, 1  );
 
-% Check for previous molecule picking on same file
+% Set data correction starting values.
+% The data is never modified. These parameters are used to adjust the data each
+% time it is displayed or when it is ultimately saved. They are listed in the
+% order they are applied to the trace. For now, background subtraction is the
+% exception! The trace data is directly modified in that case.
+% FIXME: intelligently choose size of these guys.
+handles.adjusted   = false( handles.data.nTraces, 1 ); %bool if trace was changed
+handles.background = zeros( handles.data.nTraces, 3 ); %not used (yet)
+handles.gamma      = ones(  handles.data.nTraces, 3 );
+handles.crosstalk  = zeros( handles.data.nTraces, 2 );
+
+handles.binNames = {'No FRET', 'All FRET', 'Best FRET'};
+
+
+% Trace indexes of binned molecules
+handles.bins = cell(3,1);
+
+% Check saved state file, including corrections and molecule selections.
+% If no .mat file is found, look for .txt file (old version with only selections)
 [p,fname] = fileparts( filename );
-inds_fname = fullfile(p, [fname '_picked_inds.txt']);
+inds_fname = fullfile(p, [fname '_savedState.mat']);
+if ~exist(inds_fname,'file'),
+    inds_fname = fullfile(p, [fname '_picked_inds.txt']);
+end
 
 if exist(inds_fname,'file'),
     text = 'These traces have been binned before.  ';
     text = [text 'Do you want to reload your selections?'];
-    answer = questdlg(text, 'Load picking selections?','Yes','No','No');
+    answer = questdlg(text, 'Load picking selections?','Yes','No','Yes');
     
     if strcmp(answer,'Yes'),
-        fid = fopen(inds_fname,'r');
-        
-        handles.NoFRETs_indexes = sscanf( fgetl(fid), '%f' )';
-        handles.FRETs_indexes   = sscanf( fgetl(fid), '%f' )';
-        handles.Best_indexes    = sscanf( fgetl(fid), '%f' )';
-        
-        set(handles.btnSave,'Enable','on');
+        handles = loadSavedState(handles, inds_fname);
     end
 end
 
 % Initialize picking boxes
-set(handles.editBin1,'String', num2str(numel(handles.NoFRETs_indexes)) );
-set(handles.editBin2,'String', num2str(numel(handles.FRETs_indexes))   );
-set(handles.editBin3,'String', num2str(numel(handles.Best_indexes))    );
-set(handles.chkBin1,'Enable','on', 'Value', 0);
-set(handles.chkBin2,'Enable','on', 'Value', 0);
-set(handles.chkBin3,'Enable','on', 'Value', 0);
+set(handles.editBin1,'String', num2str(numel(handles.bins{1})) );
+set(handles.editBin2,'String', num2str(numel(handles.bins{2})) );
+set(handles.editBin3,'String', num2str(numel(handles.bins{3})) );
 set(handles.btnSelAll1,'Enable','on');
 set(handles.btnSelAll2,'Enable','on');
 set(handles.btnSelAll3,'Enable','on');
+
+for i=1:numel(handles.binNames),
+    set( handles.(sprintf('chkBin%d',i)), 'String',handles.binNames{i}, ...
+         'Enable','on', 'Value', 0);
+end
 
 % Turn on other controls that can now be used now that a file is loaded.
 if ismember('fret',handles.data.channelNames),
@@ -247,6 +266,7 @@ set(handles.edCrosstalk1, 'Enable',isFret );
 set(handles.sldCrosstalk1,'Enable',isFret );
 set(handles.edGamma1,     'Enable',isFret,'String','1' );
 set(handles.sldGamma1,    'Enable',isFret,'Value',1 );
+set(handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
@@ -261,27 +281,6 @@ set(handles.edCrosstalk2, 'Enable',isThreeColor,'String','0' );
 set(handles.sldCrosstalk2,'Enable',isThreeColor,'Value',  0  );
 set(handles.edGamma2,     'Enable',isThreeColor,'String','1' );
 set(handles.sldGamma2,    'Enable',isThreeColor,'Value',  1  );
-
-
-% Initialize array for tracking FRET donor-blinking threshold value.
-% The default value of zero is a marker that the value hasn't been
-% calculated yet (but should be using traceStat).
-% We don't calculate it here because then there would a long delay loading
-% the file; small delays for each trace are not perceptible. 
-handles.fretThreshold = NaN( handles.data.nTraces, 1  );
-set( handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
-
-% Set data correction starting values.
-% The data is never modified. These parameters are used to adjust the data each
-% time it is displayed or when it is ultimately saved. They are listed in the
-% order they are applied to the trace. For now, background subtraction is the
-% exception! The trace data is directly modified in that case.
-% FIXME: intelligently choose size of these guys.
-handles.adjusted   = false( handles.data.nTraces, 1 ); %bool if trace was changed
-% handles.background = zeros( handles.data.nTraces, 3 );
-handles.gamma      = ones(  handles.data.nTraces, 3 );
-handles.crosstalk  = zeros( handles.data.nTraces, 2 );
-
 
 % Reset x-axis label to reflect time or frame-based.
 time = handles.data.time;
@@ -350,6 +349,46 @@ end
 
 
 
+%----------LOAD SAVED STATE FROM FILE----------%
+function handles = loadSavedState(handles, inds_fname)
+% Load trace selections and adjustments from file.
+
+[~,~,ext] = fileparts(inds_fname);
+
+if strcmp('.mat',ext),
+    savedState = load( inds_fname );
+    requiredFields = {'bins','adjusted','crosstalk','gamma','background','fretThreshold'};
+
+    if ~all( isfield(savedState,requiredFields) ),
+        warning('Invalid sorttraces saved state file. Ignoring.');
+        return;
+    end
+
+    % Load file settings into handles structure.
+    for i=1:numel(requiredFields),
+        handles.(requiredFields{i}) = savedState.(requiredFields{i});
+    end
+
+elseif strcmp('.txt',ext),
+    % Load legacy saved state that only includes molecule selections.
+    % These were made by versions 2.9 and earlier.
+    fid = fopen(inds_fname,'r');
+    for i=1:3,
+        handles.bins{i} = sscanf( fgetl(fid), '%f' )';
+    end
+else
+    warning('Invalid sorttraces saved state file. Ignoring.');
+    return;
+end
+
+set(handles.btnSave,'Enable','on');
+%TODO?: consider resetting scroll bars to fit range of loaded values.
+
+%END FUNCTION loadSavedState
+
+
+
+
 %=========================================================================%
 %============================   NAVIGATION   =============================%
 
@@ -410,17 +449,18 @@ if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
     else
         handles.fretThreshold(mol) = handles.constants.blink_nstd * std(total(range));
     end
-    
-    % Adjust scroll bar range if the new value falls outside of it.
-    sldMax = get( handles.sldThreshold, 'max' );
-    sldMax = max( sldMax, 2*handles.fretThreshold(mol) );
-    set( handles.sldThreshold, 'max', sldMax );
 end
 
+% Adjust scroll bar range if the new value falls outside of it.
+sldMax = get( handles.sldThreshold, 'max' );
+sldMax = max( sldMax, 2*handles.fretThreshold(mol) );
+set( handles.sldThreshold, 'max', sldMax );
+
 % Set bin checkboxes
-set(handles.chkBin1,'Value', any(handles.NoFRETs_indexes==mol) );
-set(handles.chkBin2,'Value', any(handles.FRETs_indexes==mol) );
-set(handles.chkBin3,'Value', any(handles.Best_indexes==mol) );
+for i=1:numel(handles.bins),
+    chkName = sprintf('chkBin%d',i);
+    set(handles.(chkName),'Value', any(handles.bins{i}==mol) );
+end
 
 % Re-initialize figure objects.
 set( handles.edCrosstalk1,  'String', sprintf('%.3f',handles.crosstalk(mol,1)) );
@@ -479,83 +519,33 @@ mol = handles.molecule_no;
 val = get(hObject,'Value');
 
 if val==1,  %checking
-    if index==1,
-        handles.NoFRETs_indexes = [handles.NoFRETs_indexes mol];
-    elseif index==2,
-        handles.FRETs_indexes = [handles.FRETs_indexes mol];
-    elseif index==3,
-        handles.Best_indexes = [handles.Best_indexes mol];
-    end
+    handles.bins{index} = [handles.bins{index} mol];
     
 else  %unchecking
-    if index==1,
-        handles.NoFRETs_indexes = handles.NoFRETs_indexes( ...
-                                  handles.NoFRETs_indexes~=mol );
-    elseif index==2,
-        handles.FRETs_indexes = handles.FRETs_indexes( ...
-                                handles.FRETs_indexes~=mol );       
-    elseif index==3,
-        handles.Best_indexes = handles.Best_indexes( ...
-                               handles.Best_indexes~=mol );
-    end
+    handles.bins{index} = handles.bins{index}( handles.bins{index}~=mol );
 end
 
-
-NoFRET_no = numel( handles.NoFRETs_indexes );
-FRET_no = numel( handles.FRETs_indexes );
-Best_no = numel( handles.Best_indexes );
-
-set(handles.editBin1,'String',num2str(NoFRET_no));
-set(handles.editBin2,'String',num2str(FRET_no));  
-set(handles.editBin3,'String',num2str(Best_no));
+% Update molecule counts for each bin in GUI.
+for i=1:numel(handles.bins),
+    edName = sprintf('editBin%d',i);
+    set( handles.(edName), 'String',num2str(numel(handles.bins{i})) );
+end
 
 set(handles.btnSave,'Enable','on');
 guidata(hObject,handles);
 
 
 % --- Executes on button press in chkBin1.
-function toggleBin(hObject, ~, handles, index)
+function toggleBin(handles, index)
 % User clicked on one of the check boxes associated with each bin.
 % The last parameter determines which bin was indicated.
 
-mol = handles.molecule_no;
-chk_name = ['chkBin' num2str(index)];
-val = ~get( handles.(chk_name), 'Value' );
-set( handles.(chk_name), 'Value', val );
+chkName = sprintf('chkBin%d',index);
+val = ~get( handles.(chkName), 'Value' );
+set( handles.(chkName), 'Value', val );
 
-if val==1,  %if unchecked, check
-    if index==1,
-        handles.NoFRETs_indexes = [handles.NoFRETs_indexes mol];
-    elseif index==2,
-        handles.FRETs_indexes = [handles.FRETs_indexes mol];
-    elseif index==3,
-        handles.Best_indexes = [handles.Best_indexes mol];
-    end
-    
-else  %if checked, uncheck
-    if index==1,
-        handles.NoFRETs_indexes = handles.NoFRETs_indexes( ...
-                                  handles.NoFRETs_indexes~=mol );
-    elseif index==2,
-        handles.FRETs_indexes = handles.FRETs_indexes( ...
-                                handles.FRETs_indexes~=mol );       
-    elseif index==3,
-        handles.Best_indexes = handles.Best_indexes( ...
-                               handles.Best_indexes~=mol );
-    end
-end
-
-
-NoFRET_no = numel( handles.NoFRETs_indexes );
-FRET_no = numel( handles.FRETs_indexes );
-Best_no = numel( handles.Best_indexes );
-
-set(handles.editBin1,'String',num2str(NoFRET_no));
-set(handles.editBin2,'String',num2str(FRET_no));  
-set(handles.editBin3,'String',num2str(Best_no));
-
-set(handles.btnSave,'Enable','on');
-guidata(hObject,handles);
+% Handle what normally happens after the box is checked.
+addToBin_Callback(handles.(chkName),[],handles,index);
 
 
 
@@ -566,32 +556,27 @@ function btnSave_Callback(hObject, ~, handles)
 % User clicked "Save Traces".
 % Traces files are saved for each bin in which there are picked molecules.
 
-
-%--- Save indexes of picked molecules to file
 [p,f]=fileparts(handles.filename);
 baseFilename = fullfile(p,f);
 
-fid = fopen( [baseFilename '_picked_inds.txt'], 'w' );
-fprintf(fid, '%d ', handles.NoFRETs_indexes); fprintf(fid,'\n');
-fprintf(fid, '%d ', handles.FRETs_indexes);   fprintf(fid,'\n');
-fprintf(fid, '%d ', handles.Best_indexes);    fprintf(fid,'\n');
-fclose(fid);
+%--- Save trace adjustments and indexes of picked molecules to file
+% Saves a .mat file with a structure containing all the information necessary to
+% recover the internal state of sorttraces as it is now.
+savedState.version = handles.constants.version;
+
+fields = {'binNames','bins','adjusted','crosstalk','gamma','background','fretThreshold'};
+for i=1:numel(fields),
+    savedState.(fields{i}) = handles.(fields{i});
+end
+save( [baseFilename '_savedState.mat'], '-struct', 'savedState' );
 
 
 %--- Save files
-if ~isempty(handles.Best_indexes),
-    filename = [baseFilename '_best_fret.traces'];
-    savePickedTraces( handles, filename, handles.Best_indexes );
-end
+binNames = lower( strrep(handles.binNames,' ','_') );  %FIXME: may need to remove other special characters.
 
-if ~isempty(handles.FRETs_indexes),
-    filename = [baseFilename '_all_fret.traces'];
-    savePickedTraces( handles, filename, handles.FRETs_indexes );
-end
-
-if ~isempty(handles.NoFRETs_indexes),
-    filename = [baseFilename '_no_fret.traces'];
-    savePickedTraces( handles, filename, handles.NoFRETs_indexes );
+for i=1:numel(handles.bins),
+    filename = [baseFilename '_' binNames{i} '.traces'];
+    savePickedTraces( handles, filename, handles.bins{i} );
 end
 
 
@@ -923,8 +908,7 @@ handles.adjusted(handles.molecule_no) = true;
 
 % Since some kind of change was made, allow the user to save the file or
 % selections in their new state.
-if ~isempty(handles.NoFRETs_indexes) || ~isempty(handles.FRETs_indexes) || ...
-   ~isempty(handles.Best_indexes),
+if any( ~cellfun(@isempty,handles.bins) ),
     set(handles.btnSave,'Enable','on');
 end
 set(handles.btnSaveInPlace,'Enable','on');
@@ -1263,7 +1247,7 @@ plotter(handles);
 
 
 
-% --- Executes on button press in btnSelAll3.
+% --- Executes on button press in btnSelAll.
 function btnSelAll_Callback(hObject, ~, handles, index)
 % User clicked the "select all" button above one of the bins.
 % This is dangerous because all existing selections in that bin could be
@@ -1275,24 +1259,12 @@ if ~strcmp(result,'OK'),
     return;
 end
 
-if index==1,
-    handles.NoFRETs_indexes = 1:handles.data.nTraces;
-    set(handles.chkBin1,'Value',1);
-elseif index==2,
-    handles.FRETs_indexes = 1:handles.data.nTraces;
-    set(handles.chkBin2,'Value',1);
-elseif index==3,
-    handles.Best_indexes = 1:handles.data.nTraces;
-    set(handles.chkBin3,'Value',1);
-end
+handles.bins{index} = 1:handles.data.nTraces;
+chkName = sprintf('chkBin%d',index);
+set(handles.(chkName),'Value',1);
 
-NoFRET_no = numel( handles.NoFRETs_indexes );
-FRET_no = numel( handles.FRETs_indexes );
-Best_no = numel( handles.Best_indexes );
-
-set(handles.editBin1,'String',num2str(NoFRET_no));
-set(handles.editBin2,'String',num2str(FRET_no));  
-set(handles.editBin3,'String',num2str(Best_no));
+edName = sprintf('editBin%d',index);
+set( handles.(edName), 'String',num2str(numel(handles.bins{index})) );
 
 set(handles.btnSave,'Enable','on');
 guidata(hObject,handles);
@@ -1323,13 +1295,13 @@ switch ch
     %
     
     case 'a',
-    toggleBin( hObject, eventdata, handles, 1 );
+        toggleBin( handles, 1 );
     
     case 's',
-    toggleBin( hObject, eventdata, handles, 2 );
+        toggleBin( handles, 2 );
     
     case 'd',
-    toggleBin( hObject, eventdata, handles, 3 );
+        toggleBin( handles, 3 );
     
     case 'z',  %zoom in on trace
         dt  = diff(handles.data.time(1:2)) / 1000;  %time step in seconds
@@ -1461,7 +1433,7 @@ function sorttraces_CloseRequestFcn(hObject, ~, handles)
 
 % Ask the user if the traces should be saved before closing.
 if strcmpi(get(handles.btnSave,'Enable'),'on') || strcmpi(get(handles.btnSaveInPlace,'Enable'),'on')
-    a = questdlg( 'Are you sure you want to exit without saving selections?',...
+    a = questdlg( 'Are you sure you want to exit? (You might lose changes)',...
                   'Exit without saving', 'OK','Cancel', 'OK' ); 
     if ~strcmp(a,'OK'),
         return;
