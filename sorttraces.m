@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 23-Oct-2014 17:13:31
+% Last Modified by GUIDE v2.5 10-Jun-2015 17:25:16
 
 
 % Begin initialization code - DO NOT EDIT
@@ -85,6 +85,10 @@ if ~isfield(handles,'constants')
     grid( handles.axFret, 'on' );
     zoom( handles.axFret, 'on' );
     hold( handles.axFret, 'on' );
+    
+    set( zoom(handles.axFluor),'ActionPostCallback',@zoom_callback);
+    set( zoom(handles.axTotal),'ActionPostCallback',@zoom_callback);
+    set( zoom(handles.axFret), 'ActionPostCallback',@zoom_callback);
     
     handles.axFOV = [];
 end
@@ -1057,17 +1061,13 @@ else
     chColors = jet(nCh);  %color in order from blue to red as an approximation
 end
 
-% Get trace properties and reset GUI values with these results
-% FIXME: traceStat is slow. Need to find a way to do this calculation ahead of
-% time so it isn't limiting the user's ability to flip through traces.
+% Get trace properties and reset GUI values with these results.
 stats = handles.stats;
 lt = stats.lifetime;
 FRETlifetime = stats.acclife;
-snr = stats.snr;
-CC = stats.corr;
 
-set(handles.editCorrelation,'String', sprintf('%.2f',CC) );
-set(handles.editSNR,'String', sprintf('%.2f',snr) );
+set(handles.editCorrelation,'String', sprintf('%.2f',stats.corr) );
+set(handles.editSNR,'String', sprintf('%.1f, %.1f',stats.snr,stats.snr_s) );
 
 if ismember('acceptor2',data.channelNames),  %isThreeColor,
     fret2Lifetime = stats.fret2Lifetime;
@@ -1075,6 +1075,7 @@ if ismember('acceptor2',data.channelNames),  %isThreeColor,
 else
     set(handles.editLifetime,'String',  sprintf('%d, %d', [FRETlifetime lt]));
 end
+set( handles.edZoomCorr, 'String','' );
 
 
 [~,name,ext] = fileparts( handles.filename );
@@ -1149,6 +1150,30 @@ drawnow;
 
 
 
+function zoom_callback(hObject, ~)
+% Called as ActionPostCallback for any of the axes objects upon zooming
+
+handles = guidata(hObject);
+m = handles.molecule_no;
+
+if handles.adjusted(m),
+    data = adjustTraces(handles,m);
+else
+    data = handles.trace;
+end
+
+% Get correlation over zoomed region.
+% The zoom is imprecise, so we have to find the nearest
+if isChannel(data,'donor') && isChannel(data,'acceptor'),
+    lim = xlim(handles.axFluor);
+    [~,idxLow]  = min( abs(data.time/1000-lim(1)) );
+    [~,idxHigh] = min( abs(data.time/1000-lim(end)) );
+
+    zcorr = corrcoef( data.donor(idxLow:idxHigh), data.acceptor(idxLow:idxHigh) );
+    set( handles.edZoomCorr, 'String',sprintf('%.2f',zcorr(1,2)) );
+end;
+
+%END FUNCTION
 
 
 
@@ -1320,6 +1345,8 @@ switch ch
             xlim( handles.axFluor, [0,lt+15*dt] );
         end
         
+        zoom_callback([],[],handles);
+        
 %     otherwise
 %         disp( double(ch) );
 end
@@ -1447,3 +1474,5 @@ end
 
 % Close the sorttraces window
 delete(hObject);
+
+

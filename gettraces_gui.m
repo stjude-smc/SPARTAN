@@ -384,7 +384,7 @@ existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
 
 % Show progress information
 % h = waitbar(0,'Extracting traces from movies...');
-set(handles.txtProgress,'String','Creating traces, please wait...');
+set(handles.txtProgress,'String','Running...');
 
 % For each file...
 for i=1:nFiles
@@ -420,7 +420,7 @@ for i=1:nFiles
     saveTraces_Callback(hObject, [], handles);
     
     % Update progress information
-    text = sprintf('Creating traces: %.0f%%', 100*(i/nFiles) );
+    text = sprintf('Running: %.0f%%', 100*(i/nFiles) );
     set(handles.txtProgress,'String',text);
     nTraces(i) = handles.num;
     
@@ -521,7 +521,7 @@ else
     end
     
     tableData = get(handles.tblAlignment,'Data');
-    fmt = {'% 0.2f','% 0.2f','% 0.2f °','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
+    fmt = {'% 0.2f','% 0.2f','% 0.2f','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
     
     for i=1:numel(a),
         if ~isempty(a(i).theta),
@@ -1101,11 +1101,14 @@ assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.p
 %     return;
 % end
 
-[f,p] = uiputfile('*.mat','Save software alignment settings','align.mat');
+[p,f] = fileparts(handles.stkfile);
+alignfile = fullfile( p, [f '_align.mat'] );
+
+[f,p] = uiputfile('*.mat','Save software alignment settings',alignfile);
 
 if f,
     % FIXME: should also remove abs_dev.
-    alignment = rmfield( handles.alignment, {'quality'} );
+    alignment = rmfield( handles.alignment, {'quality'} );   %#ok<NASGU>
     save( [p f], 'alignment' );
 end
 
