@@ -319,11 +319,10 @@ else
 end
 
 % For MIL (batch kinetics).
-warning off MATLAB:maxNumCompThreads:Deprecated
-constants.nProcessors = maxNumCompThreads;
+constants.nProcessors = feature('numCores');
 
 % Set to false to disable parfor, which is slow on some older computers.
-constants.enable_parfor = true;
+constants.enable_parfor = constants.nProcessors>1;
 
 
 

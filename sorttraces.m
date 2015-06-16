@@ -13,7 +13,7 @@ function varargout = sorttraces(varargin)
 % Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
 %    trace_stat (which requires: RLE_filter, CalcLifetime)
 
-% Last Modified by GUIDE v2.5 10-Jun-2015 17:25:16
+% Last Modified by GUIDE v2.5 15-Jun-2015 12:46:03
 
 
 % Begin initialization code - DO NOT EDIT
@@ -236,6 +236,7 @@ if ~exist(inds_fname,'file'),
 end
 
 if exist(inds_fname,'file'),
+    % FIXME: ask user whether to load corrections, selections, or both.
     text = 'These traces have been binned before.  ';
     text = [text 'Do you want to reload your selections?'];
     answer = questdlg(text, 'Load picking selections?','Yes','No','Yes');
@@ -246,14 +247,10 @@ if exist(inds_fname,'file'),
 end
 
 % Initialize picking boxes
-set(handles.editBin1,'String', num2str(numel(handles.bins{1})) );
-set(handles.editBin2,'String', num2str(numel(handles.bins{2})) );
-set(handles.editBin3,'String', num2str(numel(handles.bins{3})) );
-set(handles.btnSelAll1,'Enable','on');
-set(handles.btnSelAll2,'Enable','on');
-set(handles.btnSelAll3,'Enable','on');
-
 for i=1:numel(handles.binNames),
+    set( handles.(sprintf('editBin%d',i)), 'String',num2str(numel(handles.bins{i})) );
+    set( handles.(sprintf('btnSelAll%d',i)), 'Enable','on' );
+    set( handles.(sprintf('btnSelClear%d',i)), 'Enable','on' );
     set( handles.(sprintf('chkBin%d',i)), 'String',handles.binNames{i}, ...
          'Enable','on', 'Value', 0);
 end
@@ -346,7 +343,6 @@ else
     ylabel(handles.axFret, '');
     ylim(handles.axFret, 'auto');
 end
-
 
 % END FUNCTION OpenTracesFile
 
@@ -898,8 +894,30 @@ set( handles.(name), 'String',sprintf('%.2f',newGamma) );
 handles = updateTraceData( handles );
 guidata(hObject,handles);
 
-
 % END FUNCTION sldGamma_Callback
+
+
+
+% --- Executes on button press in btnResetAllCorrections.
+function btnResetAllCorrections_Callback(hObject, ~, handles)  %#ok<DEFNU>
+% Clear trace corrections for ALL TRACES.
+a = questdlg( 'This will reset corrections on ALL TRACES. Are you sure?', ...
+              'Reset all corrections', 'OK','Cancel', 'OK' );
+
+% Reset corrections variables to their defaults.
+if strcmp(a,'OK'),
+    handles.fretThreshold = NaN( handles.data.nTraces, 1  );
+    handles.adjusted   = false( handles.data.nTraces, 1 );
+    handles.background = zeros( handles.data.nTraces, 3 );
+    handles.gamma      = ones(  handles.data.nTraces, 3 );
+    handles.crosstalk  = zeros( handles.data.nTraces, 2 );
+end
+
+% Update GUI controls and redraw the trace.
+guidata(hObject,handles);
+editGoTo_Callback( hObject, [], handles );
+
+% END FUNCTION btnResetAllCorrections_Callback
 
 
 
@@ -917,7 +935,6 @@ if any( ~cellfun(@isempty,handles.bins) ),
 end
 set(handles.btnSaveInPlace,'Enable','on');
 plotter(handles);
-
 
 % END FUNCTION updateTraceData
 
@@ -1163,14 +1180,21 @@ else
 end
 
 % Get correlation over zoomed region.
-% The zoom is imprecise, so we have to find the nearest
 if isChannel(data,'donor') && isChannel(data,'acceptor'),
+    % Find the nearest datapoints in the zoomed region.
     lim = xlim(handles.axFluor);
     [~,idxLow]  = min( abs(data.time/1000-lim(1)) );
     [~,idxHigh] = min( abs(data.time/1000-lim(end)) );
 
-    zcorr = corrcoef( data.donor(idxLow:idxHigh), data.acceptor(idxLow:idxHigh) );
-    set( handles.edZoomCorr, 'String',sprintf('%.2f',zcorr(1,2)) );
+    if idxLow==1 && idxHigh==data.nFrames,
+        % Clear the box when fully zoomed out. This hints at the meaning of
+        % the number -- it is only defined when zoomed in.
+        set( handles.edZoomCorr, 'String','' );
+    else        
+        zcorr = corrcoef( data.donor(idxLow:idxHigh), data.acceptor(idxLow:idxHigh) );
+        set( handles.edZoomCorr, 'String',sprintf('%.2f',zcorr(1,2)) );
+    end
+    
 end;
 
 %END FUNCTION
@@ -1249,7 +1273,6 @@ end %if errors
 
 set(handles.btnClearIdl,'Enable','on');
 
-
 % END FUNCTION loadDWT_ex
 
 
@@ -1294,6 +1317,33 @@ set( handles.(edName), 'String',num2str(numel(handles.bins{index})) );
 set(handles.btnSave,'Enable','on');
 guidata(hObject,handles);
 
+%end function btnSelAll_Callback
+
+
+
+% --- Executes on button press in btnSelClear1.
+function btnSelClear_Callback(hObject, ~, handles, index)   %#ok<DEFNU>
+% User clicked the "clear selections" button above one of the bins.
+% This is dangerous because all existing selections in that bin could be
+% lost if this was accidental, so a warning dialog was added.
+
+result = questdlg('This will clear ALL SELECTIONS in this bin. Are you sure?', ...
+                            'Clear selections','OK','Cancel','Cancel');
+if strcmp(result,'OK'),
+    handles.bins{index} = [];
+    chkName = sprintf('chkBin%d',index);
+    set(handles.(chkName),'Value',0);
+
+    edName = sprintf('editBin%d',index);
+    set( handles.(edName), 'String',num2str(0) );
+
+    set(handles.btnSave,'Enable','on');
+    guidata(hObject,handles);
+end
+
+%end function btnSelClear_Callback
+
+
 
 
 
@@ -1302,7 +1352,6 @@ function navKeyPress_Callback(hObject, eventdata, handles)
 % Handles keyboard shortcut commands for moving through traces and putting
 % them into bins. Called when keys are pressed when one of the navigation
 % buttons has active focus.
-% FIXME: not working for top buttons yet.
 
 ch = get(gcf,'CurrentCharacter');
 
@@ -1350,7 +1399,6 @@ switch ch
 %     otherwise
 %         disp( double(ch) );
 end
-
 
 %end function navKeyPress_Callback
 
@@ -1447,7 +1495,6 @@ end
 % Show molecule location
 plotter(handles);
 
-
 % end function btnGettraces_Callback
 
 
@@ -1474,5 +1521,3 @@ end
 
 % Close the sorttraces window
 delete(hObject);
-
-
