@@ -87,6 +87,20 @@ end
 hist2d(2:end,2:end) = hist2d(2:end,2:end)/Nmol;
 
 
+% Optional: remove traces as they photobleach (drop to zero-FRET). This way the
+% plot looks the same as traces bleach -- there are simply fewer of them
+% contributing.
+if isfield(options,'cplot_remove_bleached') && options.cplot_remove_bleached,
+    % Set bleached bins to zero.
+    % FIXME: this threshold should be defined in cascadeConstants.
+    h = hist2d(2:end,2:end);
+    h( fret_axis<=0.15, : ) = 0;
+
+    % Renormalize so all columns sum to unity again.
+    hist2d(2:end,2:end) = bsxfun( @rdivide, h, sum(h) );
+end
+
+
 % Save the histogram to file. Only do this if user doesn't request output
 % arguments. What else could they want?
 if nargout==0 && exist(data_filename,'var'),

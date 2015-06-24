@@ -166,7 +166,7 @@ end
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors.
 constants = cascadeConstants;
-if nTraces*traceLen/2000 > 1500 && constants.enable_parfor,
+if nTraces*traceLen/1000 > 10 && constants.enable_parfor,
     % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
     pool = gcp;
     M = pool.NumWorkers;

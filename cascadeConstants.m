@@ -272,6 +272,12 @@ options.truncate_tdplot = false;     %   match the displayed contour plot (conto
 % compensate for lower density!
 options.cplot_normalize_to_max = false;  % false by default.
 
+% This option will remove zero-FRET states (acceptor or donor dark states) from
+% contour plots. This makes it easier to see any changes in state occupancy over
+% time without interference from loss of high-FRET over time.
+% NOTE that toward the end of the histogram, very few traces may contribute.
+options.cplot_remove_bleached = false;
+
 % FRET axis range in countor, histogram, and TD plots.
 options.fret_axis = -0.1:options.contour_bin_size:1.2;  % bins for histogram calculation.
 options.fretRange = [-0.1 1.0];  % range of what is actually displayed.

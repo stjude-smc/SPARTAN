@@ -588,11 +588,27 @@ set(hObject,'Enable','off');
 function savePickedTraces( handles, filename, indexes )
 % Save picked traces and idealizations to file.
 
-set(handles.figure1,'pointer','watch'); drawnow;
-
 % Sort indexes so they are in the same order as in the file, rather than in
 % the order selected.
 indexes = sort(indexes);
+
+% If no traces remain, there is nothing to save. Rather than save an empty file,
+% save nothing and delete any previously saved files.
+if isempty(indexes),
+    if exist(filename,'file'),
+        delete(filename);
+    end
+
+    [p,f] = fileparts(filename);
+    dwtfname = fullfile(p, [f '.qub.dwt']);
+    if exist(dwtfname,'file'),
+        delete(dwtfname);
+    end
+
+    return;
+end
+
+set(handles.figure1,'pointer','watch'); drawnow;
 
 % Put together the subset of selected traces for saving, applying any
 % adjustments made to the trace data.
@@ -1394,7 +1410,7 @@ switch ch
             xlim( handles.axFluor, [0,lt+15*dt] );
         end
         
-        zoom_callback([],[],handles);
+        zoom_callback(hObject,[]);
         
 %     otherwise
 %         disp( double(ch) );
