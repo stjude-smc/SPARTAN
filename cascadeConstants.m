@@ -1,7 +1,7 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
-constants.version = '2.9';  %pipeline release version number
+constants.version = '2.10';  %pipeline release version number
 
 
 % FIXME: this script is called many times and is getting large enough to add
