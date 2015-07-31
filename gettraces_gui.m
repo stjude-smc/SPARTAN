@@ -957,7 +957,7 @@ elseif handles.params.geometry>2,
     set( handles.txtDACrosstalk, 'Visible','off' );
     set( handles.btnCrosstalk,   'Visible','on'  );
 end
-    
+
 
 % If a movie has already been loaded, reload movie with new setup.
 if isfield(handles,'stkfile'),
@@ -972,6 +972,7 @@ guidata(hObject,handles);
 function txtDACrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
 handles.params.crosstalk = str2double( get(hObject,'String') );
+if isnan(handles.params.crosstalk), handles.params.crosstalk=0; end
 guidata(hObject,handles);
 
 

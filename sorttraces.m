@@ -63,7 +63,7 @@ if ~isfield(handles,'constants')
     set(handles.sldThreshold, 'Value',  100);
     set(handles.edCrosstalk1,  'String', '0');
     
-    set( handles.figure1, 'Name', ['sorttraces (version ' constants.version ')'] );
+    set( handles.figure1, 'Name', ['sorttraces (version ' handles.constants.version ')'] );
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
     linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');

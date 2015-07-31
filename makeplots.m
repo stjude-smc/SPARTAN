@@ -126,7 +126,8 @@ disp('Computing plots, please wait...');
 has_dwt = zeros(nSamples,1);
 
 for i=1:nSamples,
-    if exist([baseFilenames{i} '.qub.dwt'],'file'),
+    if exist([baseFilenames{i} '.qub.dwt'],'file') || ...
+       exist([baseFilenames{i} '.dwt'],'file'),
         has_dwt(i) = true;
     end
 end %for each sample
@@ -296,6 +297,9 @@ for k=1:numel(baseFilenames),  %for each sample
     data_fname  = dataFilenames{k};
     dwt_fname   = [baseFilenames{k} '.qub.dwt'];
     
+    if has_dwt(k) && ~exist(dwt_fname,'file'),
+        dwt_fname = [baseFilenames{k} '.dwt'];
+    end
     
     % Load FRET data
     if ~exist(data_fname,'file')
