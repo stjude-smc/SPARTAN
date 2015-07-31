@@ -143,13 +143,6 @@ tic;
 
 
 
-    
-% FRET values are adjusted here so that they match the input values
-% after the introduction of the gamma artifact later.
-mu = mu ./ ( mu + gamma - gamma*mu );
-
-
-
 %%
 
 % Generate a set of uniform random numbers for choosing states
