@@ -20,7 +20,7 @@ function [idl,dwtIDs] = dwtToIdl( dwt, traceLen, offsets, nTraces )
 %
 %
 
-% If not offsets are provided, we assume all traces have an idealization,
+% If no offsets are provided, we assume all traces have an idealization,
 % or that any empty idealizations have an empty element in dwt.
 if nargin<3,
     offsets = traceLen*( 0:1:numel(dwt)-1 );
@@ -50,6 +50,11 @@ for dwtID=1:numel(dwt)
     ends = cumsum(times);
     starts = [1; ends(1:end-1)+1];
     
+    if ends(end)>traceLen,
+        error('Idealization is longer than trace length');
+    end
+    
+    % Add dwells to idealization output
     for j=1:numel(states),
         idl(traceID, starts(j):ends(j)) = states(j);
     end
