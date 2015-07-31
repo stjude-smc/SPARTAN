@@ -67,7 +67,7 @@ if nargin<1,
     % Ideally these should only appear for 3/4-color.
     ln.fret2Lifetime = 'Fret2 Lifetime';
     ln.maxFret2 = 'Highest Fret2 value';
-    ln.avgFret2 = 'Average FRET value';
+    ln.avgFret2 = 'Average FRET2 value';
     
     retval = ln;
     return;

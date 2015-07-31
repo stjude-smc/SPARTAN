@@ -95,6 +95,7 @@ end
 constants = cascadeConstants();
 handles.constants = constants;
 
+set( handles.figure1, 'Name', ['autotrace (version ' constants.version ')'] );
 
 %---- INITIAL VALUES FOR PICKING CRITERIA
 criteria = constants.defaultAutotraceCriteria;

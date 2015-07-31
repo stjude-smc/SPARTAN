@@ -72,6 +72,9 @@ options.seperately = 1; %SKM: analyze each trace individually
 options.kineticsMethod = 'MIL Together';
 handles.options = options;
 
+constants = cascadeConstants;
+set( handles.figure1, 'Name', ['batchkinetics (version ' constants.version ')'] );
+
 % Update handles structure
 guidata(hObject, handles);
 

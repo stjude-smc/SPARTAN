@@ -73,6 +73,8 @@ if ~isfield(handles,'params')
     
     % Set up GUI elements to reflect the internal parameter values.
     handles = cboGeometry_Callback(handles.cboGeometry, [], handles);
+    
+    set( handles.figure1, 'Name', ['gettraces (version ' constants.version ')'] );
 end
 
 % Update handles structure
