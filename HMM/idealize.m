@@ -34,6 +34,18 @@ start_p = reshape(start_p,[nStates,1]);
 assert( ~all(trans_p(:)==0) && ~all(start_p==0) );
 
 
+% Generate Gaussian probability mass functions for each emission state.
+nBins = 10000;
+minx = min( mu -5.*sigma );
+maxx = max( mu +5.*sigma );
+x = [-Inf linspace(minx,maxx,nBins-2) Inf];  %bin edges
+
+pmf = zeros( numel(x)-1, nStates );
+for s=1:nStates,
+    pmf(:,s) = normcdf(x(2:end),mu(s),sigma(s)) - normcdf(x(1:end-1),mu(s),sigma(s));
+end
+
+
 % Predict the sequence of hidden model states for each trace
 dwt = cell(1,nTraces);
 idealization = zeros( size(obs) );
@@ -52,22 +64,22 @@ for i=1:nTraces,
     end
     
     % Precompute emmission probability matrix.
-    % Strictly speaking, Bx isn't a probability because it contains values drawn
-    % from the (continuous) PDF, but since this ultimately just adds a constant
-    % factor to the LL, it does not matter.
     Bx = zeros(nStates,traceLen);
     for s=1:nStates,
-        Bx(s,:) = 0.001*normpdf( trace, mu(s), sigma(s) );
+        % Discretize data, assigning each observation to a bin in the pmf.
+        [~,binIdx] = histc(trace,x);
+        
+        % Calculate the probability of each observation from the pmf.
+        Bx(s,:) = pmf(binIdx,s);
     end
     
     % Find the most likely viterbi path in model space
-    [vPath, vLL] = forward_viterbi(start_p, trans_p, Bx);
+    [vPath, LL(i)] = forward_viterbi(start_p, trans_p, Bx);
     
-    % Convert sequence of state assignments to dwell-times at each state
+    % Convert sequence of state assignments to dwell-times in each state
     % and add this new idealization to the output
     idealization(i,1:traceLen) = vPath;
     dwt{i} = RLEncode(vPath);
-    LL(i) = vLL;
 end
 
 % Add offsets to relate idealization back to raw data
