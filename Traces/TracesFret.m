@@ -95,10 +95,24 @@ methods
     end
 
     % Calculate total fluorescence intensity
-    function T = total(this)
-        T = zeros(this.nTraces,this.nFrames);
+    function T = total(this,varargin)
+        % Create struct for subsref, if the user requested a slice of the total
+        % intensity matrix, saving memory by not constructing the full matrix.
+        % The syntax is typically: T = data.total(1:10,:)
+        S(1).type = '.';
+        if nargin>1,
+            S(2).type = '()';
+            S(2).subs = varargin;
+        end
+        
+        % Sum intensity from all fluorescence channels.
         for c=1:numel(this.idxFluor),
-            T = T + this.( this.channelNames{this.idxFluor(c)} );
+            S(1).subs = this.channelNames{this.idxFluor(c)};
+            if c==1,
+                T = subsref( this, S );
+            else
+                T = T + subsref( this, S );
+            end
         end
     end
     

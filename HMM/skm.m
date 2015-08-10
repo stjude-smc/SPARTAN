@@ -91,7 +91,7 @@ if isfield(params,'seperately') && params.seperately==1,
     constants = cascadeConstants;
     
     % For large computations, parallelize computation across threads.
-    if nTraces > 400 && constants.enable_parfor,
+    if nTraces*nFrames > 1e5 && constants.enable_parfor,
         pool = gcp;
         M = pool.NumWorkers;
     else
