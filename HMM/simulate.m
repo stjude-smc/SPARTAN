@@ -153,6 +153,8 @@ parfor_progress(1.1*nTraces/50,'Simulating state sequences...');
 if kBleach > 0,
     pbTimes = exprnd( 1/kBleachAcceptor, 1,nTraces );
     pbTimes = pbTimes*simFramerate;
+else
+    pbTimes = (traceLen+1)*ones(1,nTraces);
 end
 
 
@@ -175,6 +177,7 @@ noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
 
 parfor (i=1:nTraces,M)
+% for i=1:nTraces,
     % Choose the initial state
     curState = find( rand <= cumsum(p0), 1, 'first' );
     
@@ -193,7 +196,7 @@ parfor (i=1:nTraces,M)
         
         % Simulate the time until the next transition.
         l_tot = sum( Q(curState,:) ); %rate for any transition to occur (the sum of all rates)
-        dwellTime = exprnd(1000./l_tot);        %in ms
+        dwellTime = (-1000./l_tot) .* log( rand(size(l_tot)) );  %in ms
         
         % Simulate the transition type with probabilities being the
         % fraction of transition of each type by rate.
@@ -216,6 +219,13 @@ parfor (i=1:nTraces,M)
     % continuous time and this is usually enough to see most dwells.
     dwt{i} = [model.class(states) round(times)'];
     nDwells = numel(states);
+    
+    if mod(i,50)==0,  %fixme; not very useful with long traces.
+        parfor_progress;
+    end
+    
+    % Don't simulate FRET traces if not requested to save time.
+    if nargout<2, continue; end
     
     % Generate noiseless FRET traces with time averaging.
     e = 1+cumsum(times./dt);    % dwell end times (continuous frames)
@@ -249,15 +259,14 @@ parfor (i=1:nTraces,M)
     end
     
     noiseless_fret(i,:) = trace;
-    
-    if mod(i,50)==0,
-        parfor_progress;
-    end
 end
 
 
+
 %--- Simulate fluorescence traces, adding gaussian read noise
-parfor_progress('Simulating noise...');
+% Don't simulate traces unless requested to save time.
+if nargout>1,
+    parfor_progress('Simulating noise...');
 
 % Add read/background noise to fluorescence and recalculate FRET
 % if stdBackground~=0 || stdPhoton ~=0
@@ -328,7 +337,7 @@ parfor_progress('Simulating noise...');
     %fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
     %donor    = (1-fret).*totalIntensity;
     %acceptor = totalIntensity-donor;
-% end
+end
 
 
 parfor_progress(0);
