@@ -38,6 +38,15 @@ properties (Access=public)
 end %end public properties
 
 
+properties (Constant,Hidden=true)
+    % Defines the possible methods for FRET calculcation. The descriptions are
+    % used when asking the user to specify what calculation to be used and what
+    % assumptions can be made.
+    % Hidden just to keep down the clutter when displaying objects.
+    fretGeometryNames = {'tandem3','independent3','acceptor/total'};
+    fretGeometryDesc  = {'Tandem 3-color (D->A1->A2)','Independent 3-color (D->A1, D->A2)','Acceptor/Total'};
+end
+
 properties (Dependent)
     idxFactor;  %indexes (in channelNames) of factor-binding channels.
 end
@@ -82,26 +91,68 @@ methods
      end
      
     
+     function changed = verifyFretGeometry(this)
+     % Ensure that the method for calculating FRET is specified for 3/4-color
+     % FRET. If not or if invalid, ask the user to specify.
+        changed = false;
+     
+        if ~isChannel(this,'acceptor2'), return; end
+     
+        if ~isfield(this.fileMetadata,'fretGeometry') || ...
+           ~ismember(this.fileMetadata.fretGeometry,this.fretGeometryNames),
+
+            fretGeometry = 'acceptor/total';  %default
+
+            % Handle legacy tag that specifies tandem3 calculation.
+            if isfield(this.fileMetadata,'isTandem3') && this.fileMetadata.isTandem3,
+                fretGeometry = 'tandem3';
+
+            % Otherwise, we have to ask the user what to do.
+            else
+                [sel,ok] = listdlg('PromptString','What is the 3-color FRET geometry in this experiment?', ...
+                               'SelectionMode','single','ListSize',[300 120], ...
+                               'ListString',TracesFret4.fretGeometryDesc );
+                if ok,
+                    fretGeometry = TracesFret4.fretGeometryNames{sel};
+                end
+            end
+
+            this.fileMetadata.fretGeometry = fretGeometry;
+            changed = true;
+        end
+     end
+     
+     
     %% ================ DATA MANIPULATION ================ %%
     
-    function this = recalculateFret( this, thresholds )
+    function this = recalculateFret( this, thresholds, indexes )
     % Recalculate FRET efficiencies (all fields) using fluorescence. 
     %    data.recalculateFret( THRESH );
+    % 
     % Replaces the current "fret" properties with the newly calculated traces.
     % Thresholds of total intensity below which FRET is set to zero can be given
     % as the extra parameter (THRESH, Nx1 array, one per trace). Otherwise, they
     % calculated from the data as a few standard deviations above background.
     % FIXME: specify that THRESH is NxM, where M is the number of FRET channels.
     %
-    % NOTE: for three-color FRET, there are two ways to calculate it:
-    %   1) We assume there is no donor->acceptor2 crosstalk. Here we can
-    %   actually calculate FRET efficiencies.
-    %   2) Otherwise, we can't actually calculate FRET, but as a placeholder, we
-    %   can calculate the fraction of total intensity from each acceptor.
-    % This function will look in fileMetadata to find out which to use, and if
-    % not known, will ask the user to clarify.
+    % NOTE: There are three ways to calculate 3-color FRET:
+    %   1) Tandem acceptors (D->A1->A2): assuming there is no donor->acceptor2
+    %        FRET. 
+    %   2) Independent acceptors (D->A1, D->A2): assuming there is no
+    %        acceptor1->acceptor2 FRET.
+    %   2) Unknown: if the above assumptions can't be made, it isn't possible
+    %        to calculate FRET. Instead, calculate the fraction of acceptor
+    %        intensity vs total (A1/total, A2/total). This is not FRET!
+    %        It just tells you which acceptor is brighter.
     % 
-            
+    % This function will look in fileMetadata to find out which to use, and if
+    % not known, acceptor/total is assumed. If the metadata is not available in
+    % a .traces file, the function that loads it should ask the user.
+    % 2-color FRET will be calculated as usual (see TracesFret).
+    % 
+    
+        %--------------  Determine how to calculate FRET  --------------%
+        
         % If there is only one FRET channel, just use the subclass method.
         if ~isChannel(this,'acceptor2'),
             recalculateFret@TracesFret( this, thresholds );
@@ -115,8 +166,12 @@ methods
             error('STUB: recalculateFret with four-color FRET');
         end
         
-        constants = cascadeConstants;
+        % If the method for calculating FRET is not given or is not valid, ask
+        % the user for the correct method.
+        this.verifyFretGeometry();
         
+        
+        %------------------  Actually calculate FRET  ------------------%
         if nargin<2,
             thresholds = zeros(this.nTraces,1);  %fret1 only
         else
@@ -125,29 +180,48 @@ methods
             end
         end
         
+        % Get list of traces to correct; correct all if not specified.
+        if nargin<3,
+            indexes = 1:this.nTraces;
+        end
+        if islogical(indexes),  indexes = find(indexes);  end
+        if isempty(indexes), return; end
+        assert( isvector(indexes) );
+        indexes = to_row(indexes);
         
         % Calculate FRET for each trace.
         assert( this.isChannel('fret') && this.isChannel('fret2') );
-        acc = this.acceptor + this.acceptor2; %acceptors total intensity
-        total = this.donor + acc;
+        total = this.total;
         
-        if isfield(this.fileMetadata,'isTandem3') && this.fileMetadata.isTandem3,
-            % Actually FRET. Assumes no donor->acceptor2 FRET.
+        switch this.fileMetadata.fretGeometry,
+        case 'tandem3',
+            % D1->A1->A2 FRET. Assumes no donor->acceptor2 FRET.
+            acc = this.acceptor + this.acceptor2; %total acceptor intensity
             this.fret  = acc./total;
             this.fret2 = this.acceptor2./acc;
-            isTandem3 = true;
-        else
-            % Not FRET, instead calculate fraction of total intensity in each channel.
+        case 'independent3',
+            % D1->A1, D1->A2 FRET. Assumes no acceptor1->acceptor2 FRET.
+            this.fret  = this.acceptor ./(this.acceptor +this.donor);
+            this.fret2 = this.acceptor2./(this.acceptor2+this.donor);
+        case 'independent4',
+            % D1->A1, D2->A2 FRET. Assumes the two pairs are fully independent,
+            % which means no D1->A2, D2->A1, A1->A2, etc FRET.
+            this.fret  = this.acceptor ./(this.acceptor +this.donor);
+            this.fret2 = this.acceptor2./(this.acceptor2+this.donor2);
+        case 'acceptor/total',
+            % Fraction of total intensity in each channel (Not FRET).
             this.fret  = this.acceptor./total;
             this.fret2 = this.acceptor2./total;
-            isTandem3 = false;
         end
         
         
+        %--------------  Apply blinking/bleaching corrections  --------------%
+        
         % Set FRET to zero when donor is dark (below total intensity threshold).
         lt = max(1, calcLifetime(total) );  %point where donor bleaches in each trace.
+        constants = cascadeConstants;
         
-        for i=1:this.nTraces,
+        for i=indexes,
             % Set FRET to zero after donor photobleachinsg.
             this.fret(i, lt(i):end ) = 0;
             this.fret2(i, lt(i):end ) = 0;
@@ -171,7 +245,7 @@ methods
             % FRET can't be calculated correctly (such as after photobleaching).
             % This may work poorly if crosstalk correction is bad.
             % FIXME: these parameters should be defined in cascadeConstants.
-            if isTandem3,
+            if strcmp(this.fileMetadata.fretGeometry,'tandem3'),
                 this.fret2( i, this.fret(i,:)<0.2 ) = 0;
 
                 fretRange = rleFilter( this.fret(i,:)>=0.25, constants.rle_min );

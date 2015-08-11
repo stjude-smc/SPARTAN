@@ -188,15 +188,14 @@ if data.time(1)==1,
     end
 end
 
+
 % If this is multi-color FRET data and the metadata doesn't specify how FRET
 % should be calculated, ask the user for clarification.
-% NOTE: this is a temporary field and will be replaced by something more general
-% in a future version.
-if isChannel(data,'acceptor2') && ~isfield(data.fileMetadata,'isTandem3'),
-    result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
-                    '3-color FRET calculation','Yes','No','Cancel','No');
-    if strcmp(result,'Cancel'),  return;  end
-    data.fileMetadata.isTandem3 = double( strcmp(result,'Yes') );
+handles.adjusted = false( data.nTraces, 1 ); %bool if trace was changed
+
+if isa(data,'TracesFret4') && isChannel(data,'acceptor2'),
+    choiceChanged = data.verifyFretGeometry();
+    handles.adjusted(:) = choiceChanged;
 end
 
 
@@ -218,7 +217,6 @@ handles.fretThreshold = NaN( handles.data.nTraces, 1  );
 % order they are applied to the trace. For now, background subtraction is the
 % exception! The trace data is directly modified in that case.
 % FIXME: intelligently choose size of these guys.
-handles.adjusted   = false( handles.data.nTraces, 1 ); %bool if trace was changed
 handles.background = zeros( handles.data.nTraces, 3 ); %not used (yet)
 handles.gamma      = ones(  handles.data.nTraces, 3 );
 handles.crosstalk  = zeros( handles.data.nTraces, 2 );
@@ -334,7 +332,7 @@ end
 
 % Adjust bottom axis, depending on the type of data.
 if ismember('fret',handles.data.channelNames),
-    if isa(data,'TracesFret4') && ~data.fileMetadata.isTandem3,
+    if isfield(data.fileMetadata,'fretGeometry') && strcmp(data.fileMetadata.fretGeometry,'acceptor/total');
         ylabel(handles.axFret, 'Acceptor/Total');
     else
         ylabel(handles.axFret, 'FRET');
