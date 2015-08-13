@@ -100,6 +100,8 @@ save( 'acclife.txt', 'fl', '-ASCII' );
 
 %% Display results to user for immediate interpretation.
 
+figure;
+
 % Show Donor photobleaching raw data
 subplot( 1,2,1 );
 plot( bins, donorLifetime,'LineWidth',2 );

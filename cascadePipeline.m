@@ -22,10 +22,10 @@ function varargout = cascadePipeline(varargin)
 
 % Edit the above text to modify the response to help cascadePipeline
 
-% Last Modified by GUIDE v2.5 28-Feb-2009 14:53:14
+% Last Modified by GUIDE v2.5 12-Aug-2015 16:09:04
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
                    'gui_OpeningFcn', @cascadePipeline_OpeningFcn, ...
@@ -45,12 +45,15 @@ end
 
 
 % --- Executes just before cascadePipeline is made visible.
-function cascadePipeline_OpeningFcn(hObject, eventdata, handles, varargin)
+function cascadePipeline_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to cascadePipeline (see VARARGIN)
+
+constants = cascadeConstants;
+set( handles.figure1, 'Name', ['smFRET data analysis pipeline (version ' constants.version ')'] );
 
 % Set working directory in GUI
 set(handles.txtCWD, 'String',pwd);
@@ -66,7 +69,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = cascadePipeline_OutputFcn(hObject, eventdata, handles) 
+function varargout = cascadePipeline_OutputFcn(~, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -78,7 +81,7 @@ varargout{1} = handles.output;
 
 
 
-function txtCWD_Callback(hObject, eventdata, handles)
+function txtCWD_Callback(hObject, ~, handles) %#ok<DEFNU>
 % hObject    handle to txtCWD (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -97,7 +100,7 @@ end
 
 
 % --- Executes on button press in btnBrowse.
-function btnBrowse_Callback(hObject, eventdata, handles)
+function btnBrowse_Callback(hObject, ~, handles) %#ok<DEFNU>
 % hObject    handle to btnBrowse (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -109,5 +112,7 @@ cd(d);
 set(handles.txtCWD, 'String',pwd);
 
 guidata(hObject, handles);
+
+
 
 
