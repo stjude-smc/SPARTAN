@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 % Edit the above text to modify the response to help batchKinetics
 
-% Last Modified by GUIDE v2.5 13-Aug-2015 17:30:02
+% Last Modified by GUIDE v2.5 13-Aug-2015 18:58:46
 
 
 %% GUI Callbacks
@@ -84,6 +84,7 @@ set( handles.edBootstrapN,          'String', options.bootstrapN );
 set( handles.edDeadTime,            'String', options.deadTime   );
 set( handles.chkIdealizeSeperately, 'Value',  options.seperately );
 set( handles.edMaxIterations,       'String', options.maxItr     );
+set( handles.tblFixFret, 'Data', num2cell(false(3,2)) );
 
 constants = cascadeConstants;
 set( handles.figure1, 'Name', ['batchkinetics (version ' constants.version ')'] );
@@ -145,6 +146,8 @@ set( handles.edModelFilename, 'String',['...' fname(max(1,end-50):end)] );
 % modified in the GUI.
 handles.model = QubModel(fname);
 handles.model.showModel( handles.axModel );
+
+set( handles.tblFixFret, 'Data', num2cell(false(handles.model.nClasses,2)) );
 
 % Enable saving the model
 % set( handles.btnSaveModel, 'Enable','on' );
@@ -588,50 +591,6 @@ delete('.milresult*');
 %% Other GUI Callbacks
 %  ========================================================================
 
-
-
-% --- Executes on button press in chkFixFret.
-function chkFixFret_Callback(hObject, ~, handles)
-% Idealization options: Fix FRET values checkbox
-
-state = get(hObject,'Value');
-
-if ~state,
-    % unchecked - remove setting
-    set(handles.edFixFret,'Enable','off');
-    if isfield(handles.options,'fixFret')
-        handles.options = rmfield( handles.options, 'fixFret' );
-    end
-else
-    % checked - restore previous settings
-    set(handles.edFixFret,'Enable','on');
-    text = get(handles.edFixFret,'String');
-    handles.options.fixFret = str2num(text);
-end
-guidata(hObject, handles);
-
-
-% --- Executes on button press in chkFixStdev.
-function chkFixStdev_Callback(hObject, ~, handles)
-% Idealization options: Fix FRET standard deviations checkbox
-
-state = get(hObject,'Value');
-
-if ~state,
-    % unchecked - remove setting
-    set(handles.edFixStdev,'Enable','off');
-    if isfield(handles.options,'fixStdev')
-        handles.options = rmfield( handles.options, 'fixStdev' );
-    end
-else
-    % checked - restore previous settings
-    set(handles.edFixStdev,'Enable','on');
-    text = get(handles.edFixStdev,'String');
-    handles.options.fixStdev = str2num(text);
-end
-guidata(hObject, handles);
-
-
 % --- Executes on selection change in cboIdealizationMethod.
 function cboIdealizationMethod_Callback(hObject, ~, handles)
 % Idealization options: idealization method combo box
@@ -642,7 +601,7 @@ handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
 % If user selected "Do Nothing", disable idealization option controls.
-names = {'edFixFret','edFixStdev','chkFixFret','chkFixStdev','chkIdealizeSeperately','edMaxIterations'};
+names = {'tblFixFret','chkIdealizeSeperately','edMaxIterations'};
 if get(hObject,'Value')==1,
     for i=1:numel(names),
         set(handles.(names{i}),'Enable','off');
@@ -651,9 +610,6 @@ else
     for i=1:numel(names),
         set(handles.(names{i}),'Enable','on');
     end
-    % Update text box states
-    chkFixFret_Callback( handles.chkFixFret, [], handles );
-    chkFixStdev_Callback( handles.chkFixStdev, [], handles );
 end
     
     
@@ -674,19 +630,6 @@ else
     set(handles.edBootstrapN,'Enable','on');
     set(handles.edDeadTime,'Enable','on');
 end
-
-
-
-function edFixFret_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Idealization options: fix FRET values to specified values.
-handles.options.fixFret = str2num( get(hObject,'String') );
-guidata(hObject, handles);
-
-
-function edFixStdev_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Idealization options: fix FRET standard deviationsto specified values.
-handles.options.fixStdev = str2num( get(hObject,'String') );
-guidata(hObject, handles);
 
 
 function edBootstrapN_Callback(hObject, ~, handles) %#ok<DEFNU>
@@ -716,3 +659,24 @@ guidata(hObject, handles);
 function edMaxIterations_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Maximum number of iterations boxed changed.
 handles.options.maxItr = str2double( get(hObject,'String') );
+guidata(hObject, handles);
+
+
+% --- Executes when entered data in editable cell(s) in tblFixFret.
+function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
+% hObject    handle to tblFixFret (see GCBO)
+% eventdata  structure with the following fields (see UITABLE)
+%	Indices: row and column indices of the cell(s) edited
+%	PreviousData: previous data for the cell(s) edited
+%	EditData: string(s) entered by the user
+%	NewData: EditData or its converted form set on the Data property. Empty if Data was not changed
+%	Error: error string when failed to convert EditData to appropriate value for Data
+% handles    structure with handles and user data (see GUIDATA)
+
+data = get(hObject,'Data');
+handles.model.fixMu    = [data{:,1}];
+handles.model.fixSigma = [data{:,2}];
+guidata(hObject, handles);
+
+
+
