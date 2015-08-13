@@ -1,4 +1,4 @@
-function [path,offsets] = tIdealize( traces, level, windowSize )
+function [path,offsets] = tIdealize( traces, level, options )
 % Assigns to one of two states based on threshold level,
 % ignoring 1-frame dwells on either side.
 % Last dwell is ignored because it includes dark time.
@@ -8,15 +8,15 @@ function [path,offsets] = tIdealize( traces, level, windowSize )
 path = cell(0,1);
 
 % Second threshold level to determine photobleaching point.
-if ~exist('windowSize','var'),
+% if nargin<3,
     bleachingLevel = 0.2;
-end
+% end
 
 % Apply an initial filtering to the data = 2-point running average
 % Neccessary to avoid noise transitions
-if ~exist('windowSize','var'),
+% if nargin<3,
     windowSize = 3;
-end
+% end
 
 traces = runningAverage( traces, windowSize );
 % traces = medianfilter( traces, windowSize );

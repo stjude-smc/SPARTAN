@@ -10,7 +10,7 @@ function [ok,msg] = qub_verifyModel(model)
 
 ok = false;
 
-if ~all( isfield(model,{'mu','sigma','rates','p0','class'}) )
+if ~all(  ismember( {'mu','sigma','rates','p0','class'}, fieldnames(model) )  ),
     msg = 'Not all model parameters provided - consider using qub_createModel()';
     return;
 end

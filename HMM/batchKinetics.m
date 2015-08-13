@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 % Edit the above text to modify the response to help batchKinetics
 
-% Last Modified by GUIDE v2.5 15-Dec-2009 15:43:18
+% Last Modified by GUIDE v2.5 13-Aug-2015 17:30:02
 
 
 %% GUI Callbacks
@@ -48,7 +48,7 @@ end
 
 
 % --- Executes just before batchKinetics is made visible.
-function batchKinetics_OpeningFcn(hObject, eventdata, handles, varargin)
+function batchKinetics_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -58,32 +58,43 @@ function batchKinetics_OpeningFcn(hObject, eventdata, handles, varargin)
 % Choose default command line output for batchKinetics
 handles.output = hObject;
 
-handles.hasModel = 0;
-handles.hasData = 0;
+% Set initial internal state of the program
+handles.modelFilename = fullfile(pwd,'*.qmf');
+handles.model = [];
+handles.dataFilenames = {};
 
-% FIXME: these should either be SET in the GUI or obtained from the GUI so
-% the .fig file always matches these settings when batchKinetics is first
-% loaded.
-options.sampling = 0.04;
+% Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
 options.deadTime = 0.5;
-options.idealizeMethod = 'Segmental k-means';
 options.seperately = 1; %SKM: analyze each trace individually
-options.kineticsMethod = 'MIL Together';
+options.maxItr = 100;
+
 handles.options = options;
+guidata(hObject, handles);
+
+% Update GUI to reflect these default settings.
+set( handles.cboIdealizationMethod, 'Value',2 );  %SKM
+cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
+
+handles = guidata(hObject);
+set( handles.cboKineticsMethod, 'Value',1 );  %Do nothing
+cboKineticsMethod_Callback(handles.cboKineticsMethod,[],handles);
+
+set( handles.edBootstrapN,          'String', options.bootstrapN );
+set( handles.edDeadTime,            'String', options.deadTime   );
+set( handles.chkIdealizeSeperately, 'Value',  options.seperately );
+set( handles.edMaxIterations,       'String', options.maxItr     );
 
 constants = cascadeConstants;
 set( handles.figure1, 'Name', ['batchkinetics (version ' constants.version ')'] );
 
-% Update handles structure
-guidata(hObject, handles);
 
 % UIWAIT makes batchKinetics wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = batchKinetics_OutputFcn(hObject, eventdata, handles) 
+function varargout = batchKinetics_OutputFcn(~, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -98,20 +109,19 @@ varargout{1} = handles.output;
 %% CALLBACKS: Loading Data...
 
 % --- Executes on button press in btnLoadData.
-function btnLoadData_Callback(hObject, eventdata, handles)
+function btnLoadData_Callback(hObject, ~, handles) %#ok<DEFNU>
 
 %------ Prompt use for location to save file in...
 handles.dataFilenames = getFiles([],'Select traces files to analyze');
 handles.dataPath = pwd;
-handles.hasData = 1;
 
 % If a model is loaded, enable the Execute button & update GUI
-if handles.hasModel,
+if ~isempty(handles.model),
     set(handles.btnExecute,'Enable','on');
-    
-    text = sprintf('%d dataset files loaded.',numel(handles.dataFilenames));
-    set(handles.txtFileInfo,'String',text);
 end
+
+text = sprintf('%d files loaded.',numel(handles.dataFilenames));
+set(handles.txtFileInfo,'String',text);
 
 guidata(hObject, handles);
 
@@ -119,59 +129,32 @@ guidata(hObject, handles);
 %% CALLBACKS: Loading Model...
 
 % --- Executes on button press in btnBrowseModel.
-function btnBrowseModel_Callback(hObject, eventdata, handles)
+function btnBrowseModel_Callback(hObject, ~, handles) %#ok<DEFNU>
 % hObject    handle to btnBrowseModel (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% Get list of data files from user
-fname = get(handles.edModelFilename,'String');
-if isempty(fname)
-    constants = cascadeConstants;
-    fname = [constants.modelLocation filesep '*.qmf'];
-end
+% Ask the user for a filename
+[fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
+if fname==0, return; end
+fname = fullfile(p,fname);
+set( handles.edModelFilename, 'String',['...' fname(max(1,end-50):end)] );
 
-[f,p] = uigetfile(fname,'Select a QuB model file...');
-if f==0, return; end
-fname = [p f];
+% Load the model and show the model properties in the GUI.
+% The model's properties are automatically updated whenever the model is
+% modified in the GUI.
+handles.model = QubModel(fname);
+handles.model.showModel( handles.axModel );
 
-set(handles.edModelFilename,'String',fname);
-
-handles = loadModel(handles,fname);
-guidata(hObject, handles);
-
-
-
-function handles = loadModel(handles,filename)
-
-model = qub_loadModel( filename );
-handles.model = model;
-handles.hasModel = 1;
-
-% Update model status text -- FIXME
-info = sprintf('FRET values: %s\n',mat2str(model.mu(model.class)));
-info = [ info sprintf('FRET stdev: %s\n',mat2str(model.sigma(model.class))) ];
-set(handles.txtModelInfo,'String',info);
+% Enable saving the model
+% set( handles.btnSaveModel, 'Enable','on' );
 
 % If data are already loaded, enable the Execute button
-if handles.hasData,
+if ~isempty(handles.dataFilenames),
     set(handles.btnExecute,'Enable','on');
 end
 
-
-
-function edModelFilename_Callback(hObject, eventdata, handles)
-% hObject    handle to edModelFilename (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-filename = get(handles.edModelFilename,'String');
-if ~exist(filename,'file'),
-    warning('Model file does not exist!');
-else
-    handles = loadModel(handles,filename);
-end
-
+% Update handles structure
 guidata(hObject, handles);
 
 
@@ -181,11 +164,11 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in btnExecute.
-function btnExecute_Callback(hObject, eventdata, handles)
+function btnExecute_Callback(~, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
-if ~handles.hasModel || ~handles.hasData,
+if isempty(handles.model) || isempty(handles.dataFilenames),
     set(handles.btnExecute,'Enable','off');
     warning('Missing model or data');
     return;
@@ -193,7 +176,7 @@ end
 
 % Process analysis parameters from GUI
 options  = handles.options;
-model = handles.model;
+model = struct(handles.model);  %FIXME: someday
 
 if isfield(options,'fixFret'),
     assert( all(options.fixFret<=model.nStates) );
@@ -227,7 +210,7 @@ disp('Finished!');
 
 
 % --- Executes on button press in btnStop.
-function btnStop_Callback(hObject, eventdata, handles)
+function btnStop_Callback(~, ~, handles) %#ok<DEFNU>
 % hObject    handle to btnStop (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -257,14 +240,11 @@ resultTree = struct([]);
 
 h = waitbar(0,'Initializing...');
 
-% ...
-sampling = options.sampling;
-
 nFiles = numel(dataFilenames);
 
 
 % Setup algorithm settings
-skmOptions.maxItr = 40;
+skmOptions.maxItr = options.maxItr;
 skmOptions.convLL = 1e-4;
 skmOptions.seperately = options.seperately;
 if skmOptions.seperately,
@@ -297,6 +277,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         % Load data
         d = loadTraces(dataFilenames{i});
         data = d.fret;
+        sampling = d.sampling;
 
         % Idealize data using user-specified algorithm...
         if strcmp(options.idealizeMethod,'Segmental k-means'),
@@ -311,13 +292,14 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
             optModel = model;
             % TODO: update optModel with optimized parameter values.
             
-            [dwt,idl,offsets,LL] = idealize( ...
+            [dwt,~,offsets,LL] = idealize( ...
                     data, fretModel, result.p0, result.A );
             skmLL(i) = mean(LL);
             
         elseif  strcmp(options.idealizeMethod,'Thresholding'),
             
-            [dwt,offsets,optModel] = tIdealize( data, model, thresholdOptions );
+            [dwt,offsets] = tIdealize( data, model, thresholdOptions );
+            optModel = model;
             skmLL(i) = 0;
             
         end
@@ -374,7 +356,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         [p,n] = fileparts(filename);
         dwtFilename = fullfile( p, [n '.qub.dwt'] );
         fretModel = [to_col(skmModels(i).mu) to_col(skmModels(i).sigma)];
-        saveDWT( dwtFilename, dwt, offsets, fretModel, 1000*sampling );
+        saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
 
         waitbar(0.33*i/nFiles,h);
         drawnow;
@@ -486,7 +468,7 @@ header = {'Dataset',rateNames{:}};
 fprintf(fid, '%s\t', header{:});
 
 for i=1:nFiles,
-    [p,fname] = fileparts( dataFilenames{i} );
+    [~,fname] = fileparts( dataFilenames{i} );
     fprintf(fid, '\n%s',  fname );
     fprintf(fid, '\t%.4f', output(i,:));
 end
@@ -517,13 +499,13 @@ end
 
 
 % Load the dwell-time data and the model.
-[dwt,sampling,offsets,fret_model] = loadDWT( dwtFilename );
+[dwt,data.sampling,offsets,fret_model] = loadDWT( dwtFilename );
 nTraces = numel(dwt);
 
 nStates = numel(fret_model)/2;
 X = eye(nStates);
 X(1,:) = 1; X(:,1) = 1;
-idx_nonzero = find( ~logical(X) );
+idx_nonzero = ~logical(X);
 
 
 % Construct a set of bootstrap samples of the dwell-time data.
@@ -543,7 +525,7 @@ for i=1:nBootstrap,
     
     tempDwtNames{i} = [tempname '.dwt'];
     saveDWT( tempDwtNames{i}, dwt(idxBootstrap), ...
-             offsets(idxBootstrap), fret_model, sampling );
+             offsets(idxBootstrap), fret_model, data.sampling );
 end
 
 % Run MIL
@@ -571,7 +553,7 @@ for i=1:nBootstrap,
         continue;
     end
 
-    if any( rates(~logical(eye(nStates))) > 2*1000/sampling )
+    if any( rates(~logical(eye(nStates))) > 2*1000/data.sampling )
         warning( 'Rate estimate way out of range. Ignoring.' );
         continue;
     end
@@ -609,7 +591,7 @@ delete('.milresult*');
 
 
 % --- Executes on button press in chkFixFret.
-function chkFixFret_Callback(hObject, eventdata, handles)
+function chkFixFret_Callback(hObject, ~, handles)
 % Idealization options: Fix FRET values checkbox
 
 state = get(hObject,'Value');
@@ -630,7 +612,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in chkFixStdev.
-function chkFixStdev_Callback(hObject, eventdata, handles)
+function chkFixStdev_Callback(hObject, ~, handles)
 % Idealization options: Fix FRET standard deviations checkbox
 
 state = get(hObject,'Value');
@@ -651,7 +633,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on selection change in cboIdealizationMethod.
-function cboIdealizationMethod_Callback(hObject, eventdata, handles)
+function cboIdealizationMethod_Callback(hObject, ~, handles)
 % Idealization options: idealization method combo box
 
 % Update method to use for idealization
@@ -660,14 +642,15 @@ handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
 % If user selected "Do Nothing", disable idealization option controls.
+names = {'edFixFret','edFixStdev','chkFixFret','chkFixStdev','chkIdealizeSeperately','edMaxIterations'};
 if get(hObject,'Value')==1,
-    set(handles.edFixFret,'Enable','off');
-    set(handles.edFixStdev,'Enable','off');
-    set(handles.chkFixFret,'Enable','off');
-    set(handles.chkFixStdev,'Enable','off');
+    for i=1:numel(names),
+        set(handles.(names{i}),'Enable','off');
+    end
 else
-    set(handles.chkFixFret,'Enable','on');
-    set(handles.chkFixStdev,'Enable','on');
+    for i=1:numel(names),
+        set(handles.(names{i}),'Enable','on');
+    end
     % Update text box states
     chkFixFret_Callback( handles.chkFixFret, [], handles );
     chkFixStdev_Callback( handles.chkFixStdev, [], handles );
@@ -675,7 +658,7 @@ end
     
     
 % --- Executes on selection change in cboKineticsMethod.
-function cboKineticsMethod_Callback(hObject, eventdata, handles)
+function cboKineticsMethod_Callback(hObject, ~, handles)
 % Idealization options: idealization method combo box
 
 % Update method to use for kinetic parameter estimation.
@@ -694,27 +677,19 @@ end
 
 
 
-
-function edSampling_Callback(hObject, eventdata, handles)
-% Input data options: experimental sampling interval.
-sampling = str2double( get(handles.edSampling,'String') );
-handles.options.sampling = sampling/1000; %convert to seconds.
-guidata(hObject, handles);
-
-
-function edFixFret_Callback(hObject, eventdata, handles)
+function edFixFret_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Idealization options: fix FRET values to specified values.
 handles.options.fixFret = str2num( get(hObject,'String') );
 guidata(hObject, handles);
 
 
-function edFixStdev_Callback(hObject, eventdata, handles)
+function edFixStdev_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Idealization options: fix FRET standard deviationsto specified values.
 handles.options.fixStdev = str2num( get(hObject,'String') );
 guidata(hObject, handles);
 
 
-function edBootstrapN_Callback(hObject, eventdata, handles)
+function edBootstrapN_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Kinetic estimation options: number of bootstrap samples to test
 
 N = floor(str2double( get(hObject,'String') ));
@@ -724,14 +699,20 @@ handles.options.bootstrapN = N;
 guidata(hObject, handles);
 
 
-function edDeadTime_Callback(hObject, eventdata, handles)
+function edDeadTime_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Idealization options: fix FRET standard deviationsto specified values.
 handles.options.deadTime = str2double( get(hObject,'String') );
 guidata(hObject, handles);
 
 
 % --- Executes on button press in chkIdealizeSeperately.
-function chkIdealizeSeperately_Callback(hObject, eventdata, handles)
+function chkIdealizeSeperately_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Idealization options: fix FRET standard deviationsto specified values.
 handles.options.seperately = get(hObject,'Value');
 guidata(hObject, handles);
+
+
+
+function edMaxIterations_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Maximum number of iterations boxed changed.
+handles.options.maxItr = str2double( get(hObject,'String') );

@@ -60,7 +60,7 @@ nTraces = size(observations,1);
     nStates = size(model.rates,1);
     nClass  = numel(model.mu);
     assert( nStates==nClass, 'SKM: aggregate states not supported.' );
-    assert(qub_VerifyModel(model),'Invalid model');
+    assert(qub_verifyModel(model),'Invalid model');
 % end
 
 % Convert rate matrix (Q) to transition probability matrix (A)
