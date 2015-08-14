@@ -22,7 +22,7 @@ function varargout = cascadePipeline(varargin)
 
 % Edit the above text to modify the response to help cascadePipeline
 
-% Last Modified by GUIDE v2.5 12-Aug-2015 16:09:04
+% Last Modified by GUIDE v2.5 14-Aug-2015 16:35:04
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -112,7 +112,3 @@ cd(d);
 set(handles.txtCWD, 'String',pwd);
 
 guidata(hObject, handles);
-
-
-
-

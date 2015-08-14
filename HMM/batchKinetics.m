@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 % Edit the above text to modify the response to help batchKinetics
 
-% Last Modified by GUIDE v2.5 14-Aug-2015 14:41:21
+% Last Modified by GUIDE v2.5 14-Aug-2015 17:46:22
 
 
 %% GUI Callbacks
@@ -62,6 +62,7 @@ handles.output = hObject;
 handles.modelFilename = fullfile(pwd,'*.qmf');
 handles.model = [];
 handles.dataFilenames = {};
+handles.dwtFilenames  = {};
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -84,7 +85,7 @@ set( handles.edBootstrapN,          'String', options.bootstrapN );
 set( handles.edDeadTime,            'String', options.deadTime   );
 set( handles.chkIdealizeSeperately, 'Value',  options.seperately );
 set( handles.edMaxIterations,       'String', options.maxItr     );
-set( handles.tblFixFret, 'Data', num2cell(false(3,2)) );
+% set( handles.tblFixFret, 'Data', num2cell(false(3,2)) );
 
 constants = cascadeConstants;
 set( handles.figure1, 'Name', ['batchkinetics (version ' constants.version ')'] );
@@ -123,6 +124,7 @@ end
 
 text = sprintf('%d files loaded.',numel(handles.dataFilenames));
 set(handles.txtFileInfo,'String',text);
+set(handles.btnMakeplots,'Enable','on');
 
 guidata(hObject, handles);
 
@@ -147,7 +149,10 @@ set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
 handles.model = QubModel(fname);
 handles.model.showModel( handles.axModel );
 
-set( handles.tblFixFret, 'Data', num2cell(false(handles.model.nClasses,2)) );
+celldata = num2cell(false(handles.model.nClasses,4));
+celldata(:,1) = num2cell(handles.model.mu);
+celldata(:,3) = num2cell(handles.model.sigma);
+set( handles.tblFixFret, 'Data', celldata );
 
 % Enable saving the model
 set( handles.btnSaveModel, 'Enable','on' );
@@ -167,7 +172,7 @@ guidata(hObject, handles);
 
 
 % --- Executes on button press in btnExecute.
-function btnExecute_Callback(~, ~, handles) %#ok<DEFNU>
+function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
@@ -197,7 +202,7 @@ set(handles.btnExecute,'Enable','off');
 set(handles.btnStop,'Enable','on');
 
 % Run the analysis algorithms...
-resultTree = runParamOptimizer(model,handles.dataFilenames,options);
+[resultTree,handles.dwtFilenames] = runParamOptimizer(model,handles.dataFilenames,options); %#ok<ASGLU>
 
 % Save results to file for later processing by the user.
 save('resultTree.mat','resultTree');
@@ -207,7 +212,11 @@ save('resultTree.mat','resultTree');
 % Update GUI for finished status.
 set(handles.btnStop,'Enable','off');
 set(handles.btnExecute,'Enable','on');
+set(handles.btnLifetimeExp,'Enable','on');
 disp('Finished!');
+
+% Update handles structure
+guidata(hObject, handles);
 
 
 
@@ -231,7 +240,7 @@ set(handles.btnExecute,'Enable','on');
 %% Parameter optimization engine...
 %  ========================================================================
 
-function resultTree = runParamOptimizer( model,dataFilenames,options)
+function [resultTree,dwtFilenames] = runParamOptimizer( model,dataFilenames,options)
 
 resultTree = struct([]);
 
@@ -244,7 +253,7 @@ resultTree = struct([]);
 h = waitbar(0,'Initializing...');
 
 nFiles = numel(dataFilenames);
-
+dwtFilenames = cell( size(dataFilenames) );
 
 % Setup algorithm settings
 skmOptions.maxItr = options.maxItr;
@@ -357,9 +366,9 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
 
         % Save the idealization
         [p,n] = fileparts(filename);
-        dwtFilename = fullfile( p, [n '.qub.dwt'] );
+        dwtFilenames{i} = fullfile( p, [n '.qub.dwt'] );
         fretModel = [to_col(skmModels(i).mu) to_col(skmModels(i).sigma)];
-        saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
+        saveDWT( dwtFilenames{i}, dwt, offsets, fretModel, sampling );
 
         waitbar(0.33*i/nFiles,h);
         drawnow;
@@ -369,7 +378,6 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
     resultTree(1).skmModels = skmModels;
     resultTree.skmLL = skmLL;
 end
-
 
 % If no further action is neccessary, exit.
 if strcmp(options.kineticsMethod,'Do Nothing'),
@@ -672,10 +680,11 @@ function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
 %	NewData: EditData or its converted form set on the Data property. Empty if Data was not changed
 %	Error: error string when failed to convert EditData to appropriate value for Data
 % handles    structure with handles and user data (see GUIDATA)
-
 data = get(hObject,'Data');
-handles.model.fixMu    = [data{:,1}];
-handles.model.fixSigma = [data{:,2}];
+handles.model.mu       = [data{:,1}];
+handles.model.fixMu    = [data{:,2}];
+handles.model.sigma    = [data{:,3}];
+handles.model.fixSigma = [data{:,4}];
 guidata(hObject, handles);
 
 
@@ -694,4 +703,21 @@ if f~=0,
     fname = fullfile(p,f);
     handles.model.save( fname );
     set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
+end
+
+
+% --- Executes on button press in btnMakeplots.
+function btnMakeplots_Callback(~, ~, handles) %#ok<DEFNU>
+% Display ensemble plots with the currently-loaded data.
+if ~isempty(handles.dataFilenames),
+    makeplots( handles.dataFilenames );
+end
+
+
+% --- Executes on button press in btnLifetimeExp.
+function btnLifetimeExp_Callback(~, ~, handles) %#ok<DEFNU>
+% Compare state lifetimes for all loaded dwell-time files.
+% FIXME: should look for both .dwt and .qub.dwt
+if ~isempty(handles.dwtFilenames),
+    lifetime_exp( handles.dwtFilenames );
 end
