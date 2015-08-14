@@ -38,6 +38,10 @@ properties (SetAccess=protected, GetAccess=public)
     % changed by the user.
     filename = [];
     
+    % Display data
+    x = [];
+    y = [];
+    
     % Structure containing the .qmf format tree of all model information.
     % This includes many parameters we don't use but QuB expects.
     qubTree;
@@ -80,6 +84,20 @@ methods
             obj.fixSigma = zeros( size(m.sigma) );
         end
         
+        % Get display settings from the tree.        
+        obj.x = zeros( obj.nStates,1 );
+        obj.y = zeros( obj.nStates,1 );
+        for i=1:obj.nStates,
+            obj.x(i) = obj.qubTree.States.State(i).x.data;
+            obj.y(i) = obj.qubTree.States.State(i).y.data;
+        end
+
+        % Rescale coordinates to properly fit in the box.
+        obj.x = obj.x-min(obj.x);
+        obj.y = obj.y-min(obj.y);
+        obj.x = 75*obj.x/max(obj.x) +10;
+        obj.y = 75*obj.y/max(obj.y) +12;
+        
         % Verify the model parameters make sense.
         obj.verify();
     end
@@ -117,13 +135,14 @@ methods
         nClass = numel(model.mu);
         outputTree.Amps.data(1:nClass) = model.mu;
         outputTree.Stds.data(1:nClass) = model.sigma;
-
-
+        
         % Generate states and save initial probabilities
         s = outputTree.States.State;
         for i=1:nStates,
             assert( s(i).Class.data+1 == model.class(i), 'Class-state mismatch' );
             s(i).Pr.data = model.p0(i);
+            s(i).x.data = model.x(i);
+            s(i).y.data = model.y(i);       
         end
         outputTree.States.State = s;
 
@@ -251,44 +270,42 @@ methods
     % is created.
     % FIXME: this displays the model /as it was originally/, but the
     % parameters can be modified after loading!
-    
+        
     % Verify the model makes sense before trying to draw it.
     model.verify();
-    
     tree = model.qubTree;
-
+    
+    % Formatting options:
     boxsize = 6;
+    linewidth = 2;
     % boxsize = tree.Properties.StateSize*6/20;  % state square size in pixels
     % linewidth = tree.Properties.LineWidth+2;
     %                k       r       b     dark g      y       m
     colors     = {[0 0 0],[1 0 0],[0 0 1],[0 0.7 0],[1 1 0],[1 0 1]};  % class colors
     textColors = {[1 1 1],[1 1 1],[1 1 1],[1 1 1],  [0 0 0],[0 0 0]};  % class colors
 
-
-    % Draw the states.
+    textFormat = {'Parent',parent,'FontSize',8, 'FontWeight','bold', ...
+              'HorizontalAlignment','center', 'VerticalAlignment','middle' };
+    lineFormat = {'Parent',parent, 'Color','k', 'LineWidth',linewidth };
+    
+    % Create a window for the model, or use one if given.
     if nargin<2,
         figure;
-        parent = gca;
+        parent = axes;
     end
+    set(gcf,'WindowButtonMotionFcn',@figButtonMotion,'WindowButtonUpFcn',@dropObject); %FIXME
+    draggedBox = [];  %no box is being dragged right now.
     cla; hold on;
 
+    % Get coordinates of states
     nStates = model.nStates;
-    x = zeros( nStates,1 );  y=x;
     c = model.class;
-
-    for i=1:nStates,
-        x(i) = tree.States.State(i).x.data;
-        y(i) = tree.States.State(i).y.data;
-    end
-
-    textFormat = {'Parent',parent,'FontSize',14, 'FontWeight','bold', ...
-              'HorizontalAlignment','center', 'VerticalAlignment','middle' };
-    lineFormat = {'Parent',parent, 'Color','k', 'LineWidth',2 };
 
     % Draw all specified transitions with rates. Each element specifies both
     % the forward and reverse rates for a particular transition type.
     nRates = numel( tree.Rates.Rate );
     hRate = zeros( nRates,2 );
+    hLine = zeros( nRates,1 ); %main line and two direction arrows
 
     for i=1:nRates,
         states = tree.Rates.Rate(i).States.data+1; %state numbers are zero-based.
@@ -300,65 +317,96 @@ methods
             states = states(:,1);
         end
         
-        state_x = x(states);
-        state_y = y(states);
-
-        % Display the rate numbers
-        % Use some fancy geometry to position the numbers above and below the
-        % line regardless of their orientation.
-        t = atan2( diff(state_y), diff(state_x) );
-        mx = mean(state_x);  my = mean(state_y);
-        r = 0.5*boxsize;
-
-        % Draw the connecting lines for each rate. The fancy math is shorten it
-        % to fit between the boxes. The other lines are arrowheads that
-        % indicate which rate is described by the numbers.
-        len = sqrt( diff(state_x)^2 + diff(state_y)^2 )/2 - 0.75*boxsize;
-        line_x = [mx-len*cos(t) mx+len*cos(t)];
-        line_y = [my-len*sin(t) my+len*sin(t)];
-
-        line( line_x, line_y, lineFormat{:} );
-        line( [line_x(1)+(boxsize/2)*cos(t+(40*pi/180)) line_x(1)], ...
-              [line_y(1)+(boxsize/2)*sin(t+(40*pi/180)) line_y(1)], lineFormat{:} );
-        line( [line_x(2)-(boxsize/2)*cos(t+(40*pi/180)) line_x(2)], ...
-              [line_y(2)-(boxsize/2)*sin(t+(40*pi/180)) line_y(2)], lineFormat{:} );
+        hLine(i) = line( 0, 0, lineFormat{:} );
 
         % Display rate numbers
-        hRate(i,1) = text( mx-r*cos(t+pi/2),my-r*sin(t+pi/2), num2str(k0(1)), textFormat{:}, 'Color',[0 0 0] );
-        hRate(i,2) = text( mx+r*cos(t+pi/2),my+r*sin(t+pi/2), num2str(k0(2)), textFormat{:}, 'Color',[0 0 0] );
+        hRate(i,1) = text( 0,0, num2str(k0(1)), textFormat{:}, 'Color',[0 0 0] );
+        hRate(i,2) = text( 0,0, num2str(k0(2)), textFormat{:}, 'Color',[0 0 0] );
 
         % Add callbacks for changing the rate constants.
         set( hRate(i,1), 'ButtonDownFcn', {@editRate,states       } );
         set( hRate(i,2), 'ButtonDownFcn', {@editRate,states([2 1])} );
     end
 
-    % Draw the states
-    hBox = zeros(nStates,1);  %handles to the graphics objects
-    hText = hBox;
+    % Create the lines connecting states and rate number text next to them.
+    hBox  = zeros(nStates,1);  %handles to the graphics objects
+    hText = zeros(nStates,1);
+    
+    xx = [-0.5 0.5  0.5 -0.5]*boxsize;  %coordinates defining a generic box.
+    yy = [ 0.5 0.5 -0.5 -0.5]*boxsize;       
 
     for i=1:nStates,
-        % Draw box for each state.
-        hBox(i) = fill( [-0.5 0.5  0.5 -0.5]*boxsize + x(i), ...
-                        [ 0.5 0.5 -0.5 -0.5]*boxsize + y(i), ...
-                         colors{c(i)},'Parent',parent );
+        % Draw box for each state. 
+        hBox(i) = patch( xx+model.x(i), yy+model.y(i), colors{c(i)},'Parent',parent );
 
         % State number (which may be different from class number)
-        hText(i) = text( x(i),y(i), num2str(i), textFormat{:}, ...
+        hText(i) = text( model.x(i),model.y(i), num2str(i), textFormat{:}, ...
                                 'Color',textColors{c(i)},'Parent',parent );
 
         % Add a callback to the box so the properties can be seen and changed.
         set( hBox(i), 'ButtonDownFcn', {@editState,i} );
         set( hText(i),'ButtonDownFcn', {@editState,i} );
     end
+    
+    % Position the lines and text in the correct places.
+    moveLines();
 
-    %xlim( [ min([x;y])-boxsize max([x;y])+boxsize ] );
-    %ylim( [ min([x;y])-boxsize max([x;y])+boxsize ] );
     axis equal;
     set(parent,'ydir','reverse');  %mimic orientation in QuB
     set(parent,'YTick',[]);
     set(parent,'XTick',[]);
+    xlim([5 90]);
+    ylim([7 90]);
+    
+    
+    
+    %%%%------  DRAWING FUNCTIONS   ------%%%%
 
+    function moveLines(varargin)
+    % Positions the lines connecting states and rate numbers next to them. This
+    % is called both to initially display the model and whenever a state box is
+    % moved by the user.
+    r = 0.7*boxsize;  %distance from the line to draw text
+    
+    for i=1:nRates,
+        states = tree.Rates.Rate(i).States.data+1; %state numbers are zero-based.
 
+        % Some new models made by QuB have a second column, unknown purpose!
+        if all( size(states)>1 ),
+            assert( all(size(states)==2) );
+            states = states(:,1);
+        end
+
+        state_x = model.x(states);
+        state_y = model.y(states);
+
+        % Display the rate numbers
+        % Use some fancy geometry to position the numbers above and below the
+        % line regardless of their orientation.
+        t = atan2( diff(state_y), diff(state_x) );
+        mx = mean(state_x);  my = mean(state_y);  %center between states
+
+        % Draw the connecting lines for each rate. The fancy math is shorten it
+        % to fit between the boxes. The other lines are arrowheads that
+        % indicate which rate is described by the numbers.
+        len = sqrt( diff(state_x)^2 + diff(state_y)^2 )/2 - 0.75*boxsize;
+        line_x = [mx-len*cos(t) mx+len*cos(t)];
+        line_y = [my-len*sin(t) my+len*sin(t)]; %these define the main line connecting states
+
+        line_xx = [line_x(1)+(boxsize/2)*cos(t+(40*pi/180)) line_x(1) line_x(2) line_x(2)-(boxsize/2)*cos(t+(40*pi/180))];
+        line_yy = [line_y(1)+(boxsize/2)*sin(t+(40*pi/180)) line_y(1) line_y(2) line_y(2)-(boxsize/2)*sin(t+(40*pi/180))];
+        set( hLine(i), 'XData', line_xx );
+        set( hLine(i), 'YData', line_yy );
+
+        % Display rate numbers
+        set( hRate(i,1), 'Position',[mx-r*cos(t+pi/2),my-r*sin(t+pi/2)] );
+        set( hRate(i,2), 'Position',[mx+r*cos(t+pi/2),my+r*sin(t+pi/2)] );
+    end
+    
+    end %function moveLines
+    
+    
+    
     %%%%------  GUI CALLBACK FUNCTIONS   ------%%%%
 
     function editRate( hObject, ~, rateID )
@@ -367,26 +415,32 @@ methods
 
     % Ask the user for the new value for the rate constant.
     initRate = model.rates( rateID(1), rateID(2) );
-    a = inputdlg('Enter a new rate constant','Edit model parameters',1, ...
-        {num2str(initRate)});
+    text = sprintf('Enter a new rate constant (%d->%d)',rateID(1),rateID(2));
+    a = inputdlg( text, 'Edit model parameters', 1, {num2str(initRate)} );
 
     % Save the value. It is saved in the showModel() function's scope because
     % this is a nested function (right?)
-    if ~isempty(a),
+    if ~isempty(a), 
         a = str2double(a);
         model.rates( rateID(1), rateID(2) ) = a;
-
         set(hObject,'String', num2str(a) );
     end
-
 
     end %function editRate
 
 
+    
     function editState( ~, ~, stateID )
     % Called whenever one of state boxes is clicked.
     % NOTE: this does not update the qubTree object!!
 
+    % If the user left clicks, allow the box to be moved. If it is a right-click
+    % or something else, let the user edit the settings for the state.
+    if strcmpi( get(gcf,'SelectionType'), 'normal' ),
+        draggedBox = stateID;
+        return;
+    end
+    
     classID = model.class(stateID);
     initVal = { model.p0(stateID), model.mu(classID), model.sigma(classID) };
 
@@ -419,13 +473,32 @@ methods
 
     end %function editState
 
+    
+    % Called when the user is dragging one of the state boxes
+    function figButtonMotion(varargin)
+        if ~isempty(draggedBox)
+            % Get the Mouse Location
+            curr_pt = get(parent,'CurrentPoint');
+            curr_pt = max(5, min(90,curr_pt) );
+            
+            model.x(draggedBox) = curr_pt(1,1);
+            model.y(draggedBox) = curr_pt(1,2);
+            
+            % Change the Position of the Patch
+            set( hBox(draggedBox), 'XData',xx+curr_pt(1,1), 'YData',yy+curr_pt(1,2) );
+            set( hText(draggedBox), 'Position',[curr_pt(1,1),curr_pt(1,2)] );
+            
+            % Update lines and rates
+            moveLines();
+        end
+    end
 
-
-
+    % Called when the state being dragged is released.
+    function dropObject(varargin)
+        draggedBox = [];
+    end
 
     end %function showModel
-    
-    
     
     
 end %methods

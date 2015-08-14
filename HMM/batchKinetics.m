@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 % Edit the above text to modify the response to help batchKinetics
 
-% Last Modified by GUIDE v2.5 13-Aug-2015 18:58:46
+% Last Modified by GUIDE v2.5 14-Aug-2015 14:41:21
 
 
 %% GUI Callbacks
@@ -129,9 +129,9 @@ guidata(hObject, handles);
 
 %% CALLBACKS: Loading Model...
 
-% --- Executes on button press in btnBrowseModel.
-function btnBrowseModel_Callback(hObject, ~, handles) %#ok<DEFNU>
-% hObject    handle to btnBrowseModel (see GCBO)
+% --- Executes on button press in btnLoadModel.
+function btnLoadModel_Callback(hObject, ~, handles) %#ok<DEFNU>
+% hObject    handle to btnLoadModel (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
@@ -139,7 +139,7 @@ function btnBrowseModel_Callback(hObject, ~, handles) %#ok<DEFNU>
 [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
 if fname==0, return; end
 fname = fullfile(p,fname);
-set( handles.edModelFilename, 'String',['...' fname(max(1,end-50):end)] );
+set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
 
 % Load the model and show the model properties in the GUI.
 % The model's properties are automatically updated whenever the model is
@@ -150,7 +150,7 @@ handles.model.showModel( handles.axModel );
 set( handles.tblFixFret, 'Data', num2cell(false(handles.model.nClasses,2)) );
 
 % Enable saving the model
-% set( handles.btnSaveModel, 'Enable','on' );
+set( handles.btnSaveModel, 'Enable','on' );
 
 % If data are already loaded, enable the Execute button
 if ~isempty(handles.dataFilenames),
@@ -679,4 +679,19 @@ handles.model.fixSigma = [data{:,2}];
 guidata(hObject, handles);
 
 
+% --- Executes on button press in btnSaveModel.
+function btnSaveModel_Callback(~, ~, handles) %#ok<DEFNU>
+% Save current model to file
 
+if ~isfield(handles,'model') || isempty(handles.model),
+    return;
+end
+
+fname = handles.model.filename;
+[f,p] = uiputfile(fname,'Save model to file');
+
+if f~=0,
+    fname = fullfile(p,f);
+    handles.model.save( fname );
+    set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
+end
