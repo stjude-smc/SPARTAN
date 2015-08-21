@@ -1,4 +1,4 @@
-function tplot(tdp, varargin)
+function tplot(varargin)
 % TPLOT  Draws a transition density contour plot
 %
 %   TPLOT( TDP, ... )
@@ -9,34 +9,47 @@ function tplot(tdp, varargin)
 %Plots transition density plot created by tdplot from a file, or from the
 %variable tdp entered at command line.
 
-% Load optional arguments
-constants = cascadeConstants();
-options = constants.defaultMakeplotsOptions;
 
-if nargin==2,
-    assert( isstruct(varargin{1}) );
-    options = catstruct( options, varargin{1} );
-
-elseif nargin>3,    
-    assert( iscell(varargin) & mod(numel(varargin),2)==0, ...
-            'Incorrect format for optional arguments list' );
-    vopt = struct(varargin{:});
-    options = catstruct( options, vopt );
-end
+% Extract axes if specified as the first argument. "args" are the remaining
+% arguments.
+[cax,args] = axescheck(varargin{:});
+cax = newplot(cax);
 
 
 % Load TD Plot data
-tdpfile=0;
-if nargin==0
+if numel(args)<1,
     [tdpfile, tdppath]=uigetfile('*_tdp.txt','Choose tdplot:');
     if tdpfile==0
         disp('No File Selected.')
-        return
+        return;
     else
         file=strcat(tdppath,tdpfile);
         tdp=load(file);
     end
+else
+    tdp = args{1};
+    assert( isnumeric(tdp) );
+    tdpfile='';
 end
+
+
+% Load optional arguments
+constants = cascadeConstants();
+options = constants.defaultMakeplotsOptions;
+
+if numel(args)==2,
+    assert( isstruct(args{2}) );
+    options = catstruct( options, args{2} );
+
+elseif numel(args)>2,
+    args = args(2:end);
+    assert( iscell(args) & mod(numel(args),2)==0, ...
+            'Incorrect format for optional arguments list' );
+    vopt = struct(args{:});
+    options = catstruct( options, vopt );
+end
+
+
 
 f_axis=tdp(2:end,1);
 i_axis=tdp(1,2:end);
@@ -51,11 +64,11 @@ con=0:(top/size(cmap,1)):top;
 tdp(end,end) = 10;  % hack to make colorscale fixed
 
 % draw contour plot
-% figure;
-[~,hand]=contourf(i_axis,f_axis,tdp(2:end,2:end),con);
+[~,hand]=contourf(cax,i_axis,f_axis,tdp(2:end,2:end),con);
 
 % Extra formatting
-if tdpfile~=0
+if tdpfile~=0,
+    tdpfile = strrep(tdpfile,'_',' ');
     title(tdpfile);
 end
 set(hand,'LineColor','none');

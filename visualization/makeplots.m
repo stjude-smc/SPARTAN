@@ -151,6 +151,8 @@ tdpAll       = cell(nSamples,1); %td plots
 
 if ~isfield(options,'targetAxes')
     h1 = figure();
+else                                                    %MJ
+    h1 = get(options.targetAxes{1,1},'parent');         %MJ
 end
 
 
@@ -513,14 +515,15 @@ for k=1:numel(baseFilenames),  %for each sample
     %---- DISPLAY TD PLOT ----
     if ~isfield(options,'targetAxes')
         tdx(k) = subplot( nrows, nSamples, 2*nSamples+k );  
-    elseif size(options.targetAxes,1)>2
+    elseif size(options.targetAxes,2)>2                 %MJ
         tdx(k) = options.targetAxes{k,3};
+%         options.ax = options.targetAxes{k,3};           %MJ
     else
         disp('no 3rd axis for TD plots...');
         continue;
     end
     box(tdx(k),'on');
-    tplot( tdp, options );
+    tplot( tdx(k), tdp, options );
     
     % Formatting
     if ~options.hideText,
