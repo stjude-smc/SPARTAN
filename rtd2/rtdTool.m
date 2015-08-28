@@ -224,11 +224,14 @@ end
 
 % Generate state occupancy plots.
 if opt.stateOcc
+    fprintf('\nGenerating state occupancy plots.\n');
     for i=1:length(opt.allFiles)
         [path,name,~] = fileparts(opt.allFiles{i});
         dwtFile = fullfile(path, [name '.qub.dwt']);
         stateOccupancy(dwtFile,opt.totalFrames);
         opt.stateOccFiles{i} = fullfile(path, [name '.qub_stateOcc.txt']);
+        fprintf('%s',['Saving to ' opt.stateOccFiles{i}]);
+        fprintf('\n');
     end
 end
 
@@ -245,15 +248,6 @@ end % function rtdTool()
 
 function [plotWindow] = displayPlots(opt)
     
-% Display plot legend (mapped by number).
-fprintf('\nPlot legend:\n');
-for i=1:length(opt.allFiles)
-    plotTitles{i} = num2str(i);
-    fprintf('%s',[num2str(i) ' - ' opt.allFiles{i}]);
-    fprintf('\n');
-end
-fprintf('\n');
-
 % Create plot window with subplots.
 nCol = length(opt.allFiles);
 if opt.stateOcc
@@ -271,6 +265,11 @@ for i=1:nRow
 end
 opt.constants.defaultMakeplotsOptions.targetAxes = figAxesCell;
 
+% Create plot titles (numbers)
+for i=1:length(opt.allFiles)
+    plotTitles{i} = num2str(i);
+end
+
 % Display contour plots, state histograms, and transition density plots.
 makeplots(opt.allFiles,plotTitles,opt.constants.defaultMakeplotsOptions);
 
@@ -287,10 +286,16 @@ if opt.stateOcc
             else
                 color = '';
             end
-            plot(stateOcc(j,:),color);
+            plot(100*stateOcc(j,:),color,'LineWidth',1.5);
         end
-        xlim([0 opt.constants.defaultMakeplotsOptions.contour_length]); xlabel('Time (frames)');
-        ylim([-0.05 1.05]); ylabel('Occupancy (%)');
+        if i==1 % make axis labels and formatting consistent with makeplots
+            xlim([0 opt.constants.defaultMakeplotsOptions.contour_length]);
+            ylim([-5 105]);
+            xlabel('Time (frames)');
+            ylabel('Occupancy (%)');
+        end
+        set(gca,'YGrid','on');
+        box(gca,'on');
         hold off;
     end
 end
@@ -302,6 +307,14 @@ for i=1:nRow
     end
     linkaxes(figAxes,'xy');
 end
+
+% Display plot legend (mapped by number).
+fprintf('\nPlot legend:\n');
+for i=1:length(opt.allFiles)
+    fprintf('%s',[num2str(i) ' - ' opt.allFiles{i}]);
+    fprintf('\n');
+end
+fprintf('\n');
 
 end % function displayPlots()
 
@@ -319,8 +332,9 @@ defaultOpt.constants.defaultMakeplotsOptions.truncate_tdplot = true;
 defaultOpt.constants.defaultMakeplotsOptions.tdp_max = 0.075;
 defaultOpt.constants.defaultMakeplotsOptions.contour_length = 50;
 defaultOpt.constants.defaultMakeplotsOptions.normalize = 'total time';
-
-defaultOpt.stateColors = {'k','g','b','r','c','m','y'}; % colors for state occupancy plot         
+defaultOpt.stateColors = {'k','g','b','r','c','m','y'}; % colors for state occupancy vs. time plot
+defaultOpt.constants.defaultMakeplotsOptions.colors = [[0 1 0]; [0 0 1]; ...
+    [1 0 0]; [0 1 1]; [1 0 1]; [1 1 0]]; % use the same color scheme for state occ. vs. FRET plot
 
 % General settings.
 defaultOpt.scaleAcc = 0;                    % don't scale acceptor

@@ -34,7 +34,7 @@ for i=1:numel(files),
     if i==1,
         output(:,1) = data.time(1:truncateLen);
     else
-        if ~all(data.time(1:truncateLen)==output(:,1)),
+        if ~all(data.time(1:truncateLen)==output(:,1)'),
             warning( 'Time axes do not match!' );
         end
     end
