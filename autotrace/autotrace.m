@@ -325,7 +325,7 @@ function btnBatchMode_Callback(hObject, ~, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
-% This allows for autotrace2 to run in batch mode. A directory is selected,
+% This allows for autotrace to run in batch mode. A directory is selected,
 % and all the traces files are combined, and a single output file is
 % generated. NOTE: be careful not to combine data from different
 % experiments. Store different data sets in separate folders.
@@ -338,7 +338,7 @@ handles.isBatchMode = 1;
 
 
 % Get a list of all raw traces files under the current directory
-trace_files  = rdir([datapath filesep '**' filesep '*.rawtraces']);
+trace_files  = regexpdir(datapath,'^.*\.rawtraces$');
 
 % Pool these files into
 data_dirs = {};

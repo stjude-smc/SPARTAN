@@ -132,6 +132,10 @@ if nargin<2 || isempty(indexes),
     indexes = 1:size(donor,1);
 end
 
+% Remove any indexes out of range silently. This is used in
+% autotrace/traceStat to load data in chunks.
+indexes = indexes( indexes>=1 & indexes<=size(donor,1) );
+
 donor    = donor(indexes,:);
 acceptor = acceptor(indexes,:);
 fret     = fret(indexes,:);

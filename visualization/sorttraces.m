@@ -1038,7 +1038,7 @@ if ishandle(handles.axFOV),
     % Verify that the currently-loaded movie matches the one current molecule.
     % They are not necessarily the same except for rawtraces files.
     % Assumes that files have properly formatted IDs. Not in old formats?
-    output = split('#',traceMetadata.ids);
+    output = strsplit(traceMetadata.ids,'#');
     [movieFilename,~] = deal( output{:} );
     
     if ~strcmp(handles.movieFilename,movieFilename),
@@ -1058,9 +1058,7 @@ if ishandle(handles.axFOV),
         end
         disp([x y]);
 
-        % Draw markers on selection points (total intensity composite image).
-        % FIXME: try to draw a shape with scale dimensions so it gets bigger as
-        % we zoom in. Otherwise it gets lost.
+        % Draw markers on selection points.
         axes(handles.axFOV);
         delete(findobj(handles.axFOV,'type','line'));
         line( x,y, 'LineStyle','none','marker','o','color','w' );
@@ -1068,7 +1066,7 @@ if ishandle(handles.axFOV),
         % If available, draw a circle shape that scales with the image and is
         % easier to see. Requires 2014.
         if exist('viscircles','file'),
-            viscircles( gca, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
+            viscircles( handles.axFOV, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
         end
 
         figure(handles.figure1);  %return focus to main window.
@@ -1444,7 +1442,7 @@ else
 end
 
 if any( id=='#' ),
-    output = split('#',id);
+    output = strsplit(id,'#');
     [movieFilename,~] = deal( output{:} );
     handles.movieFilename = movieFilename; %base name from IDs.
 else
@@ -1456,7 +1454,8 @@ end
 % Remove the file extension and add a guess.
 [p,f,e] = fileparts(movieFilename);
 if ~strcmp(e,'.stk') && ~strcmp(e,',tiff') && ~strcmp(e,'.tif'),
-    movieFilename = fullfile(p,[f '.stk']);
+    e = '.tif';
+    movieFilename = fullfile(p,[f e]);
 end
 
 
@@ -1469,11 +1468,11 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
     
     % If the movie file doesn't exist, allow the user to look for it.
     if ~exist( movieFilename, 'file' ),
-        idx = find( movieFilename=='\' | movieFilename=='/',1,'last' )+1;
-        movieFilename = fullfile(pwd, movieFilename(idx:end));
+        % First look in the current directory
+        movieFilename = fullfile(pwd, [f e]);
         
         if ~exist( movieFilename, 'file' ),
-            [f,p] = uigetfile( '*.stk', 'Manually find associated movie file', ...
+            [f,p] = uigetfile( '*.tif;*.tiff;*.stk', 'Manually find associated movie file', ...
                                     movieFilename );
             movieFilename = fullfile(p,f);
 

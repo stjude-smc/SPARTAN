@@ -7,7 +7,7 @@ function [nTraces,nFrames,channelNames] = sizeTraces( filenames, dim )
 
 % If not given, ask the user for filenames
 if nargin<1 || isempty(filenames),
-    filenames = getFiles( {'*.traces;*.rawtraces','Binary Traces Files (*.traces)'; ...
+    filenames = getFiles( {'*.traces;*.rawtraces','All Traces Files (*.traces)'; ...
               '*.traces','Traces Files (*.traces)'; ...
               '*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.*','All Files (*.*)'} );
@@ -17,10 +17,6 @@ if ischar(filenames),
 end
 
 nFiles = numel(filenames);
-if nFiles==0,
-    return;
-end
-
 nTraces = zeros(nFiles,1);
 nFrames = zeros(nFiles,1);
 channelNames = cell(nFiles,1);
@@ -28,14 +24,30 @@ channelNames = cell(nFiles,1);
 
 %%
 for i=1:numel(filenames)
+    % If loading a .txt file, we have no choice but to load the full file.
+    [~,~,e] = fileparts(filenames{i});
+    if strcmp(e,'.txt'),
+        data = loadTraces(filenames{i});
+        nTraces(i) = data.nTraces;
+        nFrames(i) = data.nFrames;
+        channelNames{i} = {'donor','acceptor','fret'};
+        continue;
+    end
+    
     % 1) Open the traces file.
     fid = fopen(filenames{i},'r');
 
-    % 2) Read header information
+    % Handle legacy (pre 2012) format .traces files
     if fread(fid,1,'*uint32')~=0,
-        error('Traces format version not supported or invalid file');
+        frewind(fid);
+        nFrames(i) = fread(fid,1,'int32');
+        nTraces(i) = fread(fid,1,'int16')/2;  %D,A are counted separately
+        channelNames{i} = {'donor','acceptor'};
+        fclose(fid);
+        continue;
     end
 
+    % 2) Read header information.
     % Check validity of header data.
     magic     = fread( fid, [1,4], '*char' );  %format identifier ("magic")
     version   = fread( fid, 1, '*uint16' );    %format version number
