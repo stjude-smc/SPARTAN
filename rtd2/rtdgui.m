@@ -67,15 +67,15 @@ if ~exist(modelfile,'file'),
     [~,f,e] = fileparts(modelfile);
     modelfile = [f,e];
 end
-set(handles.editModelPath,'String',modelfile);
+
+if exist(modelfile,'file')
+    set(remakePlots,'Enable','on');
+    set(handles.editModelPath,'String',modelfile);
+    updateStateDropdown(hObject,eventdata,handles);
+end
 
 set(handles.selProdDwell,'String','120');
-updateStateDropdown(hObject,eventdata,handles);
-
-set(handles.selProdState,'Value',4);
 set(handles.eventFilter,'Value',1);
-set(handles.selProdState,'Enable','on');
-set(handles.selProdDwell,'Enable','on');
 
 set(handles.advancedSettings,'String','');
 set(handles.useAdvSettings,'Value',0);
@@ -84,7 +84,7 @@ set(handles.browseSettings,'Enable','off');
 
 % Can't load .m files in compiled code, so this feature is disabled.
 if isdeployed
-    set(handles.advancedSettings,'Enable','off');
+    set(handles.useAdvSettings,'Enable','off');
 end
 
 % UIWAIT makes rtdgui wait for user response (see UIRESUME)
@@ -92,15 +92,20 @@ end
 
 function updateStateDropdown(hObject,eventdata,handles)
 modelPath = get(handles.editModelPath,'String');
-if exist(modelPath,'file')==2
+if exist(modelPath,'file')
     qubModel = qub_loadModel(modelPath);
+    stateList = cell(qubModel.nClass,1);
     for i=1:qubModel.nClass
         stateList{i} = num2str(i);
     end
-    set(handles.selProdState,'Value',1);
+    set(handles.selProdState,'Value', qubModel.nClass);
     set(handles.selProdState,'String',stateList);
+    set(handles.selProdState,'Enable','on');
+    set(handles.remakePlots, 'Enable','on');
+    set(handles.okBtn,       'Enable','on');
 else
     errordlg('Invalid model file.');
+    set(handles.editModelPath,'String','')
 end
 
 % --- Outputs from this function are returned to the command line.

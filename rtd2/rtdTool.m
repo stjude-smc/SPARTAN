@@ -57,7 +57,7 @@ if nargin
 end
 
 % Verify the model file exists.
-if ~exist(opt.kinModel,'file'),
+if ~exist(opt.kinModel,'file') && ~opt.plotOnly,
     % Try the current directory first.
     [~,f,e] = fileparts(opt.kinModel);
     opt.kinModel = [f e];
