@@ -41,6 +41,8 @@ function [plotWindow] = rtdTool(varargin)
 % plotWindow = RTDTOOL(options)
 % Returns a handle, plotWindow, to the generated plot window.
 
+plotWindow = 0;
+
 fprintf('rdTool started.\n\n');
 % Initialize timer;
 tic;
@@ -52,6 +54,20 @@ opt = defaultOptions();
 if nargin
     % Recursively merge structs with function from file exchange.
     opt = mergestruct(opt,varargin{1});
+end
+
+% Verify the model file exists.
+if ~exist(opt.kinModel,'file'),
+    % Try the current directory first.
+    [~,f,e] = fileparts(opt.kinModel);
+    opt.kinModel = [f e];
+    
+    % If not in the current directory, ask the user to find it.
+    if ~exist(opt.kinModel,'file'),
+        [f,p] = uigetfile( opt.kinModel, 'Load tRNA selection kinetic model' );
+        if f==0, return; end  %user hit cancel
+        opt.kinModel = fullfile(p,f);
+    end
 end
 
 % Can't calculate state occupancy without idealization.
@@ -84,7 +100,7 @@ if opt.plotOnly
     for i=1:length(opt.allFiles)    
         [path,name,~] = fileparts(opt.allFiles{i});
         opt.stateOccFiles{i} = fullfile(path, [name '.qub_stateOcc.txt']);
-        if exist(opt.stateOccFiles{i})
+        if exist(opt.stateOccFiles{i},'file')
             counter = counter + 1;
         end
     end
@@ -233,13 +249,13 @@ if opt.stateOcc
         fprintf('%s',['Saving to ' opt.stateOccFiles{i}]);
         fprintf('\n');
     end
+    fprintf('\n');
 end
 
 % Display plots.
 plotWindow = displayPlots(opt);
 
 % Display completion time.
-fprintf('\n');
 fprintf('%s',['rtdTool completed in ' num2str(toc) ' seconds.']);
 fprintf('\n');
 
@@ -265,10 +281,21 @@ for i=1:nRow
 end
 opt.constants.defaultMakeplotsOptions.targetAxes = figAxesCell;
 
-% Create plot titles (numbers)
-for i=1:length(opt.allFiles)
-    plotTitles{i} = num2str(i);
+% Create plot titles
+plotTitles = cell( length(opt.allFiles),1 );
+
+if opt.skipStateFilter
+    for i=1:length(opt.allFiles)
+        plotTitles{i} = num2str(i);
+    end
+else
+    for i=1:length(opt.allFiles)/3
+        plotTitles{(i-1)*3 + 1} = ['File ' num2str(i) ' all'];
+        plotTitles{(i-1)*3 + 2} = ['File ' num2str(i) ' prod.'];
+        plotTitles{(i-1)*3 + 3} = ['File ' num2str(i) ' non-prod.'];
+    end
 end
+
 
 % Display contour plots, state histograms, and transition density plots.
 makeplots(opt.allFiles,plotTitles,opt.constants.defaultMakeplotsOptions);
@@ -311,7 +338,7 @@ end
 % Display plot legend (mapped by number).
 fprintf('\nPlot legend:\n');
 for i=1:length(opt.allFiles)
-    fprintf('%s',[num2str(i) ' - ' opt.allFiles{i}]);
+    fprintf('%s',[plotTitles{i} ' - ' opt.allFiles{i}]);
     fprintf('\n');
 end
 fprintf('\n');
@@ -350,8 +377,8 @@ defaultOpt.preFrames = 5;                   % frames before point of post-sync
 defaultOpt.totalFrames = 500;               % total post-sync'ed trace length
 defaultOpt.simpleThresh = 0.2;              % threshold for simple post-sync
 
-defaultOpt.kinModel = [defaultOpt.constants.modelLocation filesep 'tRNA selection'...
-    filesep '2014_04_18 EColi.qmf'];        % QuB model for SKM
+defaultOpt.kinModel = fullfile(defaultOpt.constants.modelLocation,'tRNA selection',...
+            '2014_04_18 EColi.qmf');        % QuB model for SKM
 defaultOpt.prodState = 4;                   % productive state number
 defaultOpt.prodDwell = 120;                 % productive dwell (ms)
 
@@ -369,5 +396,6 @@ defaultOpt.skmOpt.fixKinetics = 1;
 
 % Used by rtdPlots() - user normally shouldn't need to specify this
 defaultOpt.plotOnly = 0;                    % only plot, don't process
+
 
 end % function defaultOptions()

@@ -71,8 +71,8 @@ cmosCommon = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
 
 % Gettraces GUI settings:
 cmosCommon(1).alignMethod = 1;  %disabled, assume aligned.
-cmosCommon.skipExisting   = 0;  %batch mode: skip files already processed.
-cmosCommon.recursive      = 0;  %batch mode: search recursively.
+cmosCommon.skipExisting   = 1;  %batch mode: skip files already processed.
+cmosCommon.recursive      = 1;  %batch mode: search recursively.
 cmosCommon.quiet          = 0;  %don't output debug messages.
 cmosCommon.saveLocations  = 0;  %save molecule locations to a text file
 
@@ -318,10 +318,15 @@ constants.defaultMakeplotsOptions = options;
 
 %% ============================  Other Settings ============================ %%
 
-if ispc,
-    constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
+if isdeployed,
+    constants.modelLocation = pwd;
 else
-    constants.modelLocation = '/media/Z/SharedDocs/Shared QuB/';
+    % Blanchard lab model locations
+    if ispc,
+        constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
+    else
+        constants.modelLocation = '/media/Z/SharedDocs/Shared QuB/';
+    end
 end
 
 % For MIL (batch kinetics).

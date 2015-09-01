@@ -36,8 +36,23 @@ skmParams.quiet = 1;
 skmParams.fixKinetics = 1;
 
 %two-state model for skm
-modelFile = fullfile(constants.modelLocation,'tRNA Selection','090520_FretHist_2State_model.qmf');  %DT
-model = qub_loadModel(modelFile);   %DT
+modelFile = fullfile(constants.modelLocation,'tRNA Selection','090520_FretHist_2State_model.qmf');
+
+% Verify the model file exists. Ask the user if not.
+if ~exist(modelFile,'file'),
+    % Try the current directory first.
+    [~,f,e] = fileparts(modelFile);
+    modelFile = [f e];
+    
+    % If not in the current directory, ask the user to find it.
+    if ~exist(modelFile,'file'),
+        [f,p] = uigetfile( modelFile, 'Load tRNA binding model' );
+        if f==0, return; end  %user hit cancel
+        modelFile = fullfile(p,f);
+    end
+end
+
+model = qub_loadModel(modelFile);
 model.fixMu    = ones( model.nStates,1 );
 model.fixSigma = ones( model.nStates,1 );
 fretModel = [model.mu' model.sigma'];
@@ -47,7 +62,7 @@ for i = 1:nFiles
     
     %idealize with two-state model and save to dwt file
     [dwellTimes] = skm(currentTraces.fret,currentTraces.sampling,model,skmParams);
-    [filePath,fileName,fileExt] = fileparts(fileList{i});
+    [filePath,fileName] = fileparts(fileList{i});
     offsets = currentTraces.nFrames*((1:currentTraces.nTraces)-1);
     saveDWT([filePath filesep fileName '_2state.qub.dwt'],dwellTimes, ...
         offsets, fretModel, currentTraces.sampling);

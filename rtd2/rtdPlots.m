@@ -13,6 +13,8 @@ function [plotWindow] = rtdPlots(varargin)
 % plotWindow = RTDPLOTS(options)
 % Returns a handle, plotWindow, to the generated plot window.
 
+plotWindow = 0;
+
 % Handle any user-specified settings.
 if nargin
     opt = varargin{1};
@@ -28,6 +30,8 @@ if ~isfield(opt, 'fileList')
               '*.*','All Files (*.*)'};
     prompt = 'Select trace files. Hit cancel when finished.';
     opt.fileList = getFiles(filter, prompt);
+    
+    if numel(opt.fileList)==0, return; end %no files selected
 end
 
 % Run rtdTool().
