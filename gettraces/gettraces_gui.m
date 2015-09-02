@@ -16,7 +16,7 @@ function varargout = gettraces_gui(varargin)
 %      rejection. Batch mode is not recursive.
 % 
 
-% Last Modified by GUIDE v2.5 21-Oct-2014 18:55:14
+% Last Modified by GUIDE v2.5 02-Sep-2015 14:55:40
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -578,7 +578,7 @@ end
 percentOverlap = stkData.fractionOverlapped*100;
 
 set(  handles.txtOverlapStatus, 'String', ...
-      sprintf('Rejected %0.0f%%', percentOverlap)  );
+      sprintf('Molecules rejected: %0.0f%%', percentOverlap)  );
 
 if percentOverlap>30,
     set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
@@ -593,7 +593,7 @@ percentWinOverlap = mean(stkData.fractionWinOverlap*100);
 % percentTracesWinOverlap = 100*sum(stkData.fractionWinOverlap>0)/numel(stkData.fractionWinOverlap);
 
 set(  handles.txtWindowOverlap, 'String', ...
-      sprintf('Win overlap: %0.1f%%', percentWinOverlap)  );
+      sprintf('Residual win. overlap: %0.1f%%', percentWinOverlap)  );
 
 if percentWinOverlap>10,
     set( handles.txtWindowOverlap, 'ForegroundColor', [0.9 0 0] );
@@ -610,7 +610,7 @@ end
 eff = 100*stkData.integrationEfficiency(:,handles.params.nPixelsToSum);
 eff = nanmean(eff);
 set(  handles.txtIntegrationStatus, 'String', ...
-      sprintf('%0.0f%% intensity collected', eff)  );
+      sprintf('Intensity collected: %0.0f%% ', eff)  );
 
 if eff<70,
     set( handles.txtIntegrationStatus, 'ForegroundColor', [0.9 0 0] );
@@ -751,6 +751,8 @@ line( handles.rtotal_x, handles.rtotal_y, style2b{:}, 'Parent',handles.axTotal )
 % --- Executes on button press in saveTraces.
 function saveTraces_Callback(~, ~, handles)
 
+set(handles.figure1,'pointer','watch'); drawnow;
+
 if iscell(handles.stkfile),
     filename = handles.stkfile{1};
 else
@@ -764,7 +766,9 @@ filename = regexprep(filename,'-file[0-9]*.[A-Za-z0-9]*$','');
 % traces, and save to file.
 stkData = getappdata(handles.figure1,'stkData');
 gettraces( stkData, handles.params, filename );
+
 clear stkData;
+set(handles.figure1,'pointer','arrow'); drawnow;
 
 
 
@@ -819,11 +823,14 @@ guidata(hObject,handles);
 % --- Overlap rejection threshold specification
 function txtOverlap_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update gettraces parameters using specified values
-handles.params.overlap_thresh = 0;
 
-text = get(hObject,'String');
-if ~isempty( text )
-    handles.params.overlap_thresh = str2double(text);
+input = str2double(get(hObject,'String'));
+if isnan(input),
+    % If an invalid number is entered, reset the value to what it was.
+    set(hObject,'String',handles.params.overlap_thresh);
+    return;
+else
+    handles.params.overlap_thresh = input;
 end
 
 % Re-pick molecules with new settings.
@@ -834,11 +841,13 @@ guidata(hObject,handles);
 % --- Integration window size specification
 function txtIntegrationWindow_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update gettraces parameters using specified values
-text = get(hObject,'String');
-if ~isempty( text )
-    handles.params.nPixelsToSum = floor( str2double(text) );
-elseif isfield(handles.params,'nPixelsToSum');
-    handles.params = rmfield( handles.params,'nPixelsToSum' );
+nPx = str2double(get(hObject,'String'));
+if isnan(nPx),
+    % If an invalid number is entered, reset the value to what it was.
+    set(hObject,'String',handles.params.nPixelsToSum);
+    return;
+else
+    handles.params.nPixelsToSum = floor(nPx);
 end
 
 % Re-pick molecules with new settings.
@@ -846,6 +855,29 @@ end
 % collected).
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
+
+
+
+
+function txtSettings_Callback(hObject, ~, handles, paramName)  %#ok<DEFNU>
+% User changed one of the values int he "Analysis Settings" panel.
+% paramName is passed to identify which one and the matching parameter.
+% Only for buttons that have no side effects or special features.
+
+inputstr = get(hObject,'String');
+%if inputstr is empty, set the parameter to empty for automatic. TODO
+
+input = str2double( inputstr );
+if isnan(input),
+    % Reset field for invalid numbers, presumably to a valid value.
+    set( hObject, 'String', num2str(handles.params.(paramName)) );
+else
+    handles.params.(paramName) = input;
+    guidata(hObject,handles);
+end
+
+% END FUNCTION txtSettings_Callback
+
 
 
 
@@ -929,7 +961,8 @@ set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
 set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
 set( handles.chkRecursive, 'Value', params.recursive    );
 set( handles.chkOverwrite, 'Value', params.skipExisting );
-set( handles.cboAlignMethod, 'Value',1 ); %params.alignment.method
+set( handles.cboAlignMethod,   'Value',1 ); %params.alignment.method
+set( handles.edScaleAcceptor, 'String',num2str(params.scaleAcceptor) );
 
 if handles.params.geometry==1, %Single-channel recordings
     set( handles.txtDACrosstalk,    'Enable','off', 'String','', 'Visible','on' );
@@ -959,24 +992,6 @@ if isfield(handles,'stkfile'),
     handles = OpenStk( handles.stkfile, handles, hObject );
 end
 
-guidata(hObject,handles);
-
-
-
-
-function txtDACrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% 
-handles.params.crosstalk = str2double( get(hObject,'String') );
-if isnan(handles.params.crosstalk), handles.params.crosstalk=0; end
-guidata(hObject,handles);
-
-
-
-
-
-function txtPhotonConversion_Callback(hObject, ~, handles)  %#ok<DEFNU>
-%
-handles.params.photonConversion = str2double( get(hObject,'String') );
 guidata(hObject,handles);
 
 

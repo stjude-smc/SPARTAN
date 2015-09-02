@@ -769,7 +769,12 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
         corr = params.biasCorrection{i}( x(i:nCh:end), y(i:nCh:end) );
         data.(chName) = data.(chName)  ./  repmat( corr, [1 nFrames] );
     end
-    
+end
+
+% Scale acceptor channel to correct for unequal brightness (gamma is not 1)
+if isfield(params,'scaleAcceptor') && ~isempty(params.scaleAcceptor),
+    data.acceptor = data.acceptor*params.scaleAcceptor;
+    data.fileMetadata(1).scaleAcceptor = params.scaleAcceptor;
 end
 
 % If this is multi-color FRET data and the metadata doesn't specify how FRET
