@@ -24,6 +24,8 @@ end
 if ~iscell(files),  files={files};  end
 if ~iscell(titles), files={titles}; end
 
+if nFiles==0, return; end
+
 
 %% Load data and calculate photobleaching and intensity information.
 

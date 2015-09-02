@@ -44,6 +44,20 @@ end
 % End initialization code - DO NOT EDIT
 
 
+function listPrograms() %#ok<DEFNU>
+% This function is never called. Its purpose is to list all functions used by
+% the program, which are actually in the callbacks in the .fig file.
+% This is to make compiling to program easier.
+gettraces; autotrace; rtdgui;
+sorttraces; makeplots; frethistComparison; avgFretTime; tsqComparison;
+batchKinetics; simulate; lifetime_exp; percentTime;
+crosstalkcorrect; gammacorrect; scaleacceptor; haranfilter;
+forQuB2; cy5forQuB; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
+combineDatasets; resizeTraces;
+
+
+
+
 % --- Executes just before cascadePipeline is made visible.
 function cascadePipeline_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.

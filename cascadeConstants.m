@@ -297,6 +297,23 @@ options.colors = [ 0 0 0 ; 0 0.5 0   ; 1 0 0 ; ...
           0.7500    0.7500         0 ; ...
           0.2500    0.2500    0.2500 ];
 
+% FRET contour plot colormap (cplot and tplot)
+options.cmap = [
+251 251 196
+251 251 196
+253 253 232
+255 255 255
+186 217 254
+ 74 138 255
+  0   0 255
+  0 255   0
+ 71 254  16
+255 255   0
+255 180  40
+255 111  15
+255   0   0
+255   0   0 ]/255;
+
 % OPTIONS
 options.no_statehist = false;  % do not use state occupancy histograms
 options.no_tdp       = false;  % do not use TD plots

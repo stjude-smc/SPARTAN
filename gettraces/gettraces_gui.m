@@ -48,13 +48,8 @@ function gettraces_OpeningFcn(hObject, ~, handles, varargin)
 % varargin   command line arguments to gettraces (see VARARGIN)
 
 
-
 % Load colormap for image viewer
-fid=fopen('colortable.txt','r');
-colortable = fscanf(fid,'%d',[3 256]);
-handles.colortable = colortable'/255;
-fclose(fid);
-
+handles.colortable = gettraces_colormap();
 
 % Initialize GUI if gettraces is being launched for the first time.
 if ~isfield(handles,'params')

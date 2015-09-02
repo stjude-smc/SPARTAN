@@ -59,6 +59,8 @@ handles.output = hObject;
 guidata(hObject, handles);
 constants = cascadeConstants;
 
+set( handles.figure1, 'Name', ['rtdgui (version ' constants.version ')'] );
+
 % set default values
 % FIXME: these and the defaults in rtdTool should come from some shared
 % location so that they can all be changed from one place.
@@ -69,7 +71,6 @@ if ~exist(modelfile,'file'),
 end
 
 if exist(modelfile,'file')
-    set(remakePlots,'Enable','on');
     set(handles.editModelPath,'String',modelfile);
     updateStateDropdown(hObject,eventdata,handles);
 end

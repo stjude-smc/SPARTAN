@@ -61,6 +61,19 @@ for i=1:nFiles,
 end %for each file
 
 
+% Make titles for each file
+titles = strrep(filenames,'_',' ');
+for i=1:nFiles,
+    [~,titles{i}] = fileparts( titles{i} );
+end
+
+% Plot the results
+figure;
+nStates = size(meanPT,2);
+errorbar( repmat(1:nFiles,nStates,1)', meanPT, stdPT );
+legend(titles);
+xlabel('File number');
+ylabel('Fraction occupancy');
 
 end % FUNCTION percentTime
 

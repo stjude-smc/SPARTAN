@@ -54,13 +54,9 @@ end
 f_axis=tdp(2:end,1);
 i_axis=tdp(1,2:end);
 
-% Load stanford colormap
-CMAP_PATH='frethist_colormap.txt';
-cmap=dlmread(CMAP_PATH,' ')/255;
-
 % Setup contour levels
 top = options.tdp_max;
-con=0:(top/size(cmap,1)):top;
+con=0:(top/size(options.cmap,1)):top;
 tdp(end,end) = 10;  % hack to make colorscale fixed
 
 % draw contour plot
@@ -72,7 +68,7 @@ if tdpfile~=0,
     title(tdpfile);
 end
 set(hand,'LineColor','none');
-colormap(cmap);
+colormap(options.cmap);
 % xlabel('Initial FRET');
 % set(gca,'XTick', i_axis(1):0.1:i_axis(end) )
 % set(gca,'YTick', f_axis(1):0.1:f_axis(end) )

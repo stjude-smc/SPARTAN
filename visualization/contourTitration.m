@@ -75,12 +75,8 @@ save( 'contourTitration.txt', 'hist_out', '-ASCII' );
 
 %=============  3. Display the plot
 
-
-% Load Stanford colormap
-cmap = dlmread( 'frethist_colormap.txt' )/255;
-
 max_mol = 1/options.cplot_scale_factor;
-nl = size(cmap,1)-1;                        %number of contour levels
+nl = size(options.cmap,1)-1;                        %number of contour levels
 con = 0:(max_mol/nl):max_mol;               %contour levels
 
 % If the top contour levels are not filled, the levels get distorted.
@@ -95,7 +91,7 @@ cax = gca;
 
 [~,hand] = contourf( cax, time_axis, fret_axis, hist2d, con );
 
-colormap(cax,cmap);
+colormap(cax,options.cmap);
 set(hand, 'LineColor', 'none');
 
 set(cax,'xtick', 1:numel(files));

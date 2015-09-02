@@ -61,25 +61,41 @@ else
     outputFilename = fullfile(p,f);
 end
 
-fid = fopen(outputFilename,'w');
+if f~=0,
+    fid = fopen(outputFilename,'w');
 
-for n=1:nFiles,
-    if nFiles == 1,
-        f = 'Mean FRET';
-    else
-        [~,f] = fileparts(files{n});
+    for n=1:nFiles,
+        if nFiles == 1,
+            f = 'Mean FRET';
+        else
+            [~,f] = fileparts(files{n});
+        end
+
+        if output(1,1)==1,
+            fprintf(fid,'Time (Frames)\t%s',f);
+        else
+            fprintf(fid,'Time (s)\t%s',f);
+        end
     end
-    
-    if output(1,1)==1,
-        fprintf(fid,'Time (Frames)\t%s',f);
-    else
-        fprintf(fid,'Time (s)\t%s',f);
-    end
+    fprintf(fid,'\n');
+    fclose(fid);
+
+    dlmwrite(outputFilename,output,'-append','delimiter','\t');
 end
-fprintf(fid,'\n');
-fclose(fid);
 
-dlmwrite(outputFilename,output,'-append','delimiter','\t');
+
+% Make titles for each file
+titles = strrep(files,'_',' ');
+for i=1:nFiles,
+    [~,titles{i}] = fileparts( titles{i} );
+end
+
+% Plot the result
+figure;
+plot( output(:,1), output(:,2:end) );
+xlabel('Time (seconds)');
+ylabel('Average FRET value');
+legend(titles);
 
 
 

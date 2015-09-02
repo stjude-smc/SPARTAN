@@ -79,9 +79,6 @@ time_axis = hist2d(1,2:end);
 fret_axis = hist2d(2:end,1);
 
 
-% Load Stanford colormap
-cmap = dlmread( 'frethist_colormap.txt' )/255;
-
 % Define time region to plot as frame numbers in the time-binned histogram.
 lims = ceil( bounds(1:2)./binFactor );
 lims = lims(1):lims(2);
@@ -91,7 +88,7 @@ lims = lims(1):lims(2);
 
 % max_mol = sum( hist2d(2:end,2) )/scale;     %red=?% of total
 max_mol = 1/scale;
-nl = size(cmap,1)-1;                        %number of contour levels
+nl = size(options.cmap,1)-1;                        %number of contour levels
 con = 0:(max_mol/nl):max_mol;               %contour levels
 
 
@@ -109,7 +106,7 @@ hist2d_n(end,end) = max_mol*2;
         time_axis(lims), fret_axis, ...
         hist2d_n( 2:end, 2:end ), con );
 
-colormap(cax,cmap);
+colormap(cax,options.cmap);
 set(hand, 'LineColor', 'none');
 
 % set(gca, 'PlotBoxAspectRatio', [1.5 2 1]);
