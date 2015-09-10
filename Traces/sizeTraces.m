@@ -1,9 +1,21 @@
 function [nTraces,nFrames,channelNames] = sizeTraces( filenames, dim )
-% Given a file name or cell array of filenames, load only the header of traces
-% files to determine the 
+%sizeTraces   Number and length of traces in a file
 %
-% See also loadTraces.m and saveTraces.m
+%   [N,M,C] = sizeTraces( FILENAME )
+%   returns the number of traces (N), trace length in frames (M), and names of
+%   data channels (C, a cell array of strings) from the specified FILENAME
+%   (a .traces file). Only the header is loaded, which is very fast.
 %
+%   [N,M,C] = sizeTraces( FILENAMES )
+%   returns a column vector of values, one for each cell in FILENAMES.
+%
+%   X = sizeTraces( FILENAME, DIM )
+%   returns only the desired dimension (1=N, 2=M, 3=C).
+%
+%   See also loadTraces.
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % If not given, ask the user for filenames
 if nargin<1 || isempty(filenames),

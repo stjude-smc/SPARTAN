@@ -9,7 +9,8 @@ function [bestAlign,bestReg] = weberalign( donor, acceptor, params )
 %   score. The one with the brightest, sharpest peaks wins.
 %
 % See also: icpalign, weberQuality.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 [nrow,ncol] = size(donor);

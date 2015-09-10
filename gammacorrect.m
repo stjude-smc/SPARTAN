@@ -19,7 +19,8 @@ function mean_gamma = gammacorrect(files,mean_gamma)
 %   "xxx_gammacorrect.traces" without an opportunity to change the name.
 % 
 % See also: scaleacceptor, crosstalkcorrect.
-% 
+
+%   Copyright 2014-2015 Cornell University All Rights Reserved.
 
 
 % If no files given, obtain a list from the user.

@@ -14,9 +14,11 @@ function varargout = gettraces_gui(varargin)
 %      directory. All the .stk files in that directory will be converted to
 %      separate .traces files using the established threshold and txtOverlap
 %      rejection. Batch mode is not recursive.
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 02-Sep-2015 14:55:40
+
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;

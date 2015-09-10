@@ -2,7 +2,9 @@ function forOrigin( filename, dwtFilename, outputFilename )
 % Exports trace data in a text format that is easy to import into Origin
 % for plotting. Traces are listed in order, with 4 columns for each
 % (donor, acceptor, fret, and idealization).
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % OPTIONS:
 REESTIMATE = true; 

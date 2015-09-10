@@ -20,9 +20,10 @@ function varargout = cascadePipeline(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help cascadePipeline
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 14-Aug-2015 16:35:04
+
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;

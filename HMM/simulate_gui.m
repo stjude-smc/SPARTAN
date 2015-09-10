@@ -20,14 +20,15 @@ function varargout = simulate_gui(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % TODO:
 %  - WARNING: if photoressurection rates are set to be equal, then
 %    all states are equally likely after a blink!  This effectively brings
 %    the system out of equilibrium!!!
 
-% Edit the above text to modify the response to help simulate_gui
-
 % Last Modified by GUIDE v2.5 10-Feb-2015 16:02:38
+
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;

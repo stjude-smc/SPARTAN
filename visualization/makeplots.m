@@ -10,11 +10,8 @@ function [h1,baseFilenames] = makeplots(varargin)
 %   
 %   OPTIONS is a structure with settings for how to display the data and
 %   how to calculate histograms, etc. See cascadeConstants.
-%
 
-% Created by: Daniel Terry (Scott Blanchard Lab)
-% Cascade smFRET Analysis Pipeline 1.3, Copyright (C) 2008 Daniel Terry
-% Date Created: Oct 11, 2007
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: add varargin options for stuff
 

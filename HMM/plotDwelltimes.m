@@ -11,6 +11,8 @@ function plotDwelltimes( dwtfilename, timeConstants )
 %   amplitude is assumed to be 100%.  Elements on the diagonal
 %   are ignored.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % A NOTE ON SMOOTH BINNING FROM QUB:
 % the histogram is binned logarithmically, so some of the
 % smallest bins contain no exact multiples of Δt. We simulated

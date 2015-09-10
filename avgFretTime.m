@@ -4,7 +4,8 @@ function output = avgFretTime( files )
 % states are not added into the sum, so photobleaching doesn't interfere.
 % This is useful for stopped-flow drug/ligand delivery to measure the rate
 % of change in the distribution. Also see stateTimecourse.m.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Settings

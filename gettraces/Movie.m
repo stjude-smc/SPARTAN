@@ -5,6 +5,9 @@ classdef Movie
 % All access is read-only and the file must exist as long as data access is
 % needed. Data are not (necessarily) loaded into memory.
 %
+% See also: Movie_STK, Movie_TIFF, gettraces.
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Assumptions: the image stack is a series of images with constant exposure
 % time and no breaks in imaging?

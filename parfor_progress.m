@@ -24,14 +24,14 @@ function parfor_progress(N_init,title)
 %    parfor_progress( 'Starting the next step...' );
 %
 % NOTE: If there are many iterations that are fairly short, calling this
-% function for every iteration may add significantly to execution time. TO
+% function for every iteration may add significantly to execution time. To
 % avoid this, consider calling on every 10th iteration, etc.
 % Just be sure the number of steps in initialization is also reduced!
 %
-% Created by: Daniel Terry. Copyright 2015, Weill-Cornell Medical College
 % Inspired by the parfor_progress script made by Jeremy Scheff:
-% http://www.mathworks.com/matlabcentral/fileexchange/32101-progress-monitor--progress-bar--that-works-with-parfor
-% 
+% http://www.mathworks.com/matlabcentral/fileexchange/32101
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % This is the file used for interprocess communication (IPC).

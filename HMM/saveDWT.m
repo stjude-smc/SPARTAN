@@ -13,6 +13,8 @@ function saveDWT(filename, idealization, offsets, model, sampling )
 %
 %   All arguments are required!
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % Example datafile
 % Segment: {N} Dwells: {M} Sampling(ms): {R} Start(ms): {I} ClassCount: {J}
 % Mu1 Std1 Mu2 Std2 ...

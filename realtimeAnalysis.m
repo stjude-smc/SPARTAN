@@ -1,9 +1,10 @@
 function varargout = realtimeAnalysis(varargin)
 % REALTIMEANALYSIS  Trace processing and filtering
-%
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 08-Apr-2010 17:25:19
+
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;

@@ -32,8 +32,10 @@ classdef Traces < matlab.mixin.Copyable
 %       smallData = data.getSubset(idxTraces,idxFrames)  %create a new instances with only the selected traces (frames)
 %       bigData   = combine(data,data2,...)              %combines all data from multiple instances
 % 
-% See also: TracesFret, TracesFret4, TracesAlex, etc.
-%
+% See also: TracesFret, TracesFret4, TracesAlex.
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % ====== IMPLEMENTATION NOTES =====
 % NOTE: for performance reasons, changes to the data fields are not monitored

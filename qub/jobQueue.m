@@ -9,8 +9,12 @@ function result = jobQueue( commands, outputFiles, timeout )
 %   is exceeded, the function will return a value, but the external program
 %   may still be running.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % TODO:
 %  * Automatically determine number of processes to use 
+
+
 
 % USER TUNABLE PARAMETERS:
 

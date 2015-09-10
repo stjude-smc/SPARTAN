@@ -19,9 +19,9 @@ function data = haranfilter( input, M,P,windowSizes )
 %  Defaults: M=10, P=5.
 %
 % See G. Haran, Chem Phys 307 (204): 137-145. "Noise reduction in
-% single-molecule fluorescence trajectories of folding proteins"
-%
+% single-molecule fluorescence trajectories of folding proteins".
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Setup default parameter values.

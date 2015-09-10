@@ -7,6 +7,8 @@ function outputTree = qub_saveModel(model,modelFilename)
 %
 %  http://www.qub.buffalo.edu
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % MEX CODE
 % if ~exist(modelFilename,'file')

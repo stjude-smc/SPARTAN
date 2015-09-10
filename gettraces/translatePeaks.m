@@ -28,6 +28,9 @@ function [picks,rejects] = translatePeaks( total_picks, fieldSize, quadrant, tfo
 %         because of the software alignment applied. These
 %
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 assert( nargin>=3 & size(total_picks,2)==2 );
 
 

@@ -21,8 +21,8 @@ classdef TracesFret4 < TracesFret
 %
 %
 %    See Traces.m and TracesFret.m for more information on Traces objects.
-% 
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Declaration and initialization of public parameters

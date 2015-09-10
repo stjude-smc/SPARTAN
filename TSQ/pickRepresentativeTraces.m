@@ -1,7 +1,10 @@
 function pickRepresentativeTraces( filenames )
 % Select traces with average intensity and lifetime.
 
-% 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
+%%
 if nargin<1,
     filenames = getFiles;
 end

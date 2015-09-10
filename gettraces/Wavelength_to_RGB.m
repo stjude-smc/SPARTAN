@@ -7,7 +7,8 @@ function RGB = Wavelength_to_RGB(wl)
 % RGB channel intensities (0 to 1). For example, 510 = green = [0 1 0]. If
 % wl is an Nx1 vector of wavelengths, RGB is a Nx3 matrix with each
 % wavelength represented in a separate row.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % This script inspired by the method described:
 % http://scslin.blogspot.com/2011/12/matlab-calculate-rbg-of-visible.html

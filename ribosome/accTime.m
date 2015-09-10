@@ -9,11 +9,8 @@ function output = accTime( tracesFiles, titles )
 %
 %   OUTPUT is a set of column vectors with the time axis and the
 %   accommodation curves for each of the given files.
-%   
 
-% Created by: Daniel Terry (Scott Blanchard Lab)
-% Cascade smFRET Analysis Pipeline, Copyright (C) 2009 Daniel Terry
-% Date Created: June 18, 2009
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 %%

@@ -24,7 +24,8 @@ function saveTraces( filename, varargin )
 % of the code expects. Multi-pair FRET not supported yet. FIXME
 % 
 % For 'qub' files, data may just be the FRET traces
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Determine the file format to use.

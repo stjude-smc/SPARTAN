@@ -49,8 +49,10 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 % 
 % - fieldNames: cell array of assignments of fluorescence field names
 %                 (e.g., donor, acceptor, factor). If one is left blank
-%                 that field is disregarded. OPTIONAL.
-% 
+%                 that field is disregarded. OPTIONAL
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % NOTE: because of the structure of this file, all variables defined in this
 % initial section are global to the other sub-functions in the file. This way,

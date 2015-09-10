@@ -12,6 +12,9 @@ function [alphas,LLcarry] = BWforward( Bx, A, s0 )
 %
 % DAB 2008.3.30
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 s0 = reshape( s0, 1, numel(s0) ); %insure p0 is a row vector
 
 NT = size(Bx,1);

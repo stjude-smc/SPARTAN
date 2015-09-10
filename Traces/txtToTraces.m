@@ -1,6 +1,9 @@
 function txtToTraces( inputFilenames, outputFilenames )
 % Converts old format traces to the new binary format.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 % Get input and output filenames
 if nargin<1,
     inputFilenames = getFiles('*.txt','Select .txt traces files to convert.');

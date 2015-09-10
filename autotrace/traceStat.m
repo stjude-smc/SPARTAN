@@ -29,7 +29,8 @@ function [retval,nTraces] = traceStat( varargin )
 %     overlap       0=okay, 1=multiple photobleaching events (overlap)
 %     avgfret       average FRET value
 %     fretEvents    number of FRET events crossing E=0.14
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % PARAMETERS:

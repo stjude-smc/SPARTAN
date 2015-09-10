@@ -21,7 +21,9 @@ function data = loadTraces( filename, indexes )
 %   This includes 'factor' for factor binding or 'acceptor2' for a
 %   three-color FRET experiment with a single donor and two acceptors.
 %   Four-color FRET and more complex experiments are not supported. FIXME
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 data = [];
 

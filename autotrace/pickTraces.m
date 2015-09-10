@@ -21,6 +21,8 @@ function [indexes,values] = pickTraces( stats, criteria  )
 %   standard deviations of the mean, calculated using histogram fitting.
 %     critiera.maxTotalSigma = 2;
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Set defaults for criteria not specified
 % defaults = constants.defaultCriteria;

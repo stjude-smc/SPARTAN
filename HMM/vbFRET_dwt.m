@@ -1,6 +1,8 @@
 function [dwt,model] = vbFRET_dwt(filename)
 % Converts a vbFRET idealization file (.mat) to a QuB dwell time file (DWT).
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Get filename from user
 if nargin<1,

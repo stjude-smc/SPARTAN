@@ -10,7 +10,8 @@ function [dwellc,sampling,model] = correctedDwelltimes( dwtFilename, dt )
 %
 % where dwells is a cell array of dwells, with one element for each state
 % in the model.
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Setting: remove all dwells this length (in frames) or shorter.

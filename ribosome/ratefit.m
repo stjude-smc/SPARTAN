@@ -5,8 +5,8 @@ function results = ratefit(seg_fname, dwt_fname, bMakeGUI)
 %   
 %   Returns a structure containing RATES from the QuB MIL (seperately)
 %   results matrix 
-%   
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: split exponential fitting into new function: exp_ratefit
 % Use input parser

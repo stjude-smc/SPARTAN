@@ -8,10 +8,8 @@ function varargout = sorttraces(varargin)
 %    unusable molecules with serious artifacts or no acceptor. "All" could
 %    be all usable molecules. "Best" could be a few very high-quality,
 %    repressentative traces used for publication.
-%
 
-% Depends on: sorttraces.fig, LoadTraces.m, CorrectTraces, cascadeConstants,
-%    trace_stat (which requires: RLE_filter, CalcLifetime)
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 15-Jun-2015 12:46:03
 

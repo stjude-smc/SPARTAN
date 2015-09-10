@@ -23,6 +23,9 @@ function [meanPT,stdPT] = percentTime( filenames, truncateLength )
 %   
 % CAUTION: assumes first model state (1) is a zero-FRET state and removes it!
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 rand('twister',sum(100*clock));
 
 bootstrapN = 10000;

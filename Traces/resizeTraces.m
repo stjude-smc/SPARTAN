@@ -13,7 +13,8 @@ function resizeTraces( finalLen, files, mode )
 %
 %   If traceLen > actual, the last data value is repeated at the end of every
 %   trace.
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Parse input arguments, asking the user for any that are missing.

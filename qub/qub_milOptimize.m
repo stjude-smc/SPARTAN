@@ -9,8 +9,8 @@ function resultTree = qub_milOptimize( dwtFilenames, modelFilename, options )
 %
 %   OPTIONS is a structure that can include the following fields:
 %    * maxIter: Maximum number of interations (int)
-%
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO:
 %  - allow user to specify MIL parameter values

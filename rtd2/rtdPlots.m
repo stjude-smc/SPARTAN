@@ -13,6 +13,9 @@ function [plotWindow] = rtdPlots(varargin)
 % plotWindow = RTDPLOTS(options)
 % Returns a handle, plotWindow, to the generated plot window.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 plotWindow = 0;
 
 % Handle any user-specified settings.

@@ -23,6 +23,9 @@ function [outFilename,picks,allStats,dataAll]=loadPickSaveTraces( varargin )
 %                  array with one per file.
 %    * stats
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 % TODO:
 %  * Allow user to give stats of the data files, so that they aren't
 %    calculated a second time in autotrace.

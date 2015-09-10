@@ -1,6 +1,9 @@
 function constants = cascadeConstants()
 % Returns contant used throughput the processing pipeline
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 constants.version = '2.11';  %pipeline release version number
 
 

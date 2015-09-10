@@ -6,6 +6,9 @@ function dwells = dwellMatrix(dwtfilename)
 %    molecule spent in that state (in ms).
 %    Outfile filename will be xxxxx.dwt.txt
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 if ~exist( 'dwtfilename', 'var' ),
     [datafile,datapath] = uigetfile({'*.dwt'},'Choose a DWT file:');
     if datafile==0, return; end  %user hit "cancel"

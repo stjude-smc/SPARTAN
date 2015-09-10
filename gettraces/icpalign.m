@@ -16,7 +16,9 @@ function align = icpalign( ref_img, target_img, params )
 %   on all channels.
 %
 % See also: WEBERALIGN
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 [nrow,ncol] = size(ref_img);
 assert( all(size(ref_img)==size(target_img)) );

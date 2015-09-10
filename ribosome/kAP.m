@@ -1,4 +1,7 @@
 function kl=kAP(rates)
+%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Initialize rate values
 kCH1  = rates(1);

@@ -3,7 +3,8 @@ function [rates,errors,labels] = trnaRates(arg)
 % 
 %   Generates rates relevant to tRNA-tRNA FRET experiments using
 %   rate data from QuB MIL together (4-state fully connected model)
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: ....
 

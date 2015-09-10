@@ -23,6 +23,9 @@ function model = qub_createModel(nStates)
 %
 %  http://www.qub.buffalo.edu
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 vectorSize = [1,nStates];
 
 % MODEL PARAMETERS

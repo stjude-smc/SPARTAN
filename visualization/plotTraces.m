@@ -2,7 +2,8 @@ function plotTraces(filename,plotTitle)
 % PLOTTRACES  Plots fluorescence and idealized FRET traces
 %
 %   plotTraces() ...
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 gamma = 1;

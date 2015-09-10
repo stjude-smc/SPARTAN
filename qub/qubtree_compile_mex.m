@@ -9,7 +9,9 @@
 %
 % -largeArrayDims forces 64-bit addressing support, which is included for
 % future compatibility (this setting will be default soon).
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 if strcmp(mexext,'mexw64'),
     % Windows 64-bit, DLL

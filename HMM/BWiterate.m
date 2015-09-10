@@ -11,6 +11,9 @@ function [LLtot,eA,eMU,eSIG,p0s,ps] = BWiterate( observations, A, mus, sigmas, p
 % DAB 2008.3.30
 % DST 2008.6.29  Modified
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 [nTraces nFrames] = size(observations);
  
 % if (length(reps) == 0) | (reps(1) == 0)

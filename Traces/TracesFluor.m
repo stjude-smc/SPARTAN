@@ -13,10 +13,9 @@ classdef TracesFluor < Traces
 % 
 %          traces = Traces(nTraces,nFrames,nChannels);
 %
-%
 %    See Traces.m for more information on Traces objects.
-% 
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Declaration and initialization of public parameters

@@ -4,7 +4,8 @@ function tplot(varargin)
 %   TPLOT( TDP, ... )
 %   Draws the transition density contour plot in TDP.  If no arguments
 %   supplied, the function will prompt the user for the file.
-%   
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 %Plots transition density plot created by tdplot from a file, or from the
 %variable tdp entered at command line.

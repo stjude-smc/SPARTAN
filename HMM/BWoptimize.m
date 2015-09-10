@@ -34,6 +34,7 @@ function [results,errorResults,meanResults] = BWoptimize( ...
 %    very rapidly once mu and sigma converge.  Try several starting points
 %    to be sure you have the best fit (highest LL).
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 % TODO: allow options.seperately, add Q matrix to results!
 
 % Format of the A-matrix:

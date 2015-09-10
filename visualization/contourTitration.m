@@ -3,10 +3,9 @@ function hist_out = contourTitration( files )
 %
 %   Draws a contour plot with the titrated condition on the x axis and the
 %   FRET histogram on the y axis.
-%
-%
-%
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 %=============  Process input arguments
 

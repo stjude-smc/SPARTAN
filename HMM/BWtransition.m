@@ -7,6 +7,9 @@ function [eps,alphas,LLcarry] = BWtransition( O, A, mus, sigmas, p0 )
 %
 % DAB 2008.3.30
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 NT = length(O);
 Nstates = size(A,1);
 

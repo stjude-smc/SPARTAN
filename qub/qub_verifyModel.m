@@ -8,6 +8,10 @@ function [ok,msg] = qub_verifyModel(model)
 %
 %  http://www.qub.buffalo.edu
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
+%%
 ok = false;
 
 if ~all(  ismember( {'mu','sigma','rates','p0','class'}, fieldnames(model) )  ),

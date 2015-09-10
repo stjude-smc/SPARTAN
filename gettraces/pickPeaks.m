@@ -3,7 +3,9 @@ function [picks,boolRejected,centroids] = pickPeaks( image_t, threshold, nhood, 
 %   picks = locations (x,y) of all molecules selected.
 %   rejectedPicks = locations of molecules that are too close to a neighbor
 %                        and should be ignored in analysis.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 [nrow,ncol] = size(image_t);
 

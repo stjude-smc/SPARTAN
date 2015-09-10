@@ -5,6 +5,9 @@ function [results,labels] = totalLifetime( filenames, titles )
 % Preliminary analysis of TSQ-dye conjugate experiments.
 % 10/17/08
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 if nargin<3,
     nBins = 6000;
 end

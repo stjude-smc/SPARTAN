@@ -8,6 +8,9 @@ function life = calcLifetime(total,TAU,NSTD)
 %   window size of TAU to reduce the effect of noise. DATA is typically the
 %   sum of donor and acceptor intensities in FRET experiments.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 [Ntraces,nFrames] = size(total);
 life = repmat( nFrames, [Ntraces,1] );  %default value = maximum trace length
 

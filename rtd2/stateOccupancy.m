@@ -1,6 +1,9 @@
 function [time,occupancy] = stateOccupancy(dwtFile,traceLength)
 % plot occupancy fraction over time for all states in dwtFile
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 [dwt,sampling,~,fretModel] = loadDWT(dwtFile);
 nStates = size(fretModel,1);
 

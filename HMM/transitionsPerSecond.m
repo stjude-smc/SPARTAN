@@ -5,6 +5,8 @@ function [meanTPS,stdTPS] = transitionsPerSecond( dwtFilenames )
 %   Calculates the average number of transitions per second observed in
 %   each of the specified dwell-time FILES (see loadDWT.m).
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 %   Calculates the percentage time spent in each non-zero FRET state
 %   using a QuB idealization data file (DWT).  States are listed in columns
 %   from low to high FRET.  Each dataset is a row.

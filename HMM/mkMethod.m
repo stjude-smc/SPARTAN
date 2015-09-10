@@ -18,6 +18,8 @@ function [LL,A,mu,sigma,p0,ps] = mkMethod( ...
 %    (OPTIONAL): added argument "idealize",filename.dwt will idealize the
 %    data using the fitted values
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 %    Algorithm:
 %    1. Initial value for mu: to 0 (1/N)*[0:N-1]
 %    2. Initial value for A:  all rates 2 /sec

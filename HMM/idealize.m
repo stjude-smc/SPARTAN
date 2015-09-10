@@ -17,8 +17,8 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %    datapoint in TRACES. OFFSETS is a 1xN vector of indexes into the raw 
 %    data file (linearized TRACES).  LL is a 1xN vector of the log-likelihood 
 %    ofeach trace, given the sequence of states (Viterbi path) and the model.
-%
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 [nTraces,nFrames] = size(obs);

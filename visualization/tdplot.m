@@ -7,6 +7,8 @@ function tdp=tdplot(dwtfilename,traces_input,varargin)
 % states (blinking)! Transitions to and from the dark state /are/ included,
 % however.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 %---Builds 2-dimensional histogram of initial and final FRET values for
 %---each transition in a group of traces. Data must have been idealized in
 %---QuB first, and the dwell times saved in a .dwt file.

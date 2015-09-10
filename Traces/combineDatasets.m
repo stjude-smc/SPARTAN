@@ -7,7 +7,8 @@ function output = combineDatasets( filenames, outFilename, choice )
 %  dataset is saved to the OUTPUT filename. If files are of differing
 %  lengths, they are truncated to the minimal size. If input arguments are
 %  not specified, the user will be prompted for them.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 output = [];

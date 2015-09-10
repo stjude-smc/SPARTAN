@@ -41,6 +41,9 @@ function [plotWindow] = rtdTool(varargin)
 % plotWindow = RTDTOOL(options)
 % Returns a handle, plotWindow, to the generated plot window.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 plotWindow = 0;
 
 fprintf('rdTool started.\n\n');

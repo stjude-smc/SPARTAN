@@ -14,7 +14,9 @@ function [hist2d] = makecplot( input, options )
 %   histograms should be made. These are listed below in makeplots.m.
 %   FIXME: These actually need some work for consistency and setting all
 %   the defaults in cascadeConstants.m
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Load data
 if ischar(input)

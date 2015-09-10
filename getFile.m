@@ -1,5 +1,5 @@
 function filename = getFile( filter, prompt )
-% GETFILES   User prompt for filenames
+% GETFILE   User prompt for a filename
 %
 %   FILES = GETFILE( FILTER, PROMPT )
 %   Asks the user to select a file, where the listed files are filtered
@@ -7,7 +7,9 @@ function filename = getFile( filter, prompt )
 %   in the title bar to the user. A file-open dialog will appear repeatedly
 %   to allow the user to select multiple files, until the user pressed
 %   "Cancel". The filenames (FILES) selected are returned in the cell array.
-%
+
+%   Copyright 2015 Cornell University All Rights Reserved.
+
 
 persistent filterIndex;
 

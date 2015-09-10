@@ -9,6 +9,8 @@
 %   feature is useful for comparing the results of idealization algorithms
 %   with the simulated state sequence (true result).
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % DEPENDS: loadDWT, dwtToIdl.
 % TODO: .
 

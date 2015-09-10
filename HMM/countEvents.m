@@ -9,7 +9,8 @@ function [ntrans,tot_time] = countEvents(dwtfilename, edges, nsegments)
 %
 %   If EDGES is not specified, NT is simply the total number of
 %   transitions.
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: ....
 %

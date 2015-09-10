@@ -4,6 +4,9 @@ function centroids = getCentroids( image_t, picks, nhood )
 % FIXME: when operating on a flat (zero) signal, gives NaN values. This should
 % instead just return the input, possibly with a warning.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 if nargin<3,
     nhood=1;  %3x3 region.
 end

@@ -10,6 +10,9 @@ function [regions, integrationEfficiency, fractionWinOverlap] = getIntegrationWi
 % neighborhood and choose the highest N pixels later. This would give more
 % flexibility and information?
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 hw = params.nhoodSize;  % distance from peak to consider (eg, 1=3x3 area)
 squarewidth = 1+2*hw;   % width of neighborhood to examine.
 

@@ -34,6 +34,8 @@
 %
 % skmOpt - struct to overwrite any SKM default settings (n/a)
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % EXAMPLE SETTINGS
 

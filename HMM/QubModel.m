@@ -4,7 +4,8 @@ classdef QubModel < handle
 % definitions. The filename cannot be changed once the object is created;
 % a new object should be created to load another file. The exception is
 % when saving a file -- the model is now tied to the newly save file.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: support basic constraint types from .qmf format.
 

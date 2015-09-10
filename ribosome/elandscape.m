@@ -9,6 +9,8 @@ function [energies] = elandscape(rates, pi, sampleLabels, stateLabels)
 %   A->B, B->A, B->C, C-B, C->A, A-C  (forming a cycle)
 %   Same order as in Munro et al 2007 (James' paper).
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % TODO: Use actual state probabilities for del-G standard to prevent
 %   error accumulation.  G_dagger = AVG[ G_left G_right ];
 

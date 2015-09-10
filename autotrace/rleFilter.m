@@ -4,8 +4,11 @@ function result = rleFilter( signal, tau )
 %   VALUES = RLE_FILTER( SIGNAL, TAU )
 %   Filters logical array SIGNAL, leaving only runs more than TAU in length
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % Parts adopted from:
 % http://home.online.no/~pjacklam/matlab/doc/mtt/index.html
+
 
 x = signal;
 

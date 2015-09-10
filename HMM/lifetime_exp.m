@@ -6,11 +6,11 @@ function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfile
 %   in FILE (filename of a .dwt file from QuB).  If FILE is a cell array
 %   with multiple entries, lifetimes for all files will be returned as a
 %   matrix, with files in rows and states in columns.
-%   
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 %---- USER TUNABLE PARAMETERS ----
-
 params.bMakeGUI = 1;
 params.useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
 

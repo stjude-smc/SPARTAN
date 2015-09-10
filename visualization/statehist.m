@@ -14,9 +14,8 @@ function shist=statehist(dwtfilename, traces_input, options)
 %         match the state histograms by not considering later data.
 % 
 %    - fret_axis:  specifies FRET histogram bin centers.
-%
 
-% Created: Mar 6, 2008    Daniel Terry
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 

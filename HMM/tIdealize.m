@@ -3,6 +3,9 @@ function [path,offsets] = tIdealize( traces, level, options )
 % ignoring 1-frame dwells on either side.
 % Last dwell is ignored because it includes dark time.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 [nTraces,len] = size(traces);
 
 path = cell(0,1);

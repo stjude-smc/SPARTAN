@@ -7,7 +7,9 @@ function [dwells,sampling,offsets,model] = loadDWT(dwtfilename)
 %   an Mx2 matrix of the state number (1-based) and the duration
 %   (in frames), where M=number of dwells. SAMPLING is milliseconds.
 %   If no filename is given, the user is prompted for one.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Set default values for outputs in case user cancels.
 [sampling,offsets,nStates] = deal( [] );

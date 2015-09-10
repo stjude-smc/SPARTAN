@@ -14,8 +14,8 @@ function data = scaleacceptor( varargin )
 %    them.
 %
 %    See also gammacorrect.
-%
 
+%   Copyright 2014-2015 Cornell University All Rights Reserved.
 
 %% Process input
 

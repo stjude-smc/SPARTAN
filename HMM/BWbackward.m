@@ -10,6 +10,9 @@ function [betas,LLcarry] = BWbackward( Bx, A )
 %
 % DAB 2008.3.30
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 NT = size(Bx,1);
 Nstates = size(A,1);
 

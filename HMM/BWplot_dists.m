@@ -6,6 +6,9 @@ function BWplot_dists(mus,sigmas,ps,data)
 %
 % DAB 2008.3.30
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 RES = 0.01;
 
 Nstates = length(mus);

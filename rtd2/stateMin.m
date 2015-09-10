@@ -2,6 +2,9 @@ function [] = stateMin(traceFile,dwtFile,state,minLength,outFileSel,outFileRem)
 % split traces into productive (selected) and non-productive (rejected)
 % events based on a minimum dwell time (minLength) in specified state
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 [dwellTimes,sampling,offsets,fretModel] = loadDWT(dwtFile);
 orgTraces = loadTraces(traceFile);
 idl = dwtToIdl(dwellTimes,orgTraces.nFrames,offsets,orgTraces.nTraces);

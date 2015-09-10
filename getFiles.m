@@ -7,7 +7,9 @@ function files = getFiles( filter, prompt )
 %   in the title bar to the user. A file-open dialog will appear repeatedly
 %   to allow the user to select multiple files, until the user pressed
 %   "Cancel". The filenames (FILES) selected are returned in the cell array.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 persistent filterIndex;
 

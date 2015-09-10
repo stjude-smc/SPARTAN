@@ -1,5 +1,7 @@
 function [tBleachAcceptor,tBleachDonor] = tsqComparison(files,titles)
+%
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 nBins = 40;  

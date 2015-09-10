@@ -8,6 +8,9 @@ function model = qub_loadModel(modelFilenameInput)
 %
 %  http://www.qub.buffalo.edu
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 % Disable these pointless warnings in qubtree/treestruct.cpp.
 warning off qubtree:PointerFieldsNotSupported
 warning off qubtree:MatrixFieldsNotSupported

@@ -10,7 +10,9 @@ function [quality,randomScore] = weberQuality( base, registered, thresh )
 % because there may only be one parameter value or a small range. Quality
 % scores above 1.1-1.15 (10-15% higher contrast than a random) are
 % generally acceptable; any lower and the data may have other problems.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 N = 3; %number of repititions for averaging.
 S = zeros(N,1);

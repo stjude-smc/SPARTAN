@@ -16,6 +16,7 @@ function [dwt,offsets] = idlToDwt( idl )
 %
 % NOTE: we assume that there is at most one idealization per trace!
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 assert( nargin==1 && isnumeric(idl) );

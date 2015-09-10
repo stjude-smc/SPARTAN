@@ -6,6 +6,9 @@ function Z = keq( varargin )
 %   Z(2,3) is [TotalTime instate 2]/[TotalTime instate 3].
 %
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 % ask user for data file
 if nargin<1,
     f = getFiles('*.dwt');

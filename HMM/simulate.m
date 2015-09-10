@@ -32,6 +32,9 @@
 %   - Simulate donor->accpetor (acceptor->donor) crosstalk. 
 %
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 if nargin<1,
     simulate_gui;
     return;

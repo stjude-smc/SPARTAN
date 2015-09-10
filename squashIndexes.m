@@ -15,7 +15,9 @@ function varargout = squashIndexes( starts, ends )
 %       squashIndexes( [1 10; 11 20; 55 60] )
 %   returns at sequence of start/end indexes without gaps:
 %       [1 10; 11 20; 21 26]
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Check input arguments
 if nargin==1,

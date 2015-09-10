@@ -4,6 +4,8 @@ function forQuB2( files )
 %   forQuB2( FILENAMES )
 %   Loads each file specified and saves the FRT data to a .qub.txt file.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Get file names from user (all at once to save time)
 if nargin<1,

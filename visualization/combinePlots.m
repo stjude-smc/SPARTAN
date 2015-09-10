@@ -7,7 +7,10 @@ function h1 = combinePlots()
 %   NOTE: all directories must have same number of such files.
 % 
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % TODO: combined state hists
+
 
 % Prompt user for locations of each dataset to be combined
 dirNames  = cell(0,1);

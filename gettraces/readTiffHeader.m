@@ -25,6 +25,7 @@ function [stack,dataOffsets] = readTiffHeader(filename,indices)
 %      -- DT (02/16/08)
 % QUESTION: where is the stack free-hand annotation??
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 %Optimization: join adjacent TIF strips: this results in faster reads

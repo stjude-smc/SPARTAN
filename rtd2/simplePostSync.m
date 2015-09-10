@@ -2,6 +2,9 @@ function [] = simplePostSync(preFrames,totalFrames,fretThreshold,fileList)
 % like postSyncTraces, but uses non-iterative, threshold-based
 % post-synchronization
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 if nargin < 4
     %ask user to select files
     fileList = getFiles('*.traces;*.rawtraces','Select trace files');

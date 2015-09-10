@@ -17,8 +17,9 @@ function [idl,dwtIDs] = dwtToIdl( dwt, traceLen, offsets, nTraces )
 %    associated with each trace.
 % 
 %    See also idlToDwt, loadDWT, saveDWT.
-%
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % If no offsets are provided, we assume all traces have an idealization,
 % or that any empty idealizations have an empty element in dwt.

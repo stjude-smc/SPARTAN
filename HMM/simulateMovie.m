@@ -19,7 +19,8 @@ function peakLocations = simulateMovie(data,bgMovieFilename,outFilename,params)
 %    - randomSeed: seed for pseudorandom number generator.
 %    - edAlignX,edAlignY,edAlignTheta: displacement of the acceptor
 %                relative to donor (in pixels) to simulate misalingment.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: choose parameter values like buffer size and the region over which
 % Gaussians are distributed based on the size of the point-spread function.

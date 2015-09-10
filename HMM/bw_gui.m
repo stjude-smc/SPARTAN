@@ -20,6 +20,8 @@ function varargout = bw_gui(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 % TODO:
 %  - Add input for names of each state, so that rates.txt output files
 %    have appropriate headings for each readability...
@@ -27,9 +29,8 @@ function varargout = bw_gui(varargin)
 %    all states are equally likely after a blink!  This effectively brings
 %    the system out of equilibrium!!!
 
-% Edit the above text to modify the response to help bw_gui
-
 % Last Modified by GUIDE v2.5 28-Feb-2009 16:02:37
+
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;

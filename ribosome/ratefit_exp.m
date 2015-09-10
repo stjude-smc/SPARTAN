@@ -3,8 +3,8 @@
 % 
 %   R = RATEFIT_EXP(D, S, b) ...
 %   Calculates 
-%   
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: split exponential fitting into new function: exp_ratefit
 % Use input parser

@@ -4,7 +4,8 @@ function f = frethistComparison(files, titles, settings)
 %   Prompts user for locations of traces files to load.  Creates 1D
 %   FRET histograms.  Plots each seperately as stair plots, with
 %   different colors and a legend.
-%   
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 if nargin<3,

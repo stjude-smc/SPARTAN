@@ -16,8 +16,8 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 %   The following params may be specified: FIXME...
 %    - maxItr (100):  maximum number of iterations before terminating
 %    - convLL (1e-2): stop iterating when LL converges within this limit
-%    - 
-%   
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % DEPENDS: idealize, forward_viterbi
 

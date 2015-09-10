@@ -7,9 +7,9 @@ function hist2d = cplot( varargin )
 %   
 %   If no histogram specified, the user will be propted for a cplot file.
 %   Used by: autotrace, makeplots.
-%
-%   DT 090619: added time-binning for very large histograms
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 [cax,args] = axescheck(varargin{:});
 cax = newplot(cax);

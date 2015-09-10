@@ -17,7 +17,8 @@ function list = mergeIndexes( starts, ends )
 %       mergeIndexes( [1 5; 10 12; 50 53] )
 %   returns
 %       [ 1  2  3  4  5    10  11  12    50  51  52  53 ]
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Check input arguments

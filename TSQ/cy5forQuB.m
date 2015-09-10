@@ -1,8 +1,7 @@
 function cy5forQuB( files )
 % cy5forQuB    Save Cy5 intensity data for import in QuB
-%
-%    
-% 
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Get filename from user if not specified

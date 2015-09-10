@@ -4,14 +4,12 @@ function forvbFRET()
 %   Prompts user for location of traces file (output from autotrace)
 %   to convert.  Output extension is .dat.  The original is left intact.
 %   
-%   REQUIRES: LoadTraces.m
-
-% PROBLEM: need to remove undefined FRET regions
-
 % http://vbfret.sourceforge.net/
-
 % FORMAT: <donor intensity> <acceptor intensity> ...
 % one column per trace, two columns per molecule.
+% NOTE: donor dark regions are removed before passing it on.
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Get filename from user

@@ -1,8 +1,10 @@
 function dwt2hist(BIN,LEN)
-
 % USAGE: dwt2hist(BIN,LEN)
 % BIN is the time resolution in msec
 % LEN is the length of the traces in frames
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 if nargin == 0
     BIN=10; %ms

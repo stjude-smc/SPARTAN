@@ -4,6 +4,8 @@ function forQuB( files )
 % are combined from each file and saved to a single, merged .qub.txt file.
 % To convert each trace seperately, use forQuB2.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % Get file names from user (all at once to save time)
 if nargin<1,

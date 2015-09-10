@@ -8,6 +8,8 @@ function [fractionAccommodated,stdFA] = percentAccommodated()
 %   If no files are specified, the user will be prompted for them.
 %
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 % For each file...
 fractionAccommodated = [];

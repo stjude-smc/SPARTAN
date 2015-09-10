@@ -24,24 +24,7 @@ function varargout = autotrace(varargin)
 %   NOTE that many of these criteria can bias the data, especially
 %   correlation.  When comparing datasets, use the same criteria.
 
-% Created by: James Munro, Daniel Terry (Scott Blanchard Lab)
-% Cascade smFRET Analysis Pipeline 1.3, Copyright (C) 2008 Scott Blanchard
-% Date Created: Oct 11, 2007
-
-%   A gamma (sensitivity/quantum yield ratio) correction is used in
-%   calculating total intensity and SNR.  The value comes from
-%   cascadeConstants and was calculated for our equipment with ribosome
-%   samples.  The value will vary based on equipment and sample studied.
-%   
-%   Fluorescence data are no longer stored in handles because loading
-%   too many traces at once cause out-of-memory errors.  They are now
-%   oaded on-demand through GetPickedTraces.  Post-synchronization of traces
-%   is no longer implemented!
-%   8/2007  -DT
-%
-%   FRET lifetime, N. Donor Blinks, signal overlap detection criteria all
-%   added from original version by JBM.
-%   4/2008  -DT
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Last Modified by GUIDE v2.5 19-Oct-2014 16:10:51

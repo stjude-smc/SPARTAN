@@ -4,8 +4,7 @@ function rogerTSQ(fnames)
 % error to show the spread in the behavior. Beta closer to 0 would give high
 % errors, close to 1 would give no error. (1-Beta)*tau
 
-
-% PROCEEDURE:
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 %-------------------------------------------------------------

@@ -5,6 +5,9 @@ function [results,labels] = blinkingKinetics( filenames, titles )
 % Preliminary analysis of TSQ-dye conjugate experiments.
 % 10/17/08
 
+%   Copyright 2008-2015 Cornell University All Rights Reserved.
+
+
 % If no files specified, prompt user for them.
 if nargin==0,
     filenames = cell(0,1);

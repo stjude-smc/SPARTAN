@@ -5,12 +5,14 @@ function data = correctTraces( data, constants )
 %   Subtracts background fluorscence from both channels, using 100
 %   frames after donor photobleaching.  Also calculates FRET
 %   efficiency, with E=0 where donor is blinking or photobleached.
-%   
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: gamma correction (whole pipeline), background drift correction?
 % Consider splitting this into several functions for different types of data,
 % doing background subtraction for all channels, but calculating FRET only where
 % it makes sense.
+
 
 if nargin<2,
     constants = cascadeConstants;

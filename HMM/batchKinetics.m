@@ -20,7 +20,7 @@ function varargout = batchKinetics(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help batchKinetics
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 14-Aug-2015 17:46:22
 

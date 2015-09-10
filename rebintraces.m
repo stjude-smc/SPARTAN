@@ -5,12 +5,13 @@ function rebintraces(factor, files)
 %   Shrinks the temporal resolution of trace data by FACTOR (0.1 means half
 %   the original resolution)
 %   If no FILES are specified, user will be asked to select them.
-%   
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: add varargin options for stuff
 
-% INITIALIZE & PROCESS FUNCTION PARAMETERS
 
+% INITIALIZE & PROCESS FUNCTION PARAMETERS
 assert( factor>=1, 'Cannot expand trace resolution' );
 
 

@@ -20,9 +20,10 @@ function varargout = rtdgui(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help rtdgui
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 31-Aug-2015 13:04:44
+
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;

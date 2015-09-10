@@ -7,8 +7,10 @@ function forHammy()
 %   REQUIRES: LoadTraces.m
 %
 % http://bio.physics.uiuc.edu/HaMMy.html
-
 % FORMAT: <time> <donor intensity> <acceptor intensity> ...
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
 
 disp( 'WARNING: this program will create a file for each trace!' );
 disp( 'Best to include only a few of your best traces to define the model' );

@@ -18,6 +18,10 @@ function [] = postSyncTraces(minFrames,preFrames,totalFrames,fileList)
 %   trace files specified in the cell array FILELIST instead of prompting
 %   the user.
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
+%%
 constants = cascadeConstants();
 
 if nargin < 4

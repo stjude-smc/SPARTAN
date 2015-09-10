@@ -2,6 +2,9 @@ function dwt = hammyToDWT( datapath, sampling )
 % Produces a DWT file just barely correct enough
 % to produce TD plots...
 
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
+
+
 % Get location of hammy analysis results (path.dat files) here
 if nargin<1,
     datapath=uigetdir;

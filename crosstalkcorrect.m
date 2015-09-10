@@ -25,7 +25,8 @@ function [mean_crosstalk] = crosstalkcorrect(files,mean_crosstalk)
 %   script again to make a fine-tuned correction.
 %
 % See also: scaleacceptor, gammacorrect.
-% 
+
+%   Copyright 2014-2015 Cornell University All Rights Reserved.
 
 
 % If no files given, obtain a list from the user.

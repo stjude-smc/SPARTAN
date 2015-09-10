@@ -10,7 +10,8 @@ function output = medianfilter(input,n)
 %    NOTE: this is fairly slow, so I made a compiled C (MEX) version with
 %    the same name. If binary folder is first in the path (it should be),
 %    the faster version will take precedence.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Verify input arguments.

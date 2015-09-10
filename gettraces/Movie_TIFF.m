@@ -11,7 +11,8 @@ classdef Movie_TIFF
 % 
 % The readFrame(idx) and readFrames(indexes) methods can be used to read
 % data from the movie file.
-%
+
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % FIXME: does not correctly read XML-format metadata from MetaMorph.
 % FIXME: gracefully handle DateTime field not found.
