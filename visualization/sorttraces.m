@@ -1132,11 +1132,13 @@ end
 set( handles.txtTitle, 'String', [ 'Molecule ' num2str(m) ' of ' ...
                         num2str(handles.data.nTraces) ' of "' data_fname '"'] );
 axis(handles.axFluor,'auto');
+zoom reset
 
 % Plot total fluorescence
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
 axis(handles.axTotal,'auto');
+zoom reset
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
@@ -1172,6 +1174,7 @@ end
 
 xlim(handles.axFret, [time(1) time(end)]);
 ylim(handles.axFret, [-0.1 1]);
+zoom reset
 
 drawnow;
 

@@ -295,6 +295,7 @@ for i=1:numel(fields),
     idxCh = find( handles.params.idxFields==i ); 
         
     imshow( fields{i}, [low val], 'Parent',ax(i) );
+    colormap(ax(i),handles.colortable);
 
     if ~isempty(idxCh) && ~isempty(chNames{idxCh}),
         % Give each field a title with the background color matching the
