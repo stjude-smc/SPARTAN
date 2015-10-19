@@ -4,7 +4,7 @@ function constants = cascadeConstants()
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-constants.version = '2.11';  %pipeline release version number
+constants.version = '2.12_testing';  %pipeline release version number
 
 
 % FIXME: this script is called many times and is getting large enough to add

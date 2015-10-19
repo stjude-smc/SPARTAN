@@ -1,4 +1,4 @@
-function rogerTSQ(fnames)
+function output = rogerTSQ(fnames)
 %rogerTSQ  Fluorophore performance statistics (single-color)
 %
 %   rogerTSQ(FILES) calculates trace statistics relevant for the evaluation
@@ -14,6 +14,12 @@ function rogerTSQ(fnames)
 %   Total Ton: total time in the fluorescent state before photobleaching.
 %   Yield:     Total photon yield (approximately Intensity*Total Ton).
 %   pt:        percentage of total time in the fluorescent state.
+%
+%   If multiple files are selected in a directory, they are assumed to be
+%   from the same condition and are analyzed together. In that case, error
+%   bars are the standard deviation across the movies. If only one file is
+%   selected for a condition, error bars are estimated from bootstrap
+%   samples.
 %
 %   NOTE: photobleaching is marked as the last large drop in total
 %   fluorescence intensity. Traces that are not photobleached at the end of
@@ -39,11 +45,15 @@ SAVE_REJECTED = false;
 %%
 %-------------------------------------------------------------
 % 1) Request filenames from user.
+% fnames is a cell array, each element of which is a cell array of
+% filenames that are presumably from the same condition. This requires the
+% user to ensure all files from a particular conidtion are in the same
+% folder, as would be expected if everything is from one day.
 if nargin<1,
-    fnames = getFiles('*.rawtraces');
+    fnames = getFileGroups('*.rawtraces');
     if isempty(fnames), return; end
 end
-nFiles = numel(fnames);
+nFiles = numel(fnames);  %actually the number of file groups/conditions.
 
 % Define Markov model for blinking events.
 % FIXME: should we just create a model?
@@ -60,38 +70,58 @@ onState  = find( mu==max(mu) );
 offState = find( mu==min(mu) );
 
 
-% prep output variables
-intensity    = zeros( nFiles,1 );
-intensityStd = zeros( nFiles,1 );
-SNRs         = zeros( nFiles,1 );
-SNRsStd      = zeros( nFiles,1 );
-Ton          = zeros( nFiles,1 );
-Toff         = zeros( nFiles,1 );
-totalTon     = zeros( nFiles,1 );
-totalTonStd  = zeros( nFiles,1 );
-yield        = zeros( nFiles,1 );
-yieldstd     = zeros( nFiles,1 );
+% Prep output variable list. The order here also determines the order of 
+% the columns in the output file.
+z = { zeros(1,nFiles) };
+output = struct( 'intensity',z, 'intensityStd',z, 'SNRs',z, 'SNRsStd',z, ...
+                 'Ton',z, 'Toff',z, 'totalTon',z, 'yield',z, 'yieldstd',z );
 
+% Plain-text column names for axes labels and file output.
+colnames = {'Intensity (photons)','Intensity error', 'SNR','SNR error', ...
+            'Time ON (s)', 'Time OFF (s)', 'Total time ON (s)','Total time ON error', ...
+            'Photon yield','Photon yield error'};
+             
 names        = cell( nFiles,1 );  %plain-text name of each file
 dwtFilename  = cell( nFiles,1 );
 
 
 hf = figure;
 set(hf,'Units','normalized');
-set(hf,'Position', [0.16  0.29 0.67 0.4] );
+set(hf,'Position', [0.16  0.29 0.67 0.4] );  %fixme?
 
 
 %%
 for i=1:nFiles,
     
     %-------------------------------------------------------------
-    % 1) Load data from each file and calculate stats. 
-    data = loadTraces( fnames{i} );
-    sampling = data.sampling/1000;
+    % 1) Load data from each file and combine into one large dataset.
+    condition_files = fnames{i};
+    condition_data  = cell(  numel(condition_files), 1 );
+    condition_idx   = [];
     
-    [p,f] = fileparts( fnames{i} );
+    [p,f] = fileparts( condition_files{1} );
     names{i} = strrep(f,'_',' ');
     basename = fullfile(p,f);
+    
+    for j=1:numel(condition_files),
+        condition_data{j} = loadTraces( condition_files{j} );
+    end
+    
+    % Combine data from all files into one larger Traces object.
+    if numel(condition_data)>1,
+        data = combine( condition_data{:} );
+    else
+        data = condition_data{1};
+        fprintf('Only one file for condition #%d. Using bootstrap sampling for error bars\n',i);
+    end
+    
+    % Keep track of which file each trace came from.
+    for j=1:numel(condition_data),
+        condition_idx = [condition_idx ; repmat(j,condition_data{j}.nTraces,1)];
+    end
+    clear condition_data;
+    
+    sampling = data.sampling/1000;
     
     
     %-------------------------------------------------------------
@@ -108,15 +138,25 @@ for i=1:nFiles,
     f = fit( bins', N', 'gauss1', 'StartPoint',[15,median(bg),0.5*median(bg)] );
     cutoff = f.b1 + 4*f.c1; %4 deviations from mean.
 
+    % Remove any extreme traces (1%) so histograms are reasonably scaled.
+    t   = sort( [stats.t]     );
+    snr = sort( [stats.snr_s] );
+    tMax   = t( floor(0.99*data.nTraces)-1 );
+    snrMax = snr( floor(0.99*data.nTraces)-1 );
+    
     % Define selection criteria
-    criteria.min_snr = 10;  %FIXME: this seems too high??
+    criteria.min_snr = 10;
     criteria.eq_overlap = 0;
     criteria.max_bg = cutoff;
+    criteria.min_t = 0;
+    criteria.max_t = tMax;
+    criteria.min_snr_s  = 0;
+    criteria.max_snr_s = snrMax;
 
     % Select traces according to criteria defined above.
-    indexes = pickTraces( stats, criteria );
-    data.subset(indexes);
-    stats = stats(indexes);
+    [selected,stats] = pickTraces( stats, criteria );
+    data.subset(selected);
+    condition_idx = condition_idx(selected);
     
     
     %-------------------------------------------------------------
@@ -125,13 +165,10 @@ for i=1:nFiles,
     % Get total intensity distribution parameters.
     % Histogram fitting is best with clear, symmetric distributions.
     t = [stats.t];
-    [histdata,bins] = hist( t(t>0), 40 );
+    [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-%     f = fit( bins',histdata', 'gauss1' );
-%     intensity(i) = f.b1;
-%     intensityStd(i) = sqrt(f.c1/2);
-    intensity(i) = median(t);
-    intensityStd(i) = std( bootstrp(1000,@median,t) );
+    output.intensity(i) = median(t);
+    output.intensityStd(i) = stdbyfile(t,condition_idx,@median);
 
     subplot(2,5,1); hold on;
     plot( bins, histdata );
@@ -139,13 +176,10 @@ for i=1:nFiles,
     
     
     snr = [stats.snr_s];
-    [histdata,bins] = hist( snr(snr>0), 40 );
+    [histdata,bins] = hist( snr, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-%     f = fit( bins',histdata', 'gauss1' );
-%     SNRs(i) = f.b1; %mean
-%     SNRs(i) = sqrt(f.c1/2); %std
-    SNRs(i) = median(snr);
-    SNRsStd(i) = std( bootstrp(1000,@median,snr) );
+    output.SNRs(i) = median(snr);
+    output.SNRsStd(i) = stdbyfile(snr,condition_idx,@median);
 
     subplot(2,5,2); hold on;
     plot( bins, histdata );
@@ -155,29 +189,34 @@ for i=1:nFiles,
     %-------------------------------------------------------------
     % 4) Idealize the intensity data to a two-state model using SKM. 
     % Total intensity is scaled to 1 on average, analogous to cy5forQuB.
-    dwt = skm( data.total/intensity(i), data.sampling, model, skmParams );
+    % Note: model re-estimation includes the photobleached state, which may
+    % not be ideal for getting blinking kinetics.
+    dwt = skm( data.total/output.intensity(i), data.sampling, model, skmParams );
     
+    % FIXME: consider a filter for brief events after photobleaching.
     % FIXME: consider removing traces with no ON-state dwells.
+    
     
     %-------------------------------------------------------------
     % 5) Remove traces that are poorly idealized or are significant outliers.
-    % A) Remove any trace with >2 stdev transitions/total lifetime.
-    %donorlife = [stats.donorlife];
+    
+    % Remove any trace with >2 stdev transitions/total lifetime.
     nTransitions = cellfun('size',dwt,1)-1;
-    %donorlife = reshape( donorlife, numel(donorlife),1 );
     nTransitions = reshape( nTransitions, numel(nTransitions),1 );
     
-    transRate = nTransitions;%./donorlife;
+    transRate = nTransitions;  %./[stats.donorlife];  %make it a rate
     meanTrans = mean(transRate);
     stdTrans  = std(transRate);
     
     if stdTrans>0,
         selected = transRate < (meanTrans + 2*stdTrans);
-        nRejected = data.nTraces - sum(selected);
     else
         selected = true(size(transRate));
-        nRejected = 0;
     end
+    
+    % Remove empty traces
+    selected = selected & nTransitions>0;    
+    nRejected = data.nTraces - sum(selected);
     
     fprintf('File %d: Removed %d traces (%.1f%%)\n', i, nRejected, 100*nRejected/data.nTraces);
   
@@ -185,25 +224,30 @@ for i=1:nFiles,
     %-------------------------------------------------------------
     % 6) Save idealization.
     
-    % Save selected traces and idealization.
-    saveTraces( [basename '_auto.traces'], data.getSubset(selected) );
-    
-    dwtFilename{i} = [basename '.qub.dwt'];
-    offsets = data.nFrames*((1:sum(selected))-1);
-    saveDWT( dwtFilename{i}, dwt(selected), offsets, [mu sigma], data.sampling );
-    
     % Save rejected traces and idealization.
     if SAVE_REJECTED,
         saveTraces( [basename '_rejected.traces'], data.getSubset(~selected) );
 
         offsets2 = data.nFrames*((1:sum(~selected))-1);
         saveDWT( [basename '_rejected.dwt'], dwt(~selected), offsets2, ...
-                                                        [mu sigma], data.sampling );
+                                               [mu sigma], data.sampling );
     end
     
-         
+    % Save selected traces and idealization.
+    data.subset(selected);
+    dwt = dwt(selected);
+    condition_idx = condition_idx(selected);    
+    
+    saveTraces( [basename '_auto.traces'], data );
+    
+    dwtFilename{i} = [basename '.qub.dwt'];
+    offsets = data.nFrames*( (1:data.nTraces)-1 );
+    saveDWT( dwtFilename{i}, dwt, offsets, [mu sigma], data.sampling );
+        
+    
     %-------------------------------------------------------------   
-    % 6) Calculate total lifetimes      
+    % 6) Calculate total lifetimes
+    dwellaxis = (0:1:data.nFrames)*sampling;
     onTimes  = [];
     offTimes = [];
     
@@ -222,26 +266,25 @@ for i=1:nFiles,
         offTimes = [offTimes ; times(classes==offState) ];
     end
     
-    % Total time in the ON state for each trace.
-    dwt = dwt(selected);
+    % Get total time on for each trace.
     idl = dwtToIdl( dwt, data.nFrames, offsets, data.nTraces );
     totalOn = sum(idl==onState,2).*sampling;
-    
+        
     % Calculate average total time on/off
-    Ton(i)  = mean( onTimes  );
-    Toff(i) = mean( offTimes );
-    totalTon(i)  = mean( totalOn );
-    totalTonStd(i) = std( bootstrp(1000,@mean,totalOn) );
+    output.Ton(i)  = mean( onTimes  );
+    output.Toff(i) = mean( offTimes );
+    output.totalTon(i)  = mean(totalOn);
+    %output.totalTon(i)  = expfit( totalOn, dwellaxis );
+    output.totalTonStd(i) = stdbyfile(totalOn,condition_idx,@mean);
     
     % Calculate photon yield
     photons = sum( data.total.*(idl==onState), 2 );
-    yield(i)    = mean( photons );
-    yieldstd(i) = std( bootstrp(1000,@mean,photons) );
+    output.yield(i)    = mean( photons );
+    output.yieldstd(i) = stdbyfile(photons,condition_idx,@mean);
     
     
     %-------------------------------------------------------------
-    % 7) Display state lifetime histograms.    
-    dwellaxis = (0:1:data.nFrames)*sampling;  %fixme
+    % 7) Display state lifetime histograms.
     
     % ON times
     subplot(2,5,3); hold on;
@@ -257,51 +300,48 @@ for i=1:nFiles,
     subplot(2,5,5); hold on;
     survival(totalOn,dwellaxis);
     xlabel('Total time ON (s)');  ylabel('Counts (%)');
+    
+    drawnow;
 end
 
-
-% Ask the user to give the files specific names.
-% prompts = cellfun( @(n)sprintf('File %d',n), num2cell(nFiles), 'UniformOutput',false );
-% answer = inputdlg( prompts, 'Enter short file titles',1, names );
-% if ~isempty(answer)
-%     names = answer;
-% end
-
 subplot(2,5,5); legend(names);
-% FIXME: move into the open space?
 
 
 %% Make bar graphs to summarize the results
 
 subplot(2,5,5+1); hold on;
-bar( 1:nFiles, intensity, 'r' );
-errorbar( 1:nFiles, intensity, intensityStd, '.k' );
+bar( 1:nFiles, output.intensity, 'r' );
+errorbar( 1:nFiles, output.intensity, output.intensityStd, '.k' );
 ylabel('Intensity (photons)');
 xlim([0.35 nFiles+0.65]);
+set(gca,'xtick',1:nFiles);
 
 subplot(2,5,5+2); hold on;
-bar( 1:nFiles, SNRs, 'r' );
-errorbar( 1:nFiles, SNRs, SNRsStd, '.k' );
+bar( 1:nFiles, output.SNRs, 'r' );
+errorbar( 1:nFiles, output.SNRs, output.SNRsStd, '.k' );
 ylabel('Signal-noise ratio');
 xlim([0.35 nFiles+0.65]);
+set(gca,'xtick',1:nFiles);
 
 subplot(2,5,5+3);
-bar( Ton, 'r' );
+bar( output.Ton, 'r' );
 ylabel('Time ON (s)');
 xlim([0.35 nFiles+0.65]);
+set(gca,'xtick',1:nFiles);
 
 subplot(2,5,5+4); hold on;
-bar( totalTon, 'r' );
-errorbar( 1:nFiles, totalTon, totalTonStd, '.k' );
+bar( output.totalTon, 'r' );
+errorbar( 1:nFiles, output.totalTon, output.totalTonStd, '.k' );
 ylabel('Total time ON (s)');
 xlim([0.35 nFiles+0.65]);
+set(gca,'xtick',1:nFiles);
 
 subplot(2,5,5+5); hold on;
-bar( 1:nFiles, yield, 'r' );
-errorbar( 1:nFiles, yield, yieldstd, '.k' );
+bar( 1:nFiles, output.yield, 'r' );
+errorbar( 1:nFiles, output.yield, output.yieldstd, '.k' );
 ylabel('Total photon yield');
 xlim([0.35 nFiles+0.65]);
-
+set(gca,'xtick',1:nFiles);
 
 
 %%
@@ -318,16 +358,19 @@ xlim([0.35 nFiles+0.65]);
 %pt = pt(:,2);
 
 % Save results to a file that can be plotted as bar graphs in Origin.
-% FIXME: use a Matlab function for this...
 [f,p] = uiputfile('tsqStats.txt','Choose a filename to save the results.');
 if f,
+    % Write header line with field labels and units (see top of file).
     fid = fopen( fullfile(p,f), 'w' );
-
-    fwrite(fid, sprintf('Name\tIntensity (photons)\tIntensity stdev\tSNR\tSNR stdev\ttON (sec)\tTotal tON (sec)\r\n') );
+    header = sprintf('%s\t','Name',colnames{:});
+    fprintf(fid, '%s\n', header(1:end-1) );
+    
+    % Write data lines, one per file.
+    format = ['%s' repmat('\t%0.3f',[1 numel(fieldnames(output))]) '\n'];
 
     for i=1:nFiles,
-        fwrite( fid, sprintf('%s\t%.0f\t%.0f\t%.1f\t%.1f\t%.2f\t%.2f\r\n', ...
-                names{i}, intensity(i),intensityStd(i), SNRs(i),SNRsStd(i), Ton(i), totalTon(i) )   );
+        line = cellfun( @(f) output.(f)(i), fieldnames(output), 'UniformOutput',false );
+        fprintf( fid, format, names{i}, line{:} );
     end
     
     fclose(fid);
@@ -339,7 +382,41 @@ end %function rogerTSQ
 
 
 
+function stdev = stdbyfile(stat,idx,fcn)
+% Select out all statistic values (stat) from each file as specified in
+% idx, apply the fcn to get a mean (or median, etc) value, and then take
+% the standard deviation across all such files.
+% If only one file is given, use bootstrapping as a fallback.
+
+if nargin<3,
+    fcn = @mean;
+end
+
+nFiles = max(idx);
+
+% Get the standard deviation across files
+if nFiles>1,
+    values = zeros( nFiles, 1 );
+
+    for i=1:nFiles,
+        values(i) = fcn( stat(idx==i) );
+    end
+
+    stdev = std(values);
+
+% If only one file is provided, use bootstrap samples as a fallback.
+% This is not comparable to standard deviation, but oh well.
+else
+    stdev = std( bootstrp(100,fcn,stat) );
+end
+
+end %function stdbyfile
+
+
+
 function histdata = survival(times,dwellaxis)
+% Make and display a survival plot for exponentially distributed
+% dwell-times. dwellaxis are the bins to use for the histogram.
 
 histdata = histc( times, dwellaxis );
 histdata = sum(histdata) - cumsum(histdata);  %survival plot
@@ -349,5 +426,18 @@ plot( dwellaxis, histdata );
     
 end
 
+
+
+function output = expfit(times,dwellaxis)
+% Y = a*exp(b*x)
+
+histdata = histc( times, dwellaxis );
+histdata = sum(histdata) - cumsum(histdata);  %survival plot
+histdata = histdata/histdata(1);  %normalize
+    
+f = fit( dwellaxis',histdata, 'exp1', 'StartPoint',[1 -1/mean(times)] );
+output = -1/f.b;
+
+end
 
 

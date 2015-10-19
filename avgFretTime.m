@@ -10,7 +10,7 @@ function output = avgFretTime( files )
 
 % Settings
 truncateLen = 300;  %frames to calculate over
-constants.min_fret = 0.2;  % minimum fret value, below which we assume there is no FRET.
+constants.min_fret = 0.175;  % minimum fret value, below which we assume there is no FRET.
 
 
 % Get list of files if not specified.
@@ -44,7 +44,7 @@ for i=1:numel(files),
     % average FRET trace. Exclude regions where the dyes are dark.
     for j=1:truncateLen,
         nonzero = f(:,j) >= constants.min_fret;
-        output(j,i+1) = mean( f(nonzero,j) );
+        output(j,i+1) = median( f(nonzero,j) );
     end
 
 end %for each trace.

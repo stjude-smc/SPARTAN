@@ -21,7 +21,7 @@ function [dwt,offsets] = idlToDwt( idl )
 
 assert( nargin==1 && isnumeric(idl) );
 
-[nTraces,traceLen] = size(idl);
+[~,traceLen] = size(idl);
 
 
 % Find un-idealized portions (zero state) as segment separators.

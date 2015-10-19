@@ -35,15 +35,18 @@ assert( ~all(trans_p(:)==0) && ~all(start_p==0) );
 
 
 % Generate Gaussian probability mass functions for each emission state.
-nBins = 10000;
-minx = min( mu -5.*sigma );
-maxx = max( mu +5.*sigma );
-x = [-Inf linspace(minx,maxx,nBins-2) Inf];  %bin edges
-
-pmf = zeros( numel(x)-1, nStates );
-for s=1:nStates,
-    pmf(:,s) = normcdf(x(2:end),mu(s),sigma(s)) - normcdf(x(1:end-1),mu(s),sigma(s));
-end
+% Using the PMF instead of the PDF is slower and less precise, but the
+% numbers are properly normalized and can be interpreted as probabilities.
+% nBins = 2000;
+% minx = min( mu -5.*sigma );
+% maxx = max( mu +5.*sigma );
+% x = [-Inf linspace(minx,maxx,nBins-2) Inf];  %bin edges
+% 
+% pmf = zeros( numel(x)-1, nStates );
+% for s=1:nStates,
+%     cdf = normcdf(x,mu(s),sigma(s));
+%     pmf(:,s) = cdf(2:end) - cdf(1:end-1);
+% end
 
 
 % Predict the sequence of hidden model states for each trace
@@ -66,11 +69,13 @@ for i=1:nTraces,
     % Precompute emmission probability matrix.
     Bx = zeros(nStates,traceLen);
     for s=1:nStates,
-        % Discretize data, assigning each observation to a bin in the pmf.
-        [~,binIdx] = histc(trace,x);
+        % Using the PDF.
+        % The small constant ensures values are less than unity.
+        Bx(s,:) = 0.001*normpdf( trace, mu(s), sigma(s) );
         
-        % Calculate the probability of each observation from the pmf.
-        Bx(s,:) = pmf(binIdx,s);
+        % Using the PMF version (see notes above):
+        %[~,binIdx] = histc(trace,x);
+        %Bx(s,:) = pmf(binIdx,s);
     end
     
     % Find the most likely viterbi path in model space

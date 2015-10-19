@@ -19,7 +19,6 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% DEPENDS: idealize, forward_viterbi
 
 
 if nargin<3,
@@ -157,7 +156,7 @@ end %function skm
 %% SKM CORE METHOD
 function [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params)
 
-[nTraces,nFrames] = size(data);
+nTraces = size(data,1);
 nStates = size(initialModel.rates,1);
 nClass  = numel(initialModel.mu);
 
@@ -193,9 +192,9 @@ while( itr < params.maxItr ),
     % Display intermediate progress...
     if ~params.quiet
         if itr==1,
-            disp( sprintf('%d: %f', itr, LL(itr) ));
+            fprintf('%d: %f\n', itr, LL(itr) );
         else
-            disp( sprintf('%d: %f (%f)', itr, LL(itr), LL(itr)-LL(itr-1) ));
+            fprintf('%d: %f (%f)\n', itr, LL(itr), LL(itr)-LL(itr-1) );
             if (LL(end)-LL(end-1))<0,
                 disp('SKM Warning: LL is decreasing...');
             end
@@ -205,12 +204,9 @@ while( itr < params.maxItr ),
     end
     
     
-    % Re-estimate kinetic model parameters using idealization by: 
-    % counting number of each type of transition occuring in idl
-    % and dividing by the total time spent in the source state.
-    % (this is a slow step - should be optimized).
+    % Re-estimate transition probability matrix (kinetic parameters).
     if params.fixRates<1,
-        A = estimateA(idl,nStates);
+        A = estimateA(dwt,nStates);
     end
     
     
@@ -275,7 +271,7 @@ model.A = A;  %model.Q = ...
 model.p0 = p0;
 
 if ~params.quiet,
-    disp( sprintf('SKM: Finished after %d iterations with LL=%f',itr,LL(end)) );
+    fprintf('SKM: Finished after %d iterations with LL=%f\n',itr,LL(end));
 end
 
 
@@ -285,33 +281,50 @@ end %skm core method..
 
 
 %%
-function [A2] = estimateA( idl,nStates )
-% Counts each transition type and saves in EVENTS,
-% where EVENTS(i,j) is the number of transitions from state i to state j.
-% NOTE: if idealizing very little data, some states may not be occupied.
-% This will lead to a row in A that is all zeros and cause division by 0.
-% TO avoid this, use a small value on the diagonal instead of zero, which
-% will get normalized to 1 (can transition to itself) upon normalization.
+function [A2] = estimateA( dwt,nStates )
+%ESTIMATEA: Transition probability matrix from observed state sequence.
 %
+%   A = estimateA(DWT,nStates) estimates a transition probability matrix
+%   (A) from observed dwell-times (DWT), where each element A(i,k) is the
+%   probability at each frame of transition from state i to state j. This
+%   is estimated simply as the number of transitions observed from i to j
+%   divided by the total number of transitions out of i, including self
+%   transitions (ie, the total number of frames in state i).
 
-[nTraces,nFrames] = size(idl);
+% Add a small constant for cases where some states are not occupied at all.
+% The normalization would otherwise give a divide by zero error.
+A = 0.01*eye(nStates);
 
-A = 0.01*eye( nStates );
-
-for n=1:nTraces
+for i=1:numel(dwt),
+    states = dwt{i}(:,1);
+    times  = dwt{i}(:,2);
     
-    for t=2:nFrames,
-        prev = idl(n,t-1);
-        curr = idl(n,t);
-        if curr==0, break; end  %end of sequence.
-
-        A(prev,curr) = A(prev,curr)+1;
+    for d=1:numel(times),
+        % Add self transitions (staying in the same state).
+        cur = states(d);
+        A(cur,cur) = A(cur,cur)+times(d);
+        
+        % Add transitions to another state (not self).
+        if d<numel(times),
+            next = states(d+1);
+            A(cur,next) = A(cur,next)+1;
+        end
     end
 end
 
+% Normalize to total time in each state.
 normFact = repmat(sum(A,2),1,nStates); %sum over rows.
-
 A2 = A./normFact;
+
 assert( all(A2(:)>=0) & ~all(A2(:)==0), 'SKM: invalid A-matrix' );
 
 end
+
+
+
+
+
+
+
+
+

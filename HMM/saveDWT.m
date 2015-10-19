@@ -1,7 +1,7 @@
 function saveDWT(filename, idealization, offsets, model, sampling )
 % SAVEDWT  Saves a QuB-format idealization dwell time file
 %     
-%   SaveDWT( FILE, DWT, OFFSETS, MODEL, SAMPLING )
+%   saveDWT( FILE, DWT, OFFSETS, MODEL, SAMPLING )
 %   Saves the Dwell-Times data (DWT) to FILENAME.  SAMPLING is in ms.
 %   MODEL is a Nx2 matrix of mean and stdev values for each of N  states.
 %   DWT is a cell array containing dwell-time matrices on N traces.
@@ -11,13 +11,13 @@ function saveDWT(filename, idealization, offsets, model, sampling )
 %   OFFSETS is an array of indexes for the start of each segment
 %   into the parent data file (.qub.txt).
 %
-%   All arguments are required!
+%   See also: loadDWT.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Example datafile
-% Segment: {N} Dwells: {M} Sampling(ms): {R} Start(ms): {I} ClassCount: {J}
-% Mu1 Std1 Mu2 Std2 ...
+% Example of the file format used:
+% 
+% Segment: {N} Dwells: {M} Sampling(ms): {R} Start(ms): {I} ClassCount: {J} Mu1 Std1 Mu2 Std2
 % Segment: 1 Dwells: 15 Sampling(ms): 40 Start(ms): 0 ClassCount: 4 0.010000 0.050000 0.240000 0.061000 0.390000 0.061000 0.560000 0.061000
 % 3	2800
 % 1	320
@@ -52,44 +52,35 @@ if ~iscell(model),
         warning('saveDWT: FRET values are non-increasing!');
     end
 end
+m = model;
 
 
 % Save idealization information to file
 fid = fopen(filename,'w');
 disp( ['Saving to ' filename] );
 
-for ctrSeg=1:nSegments,
+for segId=1:nSegments,
     
-    %
+    % Get the model used for this trace, if applicable.
     if iscell(model),
-        m = model{ctrSeg};
-    else
-        m = model;
+        m = model{segId};
     end
     nStates = size(m,1);
     
-    %
-    segment = idealization{ctrSeg};
-    nDwells = size(segment,1);
-    offset  = offsets(ctrSeg);
+    % Get dwell-time for the current segment, convert to ms.
+    segment = idealization{segId};
+    offset  = offsets(segId)*sampling;
+    segment(:,2) = segment(:,2)*sampling;
     
-    % Substract 1 from state numbers (QuB uses 0-based)
+    % Convert to zero-based class numbers used by the file format.
     segment(:,1) = segment(:,1)-1;
     assert( all(segment(:,1)<nStates), 'Invalid state number' );
     
-    % Convert frames to ms
-    segment(:,2) = segment(:,2)*sampling;
-    
-    % Write segment header
-    fprintf(fid, 'Segment: %d Dwells: %d Sampling(ms): %d Start(ms): %d ClassCount: %d', ...
-                 ctrSeg, nDwells, sampling, offset*sampling, nStates );
-    
-    
-    fprintf(fid, ' %f', m' );
-    fprintf(fid, '\n');
-    
-    % Write sequence of dwells
-    fprintf(fid, '%d\t%d\n', segment');
+    % Write segment data to file. (sprintf is faster than fprintf)
+    text = [ sprintf('Segment: %d Dwells: %d Sampling(ms): %d Start(ms): %d ClassCount: %d', ...
+                 segId, size(segment,1), sampling, offset, nStates) ...;
+             sprintf(' %f', m' ) '\n' sprintf('%d\t%d\n', segment') ];
+    fprintf(fid,text);
 end
 
 fclose(fid);
