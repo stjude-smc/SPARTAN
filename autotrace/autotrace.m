@@ -1,28 +1,20 @@
 function varargout = autotrace(varargin)
-% AUTOTRACE  Trace processing and filtering
+% AUTOTRACE  Select traces according to user-defined criteria
 %
-%   Loads fluorescence traces files (produced using gettraces), makes
-%   corrections for crosstalk, background intensity, and sets FRET=0
-%   where the donor dye is dark.  Descriptive properties of each traces
-%   is then calculated (SNR, D/A correlation, etc).  Using defined
-%   criteria, the user can then select a portion of the dataset.
+%   Autotrace is a GUI that displays histograms of statistics calculated
+%   for each trace in loaded file(s). These are calculated in traceStat.m.
+%   The user can then select traces according to a defined set of criteria
+%   and save that subse to a new file, typically ending in "_auto.traces".
+%   A .log file is also saved that includes the criteria and other details.
 %
-%   Use "Batch Mode" to load all traces within a directory.
-%   Be careful not to mix multiple experiments in the same directory!
+%   "Batch Mode": For each .rawtraces file in the current directory and
+%   sub-directories, load the traces, calculate statistics, select traces
+%   according to the current criteria, and saved as an "_auto.traces" file.
 %
-%   Use "Save Traces" to save the resulting corrected+filtered traces.
-%   This will also produce a log file with useful information.
+%   NOTE that selection can bias the data. Always use the same selection
+%   criteria when comparing datasets.
 %
-%   The typical criteria used are:
-%     FRET-lifetime    > 15 frames       (trace must show FRET)
-%     D/A correlation  < 0.5             (remove aggregates)
-%     Signal-to-Noise  > 8               (sufficient resolution)
-%     Background noise < 1500            (background drift)
-%     N. Donor Blinks  < 3               (remove aggregates)
-%     Remove traces with multiple dyes = YES
-%
-%   NOTE that many of these criteria can bias the data, especially
-%   correlation.  When comparing datasets, use the same criteria.
+%   See also traceStat, pickTraces, loadPickSaveTraces.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
@@ -86,9 +78,6 @@ handles.criteria = criteria;
 
 %---- OTHER USER-TUNABLE PARAMETERS
 handles.nHistBins=40; % histogram bins size
-handles.contour_bin_size=0.035;
-handles.sync='n';
-
 
 
 %---- Initialize input fields with values defined above.
@@ -105,8 +94,6 @@ set( handles.ed_bg,       'String',num2str(criteria.max_bg)      );
 set( handles.ed_ncross,   'String',num2str(criteria.max_ncross)  );
 set( handles.ed_acclife,  'String',num2str(criteria.min_acclife) );
 
-set( handles.FRETBinSize, 'String',num2str(handles.contour_bin_size) );
-
 
 %---- Setup drop-down boxes listing trace statistics.
 
@@ -118,9 +105,8 @@ shortNames = fieldnames(ln);
 
 % Add trace statistic names to dropdown boxes above histogram axes.
 handles.cboNames = strcat('cboStat',{'1','2','3','4','5'});
-handles.nPlots = length(handles.cboNames);
 
-for id=1:handles.nPlots,
+for id=1:length(handles.cboNames),
     % Also set options in combobox
     set( handles.(['cboStat' num2str(id)]), 'String', longNames );
 end
@@ -164,13 +150,6 @@ hZoom = zoom(handles.figure1);
 set(hZoom, 'UIContextMenu', menu );
 zoom on;
 
-
-
-handles.isBatchMode = 0;
-
-
-%warning off MATLAB:divideByZero
-
 % Choose default command line output for autotrace
 handles.output=hObject;
 
@@ -204,13 +183,11 @@ varargout{1}=handles.output;
 
 
 %----------OPENS INDIVIDUAL TRACES FILES----------%
+
+% --- Executes on button press in OpenTracesFile.
+function OpenTracesFile_Callback(hObject, ~, handles) %#ok<*DEFNU>
 % This method is called when the user clicks the "Open Traces File.."
 % button in the GUI.  The trace is parsed,
-% --- Executes on button press in OpenTracesFile.
-function OpenTracesFile_Callback(hObject, ~, handles)
-% hObject    handle to OpenTracesFile (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
 %--- Open file with user-interface.
 filter = {'*.rawtraces;*.traces','All traces files (*.rawtraces,*.traces)'; ...
@@ -245,8 +222,8 @@ else
 end
 
 % Shorten display name by removing initial part of the path if too long.
-if length(fileDisplayText)>80,
-    fileDisplayText = ['...' fileDisplayText(end-77:end)];
+if length(fileDisplayText)>70,
+    fileDisplayText = ['...' fileDisplayText(end-70:end)];
 end
 
 set(handles.editFilename,'String', fileDisplayText);
@@ -264,14 +241,7 @@ OpenTracesBatch( hObject, handles );
 %----------OPEN ALL TRACES FILES WITHIN THE SAME DIRECTORY----------%
 % --- Executes on button press in btnOpenDirectory.
 function btnOpenDirectory_Callback(hObject, ~, handles)
-% hObject    handle to btnOpenDirectory (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% This allows for autotrace to run in batch mode. A directory is selected,
-% and all the traces files are combined, and a single output file is
-% generated. NOTE: be careful not to combine data from different
-% experiments. Store different data sets in separate folders.
+% Load all .rawtraces files in the selected directory
 
 % Select directory by user interface.
 datapath=uigetdir;
@@ -302,80 +272,45 @@ OpenTracesBatch( hObject, handles )
 
 
 %----------BATCH ANALYSIS----------%
-% --- Executes on button press in btnGo.
 function btnBatchMode_Callback(hObject, ~, handles)
-% hObject    handle to btnGo (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% This allows for autotrace to run in batch mode. A directory is selected,
-% and all the traces files are combined, and a single output file is
-% generated. NOTE: be careful not to combine data from different
-% experiments. Store different data sets in separate folders.
+% For each .rawtraces file in the current directory, and optionally all
+% sub-directories, select traces according to the current criteria and save
+% a corresponding _auto.traces file.
 
 % Select directory by user interface.
 datapath=uigetdir;
 if datapath==0, return; end
 
-handles.isBatchMode = 1;
-
-
 % Get a list of all raw traces files under the current directory
-trace_files  = regexpdir(datapath,'^.*\.rawtraces$');
-
-% Pool these files into
-data_dirs = {};
-
-for i=1:numel(trace_files),
-    % Extract path of the file
-    f = fileparts(trace_files(i).name);
-    
-    % If not already in the list, insert it
-    nMatches = sum( cellfun( @(arg)strcmp(f,arg), data_dirs ) );
-    if nMatches==0,
-        data_dirs{end+1} = f;
-    end
-end
-
+trace_files = regexpdir(datapath,'^.*\.rawtraces$');
+trace_files = {trace_files.name};
 
 % For each file in the user-selected directory
-wb = waitbar(0,'Processing data....');
+% FIXME: consider avoiding passing handles this way.
+wb = waitbar(0,'Batch mode progress');
 
-for i=1:numel(data_dirs)
+for i=1:numel(trace_files)
     
-    datapath = data_dirs{i};
-    
-    % Create list of .rawtraces files in the directory.
-    traces_files = dir( [datapath filesep '*.rawtraces'] );
-    handles.nFiles = numel(traces_files);
+    handles.inputdir = fileparts(trace_files{i});
+    handles.inputfiles = trace_files(i);
 
-    if handles.nFiles == 0
-        disp('No files in this directory!');
-        return;
-    end
+    set(handles.editFilename,'String',trace_files{i});
 
-    handles.inputdir = datapath;
-    handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
-
-    % Update GUI listing of number of files and file types
-    disp(handles.inputdir);
-    set(handles.editFilename,'String',handles.inputdir);
-
-    % Load all traces in the current directory
+    % Load traces and calculate statistics
     OpenTracesBatch( hObject, handles )
     handles = guidata(hObject);
     
-    waitbar((i-0.5)/numel(data_dirs),wb);
+    waitbar((i-0.5)/numel(trace_files),wb);
 
-    % Save picked data to handles.outfile
+    % Save picked traces to a new _auto.txt file.
+    disp( handles.outfile );
     SaveTraces( handles.outfile, handles );
     handles = guidata(hObject);
 
-    waitbar(i/numel(data_dirs),wb);
+    waitbar(i/numel(trace_files),wb);
 end
-close(wb);
 
-handles.isBatchMode = 0;
+close(wb);
 guidata(hObject,handles);
 
 % END FUNCTION btnGo_Callback
@@ -384,12 +319,8 @@ guidata(hObject,handles);
 
 
 
-
-
-
-
-
 function OpenTracesBatch( hObject, handles )
+% Calculate and display trace statistics for the current list of files.
 
 % Clear out old data to save memory.
 if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
@@ -399,7 +330,6 @@ end
 % Determine default filename to use when saving.
 [p,f] = fileparts( handles.inputfiles{1} );
 handles.outfile = fullfile(p, [f '_auto.traces']);
-% handles.outfile = strrep(f, '_01_auto.traces', '_auto.traces');
 
 % Calculate trace stats
 [infoStruct,nTracesPerFile] = traceStat( handles.inputfiles, handles.constants );
@@ -410,13 +340,8 @@ handles.nTracesPerFile = nTracesPerFile;
 setappdata(handles.figure1,'infoStruct', infoStruct);
 clear infoStruct;
 
-
-% Initialize a variable for storing the number of molecules picked.
-handles.picked_mols=0;
-
+% Select traces according to the current criteria.
 guidata(hObject,handles);
-
-% Automatically run Pick Traces
 PickTraces_Callback(hObject,handles);
 
 
@@ -426,25 +351,22 @@ PickTraces_Callback(hObject,handles);
 
 %---------------  SAVE PICKED TRACES TO FILE (CALLBACK) ---------------%
 % --- Executes on button press in SaveTraces.
-function SaveTraces_Callback(hObject, ~, handles)
-% hObject    handle to SaveTraces (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
+function outfile = SaveTraces_Callback(hObject, ~, handles)
+% Save the currently selected traces to a new _auto.traces file.
 
 % Create a name for the output file
-[inputfile, inputpath]=...
-    uiputfile('.traces','Save picked traces as:',handles.outfile);
-if inputfile==0, return; end
+[f,p] = uiputfile('.traces','Save picked traces as:',handles.outfile);
+if f==0,
+    outfile = [];
+    return;
+end  
 
-handles.outfile=[inputpath inputfile];
-
-% Save picked data to handles.outfile
+% Save picked traces to a new _auto.txt file.
+outfile = fullfile(p,f);
 SaveTraces( handles.outfile, handles );
 
-% Update GUI controls:
 % Disabling the button as a means of confirming operation success.
-set(handles.SaveTraces,'Enable','off');
+handles.outfile = outfile;
 guidata(hObject,handles);
 
 
@@ -452,6 +374,8 @@ guidata(hObject,handles);
 
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
 function SaveTraces( filename, handles )
+
+set(handles.SaveTraces,'Enable','off');
 
 % Build list of trace indexes in each file
 picks = handles.inds_picked;
@@ -517,27 +441,18 @@ guidata(hObject,handles);
 % --- Executes on button press in ViewPickedTraces.
 function ViewPickedTraces_Callback(hObject, ~, handles)
 
-[inputfile, inputpath]=...
-    uiputfile('.traces','Save picked traces as:',handles.outfile);
-if inputfile==0, return; end
-
-handles.outfile=[inputpath inputfile];
-guidata(hObject,handles);
-
-
-% Save picked data to handles.outfile
-SaveTraces( handles.outfile, handles );
-
-% Update GUI controls:
-% Disabling the button as a means of confirming operation success.
-set(handles.SaveTraces,'Enable','off');
-set(handles.ViewPickedTraces,'Enable','off');
-guidata(hObject,handles);
+% If not already, save the selected traces to file.
+if strcmpi( get(handles.SaveTraces,'Enable'), 'on' );
+    outfile = SaveTraces_Callback(hObject, [], handles);
+else
+    outfile = handles.outfile;
+end
 
 % Run sorttraces interface so traces can be viewed
 % Could pass description/title as third param (currently empty!)
-sorttraces(0, handles.outfile);
-
+if ~isempty(outfile),
+    sorttraces(0, outfile);
+end
 
 
 
@@ -596,7 +511,6 @@ stats = getappdata(handles.figure1,'infoStruct');
 if isempty(stats), return; end %no data loaded, nothing to do.
 
 picks = pickTraces( stats, criteria );
-clear stats;
 
 % The number of traces picked.
 handles.inds_picked = picks;
@@ -613,7 +527,6 @@ end
 % Turn some other buttons on/off.
 set(handles.MoleculesPicked,'String', ...
             sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
-set(handles.SaveContourPlot,'Enable','off');
 
 % Save data in handles object.
 guidata(hObject,handles);
@@ -637,21 +550,22 @@ end
 
 %----------MAKE CONTOUR PLOT----------
 % --- Executes on button press in MakeContourPlot.
-function MakeContourPlot_Callback(hObject, eventdata, handles)
-% Builds and displays contour plot.
+function MakeContourPlot_Callback(hObject, ~, handles)
+% Display FRET contour plot of currently selected traces.
 
-% Save the selected traces to file.
-SaveTraces_Callback(hObject, eventdata, handles);
-handles = guidata(hObject);
+% If not already, save the currently selected traces to file.
+if strcmpi( get(handles.SaveTraces,'Enable'), 'on' );
+    outfile = SaveTraces_Callback(hObject, [], handles);
+else
+    outfile = handles.outfile;
+end
 
-[~,title] = fileparts(handles.outfile);
-title = strrep( title,'_',' ' );
-makeplots( handles.outfile, title );
-
-% Clean up and save FRET histogram data for saving.
-set(handles.SaveContourPlot,'Enable','on');
-guidata(hObject,handles);
-
+% Run makeplots to display FRET contour plot
+if ~isempty(outfile),
+    [~,title] = fileparts(outfile);
+    title = strrep( title,'_',' ' );
+    makeplots( outfile, title );
+end
 
 % END FUNCTION MakeContourPlot_Callback
 
@@ -659,26 +573,8 @@ guidata(hObject,handles);
 %----------SAVE CONTOUR PLOT----------
 % --- Executes on button press in SaveContourPlot.
 function SaveContourPlot_Callback(~, ~, ~)
-
 warning('This function currently disabled...');
 
-% % Get FRET data for selected traces.
-% inds = handles.inds_picked;
-% data = getappdata(handles.figure1,'tracedata');
-% 
-% % Make contour plots using makeplots.m
-% options.contour_bin_size = handles.contour_bin_size;
-% options.pophist_offset = 0;
-% frethist = makecplot( data.f(inds,:), options );
-% clear data;
-% 
-% % Write original file
-% histfile=strrep(handles.outfile,'.txt','_hist.txt');
-% dlmwrite(histfile,frethist,' ');
-% 
-% % GUI stuff
-% set(hObject,'Enable','off');
-% guidata(hObject,handles);
 
 
 
@@ -689,19 +585,6 @@ warning('This function currently disabled...');
 
 
 %----------MENU OF CONTOUR PLOT SETTINGS----------
-% --- Executes on selection change in popupmenu1.
-function popupmenu1_Callback(hObject, ~, handles)
-opt=get(hObject,'Value');
-choices = 'nsyi';
-handles.sync = choices(opt);
-guidata(hObject,handles);
-
-
-function FRETBinSize_Callback(hObject, ~, handles)
-handles.contour_bin_size=str2double(get(hObject,'String'));
-guidata(hObject,handles);
-
-
 
 % --- Executes on selection change in any of the drop down boxes above each
 %     of the trace statistic histogram plots.
@@ -752,9 +635,8 @@ data = 100*data/sum(data);  %normalize the histograms
 
 axes( handles.(['axStat' num2str(id)]) );
 bar( binCenters, data, 1 );
-zoom on;
 grid on;
-
+    
 if id==1,
     ylabel( handles.axStat1, 'Number of Traces (%)' );
 end

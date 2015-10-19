@@ -335,7 +335,7 @@ fname = handles.model.filename;
 [f,p] = uiputfile(fname,'Save model to file');
 
 if f~=0,
-    fname = [p f];
+    fname = fullfile(p,f);
     handles.model.save( fname );
     set( handles.txtModelFilename, 'String',['...' fname(max(1,end-50):end)] );
 end

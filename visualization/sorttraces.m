@@ -55,12 +55,7 @@ if ~isfield(handles,'constants')
     handles.output = hObject;
     handles.vals = [];
 
-    % Initialize some variables, utilizing the handles structure
-    handles.constants = cascadeConstants();
-    set(handles.sldCrosstalk1, 'Value',  0);
-    set(handles.sldThreshold, 'Value',  100);
-    set(handles.edCrosstalk1,  'String', '0');
-    
+    handles.constants = cascadeConstants();    
     set( handles.figure1, 'Name', ['sorttraces (version ' handles.constants.version ')'] );
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
@@ -139,7 +134,7 @@ varargout{1} = handles.output;
 
 
 %----------"OPEN TRACES FILE" Button----------%
-function btnOpen_Callback(~, ~, handles)
+function btnOpen_Callback(~, ~, handles) %#ok<DEFNU>
 % Open a user-selected traces file.
 
 % Get traces filename by menu driven input
@@ -265,7 +260,6 @@ set(handles.edCrosstalk1, 'Enable',isFret );
 set(handles.sldCrosstalk1,'Enable',isFret );
 set(handles.edGamma1,     'Enable',isFret,'String','1' );
 set(handles.sldGamma1,    'Enable',isFret,'Value',1 );
-set(handles.sldThreshold, 'min', 0, 'max', 200, 'sliderstep', [0.01 0.1] );
 
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
@@ -341,6 +335,7 @@ else
     ylabel(handles.axFret, '');
     ylim(handles.axFret, 'auto');
 end
+zoom reset;
 
 % END FUNCTION OpenTracesFile
 
@@ -380,7 +375,6 @@ else
 end
 
 set(handles.btnSave,'Enable','on');
-%TODO?: consider resetting scroll bars to fit range of loaded values.
 
 %END FUNCTION loadSavedState
 
@@ -443,7 +437,7 @@ if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
     range = s:min(s+handles.constants.NBK,trace.nFrames);
     
     if numel(range)<10,
-        handles.fretThreshold(mol) = 100; %arbitrary
+        handles.fretThreshold(mol) = 150; %arbitrary
     else
         handles.fretThreshold(mol) = handles.constants.blink_nstd * std(total(range));
     end
@@ -550,7 +544,7 @@ addToBin_Callback(handles.(chkName),[],handles,index);
 
 %----------SAVE TRACES----------%
 % --- Executes on button press in btnSave.
-function btnSave_Callback(hObject, ~, handles)
+function btnSave_Callback(hObject, ~, handles) %#ok<DEFNU>
 % User clicked "Save Traces".
 % Traces files are saved for each bin in which there are picked molecules.
 
@@ -651,7 +645,7 @@ set(handles.figure1,'pointer','arrow');
 
 
 % --- Executes on button press in btnSaveInPlace.
-function btnSaveInPlace_Callback(~, ~, handles)
+function btnSaveInPlace_Callback(~, ~, handles) %#ok<DEFNU>
 % Button to overwrite the current file with modifications, rather than
 % saving results to selected traces.
 
@@ -697,7 +691,7 @@ set(handles.btnSaveInPlace,'Enable','off');
 
 
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
-function btnSubBoth_Callback(hObject, ~, handles, mode)
+function btnSubBoth_Callback(hObject, ~, handles, mode) %#ok<DEFNU>
 % Subtract fluorescence background from the current x-axis region
 % (presumably zoomed to a region after photobleaching). All of the
 % subtraction buttons are handled with this one function. The mode
@@ -794,7 +788,7 @@ guidata(hObject,handles);
 
 
 
-function edCrosstalk_Callback(hObject, eventdata, handles, ch )
+function edCrosstalk_Callback(hObject, eventdata, handles, ch ) %#ok<DEFNU>
 % Called when user changes the text box for specifying FRET threshold.
 %
 
@@ -820,7 +814,7 @@ sldCrosstalk_Callback( handles.(name), eventdata, handles, ch );
 %---------------------------------------------------%
 
 % --- Executes on slider movement.
-function sldThreshold_Callback(hObject, ~, handles)
+function sldThreshold_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when user changes the scroll bar for specifying FRET threshold.
 %
 
@@ -836,7 +830,7 @@ guidata(hObject,handles);
 
 
 
-function edThreshold_Callback(hObject, ~, handles)
+function edThreshold_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when user changes the text box for specifying FRET threshold.
 %
 
@@ -859,7 +853,7 @@ guidata(hObject,handles);
 
 
 
-function edGamma_Callback(hObject, ~, handles)
+function edGamma_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Text box for adjusting apparent gamma was changed. Scale acceptor1.
 % A value of 1 means no adjustment. A value of 5 will multiply the acceptor
 % by a factor of 5.
@@ -1003,7 +997,7 @@ displayData.recalculateFret( handles.fretThreshold(indexes), handles.adjusted(in
 
 %----------PRINT TRACE----------%
 % --- Executes on button press in btnPrint.
-function btnPrint_Callback(~, ~, handles)
+function btnPrint_Callback(~, ~, handles) %#ok<DEFNU>
 % Opens the print system dialog to print the current trace.
 printdlg(handles.figure1);
 
@@ -1110,6 +1104,7 @@ set( handles.edZoomCorr, 'String','' );
 [~,name,ext] = fileparts( handles.filename );
 data_fname = [name ext];
 
+
 % Plot fluorophore traces
 time = data.time;
 if time(1)~=1, %first time is 1 if in frame number (not ms)
@@ -1132,13 +1127,12 @@ end
 set( handles.txtTitle, 'String', [ 'Molecule ' num2str(m) ' of ' ...
                         num2str(handles.data.nTraces) ' of "' data_fname '"'] );
 axis(handles.axFluor,'auto');
-zoom reset
+
 
 % Plot total fluorescence
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
 axis(handles.axTotal,'auto');
-zoom reset
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
@@ -1157,7 +1151,6 @@ if ismember('fret',chNames),
 end
 
 
-
 % Plot FRET efficiency
 cla( handles.axFret );
 if ismember('fret',chNames),
@@ -1174,7 +1167,6 @@ end
 
 xlim(handles.axFret, [time(1) time(end)]);
 ylim(handles.axFret, [-0.1 1]);
-zoom reset
 
 drawnow;
 
@@ -1218,7 +1210,7 @@ end;
 
 
 % --- Executes on button press in btnLoadDWT.
-function btnLoadDWT_Callback(hObject, ~, handles)
+function btnLoadDWT_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Loads an idealization (.dwt file) for later plotting in plotter().
 
 handles = loadDWT_ex( handles );
@@ -1293,7 +1285,7 @@ set(handles.btnClearIdl,'Enable','on');
 
 
 % --- Executes on button press in btnClearIdl.
-function btnClearIdl_Callback(hObject, ~, handles)
+function btnClearIdl_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Clear the currently loaded idealization if any.
 
 handles.dwt = [];
@@ -1311,7 +1303,7 @@ plotter(handles);
 
 
 % --- Executes on button press in btnSelAll.
-function btnSelAll_Callback(hObject, ~, handles, index)
+function btnSelAll_Callback(hObject, ~, handles, index) %#ok<DEFNU>
 % User clicked the "select all" button above one of the bins.
 % This is dangerous because all existing selections in that bin could be
 % lost if this was accidental, so a warning dialog was added.
@@ -1363,7 +1355,7 @@ end
 
 
 % --- Executes on button press in btnSelAll3.
-function navKeyPress_Callback(hObject, eventdata, handles)
+function navKeyPress_Callback(hObject, eventdata, handles) %#ok<DEFNU>
 % Handles keyboard shortcut commands for moving through traces and putting
 % them into bins. Called when keys are pressed when one of the navigation
 % buttons has active focus.
@@ -1421,7 +1413,7 @@ end
 
 
 % --- Executes on button press in btnGettraces.
-function btnGettraces_Callback(hObject, ~, handles)
+function btnGettraces_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Display an image of the field-of-view from the movie that the current trace
 % came from and its physical location in each fluorescence channel. Iterating
 % over traces will then update the molecule location.
@@ -1518,7 +1510,7 @@ plotter(handles);
 
 
 % --- Executes when user attempts to close figure1.
-function sorttraces_CloseRequestFcn(hObject, ~, handles)
+function sorttraces_CloseRequestFcn(hObject, ~, handles) %#ok<DEFNU>
 % 
 
 % Ask the user if the traces should be saved before closing.

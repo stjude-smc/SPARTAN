@@ -18,6 +18,7 @@ warning off qubtree:MatrixFieldsNotSupported
 
 
 persistent modelFilename;
+disp(modelFilename);
 
 % If no model filename is given, prompt the user for it.
 % The selection will be remembered because modelFilename is persistent.
@@ -27,7 +28,7 @@ if nargin<1,
         model = [];
         return;
     end
-    modelFilename = [p f];
+    modelFilename = fullfile(p,f);
 else
     modelFilename = modelFilenameInput;
 end

@@ -342,7 +342,8 @@ constants.defaultMakeplotsOptions = options;
 if isdeployed,
     constants.modelLocation = pwd;
 else
-    % Blanchard lab model locations
+    % Blanchard lab model locations.
+    % FIXME: this should be removed in the future.
     if ispc,
         constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
     else
@@ -354,7 +355,7 @@ end
 constants.nProcessors = feature('numCores');
 
 % Set to false to disable parfor, which is slow on some older computers.
-constants.enable_parfor = constants.nProcessors>1;
+constants.enable_parfor = constants.nProcessors>1 & ~isdeployed;
 
 
 
