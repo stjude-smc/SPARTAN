@@ -21,16 +21,17 @@ params.dropLastDwell  = 0;  %take care of in tIdealize now...
 params.dropDarkDwells = 0;  %before and after dwell in dark state
 
 % colors for statehist, in order
-params.colors = [ 0 0 0   ; ... % black
-               0        0.7500   0.7500 ; ... % cyan
-               0.7500   0        0.7500 ; ... % purple
-               1 0 0   ; ... % red
-               0.7500   0.7500   0 ; ...    % yellow
-               0 0.5 0 ]; % green
+params.colors = [ 0      0      0    ; ...  % black
+           0.75   0      0.75 ; ...  % purple
+           0      0.75   0.75 ; ...  % cyan
+           0      0.5    0    ; ...  % green
+           0.75   0.75   0    ; ...  % yellow
+           1      0      0    ; ...  % red
+           0.6    0      0    ];     % dark red
 
 params.fitSingle = true;  %otherwise, double exponential fitting...
 
-params.plotFits = 1;
+params.plotFits = false;
 
 % Merge options, giving the user's options precedence.
 if nargin>1,
@@ -61,24 +62,20 @@ nFiles = numel(dwtfilename);
 % Get number of states..
 [~,~,~,model] = loadDWT( dwtfilename{1} );
 nStates = numel(model)/2;
-clear dwells; clear offsets;
 
 %
-lifetimes = zeros(nFiles,nStates);   % average lifetimes (fit)
-totalTimes= zeros(nFiles,nStates);
-dwellhist = cell(nFiles,nStates);   % histogram of dwell times
-fits      = cell(nFiles,nStates);    % fit structures for plotting
+lifetimes  = zeros(nFiles,nStates);   % average lifetimes (fit)
+totalTimes = zeros(nFiles,nStates);
+dwellhist  = cell(nFiles,nStates);   % histogram of dwell times
+fits       = cell(nFiles,nStates);    % fit structures for plotting
 
 for i=1:nFiles,
     
-    assert( exist(dwtfilename{i},'file')==2, ...
-            sprintf('ERROR: No such file: %s',dwtfilename{i}) );
-    
     % Load DWT file (states in columns)
     if params.useCorrectedDwelltimes
-        [dwells,sampling,model] = correctedDwelltimes( dwtfilename{i} );
+        [dwells,sampling] = correctedDwelltimes( dwtfilename{i} );
     else
-        [dwells,sampling,model] = loadDwelltimes( dwtfilename{i} );
+        [dwells,sampling] = loadDwelltimes( dwtfilename{i} );
     end
     assert( numel(dwells) == nStates );
         
@@ -115,7 +112,7 @@ for i=1:nFiles,
             
             coefs = coeffvalues(result1);
             if j>1 && coefs(1)<0.7,
-               warning(['Not a great exponential fit: ' dwtfilename{i} ]);
+               disp(['Not a great exponential fit: ' dwtfilename{i} ]);
             end
         else
             result1 = fit( x', y, 'exp2' );

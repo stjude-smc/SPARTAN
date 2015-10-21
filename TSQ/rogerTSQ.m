@@ -267,7 +267,7 @@ for i=1:nFiles,
     end
     
     % Get total time on for each trace.
-    idl = dwtToIdl( dwt, data.nFrames, offsets, data.nTraces );
+    idl = dwtToIdl( dwt, offsets, data.nFrames, data.nTraces );
     totalOn = sum(idl==onState,2).*sampling;
         
     % Calculate average total time on/off

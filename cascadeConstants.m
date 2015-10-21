@@ -326,6 +326,7 @@ options.ignoreState0 = true;   % do not include the first (lowest FRET) state in
 options.hideText     = false;  % don't display N=, t/s, etc on plots
 
 options.hideBlinksInTDPlots = false;  % hide transitions to dark state in TD plots
+options.normalize = 'total time';  % TD plot units are transitions per second
 
 if options.ignoreState0,
    options.colors = options.colors(2:end,:); 

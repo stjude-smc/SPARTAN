@@ -33,7 +33,6 @@ colors = [ 0      0      0    ; ...  % black
 % TURN THIS OFF if you want the full histogram.
 removeDarkState = false;
 darkModel = [constants.modelLocation 'darkstate.qmf'];
-sampling = 20; %ms. unused unless time axis is undefined.
 
 % Settings for error bar calculation.
 calcErrorBars = false;  % if true, use bootstrapping to display error bars
@@ -116,21 +115,16 @@ for i=1:nFiles
     
     
     % Idealize data to 2-state model to eliminate dark-state dwells
-    if removeDarkState    
-        if data.time(1)==0,
-            sampling = diff( data.time(1:2) );
-        end
-        
-        % Idealize to two-state model to select dark state
+    if removeDarkState,
         disp('Removing dark state using hidden Markov modeling...');
-        [dwt,~,~,offsets] = skm( fret, sampling, model, skmParams );
-        idl = dwtToIdl( dwt, nFrames, offsets );
+        [dwt,~,~,offsets] = skm( fret, data.sampling, model, skmParams );
+        idl = dwtToIdl( dwt, offsets, nFrames, nTraces );
     else
         % Use all datapoints for histogram otherwise
         idl = repmat(2,size(fret));
     end
     
-        
+    
     % Calculate FRET histograms from many bootstrap datasets
     pophist = zeros(nbins,nBootstrap);
     fret = fret(:,1:pophist_sumlen);

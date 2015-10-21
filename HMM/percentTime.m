@@ -1,40 +1,30 @@
 function [meanPT,stdPT] = percentTime( filenames, truncateLength )
 % PERCENTTIME  Stable state probabilities
 %
-%   [MEAN,STD] = percentTime( FILESNAMES, LEN )
+%   [MEAN,STD] = percentTime( FILESNAMES ) calculates the percentage time spent 
+%   in each non-zero FRET state (MEAN) and standard error of the measurement
+%   (STD) estimated with bootstrap samples from the dwell-time information in
+%   each file in the cell array FILENAMES. For both outputs, states are listed
+%   across columns and files across rows.
 %
-%   Calculates the percentage time spent in each non-zero FRET state
-%   using a QuB idealization data file (DWT). FILENAMES is a cell array of
-%   .dwt file names of datasets to process. For each file, bootstrapping is
-%   used to estimate the statistical error in the measurement by finding
-%   the variance in percent time of many random subsets of the data. MEAN
-%   is the average (over traces) time spent in each state, with states
-%   listed in columns from low to high FRET and one file per row. STD is
-%   the standard deviation across these bootstrap sets.
-%
-%   LEN (optional) is the length of traces to use, which can be used to
-%   truncate all traces to a specified length. This is useful to ensure
-%   that the percent-time measurements here match with plots made with
-%   makeplots (statehist, TD, and contour plots), which all use a specific
-%   window size (if that option is enabled). It is also useful when the
-%   data are biased because by differing rates of photobleaching in each
-%   state, where the system collects in the state with the slowest
-%   photobleaching rate.
+%   [...] = percentTime( FILESNAMES, LEN ) truncates the traces to LEN frames.
+%   This is useful to match the window size of makeplots, particularly to avoid
+%   potential bias cuased by differing photobleaching rates in each state.
 %   
-% CAUTION: assumes first model state (1) is a zero-FRET state and removes it!
+%   NOTE: the zero-FRET state (1) is ignored.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-rand('twister',sum(100*clock));
+%% OPTIONS
 
-bootstrapN = 10000;
+% Only consider non-zero FRET states. zero-FRET state assumed to be state 1.
+REMOVEZERO = true;
 
 
+%% Get filename from user if not specified.
 if nargin<1,
-    % Request filenames from user
-    filenames = getFiles('*.dwt','Choose an idealization file:');
-    
+    filenames = getFiles('*.dwt','Choose an idealization file:');    
 else
     % If only a single file is specified, turn it into a cell array
     if ischar(filenames),
@@ -44,109 +34,69 @@ end
 
 nFiles = numel(filenames);
 
-if nFiles<1,
-    disp('No files specified, exiting.');
-    return;
+
+%% Load dwell-times and calculate percent time in each state for each file.
+bootfun = @(times) 100*sum(times)/sum(times(:));
+
+meanPT = zeros(0);
+stdPT = zeros(0);
+
+for i=1:nFiles,    
+    % Load dwell-time information and convert to state assignment matrix.
+    [dwt,~,~,model] = loadDWT(filenames{i});
+    nStates = size(model,1);
+    
+    idl = dwtToIdl(dwt);
+    [nTraces,len] = size(idl);
+
+    % Truncate the idealization if necessary
+    if nargin>=2,
+        idl = idl( :, 1:min(len,truncateLength) );
+    end
+
+    % Calculate percent time of each trace seperately
+    tracePT = zeros(nTraces, nStates);
+
+    for state=1:nStates,
+        tracePT(:,state) = sum(idl==state,2);
+    end
+
+    % Remove zero state from consideration:
+    if REMOVEZERO,
+        tracePT = tracePT(:,2:end);
+    end
+
+    % Calculate bootstrap samples to estimate standard error.
+    meanPT(i,:) = bootfun(tracePT);
+    stdPT(i,:)  = std(  bootstrp(1000, bootfun, tracePT)  );
 end
 
-% If no truncation length is set, don't truncate at all
-if nargin<2,
-    truncateLength = [];
-end
 
+%% Plot the results
+if nFiles<2, return; end
 
-% Load dwell lifetime info from idealization data
-meanPT = zeros(0,0);
-stdPT = zeros(0,0);
-
-for i=1:nFiles,
-    [meanPT(i,:),stdPT(i,:)] = calcPT( filenames{i}, bootstrapN, truncateLength );
-end %for each file
-
-
-% Make titles for each file
-titles = strrep(filenames,'_',' ');
-for i=1:nFiles,
-    [~,titles{i}] = fileparts( titles{i} );
-end
-
-% Plot the results
 figure;
 nStates = size(meanPT,2);
 errorbar( repmat(1:nFiles,nStates,1)', meanPT, stdPT );
+
+% Construct titles with the state number and FRET values.
+states = (1:nStates)+REMOVEZERO;
+fret = model(states,1);
+
+titles = cell(nStates,1);
+for i=1:nStates,
+    titles{i} = sprintf('State %d (%.2f)\t',states(i),fret(i));
+end
 legend(titles);
+
 xlabel('File number');
 ylabel('Fraction occupancy');
+xlim([0.5 nFiles+0.5]);
+set(gca,'XTick',1:nFiles);
+
+
 
 end % FUNCTION percentTime
-
-
-
-
-
-function [meanPT,stdPT] = calcPT( dwtfilename, bootstrapN, truncateLength )
-
-% Load DWT data
-[dwells,sampling,offsets,fretModel] = loadDWT( dwtfilename );
-nStates = numel(fretModel)/2;
-nTraces = length(dwells);
-
-% Calculate percent time of each trace seperately
-tracePT = zeros( nTraces,nStates );
-
-for i=1:nTraces %for each trace
-    
-    % Convert trace to idealization for easier handling.
-    len = sum(dwells{i}(:,2));
-    idl = dwtToIdl( dwells(i), len, 0 );
-    
-    % Truncate it to the specific length
-    if ~isempty(truncateLength) && truncateLength<len,
-        idl = idl( :, 1:truncateLength );
-    end
-
-    % Add times to total
-    for j=1:nStates,
-        tracePT(i,j) = tracePT(i,j) + sum( idl==j );
-    end
-
-end %for each trace
-
-
-% Allocate space for bootstrapped results
-bootstrapPT = zeros(bootstrapN,nStates-1);
-
-% Calculate percent time in each state for each subset
-for s=1:bootstrapN, %for each subset
-    
-    % Generate random bootstrap datasets (drawn with replacement)
-    if s==1,
-        bootstrapSet = 1:nTraces;
-    else
-        bootstrapSet = floor(rand(nTraces,1)*nTraces)+1;
-    end
-    
-    % Sum total times across all traces in bootstrap dataset
-    totals = sum( tracePT(bootstrapSet,:) );
-
-    % Remove 0-FRET state
-    totals = totals(2:end);
-    
-    % Calculate and save percentages
-    bootstrapPT(s,:) = 100*totals/sum(totals);
-    
-end %for each subset
-
-
-
-% Calculate mean and std PT across subsets.
-% Mean is just the mean of all data, not across bootstrap sets.
-meanPT = bootstrapPT(1,:);
-stdPT  = std( bootstrapPT, 0, 1 );
-
-
-end % FUNCTION calcPT
-
 
 
 

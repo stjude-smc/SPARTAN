@@ -1,23 +1,23 @@
-function output = combineDatasets( filenames, outFilename, choice )
+function combineDatasets( filenames, outFilename, choice )
 % combineDatasets  Combine several smFRET data files into one file.
 %
-%  combineDatasets( FILES, OUTPUT )
-%  Each smFRET data file (see loadTraces.m) specified in the the cell array
-%  FILES is loaded and combined into a single, large dataset. The resulting
-%  dataset is saved to the OUTPUT filename. If files are of differing
-%  lengths, they are truncated to the minimal size. If input arguments are
-%  not specified, the user will be prompted for them.
+%  combineDatasets( FILES, OUTPUT ) combines all of the smFRET data in the given
+%  cell array of file names FILES, along any idealizations associated with these
+%  files (same file name with a .qub.dwt extension) and saves the result as a
+%  the new file OUTPUT. If not given, the user will be prompted for file names.
+%
+%  combineDatasets( ..., METHOD ) will combine traces files that are of
+%  different lengths (number of frames). The options are 'truncate' to remove
+%  the ends of longer traces or 'extend' to pad the ends of shorter traces so
+%  that they all have the same length. If not given, the user will be prompted.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-
-output = [];
 
 
 %% Get file names if not specified.
 if nargin<1,
     filenames = getFiles;
-    if isempty(filenames), return; end;
 end
 
 nFiles = numel(filenames);
@@ -40,107 +40,107 @@ if min(traceLen)~=max(traceLen),
     elseif strcmpi(choice,'extend'),
         newTraceLength = max(traceLen);
     else
-        return;
+        return;  %user hit cancel
     end
 else
     newTraceLength = traceLen(1);
 end
 
 
-% Get output filename, if not specified.
+%% Get output filename, if not specified.
 if nargin<2 || isempty(outFilename),
     [f,p] = uiputfile('*.traces','Select output filename','combined.traces');
     if f==0, return; end
-    outFilename = [p f];
+    outFilename = fullfile(p,f);
 end
 
 
 %% Load data
 data = cell(nFiles,1);
-dwt=cell(nFiles,1);
-sampling=zeros(nFiles,1);
-offsets=cell(nFiles,1);
-model=cell(nFiles,1);
+idl  = cell(nFiles,1);
+model= cell(nFiles,1);
+sampling = zeros(nFiles,1);
 
-h = waitbar(0,'Combining datasets');
+h = waitbar(0,'Loading files...');
 
 for i=1:nFiles,
     % Load traces from file.
     data{i} = loadTraces(filenames{i});
     
-    % Look for an idealization. These will be combined if every dataset has one.
+    % If it exists, load the associated dwell-time file (.dwt).
     [path,file] = fileparts( filenames{i} );
     dwt_fname = fullfile(path, [file '.qub.dwt']);
-    if exist(dwt_fname,'file'), 
-        [dwt{i},sampling(i),offsets{i},model{i}] = loadDWT( dwt_fname );
+    
+    if ~exist(dwt_fname,'file'),
+        dwt_fname = fullfile(path, [file '.dwt']);
     end
     
-    waitbar(0.7*i/nFiles,h);
+    if exist(dwt_fname,'file'), 
+        [dwt,sampling(i),offsets,model{i}] = loadDWT( dwt_fname );
+        idl{i} = dwtToIdl(dwt, offsets, data{i}.nFrames, data{i}.nTraces);
+        
+        assert( sampling(i)==data{i}.sampling, 'Idealization time resolution mismatch' );
+    else
+        idl{i} = zeros(data{i}.nTraces, data{i}.nFrames);
+    end
+    
+    waitbar(0.8*i/nFiles,h);
 end
 
 
 %% Resize traces so they are all the same length
 
+waitbar(0.8,h,'Combining...');
+
 if all(newTraceLength==traceLen),
-    % Combine trace data
-    output = combine( data{:} );
+    data = combine( data{:} );
     
 else
     % Combine trace data, truncating or extending the data
-    output = combine( data{:}, lower(choice) );
+    data = combine( data{:}, lower(choice) );
     
-    % Truncate or extend idealizations.
-    % FIXME: might be useful as a separate function
+    % Truncate or pad idealization matrix to match the final size.
     for i=1:nFiles,
-        if isempty(dwt{i}), continue; end
-        
-        % Convert dwell-times to an idealization, which are easy to
-        % truncate, and convert back for saving later.
-        idl = dwtToIdl( dwt{i}, traceLen(i), offsets{i} );
-
-        % This will extend (with zeros), if applicable.
         delta = max(0, newTraceLength-traceLen(i) );
-        idl = [ idl  zeros( size(idl,1), delta )  ];  %#ok
-
-        % This will truncate, if applicable.
-        idl = idl(:,1:newTraceLength);
-
-        [dwt{i},offsets{i}] = idlToDwt(idl);
+        padding = zeros(nTraces(i), delta);
+        idl{i} = [ idl{i}(:,1:newTraceLength) padding ];
     end
 end
 
-waitbar(0.9,h);
+% Combine idealizations.
+idl = vertcat(idl{:});
 
+
+%% Save merged traces and idealization data to file.
+
+waitbar(0.9,h,'Saving...');
 
 % Save merged trace data to file.
-saveTraces( outFilename, output );
+saveTraces( outFilename, data );
 
 
 % Merge dwt files if present and consistent.    
-n = cellfun( @numel, model ); %count number of states in each model.
-if ~all( n(1)==n ),
-    warning('.dwt files found for all files, but models have different numbers of states!');
+nStates = cellfun( @numel, model ); %count number of states in each model.
+
+if ~all( nStates(1)==nStates ),
+    warning('Idealizations do not have the same number of states!');
 
 elseif ~all( sampling(1)==sampling ),
-    warning('.dwt files found for all files, but they are not the same time resolution and cannot be combined.');
+    warning('Time resolution is not the same for all .dwt files!');
 
-elseif ~all( cellfun(@isempty,dwt) )
-    disp('Combining dwt files. I hope you used the same models for these!');
-
+elseif ~all( idl(:)==0 )
     % Make an "average" model for the combined dwt file.
     modelAll = mean( cat(3,model{:}), 3 );  
 
-    % Update offsets for combined file.
-    fileOffsets = cumsum( [0; nTraces*newTraceLength] );
-    for i=1:nFiles,
-        offsets{i} = offsets{i} + fileOffsets(i);
-    end
+    % Convert idealization to dwell-times for saving.
+    [dwt,offsets] = idlToDwt(idl);
 
     % Save the dwt file.
     [p,f] = fileparts(outFilename);
     if isempty(p), p=pwd; end
     dwtFilename = fullfile(p, [f '.qub.dwt']);
-    saveDWT( dwtFilename, [dwt{:}], [offsets{:}], modelAll, sampling(1) );
+    
+    saveDWT( dwtFilename, dwt, offsets, modelAll, sampling(1) );
 end
 
 

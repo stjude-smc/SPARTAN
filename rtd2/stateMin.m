@@ -7,7 +7,7 @@ function [] = stateMin(traceFile,dwtFile,state,minLength,outFileSel,outFileRem)
 
 [dwellTimes,sampling,offsets,fretModel] = loadDWT(dwtFile);
 orgTraces = loadTraces(traceFile);
-idl = dwtToIdl(dwellTimes,orgTraces.nFrames,offsets,orgTraces.nTraces);
+idl = dwtToIdl(dwellTimes,offsets,orgTraces.nFrames,orgTraces.nTraces);
 
 % initialize Traces object for selected traces
 selTraces = TracesFret(0,orgTraces.nFrames);

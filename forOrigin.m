@@ -1,33 +1,44 @@
 function forOrigin( filename, dwtFilename, outputFilename )
-% Exports trace data in a text format that is easy to import into Origin
-% for plotting. Traces are listed in order, with 4 columns for each
-% (donor, acceptor, fret, and idealization).
+% forOrigin  save trace and idealization data as a text file for easy importing.
+%
+%   forOrigin() exports trace data in a text format for easy importing into
+%   plotting programs like Origin. Traces are listed in order, with 4 columns
+%   for each, eg. FRET1, Idl1, Donor1, Acceptor1. The order is designed to make
+%   it easy to make "Vertical 2-Panel" plots. The user will be prompted for the
+%   input and output files. If no dwell-time file is given, the Idl column will
+%   be filled with zeros.
+%
+%   forOrigin(TRACES, DWT, OUTPUT) uses the supplied file names for the .traces
+%   FRET data file, dwell-time file (.dwt), and output .txt file, respectively.
+%
+%   WARNING: avoiding saving more than 10 traces in this form if possible.
+%   Origin may crash with too many columns.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-% OPTIONS:
-REESTIMATE = true; 
+%% OPTIONS:
 
+% If true, use the average observed FRET value for each trace to determine where
+% to draw the idealization line. If false, use the values in the .dwt file.
+REESTIMATE = true;
+
+
+%%
 
 % If no file is specified, ask for one from the user.
-if nargin<1 || isempty(filename),
+if nargin<1,
     [f,p] = uigetfile( {'*.traces;*.rawtraces','Binary Traces Files (*.traces;*.rawtraces)'; ...
                         '*.txt','Old format traces files (*.txt)'; ...
                         '*.*','All Files (*.*)'}, 'Select a traces file');
     if p==0, return; end
-    filename = [p f];
+    filename = fullfile(p,f);
 end
 
 
 % Load traces data
-if exist('filename','var'),
-    data = loadTraces(filename);
-else
-    data = loadTraces;
-end
+data = loadTraces(filename);
 [nTraces,traceLen] = size(data.donor);
-
 
 
 % Get idealization filename if not provided.
@@ -37,31 +48,21 @@ if nargin<2,
 end
 
 if ~exist(dwtFilename,'file'),
-    dwtFilename = '';
-    
-    [f,p] = uigetfile('*.dwt','Select the corresponding dwell-time file');
-    if f~=0,
-        dwtFilename = fullfile(p,f);
-    else
-        disp('No idealization file found!');
-    end
+    dwtFilename = getFile('*.dwt','Select the corresponding dwell-time file');
 end
 
 
 % Load idealization data (.DWT)
 % TODO: what if there are idealizations for multiple FRET traces?
 idl = zeros( nTraces,traceLen );
-dwells = {};
 
-if ~isempty( dwtFilename ),
+if exist( dwtFilename, 'file' ),
+    % Load idealization from file.
     [dwells,sampling,offsets,model] = loadDWT(dwtFilename);
-end
-
-if ~isempty( dwells )
+    idl = dwtToIdl( dwells, offsets, traceLen, nTraces );
+    
     fretValues = model(:,1);
     nStates = numel(fretValues);
-
-    idl = dwtToIdl( dwells, traceLen,offsets, nTraces );
     
     % Convert state sequence to idealization (fret values).
     if REESTIMATE,  % estimate idealization fret values from each trace
@@ -80,7 +81,7 @@ if ~isempty( dwells )
         end
     else
         % Use global FRET values from QuB to create idealization.
-        idl( idl==0 ) = 1;
+        idl( idl==0 ) = 1; %#ok<UNRCH>
         idl = fretValues(idl);
     end
 

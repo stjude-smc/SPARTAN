@@ -86,6 +86,8 @@ if ~isfield(handles,'constants')
     set( zoom(handles.axFret), 'ActionPostCallback',@zoom_callback);
     
     handles.axFOV = [];
+    handles.idl = [];
+    handles.idlFret = [];
 end
 
 % Update handles structure
@@ -617,27 +619,17 @@ else
 end
 
 % Save idealizations of selected traces, if available.
-% FIXME: dwt indexes may not match idl indexes if not all traces are
-% idealized!!
-if isfield(handles,'idl') && ~isempty(handles.idl),
-    traceLen = numel(data.time);
+if ~isempty(handles.idl),
     
     [p,f] = fileparts(filename);
     dwtFilename = fullfile(p, [f '.qub.dwt']);
     
-    % Map DWT ID numbers to traces -- they may not be the same.
-    offsets = (0:numel(indexes)-1)*traceLen;
-    dwt_ids = handles.dwtIDs(indexes);
+    % Convert to dwell-time series and save to file.
+    [dwt,offsets] = idlToDwt( handles.idl(indexes,:) );
     
-    % Remove traces from the DWT file without an idealization.
-    offsets = offsets( dwt_ids>0 );
-    dwt_ids = dwt_ids( dwt_ids>0 );
-    
-    saveDWT( dwtFilename, handles.dwt(dwt_ids), ...
-             offsets, handles.dwtModel, handles.dwtSampling );
+    saveDWT( dwtFilename, dwt, offsets, handles.dwtModel, handles.data.sampling );
 end
 
-delete(data);  %clean up. not necessary, but fun.
 set(handles.figure1,'pointer','arrow');
 
 % end function savePickedTraces
@@ -658,7 +650,7 @@ filename = fullfile(p,[f '_adjusted' e]);
 [inputfile,inputpath] = uiputfile('.traces','Save picked traces as:',filename);
 if inputfile==0, return; end
 
-filename=[inputpath inputfile];
+filename = fullfile(inputpath,inputfile);
 
 
 % Put together the subset of selected traces for saving, applying any
@@ -1161,8 +1153,8 @@ if ismember('fret2',chNames),
     plot( handles.axFret, time,data.fret2, 'm-');
 end
 
-if isfield(handles,'idl') && ~isempty(handles.idl),
-    stairs( handles.axFret, time, handles.idl(m,:), 'r-', 'LineWidth',1 );
+if ~isempty(handles.idlFret),
+    stairs( handles.axFret, time, handles.idlFret(m,:), 'r-', 'LineWidth',1 );
 end
 
 xlim(handles.axFret, [time(1) time(end)]);
@@ -1223,7 +1215,7 @@ plotter(handles);
 
 
 
-function handles = loadDWT_ex( handles, filename)
+function handles = loadDWT_ex( handles, varargin)
 % This function actually loads the dwell-time information.
 
 time = handles.data.time;
@@ -1233,24 +1225,14 @@ traceLen = handles.data.nFrames;
 
 % Get filename for .dwt file from user and load it.
 % FIXME: suggest a file name (or at least location) automatically).
-if nargin>1,
-    [dwt,dwtSampling,offsets,model] = loadDWT(filename);
-else
-    [dwt,dwtSampling,offsets,model] = loadDWT;
-end
-
-handles.dwt = dwt;
-handles.dwtSampling = dwtSampling;
+[dwt,dwtSampling,offsets,model] = loadDWT( varargin{:} );
 handles.dwtModel = model;
-
-dwtSampling = double(dwtSampling);
-
 handles.idl = [];
 
 % Verify that the DWT matches the trace data.
 if isempty(dwt), return; end
 
-if sampling~=dwtSampling, 
+if sampling~=double(dwtSampling), 
     msgbox('Data and idealization sampling intervals do not match!','Error loading idealization','Error')
 
 elseif offsets(end)>(nTraces*traceLen)
@@ -1258,10 +1240,11 @@ elseif offsets(end)>(nTraces*traceLen)
 
 else
     % Convert DWT to idealization (state sequence).
-    [idl,handles.dwtIDs] = dwtToIdl( dwt, traceLen, offsets, nTraces );
+    idl = dwtToIdl( dwt, offsets, traceLen, nTraces );
+    handles.idl = idl;
     
     % Convert state sequence to idealized FRET trace.
-    for i=1:size(idl,1),
+    for i=1:nTraces
         if iscell(model),
             m = model{i};
         else
@@ -1271,10 +1254,7 @@ else
         fretValues = [NaN; m(:,1)];
         idl(i,:) = fretValues( idl(i,:)+1 );
     end
-    
-    % If the last few traces are not idealized, idl will be short.
-    % Extend with NaN (no idealization marker) to avoid errors.
-    handles.idl = [idl ; NaN(nTraces-size(idl,1), traceLen) ];
+    handles.idlFret = idl;
     
 end %if errors
 

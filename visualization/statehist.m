@@ -21,17 +21,12 @@ function shist=statehist(dwtfilename, traces_input, options)
 
 % Get filenames from user if not passed
 if nargin<2
-     %---Open the QuB dwt file from idealization
-    [dwtfile,dwtpath]=uigetfile('*.dwt','Choose QuB dwt file:');
-    if dwtfile==0, return;  end
-        
-    dwtfilename=strcat(dwtpath,dwtfile);
-
-    %---Open the corresonding qub data file
-    [tracefile,tracepath]=uigetfile('*.traces','Choose data file:');
-    if tracefile==0, return;  end
+    dwtfilename   = getFile('*.dwt','Choose QuB dwt file:');
+    tracefilename = getFile('*.traces','Choose traces file:');
     
-    tracefilename=strcat(tracepath,tracefile);
+    if isempty(dwtfilename) || isempty(tracefilename),
+        return;
+    end
 end
 
 
@@ -40,7 +35,6 @@ if nargin<3,
     constants = cascadeConstants;
     options = constants.defaultMakeplotsOptions;
 end
-
 
 
 
@@ -61,16 +55,9 @@ end
 
 
 % --- Load the dwell-time data and create an idealization
-[dwt,~,offsets,model] = loadDWT(dwtfilename);
-idl = dwtToIdl(dwt,traceLen,offsets);
-
-% If the last few traces are not idealized, idl will be short.
-% Extend with NaN (no idealization marker) to avoid errors.
-idl = [idl ;  zeros( nTraces-size(idl,1), traceLen )  ];
-
-
-if iscell(model),  model = model{1};  end
-nStates = numel(model)/2;
+[dwt,~,offsets] = loadDWT(dwtfilename);
+idl = dwtToIdl(dwt,offsets,traceLen,nTraces);
+nStates = max(idl(:));
 
 
 % --- Truncate traces so they match the display length in makeplots

@@ -1,30 +1,23 @@
 function [meanTPS,stdTPS] = transitionsPerSecond( dwtFilenames )
 % transitionsPerSecond  Calculate average transition rates
 %
-%   TPS = transitionsPerSecond( FILES )
-%   Calculates the average number of transitions per second observed in
-%   each of the specified dwell-time FILES (see loadDWT.m).
+%   TPS = transitionsPerSecond( FILES ) calculates the average number of
+%   transitions per second observed in each of the specified dwell-time FILES.
+%   Transitions to and from the dark state (blinking) are ignored.
+%
+%   See also: percentTime, makeplots.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-%   Calculates the percentage time spent in each non-zero FRET state
-%   using a QuB idealization data file (DWT).  States are listed in columns
-%   from low to high FRET.  Each dataset is a row.
-%   
-% NOTE: unlike percentTime, transitions to the zero-FRET state are not removed.
-
-% CAUTION: assumes first model state (1) is a zero-FRET state and removes it!
 
 
-rand('twister',sum(100*clock));
+%% USER TUNABLE PARAMTERS
+
+% Only consider non-zero FRET states. zero-FRET state assumed to be state 1.
+REMOVEZERO = true;
 
 
-% USER TUNABLE PARAMTERS
-bootstrapN = 10000;
-removeBlinks = 1;
-
-
-% Get input filenames from user if not specified.
+%% Get input filenames from user if not specified.
 if nargin<1,
     % Request filenames from user
     dwtFilenames = getFiles('*.dwt','Choose an idealization file:');
@@ -38,81 +31,70 @@ end
 
 nFiles = numel(dwtFilenames);
 
-if nFiles == 0,
-    disp('No files specified, exiting.');
-    return;
-end
 
+%% Calculate transitions/sec for each datafile using bootstrap sampling.
+bootfun = @(N,time) sum(N)/sum(time);  %transitions per second
 
-
-% Calculate transitions/sec for each datafile using bootstrap sampling.
 meanTPS = zeros(0,0);
 stdTPS = zeros(0,0);
 
-for i=1:nFiles,
-    [meanTPS(i,:),stdTPS(i,:)] = TPS( dwtFilenames{i}, bootstrapN, removeBlinks );
+for i=1:nFiles,    
+    % Load DWT data
+    [dwells,sampling] = loadDWT( dwtFilenames{i} );
+    nTraces = length(dwells);
+
+    nEvents = zeros( nTraces, 1 );
+    totalTime = zeros( nTraces, 1 );
+
+    for trace=1:nTraces,
+        states = dwells{trace}(:,1);
+        times  = dwells{trace}(:,2);
+
+        if REMOVEZERO,
+            % Remove dwells in lowest FRET state (assuming it is the dark state)
+            times  = times(states>1);
+            states = states(states>1);
+
+            % Combine dwells that are now in the same state by converting into
+            % an idealization and then back to a dwell-time sequence.
+            if ~isempty(times),
+                idl = dwtToIdl( [states times] );
+                newDwt = RLEncode(idl);
+                times  = newDwt(:,2);
+            end
+        end
+
+        % Calculate number of events and total time in this trace.
+        nEvents(trace)   = numel(times)-1;
+        totalTime(trace) = sum(times)*sampling/1000; %in seconds.
+
+    end %for each trace
+
+    % Calculate bootstrap samples to estimate standard error.
+    meanTPS(i,:) = bootfun(nEvents,totalTime);
+    stdTPS(i,:) = std(  bootstrp(1000, bootfun, nEvents,totalTime)  );
+    
 end %for each file
+
+
+
+%% Display the result.
+if nFiles<2, return; end
+
+figure;
+nStates = size(meanTPS,2);
+errorbar( repmat(1:nFiles,nStates,1)', meanTPS, stdTPS );
+
+xlabel('File number');
+ylabel('Transitions per second');
+xlim([0.5 nFiles+0.5]);
+set(gca,'XTick',1:nFiles);
+
+
 
 end %FUNCTION transitionsPerSecond.
 
 
 
-
-
-function [meanTPS,stdTPS] = TPS( dwtfilename, bootstrapN, removeBlinks )
-
-% Load DWT data
-[dwells,sampling] = loadDWT( dwtfilename );
-nTraces = length(dwells);
-
-% Calculate number of events & total dwell time for each trace.
-traceNevents = zeros( nTraces, 1 );
-traceTotalTime = zeros( nTraces, 1 );
-
-for i=1:nTraces %for each trace
-    
-    states = dwells{i}(:,1);
-    times  = dwells{i}(:,2);
-    
-    if removeBlinks,
-        % Remove dwells in lowest FRET state (assuming it is the dark state)
-        times  = times( states>1 );
-        states = states( states>1 );
-        
-        % Combine dwells that are now in the same state by converting into
-        % an idealization and then back to a dwell-time sequence.
-        idl = dwtToIdl( {[states times]}, sum(times), 0 );
-        newDwt = RLEncode(idl);
-        states = newDwt(:,1);
-        times  = newDwt(:,2);
-    end
-    
-    % Calculate data needed to calculate TPS.
-    traceNevents(i)   = numel(times)-1;
-    traceTotalTime(i) = sum(times)*sampling/1000; %in seconds.
-    
-end %for each trace
-
-
-% Calculate percent time in each state for each subset
-bootstrapTPS = zeros(bootstrapN,1);
-
-for s=1:bootstrapN, %for each subset
-
-    % Generate random bootstrap datasets (drawn with replacement)
-    bootstrapSet = floor(rand(nTraces,1)*nTraces)+1;
-    
-    % Calculate TPS for bootstrap dataset
-    bootstrapTPS(s) = sum( traceNevents(bootstrapSet)     )  /  ...
-                      sum( traceTotalTime(bootstrapSet)   );
-    
-end %for each subset
-
-
-% Calculate mean and std PT across subsets
-meanTPS = mean( bootstrapTPS );
-stdTPS  = std( bootstrapTPS );
-
-end %FUNCTION TPS
 
 
