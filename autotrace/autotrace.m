@@ -19,7 +19,7 @@ function varargout = autotrace(varargin)
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-% Last Modified by GUIDE v2.5 19-Oct-2014 16:10:51
+% Last Modified by GUIDE v2.5 23-Oct-2015 18:27:13
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -272,46 +272,63 @@ OpenTracesBatch( hObject, handles )
 
 
 %----------BATCH ANALYSIS----------%
-function btnBatchMode_Callback(hObject, ~, handles)
+function btnBatchMode_Callback(hObject, ~, handles, datapath)
 % For each .rawtraces file in the current directory, and optionally all
 % sub-directories, select traces according to the current criteria and save
 % a corresponding _auto.traces file.
 
 % Select directory by user interface.
-datapath=uigetdir;
-if datapath==0, return; end
+% A path is given if called from the timer for automatic processing.
+if nargin>=4 && exist(datapath,'dir'),
+    % Get a fresh copy of handles. The one passed in arguments is an old
+    % copy made when the timer was created. Kind of ugly...
+    handles = guidata(handles.chkAutoBatch);
+    auto = true;
+else
+    % User clicked the "Batch Mode" button directly. Ask for a location.
+    datapath=uigetdir;
+    if datapath==0, return; end
+    disp(datapath);
+    auto = false;
+end
 
-% Get a list of all raw traces files under the current directory
+% Get a list of all raw traces files under the current directory.
+% FIXME: for now keeping this not recursive by default.
 trace_files = regexpdir(datapath,'^.*\.rawtraces$');
 trace_files = {trace_files.name};
 
+
 % For each file in the user-selected directory
 % FIXME: consider avoiding passing handles this way.
-wb = waitbar(0,'Batch mode progress');
+% wbh = waitbar(0,'Batch mode progress');
 
 for i=1:numel(trace_files)
     
-    handles.inputdir = fileparts(trace_files{i});
+    % If running in the automatic mode, skip already-processed files.
+    [p,f] = fileparts(trace_files{i});
+    if auto,
+        auto_name = fullfile(p,[f '_auto.traces']);
+        if exist(auto_name,'file'), continue; end
+    end
+    
+    handles.inputdir = p;
     handles.inputfiles = trace_files(i);
-
     set(handles.editFilename,'String',trace_files{i});
 
-    % Load traces and calculate statistics
-    OpenTracesBatch( hObject, handles )
-    handles = guidata(hObject);
+    % Load traces and calculate statistics.
+    % (this calls PickTraces_Callback, which saves GUI data).
+    handles = OpenTracesBatch( hObject, handles );
     
-    waitbar((i-0.5)/numel(trace_files),wb);
+    %waitbar((i-0.5)/numel(trace_files),wbh);
 
     % Save picked traces to a new _auto.txt file.
     disp( handles.outfile );
     SaveTraces( handles.outfile, handles );
-    handles = guidata(hObject);
 
-    waitbar(i/numel(trace_files),wb);
+    %waitbar(i/numel(trace_files),wbh);
 end
 
-close(wb);
-guidata(hObject,handles);
+% close(wbh);
 
 % END FUNCTION btnGo_Callback
 
@@ -319,7 +336,7 @@ guidata(hObject,handles);
 
 
 
-function OpenTracesBatch( hObject, handles )
+function handles = OpenTracesBatch( hObject, handles )
 % Calculate and display trace statistics for the current list of files.
 
 % Clear out old data to save memory.
@@ -341,7 +358,6 @@ setappdata(handles.figure1,'infoStruct', infoStruct);
 clear infoStruct;
 
 % Select traces according to the current criteria.
-guidata(hObject,handles);
 PickTraces_Callback(hObject,handles);
 
 
@@ -460,7 +476,7 @@ end
 
 %----------APPLIES PICKING CRITERIA TO TRACES----------
 % --- Executes on button press in PickTraces.
-function PickTraces_Callback(hObject, handles)
+function handles = PickTraces_Callback(hObject, handles)
 %
 
 criteria = struct();
@@ -528,16 +544,16 @@ end
 set(handles.MoleculesPicked,'String', ...
             sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
 
-% Save data in handles object.
-guidata(hObject,handles);
-
-
+        
 % Update trace statistic histograms for traces passing selection criteria.
 nAxes = length( handles.cboNames );
 
 for i=1:nAxes,
     cboStat_Callback(handles.(handles.cboNames{i}), [], handles);
 end
+
+
+guidata(hObject,handles);
 
 % END FUNCTION PickTraces_Callback
 
@@ -633,28 +649,24 @@ end
 [data,binCenters] = hist( statData,bins );
 data = 100*data/sum(data);  %normalize the histograms
 
-axes( handles.(['axStat' num2str(id)]) );
-bar( binCenters, data, 1 );
-grid on;
-    
+ax = handles.(['axStat' num2str(id)]);
+bar( ax, binCenters, data, 1 );
+grid(ax,'on');
+
 if id==1,
     ylabel( handles.axStat1, 'Number of Traces (%)' );
 end
 
 % Save histogram data in plot for launching cftool
 if length(stats)>=1,
-    set( handles.(['axStat' num2str(id)]), 'UserData', [binCenters;data] );
+    set( ax, 'UserData', [binCenters;data] );
 end
 
 % Display a mean value for easier interpretation.
 set(  handles.(['txtStat' num2str(id)]), 'String', ...
              sprintf(['Mean: ' statDecimals],nanmean([stats.(statToPlot)]))  );
 
-
-guidata(hObject,handles);
-
-
-
+% END FUNCTION cboStat_Callback
 
 
 
@@ -682,3 +694,76 @@ if isempty(histData) || numel(histData)<2, return; end
 
 % Copy to clipboard
 clipboard('copy', sprintf('%f %f\n',histData) );
+
+
+
+
+% --- Executes on button press in chkAutoBatch.
+function chkAutoBatch_Callback(hObject, ~, ~)
+% Creates a timer to look for and automatically process .rawtraces files.
+ 
+% If another timer is running, stop it.
+fileTimer = timerfind('Name','autotrace_fileTimer');
+
+if ~isempty(fileTimer),
+    stop(fileTimer);
+    delete(fileTimer);
+    disp('Timer deleted.');
+end
+
+
+% Start a new timer if requested
+if get(hObject,'Value') == get(hObject,'Max'),
+    % Ask the user for a directory location
+    targetDir = uigetdir('','Choose directory:');
+    if targetDir==0,  %user hit cancel
+        set( hObject, 'Value', get(hObject,'Min') );
+        return;
+    end
+    disp(targetDir);
+    
+    % Start a thread that will periodically check for new .rawtraces files.
+    disp('Timer started.');
+    fileTimer = timer('ExecutionMode','fixedSpacing','StartDelay',1, ...
+                      'Name','autotrace_fileTimer',...
+                      'TimerFcn', {@updateFileTimer,hObject,targetDir}, ...
+                      'StopFcn',{@stopFileTimer,hObject}, ...
+                      'Period',2.0, 'BusyMode','drop');
+    start(fileTimer);
+
+end %if
+
+% END FUNCTION chkAutoBatch_Callback
+
+
+
+function stopFileTimer(~,~,hObject)
+% This function is called when there is an error during the timer callback
+% or when the timer is stopped.
+handles = guidata(hObject);
+set(handles.chkAutoBatch,'Value',0);
+
+% END FUNCTION stopFileTimer
+
+
+function updateFileTimer(~,~,hObject,targetDir)
+% This function runs each time the timer is fired, looking for any new
+% movies that may have appeared on the path.
+
+handles = guidata(hObject);
+
+% Kill the timer if the directory is inaccessible
+if ~exist(targetDir,'dir'),
+    disp('Autotrace: stopping batch mode: directory was moved or is inaccessible');
+    set(handles.chkAutoBatch,'Value',0);
+    
+    fileTimer = timerfind('Name','autotrace_fileTimer');
+    stop(fileTimer);
+    delete(fileTimer);
+end
+
+disp('Timer fired');
+btnBatchMode_Callback( handles.figure1, [], handles, targetDir );
+
+
+% END FUNCTION updateFileTimer
