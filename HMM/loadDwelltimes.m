@@ -1,40 +1,62 @@
-function [dwells,sampling,model] = loadDwelltimes( dwtfilename, dropLastDwell )
-% Returns an cell array (Nx1, N states) which contains
-% a list of the dwell times (in ms) for each state.
+function [dwellc,sampling,model] = loadDwelltimes( filename, options )
+% loadDwelltimes  Combined list of dwell-times for each state.
+%
+%   [DWELLS,SAMPLING,MODEL] = loadDwelltimes(FILENAME) creates the cell array
+%   DWELLS with a list of all dwell times (in seconds) from each state. 
+%   SAMPLING is the time resolution in ms and MODEL is the FRET model.
+%
+%   [...] = loadDwelltimes(...,'removeBlinks') will remove dwells in the 
+%   zero-FRET state (state 1) associated with blinking.
+%
+%   See also: removeBlinks, dwellhist, lifetime_exp.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-if nargin<2,
-    dropLastDwell=0;
+
+%% Prompt user for file names if not given.
+if nargin<1,
+    filename = getFile('*.dwt','Choose a dwell-time file');
+    if isempty(filename), return; end  %user hit cancel.
 end
 
-% Load dwell times
-[idl,sampling,~,model] = loadDWT( dwtfilename );
+
+% If .traces files are given, quietly look for the corresponding .qub.dwt
+[p,f,e] = fileparts(filename);
+    
+if ~strcmp(e,'.dwt'),
+    filename = fullfile(p,[f '.qub.dwt']);
+    if ~exist(filename, 'file'),
+        filename = fullfile(p,[f '.dwt']);
+    end
+    if ~exist(filename,'file'),
+        error('Input file is not a .dwt and no associated .dwt file could be found');
+    end
+end
+
+
+
+%% Load the dwell times and remove dark-state dwells.
+[dwells,sampling,offsets,model] = loadDWT(filename);
+assert( numel(dwells)>0, 'Empty or invalid dwell-time file' );
+
 nStates = numel(model)/2;
-nTraces = numel(idl);
 
-% Add dwells to collection
-dwells = cell(nStates,1);
-
-for i=1:nTraces,
-    d = idl{i};
-    
-    % Skip last dwell if parameter set
-    if dropLastDwell,
-        d = d(1:end-1,:);
-    end
-    
-    states = d(:,1);
-    times  = double( d(:,2) );
-    
-    % Add all dwell times in state j to list (dwells{j})
-    for j=1:nStates
-        dwells{j} = [dwells{j} ; times(states==j)];
-    end
+if nargin>=2 && strcmpi(options,'removeBlinks'),
+    dwells = removeBlinks(dwells,offsets);
 end
 
-% Convert dwell times from frames to msec
-for j=1:nStates
-    dwells{j} = dwells{j}.*sampling;
+% Merge dwells from all traces
+dwells = vertcat(dwells{:});
+states = dwells(:,1);
+times = dwells(:,2);
+
+% Build list of dwell times in each class
+dwellc = cell(nStates, 1);
+
+for i=1:nStates,
+    dwellc{i} = times(states==i)*sampling/1000;
 end
+
+
+

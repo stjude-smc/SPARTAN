@@ -6,7 +6,6 @@ function shist=statehist(dwtfilename, traces_input, options)
 %   calculated from the DWT file.  The first col specifies the bins.
 %   DWT is the filename of the idealization file from QuB.
 %   DATA is the auto.txt filename containing raw Fluorescence/FRET data.
-%   
 %
 %   OPTIONS (optional), can have any of the following fields:
 %    - pophist_sumlen:    number of frames to consider when summing
@@ -21,12 +20,11 @@ function shist=statehist(dwtfilename, traces_input, options)
 
 % Get filenames from user if not passed
 if nargin<2
-    dwtfilename   = getFile('*.dwt','Choose QuB dwt file:');
-    tracefilename = getFile('*.traces','Choose traces file:');
+    dwtfilename = getFile('*.dwt','Choose QuB dwt file:');
+    if isempty(dwtfilename), return; end
     
-    if isempty(dwtfilename) || isempty(tracefilename),
-        return;
-    end
+    tracefilename = getFile('*.traces','Choose traces file:');
+    if isempty(tracefilename), return; end
 end
 
 

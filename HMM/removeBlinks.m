@@ -1,5 +1,5 @@
 function varargout = removeBlinks( varargin )
-%REMOVEBLINKS  Remove dark state dwells from dwell-time series (.dwt files)
+% REMOVEBLINKS  Remove dark state dwells from dwell-time series (.dwt files)
 % 
 %   removeBlinks(FILENAME) loads .dwt file FILENAME, remove all dwells in the
 %   dark state, presumed to be the lowest class number, and save the modified

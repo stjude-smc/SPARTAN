@@ -1,343 +1,181 @@
-function [lifetimes,fits,totalTimes,dwellaxis,dwellhist] = lifetime_exp( dwtfilename, inputParams )
-%LIFETIME_EXP  Estimates median lifetime in each state
+function [lifetimes,rsquare,fits] = lifetime_exp( dwtfilename, inputParams )
+% dwellhist  Survival plots of state dwell-times
 % 
-%   R = LIFETIME_EXP(FILE)
-%   Returns the lifetimes of each state in ascending order using the data
-%   in FILE (filename of a .dwt file from QuB).  If FILE is a cell array
-%   with multiple entries, lifetimes for all files will be returned as a
-%   matrix, with files in rows and states in columns.
+%   [LIFETIMES,RSQUARE,FITS] = lifetime_exp(FILES) creates survival plots of
+%   state dwell-times for each state in each .dwt file in the cell array FILES.
+%   These are then fit to exponential decay functions to estimate the decay
+%   time constants LIFETIMES (files in rows, states in columns). The adjusted
+%   R-squared goodness of fit scores RSQUARE and the fit objects FITS are also
+%   returned.
+%
+%   [...] = lifetime_exp(...,PARAMS) specifies optional parameters in the 
+%   struct PARAMS to control how the histograms are made (true/false values).
+%   Most are used for dwellhist(), which makes the survival plots.
+%
+%      'removeBlinks': Ignore dwells in the dark state, assumed to be state 1.
+%                      Dwells broken up by such blinks are merged, with the
+%                      time during the blink added to surrounding dwells.
+%
+%      'fitSingle':    Fit a single (true) or double (false) exponential.
+% 
+%      'plotFits':     Display all of the individual fits.
+%
+%   See also: dwellhist, loadDwelltimes, removeBlinks.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-%---- USER TUNABLE PARAMETERS ----
-params.bMakeGUI = 1;
-params.useCorrectedDwelltimes = 1;  % merge blinks into previous dwell
 
-% Option to remove dwells whose durations are unknown because they are
-% cropped by the start of measurement, blinking, and photobleaching, resp.
-params.dropFirstDwell = 0;
-params.dropLastDwell  = 0;  %take care of in tIdealize now...
-params.dropDarkDwells = 0;  %before and after dwell in dark state
-
-% colors for statehist, in order
-params.colors = [ 0      0      0    ; ...  % black
-           0.75   0      0.75 ; ...  % purple
-           0      0.75   0.75 ; ...  % cyan
-           0      0.5    0    ; ...  % green
-           0.75   0.75   0    ; ...  % yellow
-           1      0      0    ; ...  % red
-           0.6    0      0    ];     % dark red
+%% ---- USER TUNABLE PARAMETERS ----
+params.removeBlinks = true;  % merge blinks into previous dwell
 
 params.fitSingle = true;  %otherwise, double exponential fitting...
 
-params.plotFits = false;
+params.plotFits = true;
 
 % Merge options, giving the user's options precedence.
 if nargin>1,
     params = catstruct( params, inputParams );
 end
 
-%---------------------------------
 
-% if no files give, prompt the use
-if ~exist('dwtfilename','var'),
+
+%% Prompt user for file names if not given.
+if nargin<1,
     disp('Select DWT files, hit cancel when finished');
-    dwtfilename = getFiles('*.dwt','Choose a DWT file:');
+    dwtfilename = getFiles('*.dwt','Choose dwell-time files');
 end
 
-if size(dwtfilename,1) == 0, return; end
-
-% if just one filename given, convert to cell array
-if ~iscell( dwtfilename ),
+if ischar(dwtfilename),
     dwtfilename = {dwtfilename};
 end
 
 nFiles = numel(dwtfilename);
+if nFiles==0, return; end
 
 
 
-%% Load segment files
+%% Load dwell-times and calculate survival plots
+[meanTimes,survival,names] = dwellhist(dwtfilename, params);
 
-% Get number of states..
-[~,~,~,model] = loadDWT( dwtfilename{1} );
-nStates = numel(model)/2;
+dwellaxis = survival(:,1);
+survival = survival(:,2:end);
+nStates = size(survival,2)/nFiles;
 
-%
-lifetimes  = zeros(nFiles,nStates);   % average lifetimes (fit)
-totalTimes = zeros(nFiles,nStates);
-dwellhist  = cell(nFiles,nStates);   % histogram of dwell times
-fits       = cell(nFiles,nStates);    % fit structures for plotting
 
-for i=1:nFiles,
-    
-    % Load DWT file (states in columns)
-    if params.useCorrectedDwelltimes
-        [dwells,sampling] = correctedDwelltimes( dwtfilename{i} );
-    else
-        [dwells,sampling] = loadDwelltimes( dwtfilename{i} );
-    end
-    assert( numel(dwells) == nStates );
-        
-    % Create a survival plot for each state
-    dwellaxis = (0:1:5000)*sampling /1000;
-    %dwellhist = zeros( nStates,numel(dwellaxis) );
-    
-    for j=2:nStates,
-        if isempty( dwells{j} ),
-            continue;
-        end
-        
-        % Create survival plot
-        times = dwells{j};
-        totalTimes(i,j) = sum(times);
-        data = histc( times./1000, dwellaxis );
-        
-        survival = sum(data) - cumsum(data);
-        survival = survival/survival(1);
-        dwellhist{i,j} = survival;
-        
-        % Fit survival plot to a single exponential
-        % (truncated 0-tail to avoid fitting errors)
-        plen = min( numel(dwellaxis), max(times)/sampling );
+
+%% Fit survival plots to exponential functions
+lifetimes = zeros(nFiles,nStates);   % average lifetimes (fit)
+rsquare = zeros(nFiles,nStates);    % R-squared values for each fit.
+fits = cell(nFiles,nStates);    % fit structures for plotting
+
+for file=1:nFiles,
+    for state=1:nStates,
+        % Truncate the survival plot to de-emphasize the tail for fitting.
+        idxCol = nFiles*(state-1)+file;
+        plen = find( survival(:,idxCol)>0.01, 1,'last' );
         x = dwellaxis(1:plen);
-        y = survival(1:plen);
+        y = survival(1:plen,idxCol);
         
+        % Fit the survival plot to an exponetial
         if params.fitSingle,
-            if j>1,
-                result1 = fit( x', y, 'exp1', 'StartPoint',[1 -1/mean(times)/1000] );
-            else
-                result1 = fit( x', y, 'exp1' );
-            end
-            
-            coefs = coeffvalues(result1);
-            if j>1 && coefs(1)<0.7,
-               disp(['Not a great exponential fit: ' dwtfilename{i} ]);
-            end
+            [fits{file,state},gof] = fit( x, y, 'exp1', ...
+                                 'StartPoint', [1 -1/meanTimes(file,state)] );
         else
-            result1 = fit( x', y, 'exp2' );
+            [fits{file,state},gof] = fit( x, y, 'exp2' );
         end
         
         % Find weighted average of time constants.
         % If a single exponential, just retrieves the time constant.
-        fits{i,j} = result1;
-        coefs = coeffvalues(result1);
+        coefs = coeffvalues( fits{file,state} );
         weights = coefs(1:2:end);
         weights = weights./sum(weights);
 
         % Record mean lifetime
         weightedAvg = mean( coefs(2:2:end).*weights );
-        lifetimes(i,j) = -1/weightedAvg;
+        lifetimes(file,state) = -1/weightedAvg;
+        rsquare(file,state) = gof.adjrsquare;
     end
 
 end  % for each sample
 
+if ~params.plotFits, return; end
 
-if nFiles>size(params.colors,1),
-    params.colors = zeros(nFiles,3);
-end
 
-% Make a seperate figure that combines the plots for each inspection.
-if params.plotFits,
-    h1 = figure();
 
-    set(h1,'DefaultAxesColorOrder',params.colors);
+%% Display fits
 
-    nrows = nStates-1;
-    ncols = nFiles+1;
-    
-    for i=1:nFiles,
+% Save the histogram data in the figure and add a button so the data
+% can be saved to file by the user.
+hFig = figure;
+setappdata(hFig,'survival',[dwellaxis survival]);
+setappdata(hFig,'names',names);
 
-        % Plot distribution and fit of each state
-        for j=2:nStates
+nrows = nStates;
+ncols = nFiles+1;
+xend = max( 3.5*lifetimes(:) );
+
+ax = zeros(nrows,ncols);
+
+for i=1:nFiles+1,    
+    for j=1:nStates,
+        
+        % Plot survival plot fits.
+        if i<=nFiles,
+            idxCol = nFiles*(j-1)+i;
+            y = survival(:,idxCol);
+
             % Plot data and fit
-            subplot( nrows,ncols, (ncols*(j-2))+i );
-            cla;
-            plot( dwellaxis, dwellhist{i,j}, 'k.' ); hold on;
+            ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i );
+            plot( dwellaxis, y, 'k.' ); hold on;
             hp = plot( fits{i,j}, 'r-');
             set(hp,'LineWidth',2);
-            xlim( [0 4*mean(lifetimes(:,2))] );
-            ylim( [0 1] );
             legend off;
-
-            if j==2,
-                xlabel(gca, 'Time (sec)', 'FontSize',14  );
+            
+            if j==1, %first row
+                title(names{i});
             end
-            if i==1,
-                ylabel(gca, 'Dwell Count (%)', 'FontSize',14 );
-            end
-
-            % Plot this also in the overlay plot at end
-    %         subplot( nrows,ncols, ncols*(j-1) );
-    %         
-    %         plot( dwellaxis, dwellhist{i,j}, '.', 'MarkerEdgeColor',params.colors(i,:) );
-    %         xlim( [0 1.5] );
-    %         ylim( [0 1] );
-    %         hold on;
-    % 
-    %         if j==nStates,
-    %             xlabel(gca, 'Time (sec)', 'FontSize',14);
-    %         end
-        end
-
-    end
-end
-
-h2 = figure;
-set(h2,'defaultaxesfontsize',16);
-set(h2,'defaulttextfontsize',18);
-
-
-% Make figure that overlays decay curves for direct comparison
-ax = [];
-
-output = dwellaxis';
-
-if ~isfield(params,'colors'),
-    params.colors = colormap;
-    nlevels = size(params.colors,1);
-    params.colors = colors(1:round(nlevels/nFiles):end, :);
-end
-
-for i=1:nFiles,
-
-    for j=2:nStates
-
-        % Plot this also in the overlay plot at end
-        ax(j-1) = subplot( nStates-1,1, j-1 );
         
-        plot( dwellaxis, dwellhist{i,j}, '-', 'Color',params.colors(i,:), 'LineWidth',2 );
-%         plot( dwellaxis, dwellhist{i,j}, 'r-', 'LineWidth',2 );
-        xlim( [0 60] );
+        % Overlay all survival plots for direct comparison
+        else
+            idxCol = nFiles*(j-1)+(1:nFiles);
+            y = survival(:,idxCol);
+
+            % Plot data and fit
+            ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i );
+            plot( dwellaxis, y, 'LineWidth',2 );
+            
+            if j==1,
+                legend(names);
+                title('Overlay');
+            end
+        end
+            
+        % Set axis and plot titles, etc.
+        xlim( [0 xend] );
         ylim( [0 1] );
-        set(gca,'ytick',[0:10:60]);
-        hold on;
         
-        title( ['State ' num2str(j) ' Lifetime'] );
-        
-%         if j==2,
-            ylabel(gca, 'Dwell Count (%)' );
-%         else
-%             set(gca,'yticklabel',[]);
-%         end
         if j==nStates,
-            xlabel(gca, 'Time (sec)');
+            xlabel('Time (s)' );
+        else
+            xlabel('');
         end
-    end
-end
 
-legend;
-% linkaxes(ax,'y');
-
-
-%------ Save results to file for plotting in Origin
-
-% Output header lines
-fid = fopen('lifetime_exp.txt','w');
-fprintf(fid,'Time (sec)\t');
-
-for j=2:nStates,
-    for i=1:nFiles
-        [p,name] = fileparts( dwtfilename{i} );
-        fprintf(fid,'State%d %s\t',j,name);
-        output = [output dwellhist{i,j}];
-    end
-end
-fprintf(fid,'\n');
-
-% Output data
-for i=1:size(output,1),
-    fprintf(fid,'%d\t',output(i,:));
-    fprintf(fid,'\n');
-end
-
-fclose(fid);
-
-
-%% Create GUI environment for cycling through rates
-
-function ShowPrev(h, eventdata)
-    chosenFile = chosenFile-1;
-    if chosenFile==1,
-        set(prev, 'Enable', 'off');
-    elseif chosenFile==nFiles-1
-        set(next, 'Enable', 'on');
-    end
-
-    ShowRates();
-end  %function ShowPrev
-
-function ShowNext(h, eventdata)
-    chosenFile = chosenFile+1;
-    if chosenFile==nFiles,
-        set(next, 'Enable', 'off');
-    elseif chosenFile==2
-        set(prev, 'Enable', 'on');
-    end
-
-    ShowRates();
-end  %function ShowNext
-
-
-if false && bMakeGUI,
-    f1 = figure();
-    
-    % These commands break matlab
-    % set(f1,'DefaultAxesFontSize',12);
-    % set(f1,'DefaulTtextFontSize',14);
-
-    prev = uicontrol(f1, 'String', 'Prev', 'Callback', @ShowPrev, ...
-        'Units', 'pixels', 'Position', [20 10 80 30]);
-    next = uicontrol(f1, 'String', 'Next', 'Callback', @ShowNext, ...
-        'Units', 'pixels', 'Position', [100 10 80 30]);
-
-    chosenFile = 1;
-    set(prev, 'Enable', 'off');
-    ShowRates  %display initial view
-end %if bMakeGUI
-
-
-function ShowRates()
-    
-    assert(chosenFile>=1 & chosenFile<=nFiles, 'Invalid file number');
-
-    % Histogram bin parameters
-    %histaxis = [logratesaxis([1,end]) 0 maxhist]; %for plotting
-
-    for j=2:nStates,
-        
-        if isempty( dwellhist{chosenFile,j} )
-            continue;
+        if i==1, %first column)
+            ylabel( sprintf('State %d',j) );
+        else
+            ylabel('');
         end
         
-        % Plot data and fit
-        subplot(1,nStates-1,j-1);
-        cla;
-        plot( dwellaxis, dwellhist{chosenFile,j}, 'k.' ); hold on;
-        hp = plot( fits{chosenFile,j}, 'r');
-        set(hp,'LineWidth',2);
-        %axis( dwellaxis );
-        xlim( [0 12] );
-        legend off;
-        
-        % Plot labels, etc
-        xlabel(gca, 'Time (ms)', 'FontSize',14  );
-        ylabel(gca, 'Num. Still Alive', 'FontSize',14 );
-       
-%         text( histaxis(1)+0.5,0.9*histaxis(4), s, ...
-%               'FontSize',16,'HorizontalAlignment','left', ...
-%               'VerticalAlignment','middle');
+    end %for each state
+end %for each file
 
-    end %for each sample
-    
-    if exist('titles','var'),
-        title( titles{chosenFile} );
-    end
-    
-end %function ShowRates
+linkaxes(ax,'xy');
 
-
-
+% Add a control at the bottom of the GUI for saving the histograms to file.
+uicontrol( 'Style','pushbutton', 'String','Save...', ...
+           'Position',[15 15 75 30], 'Callback',@saveDwelltimes, ...
+           'Parent',hFig );
 
 
 
@@ -345,4 +183,43 @@ end %function...
 
 
 
+%% ------ Save results to file for plotting in Origin
+function saveDwelltimes(hObject,~,~)
+% Callback function for the "save histograms" button in the histogram figure.
+
+% Get histogram data saved in the figure object.
+hFig = get(hObject,'Parent');
+dwellhist = getappdata(hFig,'survival');
+names = getappdata(hFig,'names');
+
+nFiles = numel(names);
+nStates = (size(dwellhist,2)-1)/nFiles;
+
+
+% Ask the user for an output filename.
+[f,p] = uiputfile('*.txt','Select output filename','dwellhist.txt');
+if f==0, return; end
+outFilename = fullfile(p,f);
+
+
+% Output header lines
+fid = fopen(outFilename,'w');
+fprintf(fid,'Time (s)\t');
+
+for state=1:nStates,
+    for i=1:nFiles
+        fprintf(fid,'State%d %s\t',state,names{i});
+    end
+end
+fprintf(fid,'\n');
+
+% Output histogram data
+for i=1:size(dwellhist,1),
+    fprintf( fid, '%d\t', dwellhist(i,:) );
+    fprintf( fid, '\n' );
+end
+
+fclose(fid);
+
+end
 

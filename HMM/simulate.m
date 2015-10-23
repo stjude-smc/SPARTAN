@@ -173,6 +173,8 @@ else
     M = 0;
 end
 
+simTraces = nargout<2;
+
 
 %--- Generate noiseless state trajectory at 1 ms
 dwt  = cell(nTraces, 1);
@@ -228,7 +230,7 @@ parfor (i=1:nTraces,M)
     end
     
     % Don't simulate FRET traces if not requested to save time.
-    if nargout<2, continue; end
+    if simTraces, continue; end
     
     % Generate noiseless FRET traces with time averaging.
     e = 1+cumsum(times./dt);    % dwell end times (continuous frames)
