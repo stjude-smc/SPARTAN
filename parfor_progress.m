@@ -1,156 +1,151 @@
-function parfor_progress(N_init,title)
-% This function is designed to monitor the progress of parfor exactly like
-% having a normal waitbar. But because parfor workers can't use the display
-% or directly communicate, a timer is launched to monitor the progress and
-% update a waitbar within the GUI process. Each time the timer executes, it
-% looks for a 'parfor_progress.txt' file and updates the waitbar according
-% to the contents. Each time an iteration of parfor is completed by any
-% worker, it will updated the 'parfor_progress.txt' file to show that one
-% more iteration has been completed.
+function wbh = parfor_progress(varargin)
+% PARFOR_PROGRESS  Progress bar suitable for multi-process computation.
 %
-% Example:
+%   H = PARFOR_PROGRESS(N,'message', 'property',value, ...) creates a
+%   progress bar that can be updated after each iteration of a PARFOR loop
+%   with N total iterations before completion. A waitbar H is used to
+%   display the progress level. Optional property/value pairs can be used
+%   to change the appearance and behavior of the waitbar.
 %
-%    N=100;    %total number of parfor iterations
-%    parfor_progress(100,'Please wait...'); %create the progress bar
-%    parfor i=1:N
-%        sleep(rand/2);    %computation
-%        parfor_progress;  %update progress (one iteration)
-%    end
-%    parfor_progress(0);   %close waitbar and clean up
+%   PARFOR_PROGRESS(H) updates the progress bar by one iteration.
 %
-% The title can be updated during the loop by passing a string. Note that this
-% will not increase the progress level!
+%   PARFOR_PROGRESS(H,X) updates the progress bar by X iterations.
 %
-%    parfor_progress( 'Starting the next step...' );
+%   PARFOR_PROGRESS(H,'message') updates the task description, but not
+%   progress. This should only be used outside of the PARFOR loop.
 %
-% NOTE: If there are many iterations that are fairly short, calling this
-% function for every iteration may add significantly to execution time. To
-% avoid this, consider calling on every 10th iteration, etc.
-% Just be sure the number of steps in initialization is also reduced!
-%
-% Inspired by the parfor_progress script made by Jeremy Scheff:
-% http://www.mathworks.com/matlabcentral/fileexchange/32101
-
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
-
-
-% This is the file used for interprocess communication (IPC).
-% WARNING: WORKS FOR LOCAL EXECUTION ONLY! (workers must agree on tempdir)
-% If using a cluster use the current directory or a place all workers and the
-% GUI thread can agree on.
-filename = [tempdir 'parfor_progress.txt'];
-
-
-% ============  Executed by worker threads only  ============ %
-% If the function is called with no arguments, this is a worker telling
-% us one parfor iteration has completed.
-if nargin==0,
-%     if ~exist(filename,'file'),
-%         error('parfor_progress was not initialized properly or threads do not agree on IPC file location');
+%   Example:
+%   --------
+%     N=50;    %total number of parfor iterations
+%     h = parfor_progress(N,'Please wait...');  %create the progress bar
+%     parfor i=1:N,
+%         pause(rand);         %computation
+%         parfor_progress(h);  %update progress (one iteration)
 %     end
+%     delete(h);   %close progress bar
+%
+%   Notes:
+%   ------
+%   Each call incurs some overhead. If there are many short iterations,
+%   consider calling every 10th or 100th iteration, passing the number of
+%   iterations completed between calls as a parameter.
+%
+%   The UserData of H is used internally. Do no modify it.
+%   A temporary file is used to record the completion of each iteration.
+%   A timer monitors this file and updates the waitbar accordingly.
+%   This solves the problem of inter-process communication.
+%
+%   Inspired by the parfor_progress script made by Jeremy Scheff:
+%   http://www.mathworks.com/matlabcentral/fileexchange/32101
+%
+%   See also: WAITBAR, PARFOR.
+
+%   Copyright 2015 Cornell University All Rights Reserved.
+
+
+narginchk(1,Inf);
+nargoutchk(0,1);
+
+
+%% Create a new waitbar
+if isnumeric(varargin{1}),
     
-    % Append a 1 to the file, indicating one parfor iteration has completed.
-    f = fopen(filename, 'a');
-    fprintf(f, '1\n');
+    N_init = ceil(varargin{1});
+    
+    % Create the waitbar, passing any additional parameters on.
+    if nargin>=2 && ischar(varargin{2}),
+        wbh = waitbar(0,varargin{2:end});
+    else
+        wbh = waitbar(0,'Please wait...');
+    end
+    
+    % Create inter-process communication file, avoiding existing files.
+    % The first line is the total number of iterations expected.
+    while true,
+        f = sprintf('parfor_progress%d.txt', round(rand*1000));
+        filename = fullfile(tempdir, f);
+        if ~exist(filename,'file'), break; end
+    end
+    
+    f = fopen(filename, 'w');
+    fprintf(f, '%d\n', N_init);
     fclose(f);
-    return;
+
+    % Start a timer to regularly read the file and update the waitbar.
+    timer_handle = timer( 'ExecutionMode','fixedSpacing', 'Period',1.0, ...
+                          'BusyMode','drop', 'Name','parfor_progress', ...
+                          'TimerFcn',@tupdate, 'StopFcn',@tstop, ...
+                          'UserData',{wbh,filename} );
+    start(timer_handle);
+                      
+    % Save internal data in the waitbar's AppData for later calls.
+    setappdata(wbh,'pp_timer_handle',timer_handle);
+    setappdata(wbh,'pp_filename',filename);
 end
 
 
-% ============  Executed by GUI thread only  ============ %
-% These are only persistent within the GUI thread.
-% Valid only because there can only be one parfor loop running at a time.
-persistent timer_handle;  
-persistent wbh;
-
-% If just text is given, update the waitbar title.
-if nargin==1 && ischar(N_init) && ~isempty(timer_handle) ...
-             && isvalid(timer_handle) && ishandle(wbh),
-    timer_update(timer_handle,N_init);
-    return;
-end
+%% Update an existing waitbar
+if isa(varargin{1},'handle'),
+    wbh = varargin{1};
     
-
-% Whether we are closing the progress bar or opening a new one,
-% need to close and clean up the previous progress bar.
-if ~isempty(timer_handle) && isvalid(timer_handle),
-    stop(timer_handle);
-    pause(0.01); %wait for callback to finish
-    delete(timer_handle);
-end
-if ~isempty(wbh) && ishandle(wbh),
-    close(wbh);
-end
-if exist(filename,'file'),
-    delete(filename);
-end
+    % If the internal state is not valid, the waitbar was closed early.
+    if ~isvalid(wbh) || ...
+       ~isappdata(wbh,'pp_timer_handle') || ~isappdata(wbh,'pp_filename'),
+        return;
+    end
     
-% User asked to close the progress bar. Since it was already closed above, exit.
-if N_init==0,
-    return;
+    timer_handle = getappdata(wbh,'pp_timer_handle');
+    filename     = getappdata(wbh,'pp_filename');
+    
+    if ~exist(filename,'file'),
+        return;
+    end
+    
+    % Update progress by one iteration.
+    if nargin==1,
+        fid = fopen(filename, 'a');
+        fprintf(fid, '1\n');
+        fclose(fid);
+    
+    % Update progress by multiple iterations.
+    elseif isnumeric(varargin{2}) && isscalar(varargin{2})
+        fid = fopen(filename, 'a');
+        fprintf(fid, '%d\n',varargin{2});
+        fclose(fid);
+        
+    % Update the waitbar message only. Should not be called by workers.
+    elseif ischar(varargin{2})
+        tupdate(timer_handle,varargin{2});
+        
+    else
+        error('Invalid arguments');
+    end
 end
-
-
-% User asked to create a new progress bar.
-assert( isnumeric(N_init) & N_init>0, 'Invalid initialization' );
-if nargin<2 || isempty(title),
-    title='Please wait...';
-end
-wbh = waitbar( 0, title );
-
-% Initialize the thread communication file.
-f = fopen(filename, 'w');
-fprintf(f, '%d\n', ceil(N_init)); % Save N at the top of file
-fclose(f);
-
-% Start a timer that will update the progress bar every second, reading the
-% IPC file to determine how many iterations have been completed.
-timer_handle = timer( 'ExecutionMode','fixedSpacing', 'Period',1.0, ...
-                      'BusyMode','drop', 'Name','parfor_progress', ...
-                      'TimerFcn',@timer_update, 'UserData',wbh );
-start(timer_handle);
-
 
 
 end %function parfor_process
 
 
 
-function timer_update(timer_handle,title)
-% This function is called at regular intervals by a timer. Each time, it
-% looks for more progress indicators written to the 'parfor_progress.txt'
-% file and updates the waitbar to reflect how many iterations of parfor
-% have been completed so far.
-%
+function tupdate(timer_handle, title)
+% Function called by the timer every second to update the waitbar with the
+% current progress, read from the IPC file.
 
-wbh = get(timer_handle,'UserData');
-filename = fullfile(tempdir,'parfor_progress.txt');
+params = get(timer_handle,'UserData');
+[wbh,filename] = params{:};
 
-% Verify that the IPC file exists. If not, something probably went wrong
-% and the timer has become a zombie and should be killed.
-if ~exist(filename,'file'),
-    warning('Missing parfor_progress IPC file. Stopping timer.');
-    if ~isempty(wbh) && ishandle(wbh),
-        close(wbh);
-    end
+% If the waitbar has been closed, stop the timer and clean up.
+if ~ishandle(wbh) || ~exist(filename,'file'),
     stop(timer_handle);
-    delete(timer_handle);
     return;
 end
 
-% Verify waitbar hasn't been closed. Usually happens when something crashed.
-if ~ishandle(wbh),
-    %warning('Parfor_progress waitbar closed unexpectedly. Stopping timer.');
-    stop(timer_handle);
-    delete(timer_handle);
-    return;
-end
+% Calculate the fraction of completed iterations from IPC file.
+fid = fopen( filename, 'r' );
+progress = fscanf(fid, '%d');
+fclose(fid);
 
-% Load IPC file and count the fraction of iterations that have completed.
-f = fopen( filename, 'r' );
-progress = fscanf(f, '%d');
-fclose(f);
-percent = (length(progress)-1)/progress(1);
+percent = sum(progress(2:end))/progress(1);
 percent = max(0, min(1,percent) );
 
 % Update the waitbar.
@@ -160,5 +155,30 @@ else
     waitbar( percent, wbh );
 end
 
+end %function tupdate
+
+
+
+function tstop(timer_handle, ~)
+% Executed if the timer crashes or if the progress bar is closed.
+
+params = get(timer_handle,'UserData');
+[wbh,filename] = params{:};
+
+if ishandle(wbh),
+    close(wbh);
 end
+
+% Wait for any callback to finish before deleting or it may crash.
+pause(0.01);
+delete(timer_handle);
+
+if exist(filename,'file'),
+    delete(filename);
+end
+    
+end %function tstop
+
+
+
 
