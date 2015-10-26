@@ -33,7 +33,6 @@ function [outFilename,picks,allStats,dataAll]=loadPickSaveTraces( varargin )
 
 % USER TUNABLE PARAMETERS
 options.batchMode = 0;
-options.showWaitbar = 1;
 
 
 %% ---- Process command arguments
@@ -69,6 +68,8 @@ end
 % Verify that the input is a file list
 assert( iscell(files), 'Invalid file list' );
 nFiles = numel(files);
+
+options.showWaitbar = nFiles>1;
 
 
 % Process optional argument list
@@ -173,7 +174,7 @@ for i=1:nFiles,
     
     % Update status bar
     if options.showWaitbar,
-        waitbar(i/nFiles,wbh);
+        waitbar(0.9*i/nFiles,wbh);
     end
     
     nTracesPerFile(i) = size(data.donor,1);
@@ -186,10 +187,6 @@ end
 
 % Save trace data to file
 saveTraces(outFilename,dataAll);
-
-if options.showWaitbar,
-    waitbar(1,wbh,'Finished!');
-end
 
 
 
@@ -262,7 +259,6 @@ fclose(fid);
 
 if options.showWaitbar,
     close(wbh);
-    drawnow;
 end
 
 

@@ -88,7 +88,7 @@ if isstruct( varargin{1} ) || isa(varargin{1},'Traces'),
     
     % Create a waitbar if this will take awhile.
     if useWaitbar && nTraces>400,
-        parfor_progress( ceil(sum(nTraces)/100), 'Loading traces and calculating properties...' );
+        wbh = parfor_progress( sum(nTraces), 'Loading traces and calculating properties...' );
     end
     
     retval = traceStat_data( data,constants );
@@ -101,14 +101,14 @@ elseif iscell( varargin{1} ),
     
     % Create a waitbar if this will take awhile.
     if useWaitbar && sum(nTraces)>400,
-        parfor_progress( ceil(sum(nTraces)/100), 'Loading traces and calculating properties...' );
+        wbh = parfor_progress( sum(nTraces), 'Loading traces and calculating properties...' );
     end
     
     % Load each file and calculate statistics. If files have >5000 traces, they
     % are loaded in chunks to reduce memory usage.
-    for i=1:numel(files),        
-        for k=1:chunkSize:nTraces(i)
-            data = loadTraces( files{i}, (k-1)+(1:chunkSize) );
+    for file=1:numel(files),        
+        for chunk=1:chunkSize:nTraces(file)
+            data = loadTraces( files{file}, (chunk-1)+(1:chunkSize) );
             retval = [ retval traceStat_data( data,constants ) ];
         end
         
@@ -130,10 +130,12 @@ else
 end
     
 % Close the waitbar, if it was created.
-parfor_progress(0);
-
-
+if ishandle(wbh),
+    close(wbh);
 end
+
+
+% end
 
 
 %%
@@ -166,7 +168,7 @@ else
 end
 
 
-if ~exist('constants','var')
+if nargin<2
     constants = cascadeConstants;
 end
 
@@ -234,7 +236,7 @@ parfor (i=1:Ntraces, M)
     if ~isempty(lt) && lt<len,
         retval(i).lifetime = max(2,lt);
     else
-        if mod(i,100)==0, parfor_progress(); end
+        if mod(i,50)==0, parfor_progress(wbh,50); end
         continue; %everything else is hard to calc w/o lifetime!
     end
     
@@ -383,8 +385,8 @@ parfor (i=1:Ntraces, M)
     
     
     % Update waitbar, once every 10 traces to reduce overhead.
-    if mod(i,100)==0,
-        parfor_progress();
+    if mod(i,50)==0,
+        parfor_progress(wbh,50);
     end
 end
 
@@ -392,3 +394,4 @@ end
 end %function traceStat_data
 
 
+end

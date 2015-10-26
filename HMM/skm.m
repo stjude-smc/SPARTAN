@@ -97,7 +97,7 @@ if isfield(params,'seperately') && params.seperately==1,
         % Single-thread execution, if the dataset is small.
         M = 0;
     end
-    parfor_progress(nTraces/10,'Idealizing traces seperately,..');
+    wbh = parfor_progress(nTraces,'Idealizing traces seperately,..');
     
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
@@ -111,10 +111,10 @@ if isfield(params,'seperately') && params.seperately==1,
         LL(n) = newLL(end);
         
         if mod(n,10)==0,
-            parfor_progress();
+            parfor_progress(wbh,10);
         end
     end
-    parfor_progress(0);
+    close(wbh);
     
     offsets = nFrames*((1:nTraces)-1);
 else

@@ -263,7 +263,7 @@ disp(handles.inputdir);
 set(handles.editFilename,'String',handles.inputdir);
 
 % Load the traces files.
-OpenTracesBatch( hObject, handles )
+OpenTracesBatch( hObject, handles );
 
 % END FUNCTION btnOpenDirectory_Callback
 
@@ -280,21 +280,22 @@ function btnBatchMode_Callback(hObject, ~, handles, datapath)
 % Select directory by user interface.
 % A path is given if called from the timer for automatic processing.
 if nargin>=4 && exist(datapath,'dir'),
-    % Get a fresh copy of handles. The one passed in arguments is an old
-    % copy made when the timer was created. Kind of ugly...
-    handles = guidata(handles.chkAutoBatch);
     auto = true;
 else
     % User clicked the "Batch Mode" button directly. Ask for a location.
     datapath=uigetdir;
     if datapath==0, return; end
-    disp(datapath);
     auto = false;
 end
 
 % Get a list of all raw traces files under the current directory.
 % FIXME: for now keeping this not recursive by default.
 trace_files = regexpdir(datapath,'^.*\.rawtraces$');
+
+if numel(trace_files)==0,
+    return;
+end
+
 trace_files = {trace_files.name};
 
 
@@ -358,7 +359,7 @@ setappdata(handles.figure1,'infoStruct', infoStruct);
 clear infoStruct;
 
 % Select traces according to the current criteria.
-PickTraces_Callback(hObject,handles);
+handles = PickTraces_Callback(hObject,handles);
 
 
 % END FUNCTION OpenTracesBatch
@@ -375,11 +376,11 @@ function outfile = SaveTraces_Callback(hObject, ~, handles)
 if f==0,
     outfile = [];
     return;
-end  
-
-% Save picked traces to a new _auto.txt file.
-outfile = fullfile(p,f);
-SaveTraces( handles.outfile, handles );
+else
+    % Save picked traces to a new _auto.txt file.
+    outfile = fullfile(p,f);
+    SaveTraces( outfile, handles );
+end
 
 % Disabling the button as a means of confirming operation success.
 handles.outfile = outfile;
@@ -576,6 +577,8 @@ else
     outfile = handles.outfile;
 end
 
+assert( exist(outfile,'file')~=0 );
+
 % Run makeplots to display FRET contour plot
 if ~isempty(outfile),
     [~,title] = fileparts(outfile);
@@ -585,20 +588,12 @@ end
 
 % END FUNCTION MakeContourPlot_Callback
 
- 
-%----------SAVE CONTOUR PLOT----------
-% --- Executes on button press in SaveContourPlot.
-function SaveContourPlot_Callback(~, ~, ~)
-warning('This function currently disabled...');
-
 
 
 
 %#########################################################################
 %------------------------- INPUT FIELD HANDLING -------------------------%
 %#########################################################################
-
-
 
 %----------MENU OF CONTOUR PLOT SETTINGS----------
 
@@ -708,7 +703,6 @@ fileTimer = timerfind('Name','autotrace_fileTimer');
 if ~isempty(fileTimer),
     stop(fileTimer);
     delete(fileTimer);
-    disp('Timer deleted.');
 end
 
 
@@ -723,14 +717,12 @@ if get(hObject,'Value') == get(hObject,'Max'),
     disp(targetDir);
     
     % Start a thread that will periodically check for new .rawtraces files.
-    disp('Timer started.');
     fileTimer = timer('ExecutionMode','fixedSpacing','StartDelay',1, ...
                       'Name','autotrace_fileTimer',...
                       'TimerFcn', {@updateFileTimer,hObject,targetDir}, ...
                       'StopFcn',{@stopFileTimer,hObject}, ...
                       'Period',2.0, 'BusyMode','drop');
     start(fileTimer);
-
 end %if
 
 % END FUNCTION chkAutoBatch_Callback
@@ -762,7 +754,6 @@ if ~exist(targetDir,'dir'),
     delete(fileTimer);
 end
 
-disp('Timer fired');
 btnBatchMode_Callback( handles.figure1, [], handles, targetDir );
 
 

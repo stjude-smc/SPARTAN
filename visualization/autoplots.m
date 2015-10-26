@@ -23,15 +23,11 @@ sel = questdlg( 'How should files be ordered?','Makeplots order', ...
                 choices{:}, choices{1} );
 mode = find( strcmp(sel,choices) );
 
-% Create the file list the first time
-files = filelist(direct,mode);
-hfig = makeplots( files );
-
-% Create a timer to look for 
+% Create a timer to periodically look for new files and update the figure.
 timer_handle = timer( 'ExecutionMode','fixedSpacing', 'Period',2.0, ...
                       'BusyMode','drop', 'Name',mfilename, ...
                       'TimerFcn',@tupdate, ...% 'StopFcn',@tstop, ...
-                      'UserData',{hfig,direct,mode,files} );
+                      'UserData',{[],direct,mode,{}} );
 start(timer_handle);
 
 % Add a callback to stop the timer if the window is closed?
@@ -45,6 +41,10 @@ function filenames = filelist(direct,mode)
 % Get a list of all auto.traces files in the given directory
 
 files = regexpdir(direct,'\.traces$',false);
+if numel(files)<1
+    filenames = {};
+    return;
+end
 filenames = {files.name};
 
 if nargin>=2 && mode>1,  
@@ -66,27 +66,40 @@ end %FUNCTION FILELIST
 %%
 function tupdate(timer_handle, ~)
 % Look for any new files and remake the plots if there are any.
+% A figure handle of zero indicates no plots have been made yet.
 
 params = get(timer_handle,'UserData');
 [hfig,direct,mode,oldFiles] = params{:};
 
 % Stop the timer if the window has been closed.
-if ~ishandle(hfig),
+if ~isempty(hfig) && ~ishandle(hfig),
     stop(timer_handle);
     delete(timer_handle);
     return;
 end
 
 files = filelist(direct,mode);
-
+    
 % If there are any new files, re-create the plot with the new files.
 % The new plot is positioned in roughly the same location.
-if ~isequal(files,oldFiles),
-    pos = get(hfig,'Position');
-    close(hfig);
+if ~isequal(files,oldFiles) || isempty(hfig),
+    if ~isempty(hfig),
+        pos = get(hfig,'Position');
+        close(hfig);
+    else
+        pos = [];
+    end
     
-    hfig = makeplots(files);
-    set(hfig,'Position',pos);
+    if numel(files)>0,
+        hfig = makeplots(files);
+    else
+        % If no files available, make an empty window as a placeholder.
+        hfig = figure('Name','Autoplots - waiting for data...');
+    end
+    
+    if ~isempty(pos),
+        set(hfig,'Position',pos);
+    end
     
     set(timer_handle, 'UserData', {hfig,direct,mode,files});
 end

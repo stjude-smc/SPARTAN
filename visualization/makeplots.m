@@ -222,10 +222,10 @@ has_dwt = true(nFiles,1);
 
 for i=1:nFiles,
     if ~exist(dwtfnames{i},'file'),
-        dwtfnames = [baseFilenames{i} '.dwt'];
+        dwtfnames{i} = [baseFilenames{i} '.dwt'];
     end
     
-    if ~exist(dwtfnames{i}, 'file'),
+    if ~exist(dwtfnames{i},'file'),
         dwtfnames{i} = [];
         has_dwt(i) = false;
     end

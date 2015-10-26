@@ -25,7 +25,7 @@ ndx = numel(dx_range);
 ndy = numel(dy_range);
 
 if ~params.quiet && ntheta>1,
-    parfor_progress( ntheta,'Searching for the optimal alignment');
+    wbh = parfor_progress( ntheta,'Searching for the optimal alignment');
 end
 
 % Start the matlab thread pool if not already running, unless disabled.
@@ -93,7 +93,7 @@ parfor (t=1:ntheta, M)
     %scores(t,:,:) = scoreTemp;
     
     if ~params.quiet && ntheta>1,
-        parfor_progress();
+        parfor_progress(wbh);
     end
 end
 
@@ -115,7 +115,7 @@ bestAlign.tform = affine2d(T);
 
 
 if ~params.quiet && ntheta>1,
-    parfor_progress(0);
+    close(wbh);
 end
 
 end %FUNCTION alignSearch

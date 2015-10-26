@@ -149,7 +149,7 @@ tic;
 %%
 
 % Generate a set of uniform random numbers for choosing states
-parfor_progress(1.1*nTraces/50,'Simulating state sequences...');
+wbh = parfor_progress(1.1*nTraces,'Simulating state sequences...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
@@ -226,7 +226,7 @@ parfor (i=1:nTraces,M)
     nDwells = numel(states);
     
     if mod(i,50)==0,  %fixme; not very useful with long traces.
-        parfor_progress;
+        parfor_progress(wbh,50);
     end
     
     % Don't simulate FRET traces if not requested to save time.
@@ -271,7 +271,7 @@ end
 %--- Simulate fluorescence traces, adding gaussian read noise
 % Don't simulate traces unless requested to save time.
 if nargout>1,
-    parfor_progress('Simulating noise...');
+    parfor_progress(wbh,'Simulating noise...');
 
 % Add read/background noise to fluorescence and recalculate FRET
 % if stdBackground~=0 || stdPhoton ~=0
@@ -344,8 +344,7 @@ if nargout>1,
     %acceptor = totalIntensity-donor;
 end
 
-
-parfor_progress(0);
+close(wbh);
 disp(toc);
 drawnow;
 

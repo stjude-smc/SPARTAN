@@ -625,7 +625,7 @@ nFrames = movie.nFrames;
 % Start the progress bar before initial setup; indicate something is happening.
 quiet = params.quiet;
 if ~quiet,
-    parfor_progress( nFrames/10,'Extracting traces from movie data');
+    wbh = parfor_progress(nFrames,'Extracting traces from movie data');
 end
 
 % Get x,y coordinates of picked peaks
@@ -710,11 +710,11 @@ parfor (k=1:nFrames, M)
     % Update waitbar. Using mod speeds up the loop, but isn't ideal because
     % indexes are executed somewhat randomly. Reasonably accurate despite this.
     if mod(k,10)==0 && ~quiet,
-        parfor_progress();
+        parfor_progress(wbh,10);
     end
 end
 if ~quiet,
-    parfor_progress('Correcting traces and calculating FRET...');
+    parfor_progress(wbh,'Correcting traces and calculating FRET...');
 end
 
 
@@ -795,7 +795,7 @@ data = correctTraces(data);
 
 
 % ---- Metadata: save various metadata parameters from movie here.
-parfor_progress('Saving traces...');
+parfor_progress(wbh,'Saving traces...');
 
 % Keep only parameters for channels that are being analyzed, not all
 % possible channels in the configuration.
@@ -840,8 +840,8 @@ save_fname = fullfile(p, [name '.rawtraces']);
 
 saveTraces( save_fname, 'traces', data );
 
-if ~quiet,
-    parfor_progress(0);
+if ~quiet && ishandle(wbh),
+    close(wbh);
 end
 % disp(toc);
 

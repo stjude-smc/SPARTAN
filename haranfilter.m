@@ -50,9 +50,9 @@ end
 if nargin>=1 && isa(input,'Traces'),
     % Handle trace data being given instead of a set of files.
     data = copy(input);
-    parfor_progress( data.nTraces, 'Filtering fluorescence data...' );
+    wbh = parfor_progress( data.nTraces, 'Filtering fluorescence data...' );
     data = haranfilter_file( data, M,P,windowSizes );
-    parfor_progress(0);  %close waitbar
+    close(wbh)
     return;
     
 elseif ischar(input),
@@ -67,7 +67,7 @@ end
 
 % Get the total number of traces so we can calibrate the waitbar.
 nTraces = sizeTraces(files);
-parfor_progress( sum(nTraces), 'Filtering fluorescence data...' );
+wbh = parfor_progress( sum(nTraces), 'Filtering fluorescence data...' );
 
 % For each file, filter fluorescence intensity & save result.
 for i=1:numel(files),
@@ -75,7 +75,7 @@ for i=1:numel(files),
     data = loadTraces( files{i} );
     
     % Filter data
-    data = haranfilter_file(data, M,P,windowSizes);
+    data = haranfilter_file(data, M,P,windowSizes, wbh);
     
     % Save resulting data.
     [p,f,ext] = fileparts( files{i} );
@@ -83,7 +83,7 @@ for i=1:numel(files),
     saveTraces( outFilename, data );
 end
 
-parfor_progress(0);  %close waitbar
+close(wbh);
 
 end
 
@@ -92,7 +92,7 @@ end
 
 
 %%
-function data = haranfilter_file( data, M,P,windowSizes )
+function data = haranfilter_file( data, M,P,windowSizes, wbh )
 % Wrapper function to run the filter on a single file.
 
 % Start parallel pool for large data sets, if enabled.
@@ -111,7 +111,7 @@ a = data.acceptor;
 parfor (i=1:data.nTraces, nProc)
 % for i=1:data.nTraces,
     [d(i,:),a(i,:)] = haranfilter3( d(i,:),a(i,:), M,P,windowSizes );
-    parfor_progress();  %update waitbar. consider using mod().
+    parfor_progress(wbh);  %update waitbar. consider using mod().
 end
 data.donor = d;
 data.acceptor = a;
