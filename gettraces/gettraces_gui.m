@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 02-Sep-2015 14:55:40
+% Last Modified by GUIDE v2.5 30-Oct-2015 09:37:42
 
 
 % Begin initialization code - DO NOT EDIT
@@ -770,7 +770,6 @@ filename = regexprep(filename,'-file[0-9]*.[A-Za-z0-9]*$','');
 stkData = getappdata(handles.figure1,'stkData');
 gettraces( stkData, handles.params, filename );
 
-clear stkData;
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 
@@ -969,7 +968,8 @@ set( handles.edScaleAcceptor, 'String',num2str(params.scaleAcceptor) );
 
 if handles.params.geometry==1, %Single-channel recordings
     set( handles.txtDACrosstalk,    'Enable','off', 'String','', 'Visible','on' );
-    set( handles.btnCrosstalk,      'Visible','off'  );
+    set( handles.btnCrosstalk,      'Visible','off' );
+    set( handles.btnScaleAcceptor,  'Visible','off' );
     set( handles.btnSaveAlignment,  'Enable','off' );
     set( handles.btnLoadAlignment,  'Enable','off' );
 else  %Multi-channel recordings
@@ -983,10 +983,15 @@ end
 if handles.params.geometry>1 && numel(params.crosstalk)==1,
     set( handles.txtDACrosstalk, 'Enable','on', 'Visible','on', ...
                                     'String',num2str(params.crosstalk) );
-    set( handles.btnCrosstalk,   'Visible','off'  );
+    set( handles.edScaleAcceptor, 'Enable','on', 'Visible','on', ...
+                                  'String',num2str(params.scaleAcceptor) );
+    set( handles.btnCrosstalk,     'Visible','off'  );
+    set( handles.btnScaleAcceptor, 'Visible','on'  );
 elseif handles.params.geometry>2,
-    set( handles.txtDACrosstalk, 'Visible','off' );
-    set( handles.btnCrosstalk,   'Visible','on'  );
+    set( handles.txtDACrosstalk,   'Visible','off' );
+    set( handles.edScaleAcceptor,  'Visible','off' );
+    set( handles.btnCrosstalk,     'Visible','on'  );
+    set( handles.btnScaleAcceptor, 'Visible','on'  );
 end
 
 
@@ -1180,6 +1185,42 @@ for i=1:(numel(wl)-1),
 end %for each channel pair.
 
 disp(handles.params.crosstalk);
+guidata(hObject,handles);
+
+%end function btnCrosstalk_Callback
+
+
+
+% --- Executes on button press in btnScaleAcceptor.
+function btnScaleAcceptor_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Set values for scaling the fluorescence intensity of acceptor channels so
+% that they all have the same apparent brightness (gamma=1). This button
+% should only be visit for multi-color FRET where there are multiple
+% channels that should be scaled.
+% FIXME: should be extended to factor and donor2 channels??
+
+params = handles.params;
+
+idx = ~cellfun( @isempty, strfind(params.chNames, 'acceptor') );
+if ~isfield(params,'scaleAcceptor') || isempty(params.scaleAcceptor),
+    params.scaleAcceptor = ones(numel(idx), 1);
+end
+
+% Prompt the user for new multipliers for gamma correction.
+prompts = strcat(params.chNames(idx), ':');
+defaults = cellfun(@num2str, num2cell(params.scaleAcceptor), 'UniformOutput',false);
+
+result = inputdlg(prompts, 'Gettraces: scale acceptor', 1, defaults);
+if isempty(result), return; end
+
+% Verify the inputs are valid and save them.
+result = cellfun(@str2double, result);
+if any(isnan(result)),
+    disp('Gettraces: ignoring invalid scale acceptor values.');
+    return;
+end
+
+handles.params.scaleAcceptor = result;
 guidata(hObject,handles);
 
 %end function btnCrosstalk_Callback

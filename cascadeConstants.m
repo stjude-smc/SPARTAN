@@ -144,6 +144,7 @@ p.wavelengths = [532 640 730];
 p.crosstalk   = zeros(4);
 p.crosstalk(1,2) = 0.11;   %Cy3->Cy5 (same as 2-color; was 0.066 with bandpasses in?)
 p.crosstalk(2,3) = 0.04;   %Cy5->Cy7 (0.015 with bandpasses in?)
+p.scaleAcceptor  = [1 1];  %Multiply Cy5 and Cy7 traces by this amount.
 profiles(end+1) = p;
 
 % % For a few movies taken with old versions of Flash Gordon

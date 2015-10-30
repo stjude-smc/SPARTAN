@@ -59,12 +59,6 @@ function autotrace_OpeningFcn(hObject, ~, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to autotrace (see VARARGIN)
 
-% Leave everything alone if the program is already running.
-% This initialization proceedure will confuse the program state.
-if isfield(handles,'criteria'),
-    disp('Autotrace is already running!');
-    return;
-end
 
 %---- PROGRAM CONSTANTS
 constants = cascadeConstants();
@@ -340,6 +334,9 @@ end
 function handles = OpenTracesBatch( hObject, handles )
 % Calculate and display trace statistics for the current list of files.
 
+set(handles.figure1, 'pointer', 'watch')
+drawnow;
+
 % Clear out old data to save memory.
 if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
     rmappdata(handles.figure1,'infoStruct');
@@ -361,6 +358,7 @@ clear infoStruct;
 % Select traces according to the current criteria.
 handles = PickTraces_Callback(hObject,handles);
 
+set(handles.figure1, 'pointer', 'arrow');
 
 % END FUNCTION OpenTracesBatch
 
@@ -392,7 +390,8 @@ guidata(hObject,handles);
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
 function SaveTraces( filename, handles )
 
-set(handles.SaveTraces,'Enable','off');
+set(handles.figure1, 'pointer', 'watch')
+drawnow;
 
 % Build list of trace indexes in each file
 picks = handles.inds_picked;
@@ -414,6 +413,9 @@ options.outFilename = filename;
 
 loadPickSaveTraces( handles.inputfiles, handles.criteria, options );
 
+set(handles.figure1, 'pointer', 'arrow');
+set(handles.SaveTraces,'Enable','off');
+
 
 % END FUNCTION SaveTraces_Callback
 
@@ -424,6 +426,14 @@ loadPickSaveTraces( handles.inputfiles, handles.criteria, options );
 % --- Executes on button press in btnSaveProperties.
 function btnSaveProperties_Callback(hObject, ~, handles)
 
+% Get the output filename fromt he user
+[p,f] = fileparts( handles.outfile );
+filename = fullfile(p, [f '_prop.txt']);
+
+[f,p] = uiputfile('.txt','Save statistics as:',filename);
+if f==0,  return;  end
+filename = fullfile(p,f);
+
 % Retrieve trace statistics, extract to matrix
 stats = getappdata(handles.figure1,'infoStruct');
 stats = stats(handles.inds_picked);
@@ -433,8 +443,6 @@ data = squeeze(data);
 names = fieldnames(stats);
 
 % Write column headers
-[p,f] = fileparts( handles.outfile );
-filename = fullfile(p, [f '_prop.txt']);
 fid = fopen( filename, 'w' );
 fprintf( fid, '%s\t', names{:} );
 fprintf( fid, '\n' );
@@ -624,7 +632,7 @@ if strcmp(statToPlot,'corr'),
     bins = -1:0.1:1;
     statDecimals = '%.2f';
 else
-     bins = handles.nHistBins; %let hist choose N bin centers.
+    bins = handles.nHistBins; %let hist choose N bin centers.
     statDecimals = '%.1f';
 end
 

@@ -152,8 +152,6 @@ handles.filename = [handles.datapath handles.datafile];
 % Load the file and fully initialize sorttraces.
 OpenTracesFile( handles.filename, handles );
 
-
-% guidata(hObject, handles);
 % END FUNCTION btnOpen_Callback
 
 
@@ -683,7 +681,7 @@ set(handles.btnSaveInPlace,'Enable','off');
 
 
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
-function btnSubBoth_Callback(hObject, ~, handles, mode) %#ok<DEFNU>
+function btnSubBoth_Callback(~, ~, handles, mode) %#ok<DEFNU>
 % Subtract fluorescence background from the current x-axis region
 % (presumably zoomed to a region after photobleaching). All of the
 % subtraction buttons are handled with this one function. The mode
@@ -753,8 +751,9 @@ else
     set(handles.btnSubUndo,'Enable','off');    %disable undo
 end
 
-handles = updateTraceData( handles );
-guidata(hObject,handles);
+updateTraceData( handles );
+
+% END FUNCTION sldCrosstalk_Callback
 
 
 
@@ -775,8 +774,9 @@ handles.crosstalk(mol,ch) = get(hObject,'Value');
 name = sprintf('edCrosstalk%d',ch);
 set( handles.(name), 'String',sprintf('%.3f',handles.crosstalk(mol,ch)) );
 
-handles = updateTraceData( handles );
-guidata(hObject,handles);
+updateTraceData( handles );
+
+% END FUNCTION sldCrosstalk_Callback
 
 
 
@@ -789,12 +789,15 @@ crosstalk = str2double( get(hObject,'String') );
 
 name = sprintf('sldCrosstalk%d',ch);  %slider control name
 
-% Restrict value to the range of the slider to prevent errors.
-% FIXME: changing the box should change the scale of the slider, within reason.
+% Adjust slider range to contain the new value.
 sldMax = get( handles.(name), 'max' );
 sldMin = get( handles.(name), 'min' );
-crosstalk = max(crosstalk,sldMin);
-crosstalk = min(crosstalk,sldMax);
+
+if crosstalk<sldMin,
+    set( handles.(name), 'min', crosstalk );
+elseif crosstalk>sldMax
+    set( handles.(name), 'max', crosstalk );
+end
 
 set( handles.(name), 'Value',crosstalk );
 
@@ -817,8 +820,9 @@ handles.fretThreshold(mol) = get(hObject,'Value');
 set(handles.edThreshold,'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 
 % Plot data with new threshold value
-handles = updateTraceData( handles );
-guidata(hObject,handles);
+updateTraceData( handles );
+
+% END FUNCTION sldThreshold_Callback
 
 
 
@@ -839,9 +843,9 @@ set( handles.sldThreshold, 'max', sldMax );
 set( handles.sldThreshold, 'Value', handles.fretThreshold(mol) );
 
 % Plot data with new threshold value
-handles = updateTraceData( handles );
-guidata(hObject,handles);
+updateTraceData( handles );
 
+% END FUNCTION edThreshold_Callback
 
 
 
@@ -858,12 +862,13 @@ name = sprintf('sldGamma%d',ch);  %slider control name
 
 gamma = str2double( get(hObject,'String') );
 
-% Restrict value to the range of the slider to prevent errors.
-% FIXME: changing the box should change the scale of the slider, within reason.
+% Adjust slider range to contain the new value.
 sldMax = get( handles.(name), 'max' );
 sldMin = get( handles.(name), 'min' );
 gamma = max(gamma,sldMin);
-gamma = min(gamma,sldMax);
+if gamma>sldMax,
+    set( handles.(name), 'max', gamma );
+end
 
 set( handles.(name), 'Value',gamma );
 
@@ -891,8 +896,7 @@ handles.gamma(mol,ch+1) = newGamma;
 % Save and display the result
 set( handles.(name), 'String',sprintf('%.2f',newGamma) );
 
-handles = updateTraceData( handles );
-guidata(hObject,handles);
+updateTraceData( handles );
 
 % END FUNCTION sldGamma_Callback
 
@@ -914,7 +918,6 @@ if strcmp(a,'OK'),
 end
 
 % Update GUI controls and redraw the trace.
-guidata(hObject,handles);
 editGoTo_Callback( hObject, [], handles );
 
 % END FUNCTION btnResetAllCorrections_Callback
@@ -922,9 +925,9 @@ editGoTo_Callback( hObject, [], handles );
 
 
 function handles = updateTraceData( handles )
-% Recalculate FRET and stats. This is called following any changes made to
-% the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
-% threshold.
+% Recalculate FRET, update plots, and save GUI data (handles).
+% This is called following any changes made to the fluorescence traces
+% (bg subtraction, crosstalk, etc) or the FRET threshold.
 
 handles.adjusted(handles.molecule_no) = true;
 
@@ -934,6 +937,8 @@ if any( ~cellfun(@isempty,handles.bins) ),
     set(handles.btnSave,'Enable','on');
 end
 set(handles.btnSaveInPlace,'Enable','on');
+guidata(handles.figure1, handles);
+
 plotter(handles);
 
 % END FUNCTION updateTraceData

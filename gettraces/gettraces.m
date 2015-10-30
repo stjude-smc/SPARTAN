@@ -544,8 +544,7 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
     if ~( all([newAlign.dx]==0) && all([newAlign.dy]==0) && all([newAlign.theta]==0) ),
         % Give a warning for poor quality alignment.
         if any( quality<1.1 & quality>0 ),
-            warning('gettraces:lowConfidenceAlignment', ...
-                    'Low confidence alignment. Parameters are out of range or data quality is poor.');
+            disp('Gettraces: Low confidence alignment. Parameters are out of range or data quality is poor.');
         end
         
         % Pick peaks from the aligned, total intensity image.
@@ -773,25 +772,23 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     end
 end
 
-% Scale acceptor channel to correct for unequal brightness (gamma is not 1)
-if isfield(params,'scaleAcceptor') && ~isempty(params.scaleAcceptor),
-    data.acceptor = data.acceptor*params.scaleAcceptor;
-    data.fileMetadata(1).scaleAcceptor = params.scaleAcceptor;
-end
-
-% If this is multi-color FRET data and the metadata doesn't specify how FRET
-% should be calculated, ask the user for clarification.
-% NOTE: this is a temporary field and will be replaced by something more general
-% in a future version.
-if data.isChannel('acceptor2'),
-    result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
-                    '3-color FRET calculation','Yes','No','Cancel','No');
-    if strcmp(result,'Cancel'),  return;  end
-    data.fileMetadata(1).isTandem3 = double( strcmp(result,'Yes') );
-end
-
 % Subtract background and calculate FRET
 data = correctTraces(data);
+
+% Scale acceptor channel to correct for unequal brightness (gamma is not 1).
+% Highly scaled (dim) channels can confuse the background subtraction method,
+% so this must be done after background subtraction.
+if isfield(params,'scaleAcceptor') && ~isempty(params.scaleAcceptor),
+    data.fileMetadata(1).scaleAcceptor = params.scaleAcceptor;
+    
+    data.acceptor = data.acceptor*params.scaleAcceptor(1);
+    for i=2:numel(params.scaleAcceptor),
+        name = sprintf('acceptor%d',i);
+        data.(name) = data.(name)*params.scaleAcceptor(i);
+    end
+    
+    data.recalculateFret();
+end
 
 
 % ---- Metadata: save various metadata parameters from movie here.

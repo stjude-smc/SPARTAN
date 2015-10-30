@@ -69,7 +69,7 @@ end
 assert( iscell(files), 'Invalid file list' );
 nFiles = numel(files);
 
-options.showWaitbar = nFiles>1;
+% options.showWaitbar = nFiles>1;
 
 
 % Process optional argument list
@@ -94,7 +94,6 @@ end
 
 %% ---- Load each file, select traces, and add it to output.
 
-
 % Open file handles for output
 if isfield(options,'outFilename'),
     outFilename = options.outFilename;
@@ -105,8 +104,10 @@ end
 
 
 % Process each file individually, adding the selected traces to output.
-if options.showWaitbar,
+if isfield(options,'showWaitbar') && options.showWaitbar,
     wbh = waitbar(0,'Selecting and saving traces according to criteria...');
+else
+    wbh = [];
 end
 
 
@@ -173,7 +174,7 @@ for i=1:nFiles,
     end
     
     % Update status bar
-    if options.showWaitbar,
+    if ~isempty(wbh) && ishandle(wbh),
         waitbar(0.9*i/nFiles,wbh);
     end
     
@@ -257,7 +258,7 @@ fprintf(fid,'\n\n');
 fclose(fid);
 
 
-if options.showWaitbar,
+if ~isempty(wbh) && ishandle(wbh),
     close(wbh);
 end
 

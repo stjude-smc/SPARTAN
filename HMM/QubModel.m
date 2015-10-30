@@ -272,6 +272,11 @@ methods
     % FIXME: this displays the model /as it was originally/, but the
     % parameters can be modified after loading!
         
+    if nargin<2,
+        figure;
+        parent = axes;
+    end
+    
     % Verify the model makes sense before trying to draw it.
     model.verify();
     tree = model.qubTree;
@@ -290,10 +295,6 @@ methods
     lineFormat = {'Parent',parent, 'Color','k', 'LineWidth',linewidth };
     
     % Create a window for the model, or use one if given.
-    if nargin<2,
-        figure;
-        parent = axes;
-    end
     set(gcf,'WindowButtonMotionFcn',@figButtonMotion,'WindowButtonUpFcn',@dropObject); %FIXME
     draggedBox = [];  %no box is being dragged right now.
     cla; hold on;

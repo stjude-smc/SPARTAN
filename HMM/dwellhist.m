@@ -32,7 +32,7 @@ function [meanTime,dwellhist,names] = dwellhist( dwtfilename, inputParams )
 %% ---- USER TUNABLE PARAMETERS ----
 
 % Sine-sigworth transformation.
-params.logX = false;
+params.logX = true;
 nbins = 25;  %only for log-X.
 
 % Remove blinking events (dwells in state 1)
@@ -87,7 +87,7 @@ end
 if ~all(sampling==sampling(1)),
     warning('Mismatched time resolution of input files');
 end
-sampling = sampling(1);
+sampling = sampling(1)/1000;  %convert to seconds.
 
 nStates = cellfun(@numel, dwts);
 if ~all(nStates==nStates(1)),
@@ -113,7 +113,7 @@ end
 % Create x-axis bins for histc. Note that these are BIN EDGES!
 if ~params.logX,
     % Linear X-axis in seconds.
-    dwellaxis = 0:sampling/1000:maxTime;
+    dwellaxis = 0:sampling:maxTime;
     dwellhist = zeros( numel(dwellaxis), 1+(nStates*nFiles) );
     dwellhist(:,1) = dwellaxis;
 else
@@ -143,7 +143,7 @@ for file=1:nFiles,
         
         % Make log-scale Sine-Sigworth plot (linear ordinate, log10 ms X).
         else
-            counts = histc( log10(1000*dwellc)', dwellaxis );
+            counts = histc( log10(dwellc)', dwellaxis );
             histdata = counts./dlt;  %normalize by log-space bin size
             histdata = histdata/sum(histdata);  %normalize to 1
         end
@@ -176,11 +176,11 @@ end
 
 % Find a good zoom axis range for viewing all of the histograms.
 if ~params.logX,
-    xmax = round( 4* max(meanTime(:)) );
+    xmax = 4* max(meanTime(:));
     xtitle = 'Time (s)';
 else
     xmax = dwellaxis(end);
-    xtitle = 'Time (Log10 ms)';
+    xtitle = 'Time (Log10 s)';
 end
 
 h = dwellhist(:,2:end);
@@ -203,7 +203,11 @@ for state=1:nStates,
     xlim( [dwellaxis(1) xmax] );
     ylim( [0 ymax] );
 
-    ylabel('Dwell Survival (%)' );
+    if ~params.logX,
+        ylabel('Dwell Survival (%)' );
+    else
+        ylabel('Counts (%)');
+    end
     if state==nStates,
         xlabel(xtitle);
     end

@@ -117,7 +117,7 @@ methods
                 end
             end
 
-            this.fileMetadata.fretGeometry = fretGeometry;
+            this.fileMetadata(1).fretGeometry = fretGeometry;
             changed = true;
         end
      end

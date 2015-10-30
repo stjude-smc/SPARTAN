@@ -37,6 +37,7 @@ function [retval,nTraces] = traceStat( varargin )
 constants = cascadeConstants;  %get from varargin?
 chunkSize = 5000;  %maximum number of traces to load at once
 useWaitbar = ~( isfield(constants,'quiet') && constants.quiet );
+wbh = [];
 
 
 % If no data given, return names of filtering criteria.
@@ -130,7 +131,7 @@ else
 end
     
 % Close the waitbar, if it was created.
-if ishandle(wbh),
+if ~isempty(wbh) && ishandle(wbh),
     close(wbh);
 end
 
