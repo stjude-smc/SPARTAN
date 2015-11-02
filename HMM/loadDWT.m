@@ -40,7 +40,7 @@ while 1,
     segid = data{1};
     if numel(segid) == 0, break; end
     
-    %ndwells   = data{2};
+    ndwells   = data{2};
     sampling  = data{3};
     startTime = data{4};
     %nClasses  = data{5};
@@ -50,16 +50,14 @@ while 1,
     modelOut = zeros( numel(m)/2, 2 );
     modelOut(:,1) = m(1:2:end); %FRET values
     modelOut(:,2) = m(2:2:end); %standard deviations
-    model{segid} = modelOut;
+    model{segid} = modelOut; %#ok<AGROW>
     nStates(segid) = numel(m)/2;
     
     offsets(segid) = startTime/sampling;  %segment start time (frames)
     
-    % Load data within segment
-    data = textscan(fid, '%f%f');
-    
-    % Save dwells in segment
-    dwells{segid} = [data{1}+1 data{2}/sampling];
+    % Load dwell-times in this segment
+    data = fscanf(fid, '%f', [2 ndwells])';
+    dwells{segid} = [data(:,1)+1 data(:,2)/sampling]; %#ok<AGROW>
     
 end
 fclose(fid);
@@ -73,7 +71,7 @@ if numel( unique(nStates) )==1,
 end
 
 if ~exist('sampling','var'),
-    error('Malformed DWT file');
+    error('Malformed or empty DWT file');
 end
 
 end  % function LoadDWT

@@ -263,6 +263,9 @@ constants.defaultAutotraceCriteria = criteria;
 %% ======================  Makeplots Default Settings ====================== %%
 % ---- Constants for display/plotting functions (makeplots)
 
+% Name of the field to use for FRET data. (could instead be fret2, etc)
+options.fretField = 'fret';
+
 % default population FRET contour plot paramters (cplot.m)
 options.contour_bin_size = 0.03;     % FRET bin size
 options.cplot_scale_factor = 8;      % contour level scaling; depends on bin size

@@ -1,10 +1,13 @@
-function tdp=tdplot(dwtfilename,traces_input,varargin)
+function tdp = tdplot(dwt_input, traces_input, varargin)
 % TDPLOT Transition density (TD) plot
 %
 %   tdp = tdplot(dwtfname,tracefname) creates a transition density plot
 %   histogram tdp, which is a two-dimensional contour plot of the FRET value
 %   before (x) and after (y) each transition between distinct states.
 %   Use tplot(tdp) to display the actual plot.
+%
+%   tdp = tdplot(IDL, DATA) creates a TD plot using the  state assignment matrix
+%   (idealization) IDL and Traces object DATA.
 %
 %   ... = tdplot(...,options) specifies additional display options as a struct.
 % 
@@ -19,6 +22,7 @@ function tdp=tdplot(dwtfilename,traces_input,varargin)
 %      truncate_tdplot = true: only consider the first contour_length frames.
 %      contour_length: value used above, also shared by makeplots.
 %      fret_axis: vector of histogram bin centers.
+%      fretField: name of the field in the Traces object to use.
 %   
 %   See also: tplot, statehist, makeplots.
 
@@ -27,44 +31,11 @@ function tdp=tdplot(dwtfilename,traces_input,varargin)
 % Performance note: textscan > load > dlmread for speed
 
 
-%% Process input parameters and load idealization and trace data.
-
-% Get filenames from user if not passed
-if nargin<2    
-    dwtfilename  = getFile('*.dwt','Choose QuB dwt file:');
-    if isempty(dwtfilename), return; end
-    
-    traces_input = getFile('*.traces','Choose an traces file:');
-    if isempty(traces_input), return; end
-end
-
-
-% Load FRET data
-if ischar(traces_input),
-    d = loadTraces(traces_input);
-    data = d.fret;
-    
-elseif isstruct(traces_input)
-    data = traces_input.fret;
-    
-elseif isnumeric(traces_input)
-    data = traces_input;
-    
-else
-    error('tdplot: Invalid traces input');
-end
-
-
-% Load dwell-times and convert to a state assignment matrix (idealization).
-[dwt,sampling,offsets] = loadDWT(dwtfilename);
-[nTraces,nFrames] = size(data);
-idl = dwtToIdl(dwt,offsets,nFrames,nTraces);
-
+%% Process input parameters
 
 % Load default values for plotting options.
 constants = cascadeConstants;
 options = constants.defaultMakeplotsOptions;
-
 
 % Modify options if they are specified in the argument list.
 if nargin==3 && isstruct(varargin{1}),
@@ -73,8 +44,51 @@ if nargin==3 && isstruct(varargin{1}),
 elseif nargin>3 && mod(numel(varargin),2)==0,
     options = mergestruct( options, struct(varargin{:}) );
     
-else
+elseif nargin>=3
     error('Invalid list of optional parmeters');
+end
+
+
+%% Load FRET and idealizationd data
+
+% Get filenames from user if not passed
+if nargin<2    
+    dwt_input  = getFile('*.dwt','Choose QuB dwt file:');
+    if isempty(dwt_input), return; end
+    
+    traces_input = getFile('*.traces','Choose an traces file:');
+    if isempty(traces_input), return; end
+end
+
+
+% Load FRET data
+if ischar(traces_input),
+    traces_input = loadTraces(traces_input);
+    
+elseif ~isa(traces_input,'TracesFret')
+    error('tdplot: Invalid traces input');
+end
+
+if isfield(options,'fretField') && ~isempty(options.fretField),
+    data = traces_input.(options.fretField);
+else
+    data = traces_input.fret;
+end
+
+sampling = traces_input.sampling;
+[nTraces,nFrames] = size(data);
+
+
+% Load dwell-times and convert to a state assignment matrix (idealization).
+if ischar(dwt_input),
+    [dwt,sampling2,offsets] = loadDWT(dwt_input);
+    if sampling~=sampling2,
+        warning('Data and idealization time resolution mismatch');
+    end
+    idl = dwtToIdl(dwt,offsets,nFrames,nTraces);
+
+elseif isnumeric(dwt_input),
+    idl = dwt_input;
 end
 
 
@@ -106,8 +120,9 @@ for i=1:nTraces,
     
     % Optional: remove dwells in the dark state, assumed to be state 1.
     if isfield(options,'hideBlinksInTDPlots') && options.hideBlinksInTDPlots,
+        fretData = fretData( idlTrace>1 );
         idlTrace = idlTrace( idlTrace>1 );
-        fretData = fretTrace( idlTrace>1 );
+        if isempty(fretData), continue; end
     end
     
     % Convert back to a dwell-time series.
@@ -129,7 +144,8 @@ for i=1:nTraces,
     % For each dwell, calculate the mean FRET value.
     fret = zeros(ndwells,1);
     for j=1:ndwells,
-        fret(j) = mean(  fretData( ti(j):tf(j) )  );
+        dwell = fretData(ti(j):tf(j));
+        fret(j) = sum(dwell)/numel(dwell);
     end
     
     % Place FRET values into contour bins.

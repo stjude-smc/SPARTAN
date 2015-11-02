@@ -62,7 +62,7 @@ end
 
 % Other options (passed as a structure)
 if nargin>=3,
-    options = catstruct( options, varargin{3}, 'sorted' );
+    options = catstruct( options, varargin{1}, 'sorted' );
 end
 
 options.contour_bounds = [1 options.contour_length options.fretRange];
@@ -81,6 +81,7 @@ handles.options = options;
 handles.baseFilenames = baseFilenames;
 handles.dataFilenames = dataFilenames;
 handles.titles = titles;
+handles.hFig = h1;
 
 plotData(h1,handles);
 
@@ -152,27 +153,36 @@ function changeDisplaySettings(hObject,~)
 % This is equivalent to changing pophist_sumlen in cascadeConstants.
 
 handles = guidata(hObject);
-options = handles.options;
+opt = handles.options;
 
 % 1. Get the new value from the user.
-answer = inputdlg( {'Contour length (frames):','Contour offset (frames):', ...
-                    'Contour scaling factor:','TD plot scaling factor:' }, ...
-         'Change display settings', 1, ...
-        { num2str(options.contour_length),     num2str(options.pophist_offset), ...
-          num2str(options.cplot_scale_factor), num2str(options.tdp_max) }  );
+prompt = {'Contour length (frames):', 'Contour offset (frames):', ...
+          'Contour scaling factor:', 'FRET bin size:', ...
+          'Hide photobleaching:', 'TD plot scaling factor:', ...
+          'Hide blinks in TD plots', 'Truncate TD plot'};
+      
+fields = {'contour_length', 'pophist_offset', ...
+          'cplot_scale_factor', 'contour_bin_size', ...
+          'cplot_remove_bleached', 'tdp_max', ...
+          'hideBlinksInTDPlots', 'truncate_tdplot' };
+defaults = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
 
+answer = inputdlg(prompt, 'Change display settings', 1, defaults);
 if isempty(answer), return; end  %user hit cancel
 
-
 % 2. Save new parameter values from user.
-persistent_options.contour_length = str2double( answer{1} );
-persistent_options.pophist_offset = str2double( answer{2} );
-persistent_options.cplot_scale_factor = str2double( answer{3} );
-persistent_options.tdp_max            = str2double( answer{4} );
+for i=1:numel(answer),
+    original = opt.(fields{i});
+    opt.(fields{i}) = str2double(answer{i});
+    
+    if islogical(original)
+        opt.(fields{i}) = logical( opt.(fields{i}) );
+    end
+end
 
-options = catstruct( options, persistent_options, 'sorted' );
-options.contour_bounds = [1 options.contour_length options.fretRange];
-handles.options = options;
+opt.fret_axis = -0.1:opt.contour_bin_size:1.2;
+opt.contour_bounds = [1 opt.contour_length opt.fretRange];
+handles.options = opt;
 
 % 3. Redraw plots.
 plotData(hObject,handles);
@@ -206,6 +216,8 @@ end %FUNCTION changeDisplaySettings
 function plotData(hObject,handles)
 % This is the function that actually loads the data, calculates the plots,
 % and displays them.
+
+set(handles.hFig,'pointer','watch'); drawnow;
 
 options = handles.options;
 dataFilenames = handles.dataFilenames;
@@ -246,6 +258,15 @@ cpdataAll    = cell(nFiles,1); %contour plots, as displayed
 shistAll     = cell(nFiles,1); %state occupancy histograms
 tdpAll       = cell(nFiles,1); %td plots
 
+% load idealization data from previous calls if possible.
+% Warning: this could be too large to fit in memory?
+if isfield(handles,'idl'),
+    idl = handles.idl;
+else
+    idl = cell(nFiles,1);
+end
+
+
 
 %%
 for k=1:nFiles,
@@ -263,11 +284,10 @@ for k=1:nFiles,
                      'Select FRET channel to use','fret','fret2','Cancel', 'fret');
         if strcmp(a,'Cancel'), return; end
         fret = data.(a);
+        options.fretField = a;
     else
         fret = data.fret;
     end
-    
-    clear data;
     
     
     %% ============== DRAW POPULATION CONTOUR HISTOGRAMS ============== 
@@ -290,17 +310,14 @@ for k=1:nFiles,
     
     % Draw the contour plot (which may be time-binned)
     % FIXME: we are passing the default options
-    cpdata = cplot( ax, cplotdata, options.contour_bounds, options );
-    cpdataAll{k} = cpdata;
+    cpdataAll{k} = cplot( ax, cplotdata, options.contour_bounds, options );
     
     % Formatting
-    title( titles{k}, 'FontSize',12, 'FontWeight','bold', 'Parent',ax );
+    title( titles{k}, 'Parent',ax );
     
     if ~options.hideText,
         text( 0.90*options.contour_length, 0.94*options.contour_bounds(4), ...
-              sprintf('N=%d', N(k)), ...
-              'FontWeight','bold', 'FontSize',12, ...
-              'HorizontalAlignment','right', 'Parent',ax );
+              sprintf('N=%d', N(k)), 'HorizontalAlignment','right', 'Parent',ax );
     end
     
     if k==1,
@@ -314,14 +331,20 @@ for k=1:nFiles,
     ylim( ax, options.fretRange );
     set(ax,'YGrid','on');
     box(ax,'on');
+    drawnow;
     
     
     
     %% ================ DRAW STATE OCCUPANCY HISTOGRAMS ================ 
    
+    if has_dwt(k) && isempty(idl{k}),
+        [dwt,~,offsets] = loadDWT(dwtfnames{k});
+        idl{k} = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+    end
+    
     %---- GENERATE STATE OCCUPANCY HISTOGRAMS
     if ~options.no_statehist && has_dwt(k),
-        shist = statehist( dwtfnames{k}, fret, options );        
+        shist = statehist( idl{k}, data, options );        
         shistAll{k} = shist;
     end
     
@@ -399,6 +422,7 @@ for k=1:nFiles,
     set(ax,'YGrid','on');
     xlim( ax,options.fretRange );
     box(ax,'on');
+    drawnow;
     
     
     
@@ -410,7 +434,7 @@ for k=1:nFiles,
     
     
     %---- LOAD TDPLOT DATA ----
-    tdp = tdplot(dwtfnames{k},fret,options);
+    tdp = tdplot(idl{k}, data, options);
     assert( tdp(1,1) ~= 0, 'Invalid TDP' );
     
     % If total time (normalization factor) is saved in TD plot, use it to
@@ -440,10 +464,9 @@ for k=1:nFiles,
     
     % Formatting
     if ~options.hideText,
-        text( 0.43,0.8, sprintf('N_t=%.0f',t), 'FontSize',12, ...
-              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdax(k) );
-        text( 0.43,0.0, sprintf('t/s=%.2f',t/total_time), 'FontSize',12, ...
-              'FontWeight','bold', 'HorizontalAlignment','center', 'Parent',tdax(k) );
+        textOpt = {'HorizontalAlignment','center', 'Parent',tdax(k)};
+        text( 0.43,0.8, sprintf('N_t=%.0f',t),            textOpt{:} );
+        text( 0.43,0.0, sprintf('t/s=%.2f',t/total_time), textOpt{:} );
     end
     grid(tdax(k),'on');
 
@@ -462,6 +485,7 @@ for k=1:nFiles,
 end  %for each file.
 
 
+
 %% =================== FINISH UP =================== 
 
 % Save results back to handles object
@@ -469,6 +493,7 @@ handles.cplotdataAll = cplotdataAll;
 handles.cpdataAll = cpdataAll;
 handles.shistAll = shistAll;
 handles.tdpAll = tdpAll;
+handles.idl = idl;
 
 guidata(hObject,handles);
 
@@ -483,7 +508,8 @@ if any(tdax),
     linkaxes( tdax(tdax~=0), 'xy' );
 end
 
-    
+
+set(handles.hFig,'pointer','arrow'); drawnow;
 
 end  % function plotData
 

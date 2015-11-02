@@ -624,7 +624,7 @@ nFrames = movie.nFrames;
 % Start the progress bar before initial setup; indicate something is happening.
 quiet = params.quiet;
 if ~quiet,
-    wbh = parfor_progress(nFrames,'Extracting traces from movie data');
+    wbh = parfor_progress(1.1*nFrames,'Extracting traces from movie data');
 end
 
 % Get x,y coordinates of picked peaks
@@ -792,6 +792,7 @@ end
 
 
 % ---- Metadata: save various metadata parameters from movie here.
+parfor_progress(wbh,0.1*nFrames);
 parfor_progress(wbh,'Saving traces...');
 
 % Keep only parameters for channels that are being analyzed, not all
