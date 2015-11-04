@@ -1,52 +1,68 @@
-function forQuB( files )
-% FORQUB.m converts traces files from autotrace or sorttraces into a
-% format that can be imported into QuB. If multiple files are selected, data
-% are combined from each file and saved to a single, merged .qub.txt file.
-% To convert each trace seperately, use forQuB2.
+function forQuB( files, fretCh )
+%FORQUB   Saves FRET data in the .qub.txt format for importing into QuB
+%
+%   forQuB( FILES ) loads each .traces file in the cell array FILES and saves
+%   a corresponding .qub.txt file containing just the fret data that can be
+%   loaded into QuB.
+%
+%   forQuB( FILES, CH ) saves the data channel CH (typically fret or fret2).
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-% Get file names from user (all at once to save time)
+if nargin<2,
+    fretCh = '';
+end
+
+% Get file names from user
 if nargin<1,
-    files = getFiles([],'Select traces files to convert');
+    files = getFiles();
 end
-
-% Load the traces files
-fret = [];
-for i=1:length(files),
-    data = loadTraces(files{i});
-    fret = [fret ; data.fret];
+if ischar(files),
+    files={files};
 end
+nFiles = numel(files);
 
 
-% Create or get an output filename
-[p,n] = fileparts(files{i});
-outfile = fullfile(p, [n '.qub.txt'])
-
-if length(files)>1
-    outname=0;
-    while outname==0,
-        [outname outpath]=uiputfile(outfile,'Save new file as:');
-        disp(outname);
+for i=1:nFiles,
+    data = loadTraces( files{i} );
+    [p,f] = fileparts(files{i});
+    
+    % For multi-color imaging, ask the user which channel to save.
+    % Only ask this once to simplify saving many files.
+    if isempty(fretCh) && isChannel(data,'fret2'),
+        fretNames = data.channelNames(data.idxFret);
+        a = questdlg('Which FRET channel should be saved?', ...
+                     'forQuB',fretNames{:},'Cancel', 'fret');
+        if strcmp(a,'Cancel'), return; end
+        fretCh = a;
     end
-    outfile=strcat(outpath,outname);
-end
+    
+    if isChannel(data,'fret2'),
+        f = [f '_' fretCh];  %#ok<AGROW>
+        fret = data.(fretCh)';
+    else
+        fret = data.fret';
+    end
+    
+    % Remove extreme values that can confuse QuB.
+    fret( fret<-0.5 ) = -0.5;
+    fret( fret>1 ) = 1;
 
-
-% Save the data to file
-data = fret';
-data( data<-0.5 ) = -0.5;
-data( data>1 ) = 1;
-
-fid2=fopen(outfile,'w');
-fprintf(fid2,'%f\n', data(:) );
-fclose(fid2);
-
-
-Ntraces = size(fret,1);
-disp( sprintf('%d total FRET traces processed.',Ntraces) );
-
-
+    % Get an output filename. Channel name is appended for multi-color FRET.
+    outfile = fullfile(p, [f '.qub.txt']);
+    
+    if nFiles==1,
+        [f,p] = uiputfile(outfile, 'Save .qub.txt file');
+        if ~ischar(f), return; end
+        outfile = fullfile(p,f);
+    end
+    
+    % Save the data to file
+    fid = fopen(outfile, 'w');
+    fprintf(fid, '%f\n', fret(:));
+    fclose(fid);
+    
+    fprintf('Saved %d traces in %s\n', size(fret,2), outfile);
 end
 

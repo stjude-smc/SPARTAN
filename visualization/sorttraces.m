@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 15-Jun-2015 12:46:03
+% Last Modified by GUIDE v2.5 04-Nov-2015 15:05:04
 
 
 % Begin initialization code - DO NOT EDIT
@@ -59,46 +59,33 @@ if ~isfield(handles,'constants')
     set( handles.figure1, 'Name', ['sorttraces (version ' handles.constants.version ')'] );
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
-    linkaxes([handles.axFluor handles.axTotal handles.axFret],'x');
+    ax = [handles.axFluor handles.axTotal handles.axFret];
+    linkaxes(ax,'x');
     
     % SETUP AXES labels and settings.
     % Hold is needed so we don't lose the grid/zoom/etc settings, which are
     % lost when a new plot is generated on the axes...
+    for i=1:numel(ax),
+        grid( ax(i), 'on' );
+        zoom( ax(i), 'on' );
+        hold( ax(i), 'on' );
+        set( zoom(ax(i)), 'ActionPostCallback',@zoom_callback);
+    end
+    
     ylabel( handles.axFluor, 'Fluorescence' );
-    grid( handles.axFluor, 'on' );
-    zoom( handles.axFluor, 'on' );
-    hold( handles.axFluor, 'on' );
-    
     ylabel( handles.axTotal, 'Total Fluorescence' );
-    grid( handles.axTotal, 'on' );
-    zoom( handles.axTotal, 'on' );
-    hold( handles.axTotal, 'on' );
-
-    xlabel( handles.axFret, 'Frame Number' );
-    ylabel( handles.axFret, 'FRET Efficiency' );
     ylim( handles.axFret, [-0.1 1] );
-    grid( handles.axFret, 'on' );
-    zoom( handles.axFret, 'on' );
-    hold( handles.axFret, 'on' );
-    
-    set( zoom(handles.axFluor),'ActionPostCallback',@zoom_callback);
-    set( zoom(handles.axTotal),'ActionPostCallback',@zoom_callback);
-    set( zoom(handles.axFret), 'ActionPostCallback',@zoom_callback);
     
     handles.axFOV = [];
     handles.idl = [];
     handles.idlFret = [];
+    guidata(hObject, handles);
 end
-
-% Update handles structure
-guidata(hObject, handles);
 
 
 % If called by autotrace, 2nd argument is filename of traces output file.
 if numel(varargin) > 1
-    handles.filename = varargin{2};
-    handles = OpenTracesFile( handles.filename, handles );
-    guidata(hObject, handles);
+    handles = btnOpen_Callback( [], [], handles, varargin{2} );
         
     % If a trace number is also specified, jump to that trace.
     % TODO: Ideally, the file would be reloaded only if necessary.
@@ -107,8 +94,6 @@ if numel(varargin) > 1
         editGoTo_Callback(handles.editGoTo, [], handles);
     end
 end
-
-
 
 %--- END FUNCTION sorttraces_OpeningFcn
 
@@ -134,35 +119,14 @@ varargout{1} = handles.output;
 %=========================================================================%
 %=========================   LOAD TRACES FILES   =========================%
 
-
 %----------"OPEN TRACES FILE" Button----------%
-function btnOpen_Callback(~, ~, handles) %#ok<DEFNU>
+function handles = btnOpen_Callback(~, ~, handles, filename)
 % Open a user-selected traces file.
 
-% Get traces filename by menu driven input
-filter = {'*.traces;*.rawtraces','Binary Traces Files (*.traces,*.rawtraces)'; ...
-          '*.txt','Text Files (*.txt)'; ...
-          '*.*','All Files (*.*)'};
-
-[handles.datafile,handles.datapath] = uigetfile(filter,'Choose a traces file');
-
-if handles.datafile==0, return; end
-handles.filename = [handles.datapath handles.datafile];
-
-% Load the file and fully initialize sorttraces.
-OpenTracesFile( handles.filename, handles );
-
-% END FUNCTION btnOpen_Callback
-
-
-
-
-%----------OPEN TRACES FROM FILE----------%
-function handles = OpenTracesFile( filename, handles )
-% Load a traces file, initialize GUI controls, and plot first trace.
-% Called from btnOpen_Callback and sorttraces_OpeningFcn.
-% Setting guidata is done there.
-
+if nargin<4,
+    filename = getFile;
+end
+if isempty(filename), return; end
 
 % Load the file
 data = loadTraces( filename );
@@ -192,32 +156,20 @@ if isa(data,'TracesFret4') && isChannel(data,'acceptor2'),
 end
 
 
-% Can't cancel after this point.
 handles.filename = filename;
 handles.data = data;
 
+% Set default correction values, which correspond to no change.
+handles.fretThreshold = NaN( data.nTraces, 1  );
 
-% Initialize array for tracking FRET donor-blinking threshold value.
-% The default value of NaN is a marker that the value hasn't been
-% calculated yet (but should be using traceStat).
-% We don't calculate it here because then there would a long delay loading
-% the file; small delays for each trace are not perceptible.
-handles.fretThreshold = NaN( handles.data.nTraces, 1  );
-
-% Set data correction starting values.
-% The data is never modified. These parameters are used to adjust the data each
-% time it is displayed or when it is ultimately saved. They are listed in the
-% order they are applied to the trace. For now, background subtraction is the
-% exception! The trace data is directly modified in that case.
-% FIXME: intelligently choose size of these guys.
-handles.background = zeros( handles.data.nTraces, 3 ); %not used (yet)
-handles.gamma      = ones(  handles.data.nTraces, 3 );
-handles.crosstalk  = zeros( handles.data.nTraces, 2 );
-
-handles.binNames = {'No FRET', 'All FRET', 'Best FRET'};
+nFluor = 3;  %numel(data.idxFluor);
+handles.background = zeros( data.nTraces, nFluor ); %not used (yet)
+handles.crosstalk  = zeros( data.nTraces, nFluor, nFluor );
+handles.gamma      = ones(  data.nTraces, nFluor );
 
 
 % Trace indexes of binned molecules
+handles.binNames = {'No FRET', 'All FRET', 'Best FRET'};
 handles.bins = cell(3,1);
 
 % Check saved state file, including corrections and molecule selections.
@@ -249,34 +201,34 @@ for i=1:numel(handles.binNames),
 end
 
 % Turn on other controls that can now be used now that a file is loaded.
-if ismember('fret',handles.data.channelNames),
+isFret = 'off';  isThreeColor = 'off';
+if ismember('fret',data.channelNames),
     isFret = 'on';
-else
-    isFret = 'off';
 end
+if isChannel(data,'acceptor2') && ~isChannel(data,'donor2')
+    isThreeColor = 'on';
+end
+
 set(handles.edThreshold,  'Enable',isFret );
 set(handles.sldThreshold, 'Enable',isFret );
 set(handles.edCrosstalk1, 'Enable',isFret );
 set(handles.sldCrosstalk1,'Enable',isFret );
-set(handles.edGamma1,     'Enable',isFret,'String','1' );
-set(handles.sldGamma1,    'Enable',isFret,'Value',1 );
+set(handles.edGamma1,     'Enable',isFret );
+set(handles.sldGamma1,    'Enable',isFret );
+
+set(handles.edCrosstalk2, 'Enable',isThreeColor );
+set(handles.sldCrosstalk2,'Enable',isThreeColor );
+set(handles.edCrosstalk3, 'Enable',isThreeColor );
+set(handles.sldCrosstalk3,'Enable',isThreeColor );
+set(handles.edGamma2,     'Enable',isThreeColor );
+set(handles.sldGamma2,    'Enable',isThreeColor );
 
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
 set(handles.btnGettraces,'Enable','on' );
 
-if isChannel(handles.data,'acceptor2') && ~isChannel(handles.data,'donor2')
-    isThreeColor = 'on';
-else
-    isThreeColor = 'off';
-end
-set(handles.edCrosstalk2, 'Enable',isThreeColor,'String','0' );
-set(handles.sldCrosstalk2,'Enable',isThreeColor,'Value',  0  );
-set(handles.edGamma2,     'Enable',isThreeColor,'String','1' );
-set(handles.sldGamma2,    'Enable',isThreeColor,'Value',  1  );
-
 % Reset x-axis label to reflect time or frame-based.
-time = handles.data.time;
+time = data.time;
 if time(1)==1,
     xlabel( handles.axFret, 'Frame Number' );
 else
@@ -307,35 +259,32 @@ editGoTo_Callback(handles.editGoTo, [], handles);
 
 % Add legends to the plotted traces.
 % We want to do this once here because legend() is slow.
-idxFluor = handles.data.idxFluor;
-
-if sum(idxFluor)>1,
-    legend( handles.axFluor, handles.data.channelNames{idxFluor} );
+if numel(data.idxFluor)>1,
+    legend( handles.axFluor, data.channelNames{data.idxFluor} );
 else
     legend( handles.axFluor, 'off' );
 end
 
-if isChannel( handles.data, 'fret2' ),
-    legend( handles.axFret, {'fret1','fret2'} );
+if numel(data.idxFret)>1,
+    legend( handles.axFret, data.channelNames{data.idxFret} );
 else
     legend( handles.axFret, 'off' );
 end
 
 
 % Adjust bottom axis, depending on the type of data.
-if ismember('fret',handles.data.channelNames),
+if ismember('fret',data.channelNames),
     if isfield(data.fileMetadata,'fretGeometry') && strcmp(data.fileMetadata.fretGeometry,'acceptor/total');
         ylabel(handles.axFret, 'Acceptor/Total');
     else
+        % FIXME: should be more descriptive (tandem3 vs indep3)
         ylabel(handles.axFret, 'FRET');
     end
-    
-    ylim(handles.axFret, [-0.1 1]);
 else
     ylabel(handles.axFret, '');
     ylim(handles.axFret, 'auto');
 end
-zoom reset;
+zoom reset;  %remember new axis limits when zooming out.
 
 % END FUNCTION OpenTracesFile
 
@@ -350,11 +299,27 @@ function handles = loadSavedState(handles, inds_fname)
 
 if strcmp('.mat',ext),
     savedState = load( inds_fname );
+    
+    % Verify that the savedState.mat file is valid.
     requiredFields = {'bins','adjusted','crosstalk','gamma','background','fretThreshold'};
-
     if ~all( isfield(savedState,requiredFields) ),
         warning('Invalid sorttraces saved state file. Ignoring.');
         return;
+    end
+    
+    nTraces = numel(savedState.adjusted);
+    if nTraces~=handles.data.nTraces,
+        warning('Number of traces in saved state does not match loaded .traces file');
+        return;
+    end
+    
+    % Handle older files that do not have the full crosstalk matrix.
+    if ndims(savedState.crosstalk)<3, %#ok<ISMAT>
+        nFluor = 3; %numel(handles.data.idxFluor);
+        crosstalk = zeros(nTraces, nFluor, nFluor);
+        crosstalk(:,1,2) = savedState.crosstalk(:,1);
+        crosstalk(:,2,3) = savedState.crosstalk(:,2);
+        savedState.crosstalk = crosstalk;
     end
 
     % Load file settings into handles structure.
@@ -443,6 +408,9 @@ if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
     end
 end
 
+guidata(hObject,handles);
+
+
 % Adjust scroll bar range if the new value falls outside of it.
 sldMax = get( handles.sldThreshold, 'max' );
 sldMax = max( sldMax, 2*handles.fretThreshold(mol) );
@@ -454,12 +422,17 @@ for i=1:numel(handles.bins),
     set(handles.(chkName),'Value', any(handles.bins{i}==mol) );
 end
 
-% Re-initialize figure objects.
-set( handles.edCrosstalk1,  'String', sprintf('%.3f',handles.crosstalk(mol,1)) );
-set( handles.sldCrosstalk1, 'Value',  handles.crosstalk(mol,1) );
+% Set correction controls to saved values for this trace.
+from = [1 2 1];
+to   = [2 3 3];
 
-set( handles.edCrosstalk2,  'String', sprintf('%.3f',handles.crosstalk(mol,2)) );
-set( handles.sldCrosstalk2, 'Value',  handles.crosstalk(mol,2) );
+for i=1:numel(from),
+    crosstalk = handles.crosstalk(mol,from(i),to(i));
+    name = sprintf('edCrosstalk%d',i);
+    set( handles.(name),  'String', sprintf('%.3f',crosstalk) );
+    name = sprintf('sldCrosstalk%d',i);
+    set( handles.(name), 'Value', crosstalk );
+end
 
 set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
 set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
@@ -475,7 +448,6 @@ set(handles.btnSubBoth,     'Enable','on' );
 set(handles.btnSubAcceptor, 'Enable','on' );
 set(handles.btnSubUndo,     'Enable','off');
 
-guidata(hObject,handles);
 plotter(handles);
 
 
@@ -574,6 +546,8 @@ end
 
 % Finish up
 set(hObject,'Enable','off');
+
+% end function btnSave_Callback
 
 
 
@@ -763,16 +737,20 @@ updateTraceData( handles );
 function sldCrosstalk_Callback(hObject, ~, handles, ch )
 % Called when user changes the scroll bar for specifying FRET threshold.
 %
+tag = get(hObject,'Tag');
+ch = tag(end)-'0';
+% assert( ch==1 | ch==2, 'Invalid acceptor channel number' );
 
-assert( ch==1 || ch==2 );
+from = [1 2 1];
+to   = [2 3 3];
+
 mol = handles.molecule_no;
-
-% oldCrosstalk = handles.crosstalk(mol,ch);
-handles.crosstalk(mol,ch) = get(hObject,'Value');
+crosstalk = get(hObject,'Value');
+handles.crosstalk(mol, from(ch), to(ch)) = crosstalk;
                          
 % Save and display the result
 name = sprintf('edCrosstalk%d',ch);
-set( handles.(name), 'String',sprintf('%.3f',handles.crosstalk(mol,ch)) );
+set( handles.(name), 'String',sprintf('%.3f',crosstalk) );
 
 updateTraceData( handles );
 
@@ -783,10 +761,11 @@ updateTraceData( handles );
 function edCrosstalk_Callback(hObject, eventdata, handles, ch ) %#ok<DEFNU>
 % Called when user changes the text box for specifying FRET threshold.
 %
+tag = get(hObject,'Tag');
+ch = tag(end)-'0';
+% assert( ch==1 | ch==2, 'Invalid acceptor channel number' );
 
-assert( ch==1 || ch==2 );
 crosstalk = str2double( get(hObject,'String') );
-
 name = sprintf('sldCrosstalk%d',ch);  %slider control name
 
 % Adjust slider range to contain the new value.
@@ -910,11 +889,11 @@ a = questdlg( 'This will reset corrections on ALL TRACES. Are you sure?', ...
 
 % Reset corrections variables to their defaults.
 if strcmp(a,'OK'),
-    handles.fretThreshold = NaN( handles.data.nTraces, 1  );
-    handles.adjusted   = false( handles.data.nTraces, 1 );
-    handles.background = zeros( handles.data.nTraces, 3 );
-    handles.gamma      = ones(  handles.data.nTraces, 3 );
-    handles.crosstalk  = zeros( handles.data.nTraces, 2 );
+    handles.fretThreshold = NaN( size(handles.fretThreshold)  );
+    handles.adjusted   = false( size(handles.adjusted)   );
+    handles.background = zeros( size(handles.background) );
+    handles.crosstalk  = zeros( size(handles.crosstalk)  );
+    handles.gamma      = ones(  size(handles.gamma)      );
 end
 
 % Update GUI controls and redraw the trace.
@@ -930,6 +909,7 @@ function handles = updateTraceData( handles )
 % (bg subtraction, crosstalk, etc) or the FRET threshold.
 
 handles.adjusted(handles.molecule_no) = true;
+guidata(handles.figure1, handles);
 
 % Since some kind of change was made, allow the user to save the file or
 % selections in their new state.
@@ -937,7 +917,6 @@ if any( ~cellfun(@isempty,handles.bins) ),
     set(handles.btnSave,'Enable','on');
 end
 set(handles.btnSaveInPlace,'Enable','on');
-guidata(handles.figure1, handles);
 
 plotter(handles);
 
@@ -946,41 +925,47 @@ plotter(handles);
 
 
 
-function displayData = adjustTraces( handles, indexes )
+function data = adjustTraces( handles, indexes )
 % Recalculate FRET and stats. This is called following any changes made to
 % the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
 % threshold.
 
+% Extract traces of interest, without modifying the input argument.
 if nargin<2,
     indexes = 1:handles.data.nTraces;
 end
+data = handles.data.getSubset(indexes);
 
-% Extract traces of interest, without modifying the input argument.
-displayData = handles.data.getSubset(indexes);
-
-% Make corrections for display. Crosstalk is only considered between
-% neighboring channels.
-chNames = displayData.channelNames(displayData.idxFluor);  %we assume these are in order of wavelength!!
+chNames = data.channelNames(data.idxFluor);  %should be in order of wavelength.
+nFlour = numel(data.idxFluor);
 
 for i=1:numel(indexes), 
     m = indexes(i); %i is index into data subset, m is index into all traces.
-    
     if ~handles.adjusted(m), continue; end
     
-    for j=2:numel(chNames),
-        displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:) - ...
-                       handles.crosstalk(m,j-1)*displayData.(chNames{j-1})(i,:);
+    % Subtract blue intensity bleeding onto red channels.
+    % The order of operations matters here.
+    for src=1:nFlour,
+        for dst=1:nFlour,
+            if src>=dst, continue; end  %only consider forward crosstalk
+            
+            ch1 = chNames{src};
+            ch2 = chNames{dst};
+            crosstalk = handles.crosstalk(m,src,dst);
+            data.(ch2)(i,:) = data.(ch2)(i,:) - crosstalk*data.(ch1)(i,:);
+        end
     end
     
-    for j=1:numel(chNames),
-        displayData.(chNames{j})(i,:) = displayData.(chNames{j})(i,:)*handles.gamma(m,j);
+    % Scale channels so their relative brightness is the same.
+    for j=1:nFlour,
+        data.(chNames{j})(i,:) = data.(chNames{j})(i,:)*handles.gamma(m,j);
     end
 
 end %for each trace
     
 % Calculate total intensity and donor lifetime.
 % FIXME: should thresholds be specified in metadata?
-displayData.recalculateFret( handles.fretThreshold(indexes), handles.adjusted(indexes) );
+data.recalculateFret( handles.fretThreshold(indexes), handles.adjusted(indexes) );
 
 % END FUNCTION adjustTraces
 
@@ -1273,10 +1258,7 @@ set(handles.btnClearIdl,'Enable','on');
 function btnClearIdl_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Clear the currently loaded idealization if any.
 
-handles.dwt = [];
 handles.idl = [];
-
-% Save data and redraw the FRET plot without the idealization.
 guidata(hObject,handles);
 set(handles.btnClearIdl,'Enable','off');
 
@@ -1498,7 +1480,7 @@ plotter(handles);
 function sorttraces_CloseRequestFcn(hObject, ~, handles) %#ok<DEFNU>
 % 
 
-% Ask the user if the traces should be saved before closing.
+% Ask the user if the traces should be saved before closing. FIXME:
 if strcmpi(get(handles.btnSave,'Enable'),'on') || strcmpi(get(handles.btnSaveInPlace,'Enable'),'on')
     a = questdlg( 'Are you sure you want to exit? (You might lose changes)',...
                   'Exit without saving', 'OK','Cancel', 'OK' ); 

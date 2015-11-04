@@ -111,7 +111,8 @@ methods
             else
                 [sel,ok] = listdlg('PromptString','What is the 3-color FRET geometry in this experiment?', ...
                                'SelectionMode','single','ListSize',[300 120], ...
-                               'ListString',TracesFret4.fretGeometryDesc );
+                               'ListString',TracesFret4.fretGeometryDesc, ...
+                               'InitialValue',3 );
                 if ok,
                     fretGeometry = TracesFret4.fretGeometryNames{sel};
                 end

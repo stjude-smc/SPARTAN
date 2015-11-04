@@ -1145,47 +1145,47 @@ function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % scalar and can't be represented in the text box easily, so this button
 % will launch a dialog to show all the possible parameter values and allow
 % the user to change them.
-%
 
 params = handles.params;
-
 assert( params.geometry>1 && numel(params.crosstalk)>1 );
 
 
-% Only show crosstalk parameters for channels that are adjacent in
-% wavelength space. Crosstalk in other channels is generally negligable.
-% This simplifies the input. The channels are listed in the order of
-% wavelength.
-[wl,idx] = sort(params.wavelengths);
+% Prompt the user crosstalk parameters for 3-color.
+% We assume channel names are in order of wavelength.
+src = [1 1 2]; %Cy3->Cy5, Cy3->Cy7, Cy5->Cy7
+dst = [2 3 3];
 
-prompts = strcat( params.chNames(idx(1:end-1)'), ' (', params.chDesc(idx(1:end-1)'), ') -> ', ...
-                 params.chNames(idx(2:end)'),   ' (', params.chDesc(idx(2:end)'),   '):' );
+prompts  = cell( numel(src), 1 );
+defaults = cell( numel(src), 1 );
 
-defaults = cell( numel(wl)-1, 1 );
-for i=1:(numel(wl)-1),
-    defaults{i} = num2str( params.crosstalk(idx(i),idx(i+1)) );
+for i=1:numel(src)
+    prompts{i} = sprintf('%s (%s) -> %s (%s)', ...
+                         params.chNames{src(i)}, params.chDesc{src(i)}, ...
+                         params.chNames{dst(i)}, params.chDesc{dst(i)} );
+    defaults{i} = num2str( params.crosstalk(src(i),dst(i)) );
 end
 
 result = inputdlg( prompts, 'Enter crosstalk values', 1, defaults );
+if isempty(result), return; end
 
-if isempty(result),
-    return;
+
+% Process the new crosstalk values
+crosstalk = zeros( numel(params.chNames) );
+
+for i=1:numel(src),
+    c = str2double( result{i} );
+    
+    if isnan(c) || c>1 || c<0,
+        fprintf( 'Error: invalid crosstalk value %s)n', result{i} );
+        return;
+    end
+    
+    crosstalk( src(i), dst(i) ) = c;
 end
 
-% Process the user input. We assume they are numbers.
-for i=1:(numel(wl)-1),
-    c = str2double( result{i} );
-
-    if isnan(c) || c>1 || c<0,
-        fprintf( 'Error: invalid crosstalk value %d ignored (%s)', ...
-                                                  i, result{i} );
-    else
-        handles.params.crosstalk( idx(i), idx(i+1) ) = c;
-    end
-end %for each channel pair.
-
-disp(handles.params.crosstalk);
+handles.params.crosstalk = crosstalk;
 guidata(hObject,handles);
+
 
 %end function btnCrosstalk_Callback
 

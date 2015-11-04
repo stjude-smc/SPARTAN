@@ -739,19 +739,20 @@ elseif params.geometry>1, %two- or three- or four-color
         data.( data.channelNames{i} ) = traces(i:nCh:end,:);
     end
     
-    % Make an adjustment for crosstalk on the camera. If there are 3 or 4
-    % colors, params.crosstalk is a matrix of (src,dst) values, where most
-    % are 0 (no crosstalk).
+    % Spectral crosstalk correction.
     if numel(params.crosstalk)==1,
         data.acceptor = data.acceptor - params.crosstalk*data.donor;
     else
-        [src,dst] = find( params.crosstalk~=0 );
-        
-        for i=1:numel(src),
-            chSrc = data.channelNames{ src(i) };
-            chDst = data.channelNames{ dst(i) };
-            val = params.crosstalk(src(i),dst(i));
-            data.(chDst) = data.(chDst) - val*data.(chSrc);
+        % The order of operations matters here.
+        nFluor = numel(data.idxFluor);
+        for src=1:nFluor,
+            for dst=1:nFluor,
+                if src>=dst, continue; end  %only consider forward crosstalk
+                ch1 = data.channelNames{src};
+                ch2 = data.channelNames{dst};
+                crosstalk = params.crosstalk(src,dst);
+                data.(ch2) = data.(ch2) - crosstalk*data.(ch1);
+            end
         end
     end
 end

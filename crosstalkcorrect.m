@@ -31,10 +31,7 @@ function [mean_crosstalk] = crosstalkcorrect(files,mean_crosstalk)
 
 % If no files given, obtain a list from the user.
 if nargin<1 || isempty(files),
-    filter = {'*.*traces','Traces files (*.traces,*.rawtraces)'; ...
-              '*.txt','Old format traces files (*.txt)'; ...
-              '*.*','All files (*.*)'};
-    files = getFiles(filter);
+    files = getFiles;
 end
 
 if ~iscell(files),
@@ -121,28 +118,26 @@ for i = 1:nTraces
     donor_lt =  find( fret~=0, 1,'last' );
     if isempty(donor_lt),  continue;  end
     
-    % Determine the points at which the donor and acceptor photobleach.
-    % To reduce spurious "events", ignore runs of <5 frames above background.
-    fretRange = fret >= 0.2; %constants.min_fret;
-    fretRange = rleFilter( fretRange, constants.rle_min );
-    acc_lt = find( fretRange, 1, 'last');
+    % Find regions where the acceptor is clearly dark. We want to avoid the
+    % blinking regions because they may not be dark partially quenched.
+    fretRange = rleFilter( fret>=0.2, constants.rle_min );  % ignore 1-frame "events"
+    acc_lt = find(fretRange, 1, 'last');
     
-    if isempty(acc_lt),  continue;  end
-    
-    range = acc_lt+1:donor_lt-1;  %region over which to do the calculation.
-    
-    % Ignore some corner cases that give strange results, including donor
-    % or acceptor blinking during the window.
-    if any( fret(range)==0 | fret(range)>0.2 ),
-        continue;
+    if isempty(acc_lt),
+        % If there is no acceptor, we can use the whole trace.
+        range = 1:donor_lt-1;
+    else
+        range = acc_lt+1:donor_lt-1;
     end
-
+    
+    % Avoid donor blinking, which confuses the calculation.
+    if any( fret(range)==0 ),  continue;  end
+    
     % Estimate crosstalk as the fraction of intensity in the acceptor channel
     % after photobleaching (may be negative). Ignore short traces.
     if numel(range) >= 8
         crosstalk(i) = mean(data.acceptor(i,range)) / mean(data.donor(i,range));
     end
-    
 end
 
 % Remove NaN values (from traces where crosstalk could not be estimated).
@@ -173,7 +168,6 @@ end
 
 % Return an average value for apparent crosstalk value.
 mean_crosstalk_file = median(crosstalk);
-
 
 
 end %function calc_crosstalk
