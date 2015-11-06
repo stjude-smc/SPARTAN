@@ -126,145 +126,110 @@ methods
      
     %% ================ DATA MANIPULATION ================ %%
     
-    function this = recalculateFret( this, thresholds, indexes )
-    % Recalculate FRET efficiencies (all fields) using fluorescence. 
-    %    data.recalculateFret( THRESH );
-    % 
-    % Replaces the current "fret" properties with the newly calculated traces.
-    % Thresholds of total intensity below which FRET is set to zero can be given
-    % as the extra parameter (THRESH, Nx1 array, one per trace). Otherwise, they
-    % calculated from the data as a few standard deviations above background.
-    % FIXME: specify that THRESH is NxM, where M is the number of FRET channels.
+    function this = recalculateFret( this, varargin )
+    % Recalculate FRET efficiencies (all fields) using fluorescence.
     %
-    % NOTE: There are three ways to calculate 3-color FRET:
-    %   1) Tandem acceptors (D->A1->A2): assuming there is no donor->acceptor2
-    %        FRET. 
-    %   2) Independent acceptors (D->A1, D->A2): assuming there is no
-    %        acceptor1->acceptor2 FRET.
-    %   2) Unknown: if the above assumptions can't be made, it isn't possible
-    %        to calculate FRET. Instead, calculate the fraction of acceptor
-    %        intensity vs total (A1/total, A2/total). This is not FRET!
-    %        It just tells you which acceptor is brighter.
+    %   data.recalculateFret() recalculates FRET for all traces.
+    %   data.recalculateFret(IDX) only alters the subset of traces IDX.
+    %   data.recalculateFret(IDX,THRESH) uses the supplied thresholds.
     % 
-    % This function will look in fileMetadata to find out which to use, and if
-    % not known, acceptor/total is assumed. If the metadata is not available in
-    % a .traces file, the function that loads it should ask the user.
-    % 2-color FRET will be calculated as usual (see TracesFret).
-    % 
+    %   fileMetadata.fretGeometry specifies the FRET calculation method.
+    %   If not available, the user is prompted.
+    %     'tandem3':        D->A1, A1->A2. Assumes no D->A2 FRET.
+    %     'independent3':   D->A1, D->A2.  Assumes no A1->A2 FRET.
+    %     'independent4':   D->A1, D2->A2. Assumes independent FRET pairs.
+    %     'acceptor/total': Fraction of total intensity from each acceptor.
+    %
+    %   fileMetadata.zeroMethod specifies the method to use for setting FRET to
+    %   zero when the donor is dark: 'skm' or 'threshold'.
     
-        %--------------  Determine how to calculate FRET  --------------%
+        %------------------  Actually calculate FRET  ------------------%
         
         % If there is only one FRET channel, just use the subclass method.
+        % This can happen if there are factor channels, but only one FRET pair.
         if ~isChannel(this,'acceptor2'),
-            recalculateFret@TracesFret( this, thresholds );
+            recalculateFret@TracesFret( this, varargin{:} );
             return;
         end
+        assert( this.isChannel('fret') && this.isChannel('fret2') );
         
-        % If this is four-color FRET (two totally independent FRET pairs),
-        % calculate FRET for each pair separately and then combine.
-        % NOTE: this assumes independence! Use ALEX for if you can't assume it.
-        if isChannel(this,'donor2'),
-            error('STUB: recalculateFret with four-color FRET');
-        end
-        
-        % If the method for calculating FRET is not given or is not valid, ask
-        % the user for the correct method.
+        % Ask the user for the FRET calculation method if not in metadata.
         this.verifyFretGeometry();
         
-        
-        %------------------  Actually calculate FRET  ------------------%
-        if nargin<2,
-            thresholds = zeros(this.nTraces,1);  %fret1 only
+        % Select the subset of traces to be corrected.
+        if nargin>=2,
+            idx = varargin{1};
+            if isempty(idx), return; end
+            assert( isvector(idx) );
+            selData = getSubset(this,idx);
         else
-            if size(thresholds,2)>1,
-                warning('Only fret1 thresholds will be used');
-            end
+            selData = this;
+            idx = 1:this.nTraces;
         end
-        
-        % Get list of traces to correct; correct all if not specified.
-        if nargin<3,
-            indexes = 1:this.nTraces;
-        end
-        if islogical(indexes),  indexes = find(indexes);  end
-        if isempty(indexes), return; end
-        assert( isvector(indexes) );
-        indexes = to_row(indexes);
+        idx = to_row(idx);
         
         % Calculate FRET for each trace.
-        assert( this.isChannel('fret') && this.isChannel('fret2') );
-        total = this.total;
+        total = selData.total;
         
         switch this.fileMetadata.fretGeometry,
         case 'tandem3',
-            % D1->A1->A2 FRET. Assumes no donor->acceptor2 FRET.
-            acc = this.acceptor + this.acceptor2; %total acceptor intensity
-            this.fret  = acc./total;
-            this.fret2 = this.acceptor2./acc;
+            % D1->A1->A2 FRET. Assumes no D->A2 FRET.
+            acc = selData.acceptor + selData.acceptor2; %total acceptor intensity
+            newfret  = acc./total;
+            newfret2 = selData.acceptor2./acc;
         case 'independent3',
-            % D1->A1, D1->A2 FRET. Assumes no acceptor1->acceptor2 FRET.
-            this.fret  = this.acceptor ./(this.acceptor +this.donor);
-            this.fret2 = this.acceptor2./(this.acceptor2+this.donor);
+            % D1->A1, D1->A2 FRET. Assumes no A1->A2 FRET.
+            newfret  = selData.acceptor ./(selData.acceptor +selData.donor);
+            newfret2 = selData.acceptor2./(selData.acceptor2+selData.donor);
         case 'independent4',
-            % D1->A1, D2->A2 FRET. Assumes the two pairs are fully independent,
-            % which means no D1->A2, D2->A1, A1->A2, etc FRET.
-            this.fret  = this.acceptor ./(this.acceptor +this.donor);
-            this.fret2 = this.acceptor2./(this.acceptor2+this.donor2);
+            % D1->A1, D2->A2 FRET. Assumes the two pairs are fully independent.
+            %newfret  = selData.acceptor ./(selData.acceptor +selData.donor);
+            %newfret2 = selData.acceptor2./(selData.acceptor2+selData.donor2);
+            error('Four-color FRET not supported.');
         case 'acceptor/total',
             % Fraction of total intensity in each channel (Not FRET).
-            this.fret  = this.acceptor./total;
-            this.fret2 = this.acceptor2./total;
+            newfret  = selData.acceptor./total;
+            newfret2 = selData.acceptor2./total;
         end
         
+        % Remove any NaN values. Sometimes happens with low SNR traces.
+        newfret( isnan(newfret) ) = 0;
+        newfret2( isnan(newfret2) ) = 0;
         
-        %--------------  Apply blinking/bleaching corrections  --------------%
         
-        % Set FRET to zero when donor is dark (below total intensity threshold).
-        lt = max(1, calcLifetime(total) );  %point where donor bleaches in each trace.
-        constants = cascadeConstants;
+        %-------------  Set FRET to zero when the donor is dark  ------------%
         
-        for i=indexes,
-            % Set FRET to zero after donor photobleachinsg.
-            this.fret(i, lt(i):end ) = 0;
-            this.fret2(i, lt(i):end ) = 0;
+        % Set FRET to zero when the donor is dark (total intensity at baseline).
+        if isfield(this.fileMetadata,'zeroMethod') && strcmpi(this.fileMetadata.zeroMethod,'skm')
+            alive = skmTotal( total, varargin{2:end} );
+        else
+            alive = thresholdTotal( total, varargin{2:end} );
+            % FIXME: save the thresholds that were used in traceMetadata.
+        end
+        newfret(~alive) = 0;
+        newfret2(~alive) = 0;
+        
+        % For tandem3 configuration, set A1->A2 to zero if the D->A1 efficiency
+        % is too low for an accurate value.
+        if strcmp(this.fileMetadata.fretGeometry,'tandem3'),
+            constants = cascadeConstants;
             
-            % Set FRET to zero in areas where the donor is dark (blinking).
-            % ie, when FRET is below a calculated threshold = 4*std(background)
-            % FIXME: the threshold (if given) should be applied regardless.
-            s = lt(i)+5;
-            range = s:min(s+constants.NBK,this.nFrames);
-            if numel(range)>=10 && nargin<2,
-                thresholds(i) = constants.blink_nstd*std(total(i,range));
-            end
+            % Blinking
+            newfret2( newfret<0.2 ) = 0;
             
-            if thresholds(i)>0,  %if it could be found or was user-defined,                
-                darkRange = total( i, 1:lt(i) ) <= thresholds(i);
-                this.fret(i,darkRange) = 0;
-                this.fret2(i,darkRange) = 0;
-            end
-            
-            % FRET2 is zero when the the total acceptor signal is so low that
-            % FRET can't be calculated correctly (such as after photobleaching).
-            % This may work poorly if crosstalk correction is bad.
-            % FIXME: these parameters should be defined in cascadeConstants.
-            if strcmp(this.fileMetadata.fretGeometry,'tandem3'),
-                this.fret2( i, this.fret(i,:)<0.2 ) = 0;
-
-                fretRange = rleFilter( this.fret(i,:)>=0.25, constants.rle_min );
+            % Photobleaching
+            for i=1:size(newfret,1),
+                fretRange = rleFilter( newfret(i,:)>=0.25, constants.rle_min );
                 fret2_end = find(fretRange,1,'last');
                 if ~isempty(fret2_end)
-                    this.fret2(i, fret2_end:end ) = 0;
+                    newfret2(i, fret2_end:end ) = 0;
                 end
             end
         end
         
-        % Remove any NaN values. These usually happen when calcLifetime can't
-        % see the bleaching step (b/c of low SNR), calculating FRET values from
-        % zero-intensity noise. Can this be fixed?
-        this.fret( isnan(this.fret) ) = 0;
-        this.fret2( isnan(this.fret2) ) = 0;
-        
-        % TODO: save the thresholds that were used in traceMetadata.
-        % FIXME: This would require allowing matrices in traceMetadata!
+        % Save the recalculated subset of traces.
+        this.fret(idx,:) = newfret;
+        this.fret2(idx,:) = newfret2;
     end
 end %public methods
 

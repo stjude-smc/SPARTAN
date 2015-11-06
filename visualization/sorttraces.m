@@ -247,6 +247,7 @@ elseif exist( dwt_fname2, 'file' ),
     handles = loadDWT_ex( handles, dwt_fname2 );
 else
     handles.idl = [];
+    handles.idlFret = [];
 end
 
 
@@ -965,7 +966,7 @@ end %for each trace
     
 % Calculate total intensity and donor lifetime.
 % FIXME: should thresholds be specified in metadata?
-data.recalculateFret( handles.fretThreshold(indexes), handles.adjusted(indexes) );
+data.recalculateFret( handles.adjusted(indexes), handles.fretThreshold(indexes) );
 
 % END FUNCTION adjustTraces
 
