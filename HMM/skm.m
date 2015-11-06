@@ -89,15 +89,19 @@ data(data<-1) = -1;
 if isfield(params,'seperately') && params.seperately==1,
     constants = cascadeConstants;
     
-    % For large computations, parallelize computation across threads.
+    if ~params.quiet,
+        wbh = parfor_progress(nTraces,'Idealizing traces separately,..');
+    else
+        wbh = -1;
+    end
+    
+    % Use multi-process execution only for large datasets.
     if nTraces*nFrames > 1e5 && constants.enable_parfor,
         pool = gcp;
         M = pool.NumWorkers;
     else
-        % Single-thread execution, if the dataset is small.
-        M = 0;
+        M = 0;  % Single-thread execution.
     end
-    wbh = parfor_progress(nTraces,'Idealizing traces seperately,..');
     
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
@@ -110,11 +114,12 @@ if isfield(params,'seperately') && params.seperately==1,
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
         
-        if mod(n,10)==0,
+        if ishandle(wbh) && mod(n,10)==0
             parfor_progress(wbh,10);
         end
     end
-    close(wbh);
+    
+    if ishandle(wbh), close(wbh); end
     
     offsets = nFrames*((1:nTraces)-1);
 else

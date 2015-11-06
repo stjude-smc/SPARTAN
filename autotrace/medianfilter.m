@@ -18,7 +18,7 @@ function output = medianfilter(input,n)
 assert( nargin==2, 'Invalid input arguments' );
 assert( rem(n,2)==1, 'Window size must be odd!!' );
 
-if exist('medianfilterx','file')==3,
+try
     if any(isnan(input(:))),
         % FIXME: add support for NaN in mex code?
         %warning('NaN values not supported');
@@ -26,6 +26,8 @@ if exist('medianfilterx','file')==3,
     end
     output = medianfilterx(double(input),n);
     return;
+catch
+    %disp('Falling back on the matlab version');
 end
 
 nx = size(input,2);  %trace length

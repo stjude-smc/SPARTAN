@@ -28,10 +28,15 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 mu    = model(:,1);
 sigma = model(:,2);
 nStates = numel(mu);
-
 start_p = reshape(start_p,[nStates,1]);
 
 assert( ~all(trans_p(:)==0) && ~all(start_p==0) );
+
+% Log transform version
+% The small constant ensures values are less than unity.
+start_p = log(start_p);
+trans_p = log(trans_p);
+prefactor = log( 0.001./(sqrt(2*pi).*sigma) );
 
 
 % Generate Gaussian probability mass functions for each emission state.
@@ -70,8 +75,8 @@ for i=1:nTraces,
     Bx = zeros(nStates,traceLen);
     for s=1:nStates,
         % Using the PDF.
-        % The small constant ensures values are less than unity.
-        Bx(s,:) = 0.001*normpdf( trace, mu(s), sigma(s) );
+        %Bx(s,:) = 0.001*normpdf( trace, mu(s), sigma(s) );
+        Bx(s,:) = prefactor(s) - 0.5*((trace-mu(s))./sigma(s)).^2;
         
         % Using the PMF version (see notes above):
         %[~,binIdx] = histc(trace,x);
