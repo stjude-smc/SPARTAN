@@ -226,7 +226,7 @@ tags.BitsPerSample = 16;
 tags.SamplesPerPixel = 1;
 tags.RowsPerStrip = movie.nY;  %one strip per image.
 tags.PlanarConfiguration = Tiff.PlanarConfiguration.Chunky;
-tags.Software = ['simulateMovie (ver. movie' constants.version ')'];
+tags.Software = ['simulateMovie (ver. ' constants.version ')'];
 %tags.ImageDescription = ...  %simulation settings, etc here?
 
 % Generate DateTime tags to get exposure time, etc.

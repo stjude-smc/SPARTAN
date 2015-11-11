@@ -27,13 +27,8 @@ REESTIMATE = true;
 %%
 
 % If no file is specified, ask for one from the user.
-if nargin<1,
-    [f,p] = uigetfile( {'*.traces;*.rawtraces','Binary Traces Files (*.traces;*.rawtraces)'; ...
-                        '*.txt','Old format traces files (*.txt)'; ...
-                        '*.*','All Files (*.*)'}, 'Select a traces file');
-    if p==0, return; end
-    filename = fullfile(p,f);
-end
+filename = getFile('*.traces','Select a traces file');
+if isempty(filename), return; end  %user hit cancel
 
 
 % Load traces data
@@ -45,6 +40,9 @@ data = loadTraces(filename);
 if nargin<2,
     [p,f] = fileparts(filename);
     dwtFilename = fullfile(p, [f '.qub.dwt']);
+end
+if ~exist(dwtFilename,'file'),
+    dwtFilename = fullfile(p, [f '.dwt']);
 end
 
 if ~exist(dwtFilename,'file'),
@@ -65,7 +63,7 @@ if exist( dwtFilename, 'file' ),
     nStates = numel(fretValues);
     
     % Convert state sequence to idealization (fret values).
-    if REESTIMATE,  % estimate idealization fret values from each trace
+    if REESTIMATE && isChannel(data,'fret'),
         for i=1:size(idl,1),
             % For each state, idealization fret value is average of observed.
             for s=1:nStates,
@@ -81,7 +79,7 @@ if exist( dwtFilename, 'file' ),
         end
     else
         % Use global FRET values from QuB to create idealization.
-        idl( idl==0 ) = 1; %#ok<UNRCH>
+        idl( idl==0 ) = 1;
         idl = fretValues(idl);
     end
 

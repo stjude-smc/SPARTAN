@@ -168,7 +168,9 @@ methods
     % The method used for determining where the donor is dark is specified
     % in fileMetadata.zeroMethod, which can be 'skm' or 'threshold' (default).
     
-        assert( isChannel(this,'fret'), 'Not FRET data?' );
+        if ~isChannel(this,'fret'),
+            return; %no FRET to recalculate (single-color)
+        end
     
         % Get list of traces to correct; correct all if not specified.
         if nargin<3,  

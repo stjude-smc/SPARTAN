@@ -1,4 +1,4 @@
-function output = rogerTSQ(fnames)
+function [output,errors,hfig] = rogerTSQ(fnames, modelfname)
 %rogerTSQ  Fluorophore performance statistics (single-color)
 %
 %   rogerTSQ(FILES) calculates trace statistics relevant for the evaluation
@@ -51,13 +51,17 @@ SAVE_REJECTED = false;
 % folder, as would be expected if everything is from one day.
 if nargin<1,
     fnames = getFileGroups('*.rawtraces');
-    if isempty(fnames), return; end
 end
 nFiles = numel(fnames);  %actually the number of file groups/conditions.
+if isempty(fnames), return; end
 
 % Define Markov model for blinking events.
 % FIXME: should we just create a model?
-model = qub_loadModel;
+if nargin<2,
+    model = qub_loadModel;
+else
+    model = qub_loadModel(modelfname);
+end
 if isempty(model), return; end  %user hit cancel.
 
 model.fixSigma = [1 0];
@@ -73,21 +77,20 @@ offState = find( mu==min(mu) );
 % Prep output variable list. The order here also determines the order of 
 % the columns in the output file.
 z = { zeros(1,nFiles) };
-output = struct( 'intensity',z, 'intensityStd',z, 'SNRs',z, 'SNRsStd',z, ...
-                 'Ton',z, 'Toff',z, 'totalTon',z, 'yield',z, 'yieldstd',z );
+output = struct('intensity',z, 'SNRs',z, 'Ton',z, 'Toff',z, 'totalTon',z, 'yield',z);
+errors = output;
 
 % Plain-text column names for axes labels and file output.
-colnames = {'Intensity (photons)','Intensity error', 'SNR','SNR error', ...
-            'Time ON (s)', 'Time OFF (s)', 'Total time ON (s)','Total time ON error', ...
-            'Photon yield','Photon yield error'};
+colnames = {'Intensity (photons)','SNR', 'Time ON (s)', 'Time OFF (s)', ...
+            'Total time ON (s)','Photon yield'};
              
-names        = cell( nFiles,1 );  %plain-text name of each file
-dwtFilename  = cell( nFiles,1 );
+names = cell( nFiles,1 );  %plain-text name of each file
 
 
-hf = figure;
-set(hf,'Units','normalized');
-set(hf,'Position', [0.16  0.29 0.67 0.4] );  %fixme?
+constants = cascadeConstants;
+hfig = figure( 'Name',sprintf('Dye Diagnostics (ver. %s)', constants.version), ...
+               'Units','normalized', 'Position', [0.16  0.29 0.67 0.4] );
+ax = zeros(2,5);  %subplot axes
 
 
 %%
@@ -162,28 +165,26 @@ for i=1:nFiles,
     %-------------------------------------------------------------
     % 3) Calculate signal statistics
     
-    % Get total intensity distribution parameters.
-    % Histogram fitting is best with clear, symmetric distributions.
+    % Total intensity distributions
     t = [stats.t];
+    output.intensity(i) = median(t);
+    errors.intensity(i) = stdbyfile(t,condition_idx,@median);
+    
     [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    output.intensity(i) = median(t);
-    output.intensityStd(i) = stdbyfile(t,condition_idx,@median);
-
-    subplot(2,5,1); hold on;
+    ax(1,1) = subplot(2,5,1); hold on;
     plot( bins, histdata );
-    xlabel('Intensity (photons)');  ylabel('Counts (%)');
     
     
+    % Signal-to-noise over signal distributions
     snr = [stats.snr_s];
+    output.SNRs(i) = median(snr);
+    errors.SNRs(i) = stdbyfile(snr,condition_idx,@median);
+    
     [histdata,bins] = hist( snr, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    output.SNRs(i) = median(snr);
-    output.SNRsStd(i) = stdbyfile(snr,condition_idx,@median);
-
-    subplot(2,5,2); hold on;
+    ax(1,2) = subplot(2,5,2); hold on;
     plot( bins, histdata );
-    xlabel('SNR');  ylabel('Counts (%)');
     
     
     %-------------------------------------------------------------
@@ -192,6 +193,7 @@ for i=1:nFiles,
     % Note: model re-estimation includes the photobleached state, which may
     % not be ideal for getting blinking kinetics.
     dwt = skm( data.total/output.intensity(i), data.sampling, model, skmParams );
+    assert( numel(dwt)==data.nTraces, 'Idealization size mismatch' );
     
     % FIXME: consider a filter for brief events after photobleaching.
     % FIXME: consider removing traces with no ON-state dwells.
@@ -240,9 +242,8 @@ for i=1:nFiles,
     
     saveTraces( [basename '_auto.traces'], data );
     
-    dwtFilename{i} = [basename '.qub.dwt'];
     offsets = data.nFrames*( (1:data.nTraces)-1 );
-    saveDWT( dwtFilename{i}, dwt, offsets, [mu sigma], data.sampling );
+    saveDWT( [basename '_auto.qub.dwt'], dwt, offsets, [mu sigma], data.sampling );
         
     
     %-------------------------------------------------------------   
@@ -269,79 +270,66 @@ for i=1:nFiles,
     % Get total time on for each trace.
     idl = dwtToIdl( dwt, offsets, data.nFrames, data.nTraces );
     totalOn = sum(idl==onState,2).*sampling;
-        
+    output.totalTon(i) = mean(totalOn);   %expfit(totalOn, dwellaxis);
+    errors.totalTon(i) = stdbyfile(totalOn,condition_idx,@mean);
+    
     % Calculate average total time on/off
-    output.Ton(i)  = mean( onTimes  );
+    output.Ton(i)  = mean( onTimes );
+    %errors.Ton(i) = stdbyfile(onTimes,condition_idx,@mean);
+    
     output.Toff(i) = mean( offTimes );
-    output.totalTon(i)  = mean(totalOn);
-    %output.totalTon(i)  = expfit( totalOn, dwellaxis );
-    output.totalTonStd(i) = stdbyfile(totalOn,condition_idx,@mean);
+    %errors.Toff(i) = stdbyfile(offTimes,condition_idx,@mean);
+    
     
     % Calculate photon yield
     photons = sum( data.total.*(idl==onState), 2 );
-    output.yield(i)    = mean( photons );
-    output.yieldstd(i) = stdbyfile(photons,condition_idx,@mean);
+    output.yield(i) = mean( photons );
+    errors.yield(i) = stdbyfile(photons,condition_idx,@mean);
     
     
     %-------------------------------------------------------------
     % 7) Display state lifetime histograms.
-    
-    % ON times
-    subplot(2,5,3); hold on;
+    ax(1,3) = subplot(2,5,3); hold on;
     survival(onTimes,dwellaxis);
-    xlabel('Time ON (s)');  ylabel('Counts (%)');
     
-    % OFF times
-    subplot(2,5,4); hold on;
+    ax(1,4) = subplot(2,5,4); hold on;
     survival(offTimes,dwellaxis);
-    xlabel('Time OFF (s)');  ylabel('Counts (%)');
     
-    % Total time ON
-    subplot(2,5,5); hold on;
+    ax(1,5) = subplot(2,5,5); hold on;
     survival(totalOn,dwellaxis);
-    xlabel('Total time ON (s)');  ylabel('Counts (%)');
     
     drawnow;
 end
 
-subplot(2,5,5); legend(names);
+% Plot formatting
+for i=1:size(ax,2),
+    ylabel( ax(1,i), 'Counts (%)' );
+    xlabel( ax(1,i), colnames{i} );
+end
+
+legend(names);
 
 
 %% Make bar graphs to summarize the results
 
-subplot(2,5,5+1); hold on;
-bar( 1:nFiles, output.intensity, 'r' );
-errorbar( 1:nFiles, output.intensity, output.intensityStd, '.k' );
-ylabel('Intensity (photons)');
-xlim([0.35 nFiles+0.65]);
-set(gca,'xtick',1:nFiles);
+fieldIdx = [1:3,5:6];  %which fields to show
+fields = fieldnames(output);
 
-subplot(2,5,5+2); hold on;
-bar( 1:nFiles, output.SNRs, 'r' );
-errorbar( 1:nFiles, output.SNRs, output.SNRsStd, '.k' );
-ylabel('Signal-noise ratio');
-xlim([0.35 nFiles+0.65]);
-set(gca,'xtick',1:nFiles);
+for i=1:numel(fieldIdx),
+    fid = fieldIdx(i);
+    statName = fields{fid};
+    
+    ax(2,i) = subplot(2,5,5+i); hold on;
+    bar( 1:nFiles, output.(statName), 'r' );
+    errorbar( 1:nFiles, output.(statName), errors.(statName), '.k' );
+    
+    ylabel(colnames{fid});
+    xlim([0.35 nFiles+0.65]);
+end
 
-subplot(2,5,5+3);
-bar( output.Ton, 'r' );
-ylabel('Time ON (s)');
-xlim([0.35 nFiles+0.65]);
-set(gca,'xtick',1:nFiles);
-
-subplot(2,5,5+4); hold on;
-bar( output.totalTon, 'r' );
-errorbar( 1:nFiles, output.totalTon, output.totalTonStd, '.k' );
-ylabel('Total time ON (s)');
-xlim([0.35 nFiles+0.65]);
-set(gca,'xtick',1:nFiles);
-
-subplot(2,5,5+5); hold on;
-bar( 1:nFiles, output.yield, 'r' );
-errorbar( 1:nFiles, output.yield, output.yieldstd, '.k' );
-ylabel('Total photon yield');
-xlim([0.35 nFiles+0.65]);
-set(gca,'xtick',1:nFiles);
+xlabel(ax(2,1), 'Condition');
+set(ax(2,:),'xtick',1:nFiles);
+set(ax,'box','on');
 
 
 %%
@@ -362,14 +350,15 @@ set(gca,'xtick',1:nFiles);
 if f,
     % Write header line with field labels and units (see top of file).
     fid = fopen( fullfile(p,f), 'w' );
-    header = sprintf('%s\t','Name',colnames{:});
+    header = sprintf('%s\t','Name',colnames{:});  %FIXME add error headers
     fprintf(fid, '%s\n', header(1:end-1) );
     
     % Write data lines, one per file.
-    format = ['%s' repmat('\t%0.3f',[1 numel(fieldnames(output))]) '\n'];
+    fields = fieldnames(output);
+    format = ['%s' repmat('\t%0.3f',[1 2*numel(fields)]) '\n'];
 
     for i=1:nFiles,
-        line = cellfun( @(f) output.(f)(i), fieldnames(output), 'UniformOutput',false );
+        line = cellfun( @(f)[output.(f)(i) errors.(f)(i)], fields, 'UniformOutput',false );
         fprintf( fid, format, names{i}, line{:} );
     end
     

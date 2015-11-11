@@ -127,6 +127,7 @@ if nargin<4,
     filename = getFile;
 end
 if isempty(filename), return; end
+set(handles.figure1,'pointer','watch'); drawnow;
 
 % Load the file
 data = loadTraces( filename );
@@ -135,6 +136,7 @@ if isempty(data),
     warndlg('File is empty, so it cannot be loaded');
     return;
 end
+
 
 % Make sure time axis is in seconds (not frames)
 if data.time(1)==1,
@@ -286,6 +288,8 @@ else
     ylim(handles.axFret, 'auto');
 end
 zoom reset;  %remember new axis limits when zooming out.
+
+set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION OpenTracesFile
 
