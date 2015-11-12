@@ -773,7 +773,7 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     end
 end
 
-% Subtract background and calculate FRET
+% Subtract background
 data = correctTraces(data);
 
 % Scale acceptor channel to correct for unequal brightness (gamma is not 1).
@@ -787,9 +787,8 @@ if isfield(params,'scaleAcceptor') && ~isempty(params.scaleAcceptor),
         name = sprintf('acceptor%d',i);
         data.(name) = data.(name)*params.scaleAcceptor(i);
     end
-    
-    data.recalculateFret();
 end
+data.recalculateFret();
 
 
 % ---- Metadata: save various metadata parameters from movie here.

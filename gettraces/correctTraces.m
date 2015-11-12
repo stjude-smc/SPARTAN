@@ -76,11 +76,3 @@ end
 
 
 
-% Calculate FRET efficiencies.
-% FIXME: pass lt to this method so it isn't calculated twice!
-data.recalculateFret();
-
-
-
-
-

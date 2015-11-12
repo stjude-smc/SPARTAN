@@ -221,6 +221,7 @@ clear donor;  clear acceptor;  clear ids;
 
 % Subtract background and calculate FRET
 data = correctTraces(data);
+data.recalculateFret();
 
 
 end %function LoadTracesBinary
