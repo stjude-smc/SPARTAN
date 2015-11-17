@@ -77,7 +77,7 @@ if nFiles<2, return; end
 
 figure;
 nStates = size(meanPT,2);
-errorbar( repmat(1:nFiles,nStates,1)', meanPT, stdPT );
+errorbar( repmat(1:nFiles,nStates,1)', meanPT, stdPT/2 );
 
 % Construct titles with the state number and FRET values.
 states = (1:nStates)+REMOVEZERO;

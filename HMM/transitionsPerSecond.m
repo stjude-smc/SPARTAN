@@ -83,7 +83,7 @@ if nFiles<2, return; end
 
 figure;
 nStates = size(meanTPS,2);
-errorbar( repmat(1:nFiles,nStates,1)', meanTPS, stdTPS );
+errorbar( repmat(1:nFiles,nStates,1)', meanTPS, stdTPS/2 );
 
 xlabel('File number');
 ylabel('Transitions per second');

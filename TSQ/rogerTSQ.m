@@ -321,7 +321,7 @@ for i=1:numel(fieldIdx),
     
     ax(2,i) = subplot(2,5,5+i); hold on;
     bar( 1:nFiles, output.(statName), 'r' );
-    errorbar( 1:nFiles, output.(statName), errors.(statName), '.k' );
+    errorbar( 1:nFiles, output.(statName), errors.(statName)/2, '.k' );
     
     ylabel(colnames{fid});
     xlim([0.35 nFiles+0.65]);

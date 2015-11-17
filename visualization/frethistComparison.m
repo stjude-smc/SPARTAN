@@ -155,7 +155,7 @@ for i=1:nFiles
     if calcErrorBars
         pophistErrors = std(pophist,[],2);
         frethist(:,2*i) = pophistErrors;
-        errorbar( fretaxis, pophist(:,1), pophistErrors, 'x', 'Color',colors(i,:), 'LineWidth',1 );
+        errorbar( fretaxis, pophist(:,1), pophistErrors/2, 'x', 'Color',colors(i,:), 'LineWidth',1 );
     end
     
     % Add histogram from current dataset to output
