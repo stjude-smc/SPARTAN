@@ -27,7 +27,7 @@ function varargout = simulate_gui(varargin)
 %    all states are equally likely after a blink!  This effectively brings
 %    the system out of equilibrium!!!
 
-% Last Modified by GUIDE v2.5 10-Feb-2015 16:02:38
+% Last Modified by GUIDE v2.5 23-Nov-2015 13:23:26
 
 
 % Begin initialization code - DO NOT EDIT
@@ -95,7 +95,6 @@ function btnSimulate_Callback(~, ~, handles)   %#ok<DEFNU>
 
 m = handles.model;
 options = handles.options;
-disp( options );
 
 
 %----- Prompt user for location to save file in...
@@ -120,6 +119,8 @@ if simMovies
         error('No movies found');
     end
 end
+
+set(handles.figure1, 'pointer', 'watch'); drawnow;
 
 
 %----- Gather parameter values from GUI, prepare for calling simulate()
@@ -217,6 +218,8 @@ end
 fprintf(fid,'\n\n');
 fclose(fid);
 
+set(handles.figure1, 'pointer', 'arrow');
+
 
 
 %% -------------------  GUI CALLBACK FUNCTIONS  -------------------
@@ -309,7 +312,7 @@ modelLoc = fname;
 
 % Load the model
 handles.model = QubModel(fname);
-set( handles.txtModelFilename, 'String',['...' fname(max(1,end-50):end)] );
+set( handles.txtModelFilename, 'String',['...' fname(max(1,end-40):end)] );
 
 % Show the model properties in the GUI. The model's properties are
 % automatically updated whenever the model is modified in the GUI.
@@ -339,5 +342,3 @@ if f~=0,
     handles.model.save( fname );
     set( handles.txtModelFilename, 'String',['...' fname(max(1,end-50):end)] );
 end
-
-

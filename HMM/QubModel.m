@@ -199,7 +199,7 @@ methods
     end
         
     % Verify model is self-consistent and valid (see qub_verifyModel).
-    % b is true if ok, or false if there is a problem. str is an error
+    % isValid is true if ok, or false if there is a problem. str is an error
     % message. models can have non-fatal problems (b=1, but a str is given).
     function [isValid,str] = verify( model, throwErrors )
         str = [];
@@ -226,7 +226,7 @@ methods
         
         isValid = isempty(str);
         
-        % These checks only produce are only warnings
+        % These checks only produce warnings
         if abs(sum(model.p0)-1) > 0.01
             str = 'p0 values not normalized';
         end        
@@ -253,8 +253,16 @@ methods
     % is in equilibrium. This is calculated from the rate matrix.
     % Since this approximation uses the (discrete) probability matrix A,
     % the time step (dt, in seconds) is also needed.
-    % FIXME: there is probably a way to directly calculate from rates.
     function p = calcEquilibriumP0( model, dt )
+        if nargin<2, dt=1; end  %1ms approximation
+        
+        if any( sum(model.rates)==0 & sum(model.rates,2)'==0 ),
+            % If there are isolated parts of the model, how do we know which 
+            % one the system starts in? A more sophisticated test is needed 
+            % to find isolated segments of a model (multiple states).
+            warning('Isolated states may produce unexpected p0 estimates.');
+        end
+        
         A = model.calcA( dt );
         p = A^10000;
         p = p(1,:);
@@ -359,6 +367,13 @@ methods
     set(parent,'XTick',[]);
     xlim([5 90]);
     ylim([7 90]);
+    
+    %---- Add context menu to for additional options
+    menu = uicontextmenu;
+    uimenu( menu, 'Label','Calculate and apply equilibrium p0', 'Callback',@calcEqP0 );
+    uimenu( menu, 'Label','Enforce loop balance', 'Enable','off' );  %see Colquhoun 2004, Biophys J 86, p. 3510. Minimum spanning tree method.
+    uimenu( menu, 'Label','Save model...', 'Callback', @save_callback );
+    set(parent, 'UIContextMenu', menu);
     
     
     
@@ -475,6 +490,21 @@ methods
 
     end %function editState
 
+    
+    function calcEqP0(varargin)
+    % Set initial probabilities to expectation at equilibrium from rates.
+        model.p0 = model.calcEquilibriumP0();
+    end
+    
+    
+    function save_callback(varargin)
+    % Save the current model to file.
+        [f,p] = uiputfile(model.filename);
+        if ischar(f),
+            model.save( fullfile(p,f) );
+        end
+    end
+    
     
     % Called when the user is dragging one of the state boxes
     function figButtonMotion(varargin)

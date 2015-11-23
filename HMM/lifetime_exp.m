@@ -29,6 +29,7 @@ function [lifetimes,rsquare,fits] = lifetime_exp( dwtfilename, inputParams )
 %% ---- USER TUNABLE PARAMETERS ----
 params.removeBlinks = true;  % merge blinks into previous dwell
 
+params.logX = false;  %no Sine/Sigworth transform.
 params.fitSingle = true;  %otherwise, double exponential fitting...
 
 params.plotFits = true;

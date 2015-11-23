@@ -16,11 +16,11 @@ function [idl,dwtIDs] = dwtToIdl( dwt, offsets, traceLen, nTraces )
 %   length.
 %
 %   IDL = dwtToIdl( DWT ) creates an idealization with a minimum size to
-%   contain the dwell-time information, with no unidealized traces. Often used
-%   when no comparison with actual FRET data is necessary.
+%   contain the dwell-time information, with no unidealized traces.
+%   Most useful when IDL is not used in conjunction with coganate FRET data.
 % 
-%   [IDL,IDS] = dwtToIdl( ... ) returns a list of the DWT segement number
-%   associated with each trace.
+%   [IDL,IDS] = dwtToIdl(...) also returns the DWT segement number associated
+%   with each FRET trace (row).
 % 
 %   See also idlToDwt, loadDWT, saveDWT.
 
@@ -47,7 +47,7 @@ elseif nargin==2
 % If the number of traces is not specified, create an idealization that is
 % long enough to cover all idealized traces. 
 % WARNING: If there are some traces at the end that are not idealized,
-%idl will not be the same size as fret!
+% idl will not be the same size as fret!
 elseif nargin==3,
     nTraces = round(offsets(end)/traceLen)+1;
     assert( numel(dwt)<=nTraces );

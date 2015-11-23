@@ -37,25 +37,24 @@ end %FUNCTION MAKEPLOTSDIR
 
 
 
-function filenames = filelist(direct,mode)
+function files = filelist(direct,mode)
 % Get a list of all auto.traces files in the given directory
 
 files = regexpdir(direct,'\.traces$',false);
 if numel(files)<1
-    filenames = {};
+    files = struct([]);
     return;
 end
-filenames = {files.name};
 
 if nargin>=2 && mode>1,  
     % Sort by date modified
     dates = [files.datenum];
     [~,idx] = sort(dates);
-    filenames = filenames(idx);
+    files = files(idx);
     
     % Choose only the most recent.
     if mode==3,
-        filenames = filenames(end);
+        files = files(end);
     end
 end
 
@@ -91,7 +90,7 @@ if ~isequal(files,oldFiles) || isempty(hfig),
     end
     
     if numel(files)>0,
-        hfig = makeplots(files);
+        hfig = makeplots( {files.name} );
     else
         % If no files available, make an empty window as a placeholder.
         hfig = figure('Name','Autoplots - waiting for data...');

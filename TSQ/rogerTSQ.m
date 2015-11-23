@@ -158,6 +158,8 @@ for i=1:nFiles,
 
     % Select traces according to criteria defined above.
     [selected,stats] = pickTraces( stats, criteria );
+    if numel(selected)<1, continue; end
+    
     data.subset(selected);
     condition_idx = condition_idx(selected);
     

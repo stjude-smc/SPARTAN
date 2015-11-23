@@ -33,7 +33,7 @@ function [meanTime,dwellhist,names] = dwellhist( dwtfilename, inputParams )
 
 % Sine-sigworth transformation.
 params.logX = true;
-nbins = 25;  %only for log-X.
+dx = 0.2;  %bin width for log scale plots (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
 
 % Remove blinking events (dwells in state 1)
 params.removeBlinks = true;  % merge blinks into previous dwell
@@ -96,7 +96,7 @@ end
 nStates = max(nStates);
 
 
-% Collect dwell statistics for later.
+% Get dwell time limits for setting axes limits later.
 meanTime = zeros(nFiles,nStates);  %mean dwell-time per state/file.
 maxTime = 0;  %longest dwell in seconds
 
@@ -114,37 +114,42 @@ end
 if ~params.logX,
     % Linear X-axis in seconds.
     dwellaxis = 0:sampling:maxTime;
-    dwellhist = zeros( numel(dwellaxis), 1+(nStates*nFiles) );
-    dwellhist(:,1) = dwellaxis;
 else
-    % Create a log millisecond time axis with a fixed number of bins.
-    dwellaxis = linspace( log10(sampling), 3*log10(maxTime), nbins );
+    % Create a log time axis with a fixed number of bins.
+    % histcounts uses bin edges of E(k) <= X(i) < E(k+1).
+    dwellaxis = log10(sampling):dx:log10(maxTime*3);
     
     % Force the bins edges to be exact intervals of the time resolution.
     % The histogram will better sample the discrete nature of the data.
-    fullaxis = log10( (1:5000)*sampling )';
+    maxFrames = ceil(maxTime*3/sampling);
+    fullaxis = log10( (1:maxFrames)*sampling )';
     dwellaxis = unique( nearestBin(dwellaxis, fullaxis) );
     
     % Normalization factor to account for varying-sized bins.
-    dlx = diff( [dwellaxis(1:end-1) ; dwellaxis(2:end)] );
-    dlt = 10.^( [dlx dlx(end)] );
+    dlx = dwellaxis(2:end) - dwellaxis(1:end-1);
 end
+
+dwellhist = zeros( numel(dwellaxis)-1, 1+(nStates*nFiles) );
+dwellhist(:,1) = dwellaxis(1:end-1);
 
 
 for file=1:nFiles,
     for state=1:nStates,
         dwellc = dwts{file}{state};
         
+        % Add a small constant to ensure dwells fall in the correct bin.
+        dwellc = dwellc+sampling/10;
+        
         % Make linear-scale survival plot.
         if ~params.logX,
-            counts = histc( dwellc, dwellaxis );
+            counts = histcounts( dwellc, dwellaxis );
             histdata = sum(counts) - cumsum(counts);
             histdata = histdata/histdata(1);
         
-        % Make log-scale Sine-Sigworth plot (linear ordinate, log10 ms X).
+        % Make log-scale Sine-Sigworth plot (linear ordinate).
         else
-            counts = histc( log10(dwellc)', dwellaxis );
-            histdata = counts./dlt;  %normalize by log-space bin size
+            counts = histcounts( log10(dwellc)', dwellaxis );
+            histdata = counts./dlx;  %normalize by log-space bin size
             histdata = histdata/sum(histdata);  %normalize to 1
         end
         
@@ -180,7 +185,7 @@ if ~params.logX,
     xtitle = 'Time (s)';
 else
     xmax = dwellaxis(end);
-    xtitle = 'Time (Log10 s)';
+    xtitle = 'Time (log10 s)';
 end
 
 h = dwellhist(:,2:end);
@@ -198,7 +203,7 @@ ax = zeros(nStates,1);
 for state=1:nStates,
     ax(state) = subplot( nStates, 1, state );
     colIdx = (state-1)*nFiles + (1:nFiles) +1;
-    plot( dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
+    plot( dwellaxis(1:end-1), dwellhist(:,colIdx), '-', 'LineWidth',2 );
 
     xlim( [dwellaxis(1) xmax] );
     ylim( [0 ymax] );

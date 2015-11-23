@@ -214,34 +214,33 @@ parfor (i=1:nTraces,M)
         curState = nextState;
     end
     
-    
     % Truncate last dwell to fit into time window
     totalTime = sum(times);
     times(end) = times(end) - ( totalTime-min(endTime-1,pbTimes(i)) );
     
-    % Save the dwell-time information for .dwt file.
-    % Times are rounded to 1ms time resolution. DWT files do not support
-    % continuous time and this is usually enough to see most dwells.
-    dwt{i} = [model.class(states) round(times)'];
-    nDwells = numel(states);
+    % Convert states to classes and merge dwells in the same class.
+    % Times must be rounded to 1ms time resolution for the .dwt format.
+    [classes,times] = mergedwells( model.class(states), times );
+    dwt{i} = [classes round(times)];
     
     if mod(i,50)==0,  %fixme; not very useful with long traces.
         parfor_progress(wbh,50);
     end
     
+    
     % Don't simulate FRET traces if not requested to save time.
     if simTraces, continue; end
     
     % Generate noiseless FRET traces with time averaging.
-    e = 1+cumsum(times./dt);    % dwell end times (continuous frames)
+    e = 1+cumsum(times'./dt);    % dwell end times (continuous frames)
     s = [1 e(1:end-1)+eps];     % dwell start times
     eh = floor(e);              % discrete frame in which dwell ends
     sh = floor(s);              % discrete frame in which dwell starts
     
     trace = zeros( 1,traceLen );
     
-    for j=1:nDwells,
-        dwellFretValue = mu( model.class(states(j)) );
+    for j=1:numel(times),
+        dwellFretValue = mu( classes(j) );
         
         % 1. Isolated stretch (shortdwell within one frame).
         % Add the fret value to the current frame as a fraction of how much
@@ -352,3 +351,27 @@ drawnow;
 end %FUNCTION simulate
 
 
+
+
+function [newstates,newtimes] = mergedwells(states, times)
+% Merge repeated dwells in the same state/class into a single longer dwell.
+
+newstates = states(1);
+newtimes  = times(1);
+
+for i=2:numel(states),
+    % Accumulate time if still in the same state.
+    if states(i)==newstates(end),
+        newtimes(end) = newtimes(end) + times(i);
+        
+    % Add the next dwell if there is a transition to a new state.
+    else
+        newstates(end+1) = states(i);
+        newtimes(end+1)  = times(i);
+    end
+end
+
+newstates = newstates';
+newtimes  = newtimes';
+
+end
