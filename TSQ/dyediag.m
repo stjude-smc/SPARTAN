@@ -1,7 +1,7 @@
-function [output,errors,hfig] = rogerTSQ(fnames, modelfname)
-%rogerTSQ  Fluorophore performance statistics (single-color)
+function [output,errors,hfig] = dyediag(fnames, modelfname)
+%dyediag  Fluorophore performance statistics (single-color)
 %
-%   rogerTSQ(FILES) calculates trace statistics relevant for the evaluation
+%   dyediag(FILES) calculates trace statistics relevant for the evaluation
 %   of the photophysical behavior of the dyes in each filename in the
 %   cell array FILES. These will be printed in the command window and
 %   displayed in a summary plot. The analysis procedure uses automatic
@@ -369,7 +369,7 @@ end
 
 
 
-end %function rogerTSQ
+end %function dyediag
 
 
 
