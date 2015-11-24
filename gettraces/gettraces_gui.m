@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 30-Oct-2015 09:37:42
+% Last Modified by GUIDE v2.5 24-Nov-2015 11:11:28
 
 
 % Begin initialization code - DO NOT EDIT
@@ -44,11 +44,6 @@ end
 % --- Executes just before gettraces is made visible.
 function gettraces_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to gettraces (see VARARGIN)
-
 
 % Load colormap for image viewer
 handles.colortable = gettraces_colormap();
@@ -116,7 +111,6 @@ if numel(varargin) > 0,
     highlightPeaks(handles);
 end
 
-
 % Update handles structure
 guidata(hObject, handles);
 
@@ -124,11 +118,6 @@ guidata(hObject, handles);
 
 % --- Outputs from this function are returned to the command line.
 function varargout = gettraces_OutputFcn(~, ~, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 
@@ -139,10 +128,6 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in openstk.
 function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% hObject    handle to openstk (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Get filename of input data from user. If multiple files are selected,
 % they are considered sections (groups of frames) from a larger movie.
 % This happens with very large (sCMOS) movies > 2GB in size.
@@ -349,9 +334,6 @@ end
 
 % --- Executes on button press in batchmode.
 function batchmode_Callback(hObject, ~, handles,direct)
-% hObject    handle to batchmode (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 % direct     target directory location to look for new files
 
 % Get input parameter values
@@ -490,7 +472,6 @@ stkData = getappdata(handles.figure1,'stkData');
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
 % can see what the algorithm is doing.
-% axes(handles.axTotal);
 val = get(handles.scaleSlider,'value');
 minimum = get(handles.scaleSlider,'min');
 val = max(val,minimum+1);
@@ -603,8 +584,6 @@ if percentWinOverlap>10,
 else
     set( handles.txtWindowOverlap, 'ForegroundColor', [0 0 0] );
 end
-
-
 
 
 % Get (approximate) average fraction of fluorescence collected within the
@@ -853,8 +832,7 @@ else
 end
 
 % Re-pick molecules with new settings.
-% This is only really necessary to update the GUI status (% intensity
-% collected).
+% Updates the GUI status (% intensity collected).
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
@@ -879,17 +857,6 @@ else
 end
 
 % END FUNCTION txtSettings_Callback
-
-
-
-
-
-% --- Executes on button press in chkSaveLocations.
-function chkSaveLocations_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Update gettraces parameters using specified values
-handles.params.saveLocations = get(handles.chkSaveLocations,'Value');
-guidata(hObject,handles);
-
 
 
 
@@ -1130,7 +1097,7 @@ alignfile = fullfile( p, [f '_align.mat'] );
 if f,
     % FIXME: should also remove abs_dev.
     alignment = rmfield( handles.alignment, {'quality'} );   %#ok<NASGU>
-    save( [p f], 'alignment' );
+    save( fullfile(p,f), 'alignment' );
 end
 
 
@@ -1227,19 +1194,24 @@ guidata(hObject,handles);
 
 
 
+% --- Executes on selection change in cboZeroMehod.
+function cboZeroMehod_Callback(hObject, ~, handles)  %#ok<DEFNU>
+% Set method for detecting donor blinking and setting FRET to zero.
+menuItems = cellstr( get(hObject,'String') );
+handles.params.zeroMethod = menuItems{ get(hObject,'Value') };
+guidata(hObject,handles);
+
+%END FUNCTION cboZeroMehod_Callback
+
+
 
 % --- Executes on selection change in cboAlignMethod.
 function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
-
-% methods = contents = cellstr(get(hObject,'String'));
 sel = get(hObject,'Value');
-% method = contents{sel};
 
 if sel==2
     % Load alignment from file.
-    % FIXME: if this fails or the user hits cancel, the dropdown has "load
-    % alignment" selected, but is still in the previous state.
     btnLoadAlignment_Callback(hObject, [], handles);
 else
     % Re-pick molecules with new settings.
@@ -1320,6 +1292,5 @@ function updateFileTimer(~,~,hObject,targetDir)
 % movies that may have appeared on the path.
 % disp('Timer fired');
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
-
 
 % END FUNCTION updateFileTimer

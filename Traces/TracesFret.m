@@ -184,15 +184,21 @@ methods
         this.fret( isnan(this.fret) ) = 0;  %NaN can happen in low SNR traces.
         
         % Set FRET to zero when the donor is dark (total intensity at baseline).        
-        if isfield(this.fileMetadata,'zeroMethod') && strcmpi(this.fileMetadata.zeroMethod,'skm')
+        if ~isfield(this.fileMetadata,'zeroMethod')
+            this.fileMetadata.zeroMethod = 'threshold';
+        end
+        
+        if strcmpi(this.fileMetadata.zeroMethod,'skm')
             alive = skmTotal( this.total(idx,:), varargin{:} );
-        else
+        elseif strcmpi(this.fileMetadata.zeroMethod,'threshold')
             alive = thresholdTotal( this.total(idx,:), varargin{:} );
         end
         
-        mask = false( size(this.fret) );
-        mask(idx,:) = ~alive;
-        this.fret(mask) = 0;
+        if ~strcmpi(this.fileMetadata.zeroMethod,'off'),
+            mask = false( size(this.fret) );
+            mask(idx,:) = ~alive;
+            this.fret(mask) = 0;
+        end
         
     end %METHOD recalculateFret
     

@@ -137,6 +137,11 @@ if isempty(data),
     return;
 end
 
+if ~isfield(data.fileMetadata,'zeroMethod'),
+    data.fileMetadata.zeroMethod = 'threshold';
+end
+useThresh = ~strcmpi(data.fileMetadata.zeroMethod,'skm');
+
 
 % Make sure time axis is in seconds (not frames)
 if data.time(1)==1,
@@ -162,7 +167,12 @@ handles.filename = filename;
 handles.data = data;
 
 % Set default correction values, which correspond to no change.
-handles.fretThreshold = NaN( data.nTraces, 1  );
+if useThresh,
+    handles.fretThreshold = NaN( data.nTraces, 1  );
+else
+    handles.fretThreshold = zeros( data.nTraces, 1  );
+end
+    
 
 nFluor = 3;  %numel(data.idxFluor);
 handles.background = zeros( data.nTraces, nFluor ); %not used (yet)
@@ -203,13 +213,9 @@ for i=1:numel(handles.binNames),
 end
 
 % Turn on other controls that can now be used now that a file is loaded.
-isFret = 'off';  isThreeColor = 'off';
-if ismember('fret',data.channelNames),
-    isFret = 'on';
-end
-if isChannel(data,'acceptor2') && ~isChannel(data,'donor2')
-    isThreeColor = 'on';
-end
+offon = {'off','on'};
+isFret = offon{ ismember('fret',data.channelNames)+1 };
+isThreeColor = offon{ ismember('fret2',data.channelNames)+1 };
 
 set(handles.edThreshold,  'Enable',isFret );
 set(handles.sldThreshold, 'Enable',isFret );
@@ -228,6 +234,8 @@ set(handles.sldGamma2,    'Enable',isThreeColor );
 set(handles.btnPrint,    'Enable','on' );
 set(handles.btnLoadDWT,  'Enable','on' );
 set(handles.btnGettraces,'Enable','on' );
+
+set( [handles.edThreshold handles.sldThreshold], 'Enable', offon{useThresh+1} );
 
 % Reset x-axis label to reflect time or frame-based.
 time = data.time;
@@ -393,23 +401,25 @@ handles.backgrounds = zeros( 1,numel(fluorNames) );
 trace = handles.data.getSubset(mol);
 handles.stats = traceStat(trace);
 handles.trace = trace;
-    
-if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
-    total = zeros( size(trace) );
-    
-    % FIXME: this should only consider channels contributing to FRET (donor,
-    % acceptor, acceptor2).
-    for i=1:numel(fluorNames),
-        total = total + trace.(fluorNames{i});
-    end
-    
-    s = handles.stats.lifetime + 5;
-    range = s:min(s+handles.constants.NBK,trace.nFrames);
-    
-    if numel(range)<10,
-        handles.fretThreshold(mol) = 150; %arbitrary
-    else
-        handles.fretThreshold(mol) = handles.constants.blink_nstd * std(total(range));
+
+if ~strcmpi(handles.data.fileMetadata.zeroMethod,'skm'),
+    if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
+        total = zeros( size(trace) );
+
+        % FIXME: this should only consider channels contributing to FRET (donor,
+        % acceptor, acceptor2).
+        for i=1:numel(fluorNames),
+            total = total + trace.(fluorNames{i});
+        end
+
+        s = handles.stats.lifetime + 5;
+        range = s:min(s+handles.constants.NBK,trace.nFrames);
+
+        if numel(range)<10,
+            handles.fretThreshold(mol) = 150; %arbitrary
+        else
+            handles.fretThreshold(mol) = handles.constants.blink_nstd * std(total(range));
+        end
     end
 end
 
@@ -739,12 +749,11 @@ updateTraceData( handles );
 
 %----------ADJUST CROSSTALK WITH SLIDER----------%
 % --- Executes on slider movement.
-function sldCrosstalk_Callback(hObject, ~, handles, ch )
+function sldCrosstalk_Callback(hObject, ~, handles )
 % Called when user changes the scroll bar for specifying FRET threshold.
 %
 tag = get(hObject,'Tag');
 ch = tag(end)-'0';
-% assert( ch==1 | ch==2, 'Invalid acceptor channel number' );
 
 from = [1 2 1];
 to   = [2 3 3];
@@ -763,12 +772,11 @@ updateTraceData( handles );
 
 
 
-function edCrosstalk_Callback(hObject, eventdata, handles, ch ) %#ok<DEFNU>
+function edCrosstalk_Callback(hObject, eventdata, handles ) %#ok<DEFNU>
 % Called when user changes the text box for specifying FRET threshold.
 %
 tag = get(hObject,'Tag');
 ch = tag(end)-'0';
-% assert( ch==1 | ch==2, 'Invalid acceptor channel number' );
 
 crosstalk = str2double( get(hObject,'String') );
 name = sprintf('sldCrosstalk%d',ch);  %slider control name

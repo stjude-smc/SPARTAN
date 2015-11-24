@@ -35,9 +35,6 @@ function [stkData,peaks,image_t] = gettraces(varargin)
 %      to produce fluorescence traces. Higher values capture more
 %      intensity, but also capture more noise...
 % 
-% - saveLocations: write a text file with the locations of each peak to
-%      file.
-% 
 % - geometry: imaging geometry can be single-channel/full-chip (1), 
 %             dual-channel/left-right (2), or quad-channel (3/4).
 %             Default: dual-channel (2).
@@ -662,6 +659,10 @@ else
 end
 
 data.time = movie.timeAxis;
+
+if isfield(params,'zeroMethod'),
+    data.fileMetadata(1).zeroMethod = params.zeroMethod;
+end
 
 % Ask the user
 if ~quiet && data.time(1)==1,

@@ -77,7 +77,7 @@ cmosCommon(1).alignMethod = 1;  %disabled, assume aligned.
 cmosCommon.skipExisting   = 1;  %batch mode: skip files already processed.
 cmosCommon.recursive      = 1;  %batch mode: search recursively.
 cmosCommon.quiet          = 0;  %don't output debug messages.
-cmosCommon.saveLocations  = 0;  %save molecule locations to a text file
+cmosCommon.zeroMethod     = 'threshold';  %method for detecting donor blinks
 
 % Conversion from camera units (ADU) to photons (photoelectrons).
 % See camera calibration datasheet. May depend on which digitizer is selected!
