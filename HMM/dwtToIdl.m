@@ -64,6 +64,8 @@ for dwtID=1:numel(dwt)
     
     states = floor( dwt{dwtID}(:,1) );
     times  = floor( dwt{dwtID}(:,2) );
+    
+    if isempty(states), continue; end
 
     % For all dwells in this trace, get the start and end times.
     ends = cumsum(times);

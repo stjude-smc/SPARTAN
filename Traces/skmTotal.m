@@ -24,32 +24,23 @@ nargoutchk(1,1);
 %% PARAMETERS
 skmParams.seperately = 1;
 skmParams.quiet = true;
-baseline = 0.2;
+baseline = 0.2;  %sensitivity to partially quenched states.
 
-% % Load a model from file, if a file name is given.
-% if nargin>=2,
-%     if ischar(modelInput)
-%         model = qub_loadModel(modelInput);
-%     elseif isscalar(modelInput) && isnumeric(modelInput),
-%         baseline = modelInput;
-%     else
-%         error('Invalid model input');
-%     end
-% end
-
-% Default model for idealization. Should this be in cascadeConstants?
-% The second state is a partially quenched blinking state.
-% if ~exist('model','var'),
-    model.class = [1 2 3]';
+% Load model for detecting blinks.
+% States are: 1) dark, 2) blinking/partially-quenched, 3) ON.
+if isa(modelInput,'QubModel')
+    model = modelInput;
+elseif isstruct(modelInput) || ischar(modelInput),
+    model = QubModel(modelInput);
+else
     model.p0    = [0.01 0.01 0.98]';
     model.mu    = [0 baseline 1];
     model.sigma = [0.15 0.15 0.3];
     model.rates = [0        0       0
                    0.1      0       2    %bleaching, ressurection rates.
-                   0.1      1       0];  %blinking rate (s-1)
-    model.nStates = numel(model.class);
-    model.nClass  = numel(model.mu);
-% end
+                   0.1      1       0];  %bleaching, blinking rate (s-1)
+    model = QubModel(model);
+end
 
 % The blinking value is fixed so it doesn't creep up to the "on" state value.
 model.fixMu = [0 1 0];

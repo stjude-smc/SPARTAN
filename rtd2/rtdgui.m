@@ -99,7 +99,7 @@ end
 function updateStateDropdown(hObject,eventdata,handles)
 modelPath = get(handles.editModelPath,'String');
 if exist(modelPath,'file')
-    qubModel = qub_loadModel(modelPath);
+    qubModel = QubModel(modelPath);
     stateList = cell(qubModel.nClass,1);
     for i=1:qubModel.nClass
         stateList{i} = num2str(i);

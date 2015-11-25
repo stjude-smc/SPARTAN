@@ -171,18 +171,11 @@ itr = 1; %number of iterations so far
 LL = [];
 
 model = initialModel;
-mu = reshape(model.mu,nClass,1);
+mu    = reshape(model.mu,nClass,1);
 sigma = reshape(model.sigma,nClass,1);
-p0 = reshape(model.p0,nStates,1);
+p0    = reshape(model.p0,nStates,1);
 classes = [0; model.class];
-
-
-% Calculate correct Q matrix from rates...
-Q = model.rates;
-Q( logical(eye(size(Q))) ) = 0;
-Q( logical(eye(size(Q))) ) = -sum( Q,2 );
-dt = (sampling/1000); %convert from ms to seconds.
-A = expm( Q.*dt );
+A  = model.calcA(sampling/1000);  %transition probability matrix.
 
 while( itr < params.maxItr ),
 
@@ -267,12 +260,9 @@ idl = classes( idl+1 );
 reshape( idlClasses, size(idl) );
 
 
-% disp(vLL);
-
 % Save final parameter values back into model
 model.mu = mu;
 model.sigma = sigma;
-model.A = A;  %model.Q = ...
 model.p0 = p0;
 
 if ~params.quiet,

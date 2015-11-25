@@ -173,9 +173,9 @@ end
 % Perform idealization and related operations.
 if opt.idlTraces
     % Load QuB model and prepare for SKM.
-    kinModel = qub_loadModel(opt.kinModel);
-    kinModel.fixMu    = ones( kinModel.nStates,1 );
-    kinModel.fixSigma = ones( kinModel.nStates,1 );
+    kinModel = QubModel(opt.kinModel);
+    kinModel.fixMu    = true( kinModel.nStates,1 );
+    kinModel.fixSigma = true( kinModel.nStates,1 );
     fretModel = [kinModel.mu' kinModel.sigma'];
     
     for i=1:length(opt.fileList)

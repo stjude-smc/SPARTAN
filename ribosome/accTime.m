@@ -34,9 +34,9 @@ if nFiles<1, return; end
 % Load model for idealization
 constants = cascadeConstants;
 
-model = qub_loadModel( [constants.modelLocation filesep 'tet_selection.qmf'] );
-model.fixMu    = ones( model.nStates,1 );
-model.fixSigma = ones( model.nStates,1 );
+model = QubModel( [constants.modelLocation filesep 'tet_selection.qmf'] );
+model.fixMu    = true( model.nStates,1 );
+model.fixSigma = true( model.nStates,1 );
 fretModel = [model.mu' model.sigma'];
 skmParams.quiet = 1;
 
@@ -57,7 +57,7 @@ for i=1:nFiles,
     % Idealize FRET data
     [p,n] = fileparts(tracesFiles{i});
     dwtFilename = fullfile( p, [n '.qub.dwt'] );
-    [dwt,newModel,LL,offsets] = skm( fret, sampling, model, skmParams );
+    [dwt,~,~,offsets] = skm( fret, sampling, model, skmParams );
     saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
     
     % Load idealization

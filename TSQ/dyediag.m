@@ -58,11 +58,12 @@ if isempty(fnames), return; end
 % Define Markov model for blinking events.
 % FIXME: should we just create a model?
 if nargin<2,
-    model = qub_loadModel;
-else
-    model = qub_loadModel(modelfname);
+    [f,p] = uigetfile('*.qmf','Select model');
+    if f==0, return; end
+    modelfname = fullfile(p,f);
 end
-if isempty(model), return; end  %user hit cancel.
+
+model = QubModel(modelfname);
 
 model.fixSigma = [1 0];
 skmParams.seperately = 1;
@@ -408,6 +409,11 @@ end %function stdbyfile
 function histdata = survival(times,dwellaxis)
 % Make and display a survival plot for exponentially distributed
 % dwell-times. dwellaxis are the bins to use for the histogram.
+
+if numel(times)<1,
+    histdata = [];
+    return;
+end
 
 histdata = histc( times, dwellaxis );
 histdata = sum(histdata) - cumsum(histdata);  %survival plot

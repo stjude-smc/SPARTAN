@@ -1,13 +1,17 @@
-classdef QubModel < handle
+classdef QubModel < matlab.mixin.Copyable
 % HMM model object designed for representing a .qmf model file generated in
 % QuB. Even if QuB isn't involved, we still use this format for all model
 % definitions. The filename cannot be changed once the object is created;
 % a new object should be created to load another file. The exception is
 % when saving a file -- the model is now tied to the newly save file.
+%
+%   See also: qub_loadModel, qub_saveModel, qub_loadTree, qub_saveTree.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 % TODO: support basic constraint types from .qmf format.
+% TODO: consider making all properties Dependent, obtaining values from the
+% internal qubTree object.
 
  
 properties (SetAccess=public, GetAccess=public)
@@ -29,7 +33,7 @@ end
 
 
 % Model properties derived from model parameters (above).
-properties (SetAccess=private, GetAccess=public, Dependent)
+properties (SetAccess=immutable, GetAccess=public, Dependent)
     nStates;
     nClasses;
 end % Dependent properties
@@ -53,51 +57,59 @@ end
 methods
     %%%%%%%%%%%%%%%%%%%  CONSTRUCTOR & SERIALIZATION  %%%%%%%%%%%%%%%%%%%%
     
-    function obj = QubModel( fname )
-        % Create a model by loading a qmf (QuB model) file.        
-        assert( nargin>=1, 'Empty models are not allowed' );
-        m = qub_loadModel( fname );
+    function obj = QubModel( input )
         
-        obj.filename = fname;
-        obj.qubTree  = m.qubTree;
-        obj.p0       = m.p0;
-        obj.class    = m.class;
-        obj.mu       = m.mu;
-        obj.sigma    = m.sigma;
-        obj.rates    = m.rates;
+        % parfor seems to create empty objects it doesn't use. Silently ignore.
+        if nargin<1, return;  end
         
-        % Set default values for constraint matrices if not given.
-        if isfield(m,'fixRates'),
-            obj.fixRates = m.fixRates;
+        % Copy another QubModel object
+        if nargin==1 && isa(input,'QubModel')
+            obj = copy(input);
+            return;
+        
+        % Load from a model struct (see qub_loadModel.m)
+        elseif isstruct(input),
+            m = input;
+            
+        % Load from file
+        elseif ischar(input),
+            m = qub_loadModel( input );
+            obj.filename = input;
         else
-            obj.fixRates = zeros( size(m.rates) );
+            error('Unexpected input for QubModel constructor');
         end
         
-        if isfield(m,'fixMu'),
-            obj.fixMu = m.fixMu;
-        else
-            obj.fixMu = zeros( size(m.mu) );
+        % Set default values for optional fields
+        obj.fixRates = false( size(m.rates) );
+        obj.fixMu    = false( size(m.mu)    );
+        obj.fixSigma = false( size(m.sigma) );
+        obj.class = (1:length(m.rates))';  %assumes no degenerate states!
+        
+        % Copy all relevant fields from input to object properties.
+        mco   = ?QubModel;
+        props = {mco.PropertyList.Name};
+        
+        for i=1:numel(props),
+            if isfield(m,props{i}) && ~mco.PropertyList(i).Dependent,
+                obj.(props{i}) = m.(props{i});
+            end
         end
         
-        if isfield(m,'fixSigma'),
-            obj.fixSigma = m.fixSigma;
-        else
-            obj.fixSigma = zeros( size(m.sigma) );
-        end
-        
-        % Get display settings from the tree.        
-        obj.x = zeros( obj.nStates,1 );
-        obj.y = zeros( obj.nStates,1 );
-        for i=1:obj.nStates,
-            obj.x(i) = obj.qubTree.States.State(i).x.data;
-            obj.y(i) = obj.qubTree.States.State(i).y.data;
-        end
+        if ~isempty(obj.qubTree),
+            % Get display settings from the tree.
+            obj.x = zeros( obj.nStates,1 );
+            obj.y = zeros( obj.nStates,1 );
+            for i=1:obj.nStates,
+                obj.x(i) = obj.qubTree.States.State(i).x.data;
+                obj.y(i) = obj.qubTree.States.State(i).y.data;
+            end
 
-        % Rescale coordinates to properly fit in the box.
-        obj.x = obj.x-min(obj.x);
-        obj.y = obj.y-min(obj.y);
-        obj.x = 75*obj.x/max(obj.x) +10;
-        obj.y = 75*obj.y/max(obj.y) +12;
+            % Rescale coordinates to properly fit in the box.
+            obj.x = obj.x-min(obj.x);
+            obj.y = obj.y-min(obj.y);
+            obj.x = 75*obj.x/max(obj.x) +10;
+            obj.y = 75*obj.y/max(obj.y) +12;
+        end
         
         % Verify the model parameters make sense.
         obj.verify();
@@ -182,10 +194,8 @@ methods
         % Save the resulting to QUB_Tree .qmf file
         if nargin>1,
             qub_saveTree(outputTree,fname,'ModelFile');
+            model.filename = fname;
         end
-        
-        % This file now really represents the new file and not the old one.
-        model.filename = fname;
     end
         
     %%%%%%%%%%%%%%%%%%%%%%%%%  GET/SET METHODS  %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -197,6 +207,14 @@ methods
     function n = get.nClasses( model )
         n = numel(model.mu);
     end
+    
+    function tf = isfield(model, fname)
+        tf = ismember(fname, properties(model));
+    end
+    
+    function tf = isempty(this)
+        tf = isempty(this.class);
+    end
         
     % Verify model is self-consistent and valid (see qub_verifyModel).
     % isValid is true if ok, or false if there is a problem. str is an error
@@ -204,7 +222,13 @@ methods
     function [isValid,str] = verify( model, throwErrors )
         str = [];
         
-        if any( cellfun(@isempty,properties(model)) ),
+        % Ensure all publicly-accessible fields are set.
+        % An instance without a qubTree is valid, but cannot be displayed/saved.
+        mco   = ?QubModel;
+        props = {mco.PropertyList.Name};
+        sa    = {mco.PropertyList.SetAccess};
+        
+        if any( cellfun(@isempty,props) & strcmpi(sa,'public') ),
             str = 'Some properties are empty or not defined!';
         end
         
@@ -236,6 +260,12 @@ methods
         if nargin==1 || throwErrors,
             if ~isValid, error(['Invalid model: ' str]); end
             if isValid && ~isempty(str),  warning(str);  end
+        end
+        
+        % Force correct orientation for all properties.
+        fields = {'p0','mu','sigma','fixMu','fixSigma'};
+        for i=1:numel(fields),
+            model.(fields{i}) = to_col(model.(fields{i}));
         end
     end
     
@@ -277,8 +307,6 @@ methods
     % them and this updates the object's properties automatically.
     % PARENT is the GUI object to draw in. If not specified, a new figure
     % is created.
-    % FIXME: this displays the model /as it was originally/, but the
-    % parameters can be modified after loading!
         
     if nargin<2,
         figure;

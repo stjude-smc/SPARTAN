@@ -56,9 +56,9 @@ if ~exist(modelFile,'file'),
     end
 end
 
-model = qub_loadModel(modelFile);
-model.fixMu    = ones( model.nStates,1 );
-model.fixSigma = ones( model.nStates,1 );
+model = QubModel(modelFile);
+model.fixMu    = true( model.nStates,1 );
+model.fixSigma = true( model.nStates,1 );
 fretModel = [model.mu' model.sigma'];
 
 for i = 1:nFiles

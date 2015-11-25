@@ -30,9 +30,7 @@ colors = [ 0      0      0    ; ...  % black
            0.6    0      0    ];     % dark red
 
 % Settings for removing the zero-FRET state.
-% TURN THIS OFF if you want the full histogram.
-removeDarkState = false;
-darkModel = [constants.modelLocation 'darkstate.qmf'];
+removeDarkState = true;
 
 % Settings for error bar calculation.
 calcErrorBars = false;  % if true, use bootstrapping to display error bars
@@ -42,8 +40,6 @@ if calcErrorBars
 else 
     nBootstrap = 1;
 end
-
-
 
 
 % Prompt user for filenames if not supplied
@@ -57,11 +53,7 @@ if ~iscell(files),
 end
 
 nFiles = numel(files);
-
-if nFiles == 0,
-    disp('No files specified, exiting.');
-    return;
-end
+if nFiles == 0,  return;  end
 
 
 % If there are a ton of datapoints, we can't use the simple colors above.
@@ -77,27 +69,16 @@ end
 figure;
 
 
-% If the dark state fitting model is not found, ask the user for it.
-if removeDarkState && ~exist(darkModel,'file')
-    warning('The model used for removing the dark state was not found');
-
-    [f,p] = uigetfile(darkModel,'Select model used for removing the dark state');
-    if f==0,
-        removeDarkState = 0;
-        disp('No model. Giving up on trying to remove the dark state.');
-    else
-        darkModel = [p f];
-    end
-end
-
-% Load the dark state model. The parameters can be adjusted, especially if
-% the lowest (non-zero) state is lower than 0.4.
-if removeDarkState
-    model = qub_loadModel( darkModel );
+% Model for removing dark state noise. Adjust if any state is < 0.4.
+if removeDarkState,
+    model.p0    = [0.01 0.99]';
+    model.rates = [0 5; 1 0];
     model.mu       = [0.01 0.3];
     model.sigma    = [0.061 0.074];
-    model.fixMu    = ones(1,2);
-    model.fixSigma = ones(1,2);
+    model.fixMu    = true(1,2);
+    model.fixSigma = true(1,2);
+    model = QubModel(model);
+    
     skmParams.quiet = 1;
 end
 
@@ -116,7 +97,6 @@ for i=1:nFiles
     
     % Idealize data to 2-state model to eliminate dark-state dwells
     if removeDarkState,
-        disp('Removing dark state using hidden Markov modeling...');
         [dwt,~,~,offsets] = skm( fret, data.sampling, model, skmParams );
         idl = dwtToIdl( dwt, offsets, nFrames, nTraces );
     else
@@ -162,12 +142,6 @@ for i=1:nFiles
     % Add bootstrapped errors from current dataset
     frethist(:,2*i-1) = pophist(:,1); %use the first set: all traces.
 
-    %
-%     X = [fret_axis ; fret_axis];
-%     Y = [pophist(:,1)-pophistErrors ; pophist(:,1)+pophistErrors];
-%     
-%     patch( X,Y,colors(i,:)); hold on;
-%     alpha(0.3);
     drawnow;
 end
 
