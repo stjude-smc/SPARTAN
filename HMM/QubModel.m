@@ -122,9 +122,9 @@ methods
         % assumes the model is a struct, not an class object.
         
         % If no filename is given, update the original model file.
-        if nargin<2,
-            fname = model.filename;
-        end        
+        if nargin>=2,
+            model.filename = fname;
+        end
         
         % Verify model integrity before saving to prevent later errors.
         model.verify();
@@ -193,8 +193,7 @@ methods
 
         % Save the resulting to QUB_Tree .qmf file
         if nargin>1,
-            qub_saveTree(outputTree,fname,'ModelFile');
-            model.filename = fname;
+            qub_saveTree(outputTree, model.filename, 'ModelFile');
         end
     end
         
@@ -400,7 +399,8 @@ methods
     menu = uicontextmenu;
     uimenu( menu, 'Label','Calculate and apply equilibrium p0', 'Callback',@calcEqP0 );
     uimenu( menu, 'Label','Enforce loop balance', 'Enable','off' );  %see Colquhoun 2004, Biophys J 86, p. 3510. Minimum spanning tree method.
-    uimenu( menu, 'Label','Save model...', 'Callback', @save_callback );
+    uimenu( menu, 'Label','Revert to saved', 'Callback', @revert_callback );
+    uimenu( menu, 'Label','Save model...',   'Callback', @save_callback );
     set(parent, 'UIContextMenu', menu);
     
     
@@ -522,6 +522,24 @@ methods
     function calcEqP0(varargin)
     % Set initial probabilities to expectation at equilibrium from rates.
         model.p0 = model.calcEquilibriumP0();
+    end
+    
+    
+    
+    function revert_callback(varargin)
+    % Revert to the state of the file before any modifications.
+        newmodel = QubModel(model.filename);
+        
+        mco   = ?QubModel;
+        props = {mco.PropertyList.Name};
+        props = props(~[mco.PropertyList.Dependent]);
+        
+        for i=1:numel(props),
+            disp(props{i});
+            model.(props{i}) = newmodel.(props{i});
+        end
+        
+        model.showModel(parent);
     end
     
     

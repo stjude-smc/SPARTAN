@@ -18,7 +18,6 @@ warning off qubtree:MatrixFieldsNotSupported
 
 
 persistent modelFilename;
-disp(modelFilename);
 
 % If no model filename is given, prompt the user for it.
 % The selection will be remembered because modelFilename is persistent.
