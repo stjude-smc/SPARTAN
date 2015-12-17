@@ -22,7 +22,7 @@ function varargout = rtdgui(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 31-Aug-2015 13:04:44
+% Last Modified by GUIDE v2.5 15-Dec-2015 12:07:35
 
 
 % Begin initialization code - DO NOT EDIT
@@ -75,6 +75,10 @@ if exist(modelfile,'file')
     set(handles.editModelPath,'String',modelfile);
     updateStateDropdown(hObject,eventdata,handles);
 end
+
+set(handles.selPreFrames,'String','5');
+set(handles.selMinFrames,'String','35');
+set(handles.selTotalFrames,'String','500');
 
 set(handles.selProdDwell,'String','120');
 set(handles.eventFilter,'Value',1);
@@ -193,6 +197,11 @@ opt.kinModel = get(handles.editModelPath,'String');
 opt.prodDwell = str2num(get(handles.selProdDwell,'String'));
 opt.prodState = get(handles.selProdState,'Value');
 opt.skipStateFilter = ~get(handles.eventFilter,'Value');
+opt.preFrames = str2num(get(handles.selPreFrames,'String'));
+opt.minFrames = str2num(get(handles.selMinFrames,'String'));
+opt.constants.defaultAutotraceCriteria.min_acclife = opt.minFrames;
+opt.totalFrames = str2num(get(handles.selTotalFrames,'String'));
+
 if get(handles.useAdvSettings,'Value') && ~isdeployed
     settingsFile = get(handles.advancedSettings,'String');
     run(settingsFile);
@@ -270,3 +279,72 @@ if get(handles.useAdvSettings,'Value')
     end
 end
 rtdPlots(opt);
+
+
+
+function selPreFrames_Callback(hObject, eventdata, handles)
+% hObject    handle to selPreFrames (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of selPreFrames as text
+%        str2double(get(hObject,'String')) returns contents of selPreFrames as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function selPreFrames_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to selPreFrames (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function selMinFrames_Callback(hObject, eventdata, handles)
+% hObject    handle to selMinFrames (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of selMinFrames as text
+%        str2double(get(hObject,'String')) returns contents of selMinFrames as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function selMinFrames_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to selMinFrames (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function selTotalFrames_Callback(hObject, eventdata, handles)
+% hObject    handle to selTotalFrames (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of selTotalFrames as text
+%        str2double(get(hObject,'String')) returns contents of selTotalFrames as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function selTotalFrames_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to selTotalFrames (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end

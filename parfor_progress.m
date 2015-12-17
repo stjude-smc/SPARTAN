@@ -48,7 +48,7 @@ nargoutchk(0,1);
 
 
 %% Create a new waitbar
-if isnumeric(varargin{1}),
+if ~ishandle(varargin{1}),
     
     N_init = ceil(varargin{1});
     
@@ -85,12 +85,11 @@ end
 
 
 %% Update an existing waitbar
-if isa(varargin{1},'handle'),
+if ishandle(varargin{1}),
     wbh = varargin{1};
     
     % If the internal state is not valid, the waitbar was closed early.
-    if ~isvalid(wbh) || ...
-       ~isappdata(wbh,'pp_timer_handle') || ~isappdata(wbh,'pp_filename'),
+    if ~isappdata(wbh,'pp_timer_handle') || ~isappdata(wbh,'pp_filename'),
         return;
     end
     

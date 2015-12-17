@@ -1,2 +1,2 @@
-mex -O -DMEX_FCN -largeArrayDims forward_viterbix.cpp -output ../../cascade_binary/forward_viterbix.mexw64
+mex -O -DMEX_FCN -largeArrayDims forward_viterbix.cpp -output ../binary/forward_viterbix.mexw64
 

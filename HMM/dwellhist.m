@@ -124,13 +124,15 @@ else
     maxFrames = ceil(maxTime*3/sampling);
     fullaxis = log10( (1:maxFrames)*sampling )';
     dwellaxis = unique( nearestBin(dwellaxis, fullaxis) );
+%     dwellaxis = unique( floor(fullaxis/sampling)*sampling );
     
     % Normalization factor to account for varying-sized bins.
     dlx = dwellaxis(2:end) - dwellaxis(1:end-1);
+    dlx = [dlx dlx(end)];
 end
 
-dwellhist = zeros( numel(dwellaxis)-1, 1+(nStates*nFiles) );
-dwellhist(:,1) = dwellaxis(1:end-1);
+dwellhist = zeros( numel(dwellaxis), 1+(nStates*nFiles) );
+dwellhist(:,1) = dwellaxis;
 
 
 for file=1:nFiles,
@@ -142,13 +144,13 @@ for file=1:nFiles,
         
         % Make linear-scale survival plot.
         if ~params.logX,
-            counts = histcounts( dwellc, dwellaxis );
+            counts = histc( dwellc, dwellaxis );
             histdata = sum(counts) - cumsum(counts);
             histdata = histdata/histdata(1);
         
         % Make log-scale Sine-Sigworth plot (linear ordinate).
         else
-            counts = histcounts( log10(dwellc)', dwellaxis );
+            counts = histc( log10(dwellc)', dwellaxis );
             histdata = counts./dlx;  %normalize by log-space bin size
             histdata = histdata/sum(histdata);  %normalize to 1
         end
@@ -185,7 +187,7 @@ if ~params.logX,
     xtitle = 'Time (s)';
 else
     xmax = dwellaxis(end);
-    xtitle = 'Time (log10 s)';
+    xtitle = 'Time (log_{10} s)';
 end
 
 h = dwellhist(:,2:end);
@@ -203,7 +205,7 @@ ax = zeros(nStates,1);
 for state=1:nStates,
     ax(state) = subplot( nStates, 1, state );
     colIdx = (state-1)*nFiles + (1:nFiles) +1;
-    plot( dwellaxis(1:end-1), dwellhist(:,colIdx), '-', 'LineWidth',2 );
+    plot( dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
 
     xlim( [dwellaxis(1) xmax] );
     ylim( [0 ymax] );

@@ -1,0 +1,217 @@
+<deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
+  <configuration build-checksum="3124096091" file="Z:\SharedDocs\Matlab\compiled\Cascade_Pipeline_v2.12_NMETH\smFRET_analysis.prj" location="Z:\SharedDocs\Matlab\compiled\Cascade_Pipeline_v2.12_NMETH" name="smFRET_analysis" preferred-package-location="Z:\SharedDocs\Matlab\compiled\Cascade_Pipeline_v2.12_NMETH\smFRET_analysis\for_redistribution" preferred-package-type="package.type.exe" target="target.ezdeploy.standalone" target-name="MATLAB Compiler for Standalone Applications">
+    <param.appname>smFRET_analysis</param.appname>
+    <param.icon />
+    <param.icons />
+    <param.version>2.12</param.version>
+    <param.authnamewatermark>Daniel Terry</param.authnamewatermark>
+    <param.email>scb2005@med.cornell.edu</param.email>
+    <param.company>Weill-Cornell Medical College</param.company>
+    <param.summary>Single molecule FRET data analysis software</param.summary>
+    <param.description>Compiled with MATLAB 2014a. Licensed, non-commerial use only.</param.description>
+    <param.screenshot />
+    <param.guid />
+    <param.installpath.string>\Weill-Cornell Medical College\smFRET_analysis\</param.installpath.string>
+    <param.installpath.combo>option.installpath.programfiles</param.installpath.combo>
+    <param.logo />
+    <param.install.notes />
+    <param.intermediate>${PROJECT_ROOT}\smFRET_analysis\for_testing</param.intermediate>
+    <param.output>${PROJECT_ROOT}\smFRET_analysis\for_redistribution</param.output>
+    <param.user.defined.mcr.options />
+    <param.embed.ctf>true</param.embed.ctf>
+    <param.server.ctf>${PROJECT_ROOT}\smFRET_analysis\for_testing\.ctf</param.server.ctf>
+    <param.server.readme>${PROJECT_ROOT}\smFRET_analysis\for_testing\readme.txt</param.server.readme>
+    <param.target.type>subtarget.standalone</param.target.type>
+    <param.support.packages />
+    <param.web.mcr>true</param.web.mcr>
+    <param.package.mcr>false</param.package.mcr>
+    <param.no.mcr>false</param.no.mcr>
+    <param.web.mcr.name>smFRET_analysis_web</param.web.mcr.name>
+    <param.package.mcr.name>MyAppInstaller_mcr</param.package.mcr.name>
+    <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
+    <param.windows.command.prompt>true</param.windows.command.prompt>
+    <param.create.log>false</param.create.log>
+    <param.log.file />
+    <unset>
+      <param.icon />
+      <param.icons />
+      <param.authnamewatermark />
+      <param.email />
+      <param.company />
+      <param.screenshot />
+      <param.guid />
+      <param.installpath.string />
+      <param.installpath.combo />
+      <param.logo />
+      <param.install.notes />
+      <param.intermediate />
+      <param.output />
+      <param.user.defined.mcr.options />
+      <param.embed.ctf />
+      <param.server.ctf />
+      <param.server.readme />
+      <param.target.type />
+      <param.support.packages />
+      <param.web.mcr />
+      <param.package.mcr />
+      <param.no.mcr />
+      <param.package.mcr.name />
+      <param.no.mcr.name />
+      <param.windows.command.prompt />
+      <param.create.log />
+      <param.log.file />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}\cascadePipeline.m</file>
+    </fileset.main>
+    <fileset.resources>
+      <file>${PROJECT_ROOT}\autotrace\autotrace.fig</file>
+      <file>${PROJECT_ROOT}\autotrace\autotrace.m</file>
+      <file>${PROJECT_ROOT}\autotrace\calcLifetime.m</file>
+      <file>${PROJECT_ROOT}\autotrace\loadPickSaveTraces.m</file>
+      <file>${PROJECT_ROOT}\autotrace\medianfilter.m</file>
+      <file>${PROJECT_ROOT}\autotrace\pickTraces.m</file>
+      <file>${PROJECT_ROOT}\autotrace\rleFilter.m</file>
+      <file>${PROJECT_ROOT}\autotrace\RLEncode.m</file>
+      <file>${PROJECT_ROOT}\autotrace\traceStat.m</file>
+      <file>${PROJECT_ROOT}\binary\forward_viterbix.mexw64</file>
+      <file>${PROJECT_ROOT}\binary\medianfilterx.mexw64</file>
+      <file>${PROJECT_ROOT}\binary\qub_loadTree.mexw64</file>
+      <file>${PROJECT_ROOT}\binary\qub_saveTree.mexw64</file>
+      <file>${PROJECT_ROOT}\cascadeConstants.m</file>
+      <file>${PROJECT_ROOT}\cascadePipeline.fig</file>
+      <file>${PROJECT_ROOT}\crosstalkcorrect.m</file>
+      <file>${PROJECT_ROOT}\gammacorrect.m</file>
+      <file>${PROJECT_ROOT}\getFile.m</file>
+      <file>${PROJECT_ROOT}\getFiles.m</file>
+      <file>${PROJECT_ROOT}\gettraces\correctTraces.m</file>
+      <file>${PROJECT_ROOT}\gettraces\getCentroids.m</file>
+      <file>${PROJECT_ROOT}\gettraces\getIntegrationWindows.m</file>
+      <file>${PROJECT_ROOT}\gettraces\gettraces.m</file>
+      <file>${PROJECT_ROOT}\gettraces\gettraces_colormap.m</file>
+      <file>${PROJECT_ROOT}\gettraces\gettraces_gui.fig</file>
+      <file>${PROJECT_ROOT}\gettraces\gettraces_gui.m</file>
+      <file>${PROJECT_ROOT}\gettraces\icpalign.m</file>
+      <file>${PROJECT_ROOT}\gettraces\Movie.m</file>
+      <file>${PROJECT_ROOT}\gettraces\Movie_STK.m</file>
+      <file>${PROJECT_ROOT}\gettraces\Movie_TIFF.m</file>
+      <file>${PROJECT_ROOT}\gettraces\pickPeaks.m</file>
+      <file>${PROJECT_ROOT}\gettraces\readTiffHeader.m</file>
+      <file>${PROJECT_ROOT}\gettraces\translatePeaks.m</file>
+      <file>${PROJECT_ROOT}\gettraces\Wavelength_to_RGB.m</file>
+      <file>${PROJECT_ROOT}\gettraces\weberalign.m</file>
+      <file>${PROJECT_ROOT}\gettraces\weberQuality.m</file>
+      <file>${PROJECT_ROOT}\HMM\batchKinetics.fig</file>
+      <file>${PROJECT_ROOT}\HMM\batchKinetics.m</file>
+      <file>${PROJECT_ROOT}\HMM\BWbackward.m</file>
+      <file>${PROJECT_ROOT}\HMM\BWforward.m</file>
+      <file>${PROJECT_ROOT}\HMM\BWoptimize.m</file>
+      <file>${PROJECT_ROOT}\HMM\BWtransition.m</file>
+      <file>${PROJECT_ROOT}\HMM\dwellhist.m</file>
+      <file>${PROJECT_ROOT}\HMM\dwtToIdl.m</file>
+      <file>${PROJECT_ROOT}\HMM\forHammy.m</file>
+      <file>${PROJECT_ROOT}\HMM\forvbFRET.m</file>
+      <file>${PROJECT_ROOT}\HMM\forward_viterbi.m</file>
+      <file>${PROJECT_ROOT}\HMM\hammyToDWT.m</file>
+      <file>${PROJECT_ROOT}\HMM\idealize.m</file>
+      <file>${PROJECT_ROOT}\HMM\idlToDwt.m</file>
+      <file>${PROJECT_ROOT}\HMM\lifetime_exp.m</file>
+      <file>${PROJECT_ROOT}\HMM\loadDwelltimes.m</file>
+      <file>${PROJECT_ROOT}\HMM\loadDWT.m</file>
+      <file>${PROJECT_ROOT}\HMM\percentTime.m</file>
+      <file>${PROJECT_ROOT}\HMM\QubModel.m</file>
+      <file>${PROJECT_ROOT}\HMM\removeBlinks.m</file>
+      <file>${PROJECT_ROOT}\HMM\saveDWT.m</file>
+      <file>${PROJECT_ROOT}\HMM\skm.m</file>
+      <file>${PROJECT_ROOT}\HMM\tIdealize.m</file>
+      <file>${PROJECT_ROOT}\HMM\vbFRET_dwt.m</file>
+      <file>${PROJECT_ROOT}\parfor_progress.m</file>
+      <file>${PROJECT_ROOT}\qub\forQuB.m</file>
+      <file>${PROJECT_ROOT}\qub\jobQueue.m</file>
+      <file>${PROJECT_ROOT}\qub\qub_loadModel.m</file>
+      <file>${PROJECT_ROOT}\qub\qub_milOptimize.m</file>
+      <file>${PROJECT_ROOT}\qub\qub_verifyModel.m</file>
+      <file>${PROJECT_ROOT}\rtd2\postSyncTraces.m</file>
+      <file>${PROJECT_ROOT}\rtd2\rtdgui.fig</file>
+      <file>${PROJECT_ROOT}\rtd2\rtdgui.m</file>
+      <file>${PROJECT_ROOT}\rtd2\rtdPlots.m</file>
+      <file>${PROJECT_ROOT}\rtd2\rtdTool.m</file>
+      <file>${PROJECT_ROOT}\rtd2\simplePostSync.m</file>
+      <file>${PROJECT_ROOT}\rtd2\stateMin.m</file>
+      <file>${PROJECT_ROOT}\rtd2\stateOccupancy.m</file>
+      <file>${PROJECT_ROOT}\scaleacceptor.m</file>
+      <file>${PROJECT_ROOT}\to_col.m</file>
+      <file>${PROJECT_ROOT}\to_row.m</file>
+      <file>${PROJECT_ROOT}\toolbox\catstruct.m</file>
+      <file>${PROJECT_ROOT}\toolbox\locate.m</file>
+      <file>${PROJECT_ROOT}\toolbox\mergestruct.m</file>
+      <file>${PROJECT_ROOT}\toolbox\regexpdir.m</file>
+      <file>${PROJECT_ROOT}\Traces\loadTraces.m</file>
+      <file>${PROJECT_ROOT}\Traces\loadTraces_legacy.m</file>
+      <file>${PROJECT_ROOT}\Traces\saveTraces.m</file>
+      <file>${PROJECT_ROOT}\Traces\sizeTraces.m</file>
+      <file>${PROJECT_ROOT}\Traces\skmTotal.m</file>
+      <file>${PROJECT_ROOT}\Traces\thresholdTotal.m</file>
+      <file>${PROJECT_ROOT}\Traces\Traces.m</file>
+      <file>${PROJECT_ROOT}\Traces\TracesFluor.m</file>
+      <file>${PROJECT_ROOT}\Traces\TracesFret.m</file>
+      <file>${PROJECT_ROOT}\Traces\TracesFret4.m</file>
+      <file>${PROJECT_ROOT}\visualization\cplot.m</file>
+      <file>${PROJECT_ROOT}\visualization\forOrigin.m</file>
+      <file>${PROJECT_ROOT}\visualization\frethistComparison.m</file>
+      <file>${PROJECT_ROOT}\visualization\makecplot.m</file>
+      <file>${PROJECT_ROOT}\visualization\makeplots.m</file>
+      <file>${PROJECT_ROOT}\visualization\sorttraces.fig</file>
+      <file>${PROJECT_ROOT}\visualization\sorttraces.m</file>
+      <file>${PROJECT_ROOT}\visualization\statehist.m</file>
+      <file>${PROJECT_ROOT}\visualization\tdplot.m</file>
+      <file>${PROJECT_ROOT}\visualization\tplot.m</file>
+    </fileset.resources>
+    <fileset.package>
+      <file>${PROJECT_ROOT}\binary\msvcp100.dll</file>
+      <file>${PROJECT_ROOT}\binary\msvcr100.dll</file>
+      <file>${PROJECT_ROOT}\binary\python23.dll</file>
+      <file>${PROJECT_ROOT}\binary\qubtree64.dll</file>
+      <file>${PROJECT_ROOT}\binary\resultTree.mat</file>
+      <file>Z:\SharedDocs\Matlab\compiled\Documentation.pdf</file>
+    </fileset.package>
+    <build-deliverables>
+      <file location="${PROJECT_ROOT}\smFRET_analysis\for_testing" name="splash.png" optional="false">Z:\SharedDocs\Matlab\compiled\Cascade_Pipeline_v2.12_NMETH\smFRET_analysis\for_testing\splash.png</file>
+      <file location="${PROJECT_ROOT}\smFRET_analysis\for_testing" name="readme.txt" optional="true">Z:\SharedDocs\Matlab\compiled\Cascade_Pipeline_v2.12_NMETH\smFRET_analysis\for_testing\readme.txt</file>
+      <file location="${PROJECT_ROOT}\smFRET_analysis\for_testing" name="smFRET_analysis.exe" optional="false">Z:\SharedDocs\Matlab\compiled\Cascade_Pipeline_v2.12_NMETH\smFRET_analysis\for_testing\smFRET_analysis.exe</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>C:\Program Files\MATLAB\R2014a</root>
+      <toolboxes>
+        <toolbox name="fixedpoint" />
+        <toolbox name="matlabcoder" />
+      </toolboxes>
+      <toolbox>
+        <fixedpoint>
+          <enabled>true</enabled>
+        </fixedpoint>
+      </toolbox>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>false</unix>
+      <mac>false</mac>
+      <windows>true</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>6.1</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>win64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>

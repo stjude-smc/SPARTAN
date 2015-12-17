@@ -19,7 +19,7 @@ DEPS =
 
 
 # Primary target: make all MEX functions
-TARGET_DIR = ../../cascade_binary
+TARGET_DIR = ../binary
 TARGET = ${TARGET_DIR}/forward_viterbix.${MEX_EXT}
 
 
