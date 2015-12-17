@@ -99,18 +99,33 @@ end
 % FIXME: change to normalized units so the buttons are scaled?
 
 uicontrol( 'Style','pushbutton', 'String','Save files', ...
-           'Position',[20 20 80 30], 'Callback',@saveFiles, ...
+           'Position',[20 20 80 30], 'Callback',@saveFiles2, ...
            'Parent',h1 );
 
 uicontrol( 'Style','pushbutton', 'String','Change settings', ...
-           'Position',[110 20 130 30], 'Callback',@changeDisplaySettings, ...
+           'Position',[110 20 130 30], 'Callback',@changeDisplaySettings2, ...
            'Parent',h1 );
        
 uicontrol( 'Style','pushbutton', 'String','Reset settings', ...
-           'Position',[250 20 120 30], 'Callback',@resetSettings, ...
+           'Position',[250 20 120 30], 'Callback',@resetSettings2, ...
            'Parent',h1 );
 
 
+% =============== COMPATIBILITY with 2.11 and earlier ================
+% These were once nested functions, but were moved to reduce complexity.
+% Without these, users cannot load old .fig files.
+function saveFiles(varargin) %#ok<DEFNU>
+    disp('This feature is not available for versions before 2.12.');
+end
+
+function changeDisplaySettings(varargin) %#ok<DEFNU>
+    disp('This feature is not available for versions before 2.12.');
+end
+
+function resetSettings(varargin) %#ok<DEFNU>
+    disp('This feature is not available for versions before 2.12.');
+end
+       
 end %FUNCTION MAKEPLOTS
        
        
@@ -120,7 +135,7 @@ end %FUNCTION MAKEPLOTS
 % Called when any of the buttons at the bottom of the makeplots window are
 % clicked. All plot data is stored in guidata.
 
-function saveFiles(hObject,~)
+function saveFiles2(hObject,~)
 % Save plot data to text files for importing and plotting in Origin.
     
 handles = guidata(hObject);
@@ -148,7 +163,7 @@ end %FUNCTION saveFiles
 
 
 
-function changeDisplaySettings(hObject,~)
+function changeDisplaySettings2(hObject,~)
 % Changes how much (how many frames) of the movie to show in plots.
 % This is equivalent to changing pophist_sumlen in cascadeConstants.
 
@@ -192,7 +207,7 @@ end %FUNCTION changeDisplaySettings
 
 
 
-function resetSettings(hObject,~)
+function resetSettings2(hObject,~)
 % Reset all display settings to their defaults in cascadeConstants.
 
 handles = guidata(hObject);
@@ -204,7 +219,7 @@ handles.options = options;
 
 plotData(hObject,handles);
 
-end %FUNCTION changeDisplaySettings
+end %FUNCTION resetSettings
 
 
 
