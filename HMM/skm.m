@@ -2,6 +2,11 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 % SKM  Crude model re-estimation using iterative idealization
 % 
 %   [DWT,NEW_MODEL,LL,OFFSETS] = SKM( DATA, SAMPLING, MODEL, params )
+%   Idealizes the FRET traces in the NxM matrix DATA, assigns the state of the
+%   system at each point in time. The fitting process optimizes the initial
+%   QubModel object MODEL as a starting point,  it using the segmental K-means
+%   algorithm.
+%
 %   Optimizes the given FRET/kinetic MODEL soas to maximize the 
 %   likelihood data given the model. DATA is a NxM matrix of
 %   N FRET traces of M datapoints in length each. MODEL is a typical
@@ -9,71 +14,66 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 %   returns the optimal model (NEW_MODEL) and the idealization
 %   with maximum likelihood (DWT). SAMPLING is in ms.
 %
-%   NOTE that constraints on FRET values and stdev specified in
-%   the model file WILL be enforced in the fitting with SKM.
-%   Constraints on kinetics will be ignored!
+%   The following model parameters will affect the fitting procedure:
+%    - fixMu:     Cx1 logical vector; fix class model mean FRET value.
+%    - fixSigma:  Cx1 logical vector; fix class model stdev FRET value.
+%    - fixRates:  SxS logical array -- NOT IMPLEMENTED!
 %   
-%   The following params may be specified: FIXME...
-%    - maxItr (100):  maximum number of iterations before terminating
-%    - convLL (1e-2): stop iterating when LL converges within this limit
+%   The following params may be specified:
+%    - maxItr (100):       maximum number of iterations before terminating
+%    - convLL (1e-2):      stop iterating when LL converges within this limit
+%    - quiet  (false):     if true, avoid displaying console output or waitbar.
+%    - fixRates (false):   if true, fix all rates at their initial values.
+%    - zeroEnd  (false):   explicitly add a zero-state dwell at end of traces
+%    - seperately (true):  if true, fit a model for each trace individually.
+%
+%   See also: QubModel, idealize, forward_viterbi.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 
-if nargin<3,
-    error('SKM: not enough input arguments');
+%% Process input arguments
+
+narginchk(3,4);
+nargoutchk(0,4);
+
+
+% Set default values for any paramaters not specified.
+defaultParams.maxItr   = 100;
+defaultParams.convLL   = 1e-4;
+defaultParams.quiet    = false;
+defaultParams.fixRates = false; %FIXME: should ultimately be in the model.
+defaultParams.zeroEnd  = false;
+defaultParams.seperately = true;
+
+params = mergestruct(defaultParams, params);
+
+
+% Convert input model to QubModel object if necessary
+if ~isa(initialModel,'QubModel')
+    if isstruct(initialModel),
+        initialModel = QubModel(initialModel);
+    else
+        error('Invalid model input');
+    end
 end
 
-if nargin<4,
-    params = struct([]);
-end
 
-
-
-%% Initialize algorithm
-
-% Verify model correctness...
-[goodModel,msg] = qub_verifyModel(initialModel);
-assert(goodModel,['SKM: Invalid initial model: ' msg]);
-nStates = numel(initialModel.mu);
-
-if ~isfield(initialModel,'fixMu')
-    initialModel.fixMu = zeros(nStates,1);
-end
-if ~isfield(initialModel,'fixSigma')
-    initialModel.fixSigma = zeros(nStates,1);
-end
-
-% Parse model constraints...
-if isfield(initialModel,'params') && any(initialModel.fixRates(:)),
-    warning('SKM:fixRates','Fixing specific rates not support!');
-end
-
-% Parse convergence criteria
-if ~isfield(params,'maxItr')
-    params(1).maxItr = 100;
-end
-
-if ~isfield(params,'convLL')
-    params.convLL = 1e-4;
+% Warnings for any features not yet implemented.
+if any(initialModel.fixRates(:)),
+    warning('SKM:fixRates','Fixing specific rates not supported!');
 end
 
 if isfield(params,'convGrad')
-    warning('SKM:convGrad','convGrad not yet implemented');
+    warning('SKM:convGrad','convGrad not yet implemented.');
 end
 
-if ~isfield(params,'quiet'),
-    params.quiet = 0;
-end
 
-if ~isfield(params,'fixRates')
-    params.fixRates = 0;
-end
-
-% Modify data to fall within specified ranges...
+% Ensure input falls within a reasonable range for FRET data.
 data(data>10) = 10;
 data(data<-1) = -1;
+
 
 
 %% Run the SKM algorithm
@@ -86,7 +86,7 @@ data(data<-1) = -1;
 % YES: Optimize each trace individually, returning a model array
 %      and a single idealization combining all results.
 
-if isfield(params,'seperately') && params.seperately==1,
+if params.seperately,
     constants = cascadeConstants;
     
     if ~params.quiet,
@@ -129,7 +129,7 @@ end
 
 
 % Add dwell in zero-state until end of trace, if requested
-if isfield(params,'zeroEnd') && params.zeroEnd==1,
+if params.zeroEnd,
     for i=1:nTraces,
         states = dwt{i}(:,1);
         times  = dwt{i}(:,2);
@@ -162,18 +162,18 @@ end %function skm
 function [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params)
 
 nTraces = size(data,1);
-nStates = size(initialModel.rates,1);
-nClass  = numel(initialModel.mu);
+nStates = initialModel.nStates;
+nClass  = initialModel.nClasses;
 
 
 % Setup initial conditions
 itr = 1; %number of iterations so far
 LL = [];
 
-model = initialModel;
-mu    = reshape(model.mu,nClass,1);
-sigma = reshape(model.sigma,nClass,1);
-p0    = reshape(model.p0,nStates,1);
+model = copy(initialModel);
+mu    = to_col(model.mu);
+sigma = to_col(model.sigma);
+p0    = to_col(model.p0);
 classes = [0; model.class];
 A  = model.calcA(sampling/1000);  %transition probability matrix.
 

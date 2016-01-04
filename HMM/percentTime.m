@@ -32,6 +32,9 @@ else
     end
 end
 
+% If .traces files are given, silently look for associated .dwt file.
+filenames = findDwt(filenames);
+    
 nFiles = numel(filenames);
 
 
@@ -41,7 +44,8 @@ bootfun = @(times) 100*sum(times)/sum(times(:));
 meanPT = zeros(0);
 stdPT = zeros(0);
 
-for i=1:nFiles,    
+for i=1:nFiles,
+    
     % Load dwell-time information and convert to state assignment matrix.
     [dwt,~,~,model] = loadDWT(filenames{i});
     nStates = size(model,1);
@@ -73,7 +77,7 @@ end
 
 
 %% Plot the results
-if nFiles<2, return; end
+if nargout>0, return; end
 
 figure;
 nStates = size(meanPT,2);

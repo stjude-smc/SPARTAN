@@ -1272,6 +1272,8 @@ function btnClearIdl_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Clear the currently loaded idealization if any.
 
 handles.idl = [];
+handles.idlFret = [];
+
 guidata(hObject,handles);
 set(handles.btnClearIdl,'Enable','off');
 

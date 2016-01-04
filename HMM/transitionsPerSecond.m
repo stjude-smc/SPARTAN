@@ -29,6 +29,9 @@ else
     end
 end
 
+% If .traces files are given, silently look for associated .dwt file.
+dwtFilenames = findDwt(dwtFilenames);
+
 nFiles = numel(dwtFilenames);
 
 
@@ -79,7 +82,7 @@ end %for each file
 
 
 %% Display the result.
-if nFiles<2, return; end
+if nargout>0, return; end
 
 figure;
 nStates = size(meanTPS,2);

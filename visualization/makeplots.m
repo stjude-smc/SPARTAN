@@ -10,18 +10,21 @@ function [h1,dataFilenames] = makeplots(dataFilenames, titles, varargin)
 %   OPTIONS is a structure with settings for how to display the data and
 %   how to calculate histograms, etc. See cascadeConstants.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
+narginchk(0,3);
+nargoutchk(0,2);
 
-%------- MAKEPLOTS OPTION/PARAMETER VALUES -------
 
-constants = cascadeConstants();
-options = constants.defaultMakeplotsOptions;
+% On first run, get default parameter values from cascadeConstants. In future
+% runs, use the settings as adjusted from the previous instance.
+persistent defaults;
 
-% Make any changes to the defaults here...
-
-%---------------------------------
+if isempty(defaults),
+    c = cascadeConstants();
+    defaults = c.defaultMakeplotsOptions;
+end
 
 
 
@@ -62,32 +65,32 @@ end
 
 % Other options (passed as a structure)
 if nargin>=3,
-    options = catstruct( options, varargin{1}, 'sorted' );
+    defaults = catstruct( defaults, varargin{1}, 'sorted' );
 end
 
-options.contour_bounds = [1 options.contour_length options.fretRange];
+defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
 
 
 
 %% Display all plots
 
-if ~isfield(options,'targetAxes')
+if ~isfield(defaults,'targetAxes')
     h1 = figure();
 else
-    h1 = get(options.targetAxes{1,1},'parent');
+    h1 = get(defaults.targetAxes{1,1},'parent');
 end
 
-handles.options = options;
-handles.baseFilenames = baseFilenames;
-handles.dataFilenames = dataFilenames;
-handles.titles = titles;
-handles.hFig = h1;
+newHandles.options = defaults;
+newHandles.baseFilenames = baseFilenames;
+newHandles.dataFilenames = dataFilenames;
+newHandles.titles = titles;
+newHandles.hFig = h1;
 
-plotData(h1,handles);
+plotData(h1,newHandles);
 
 
 % Give a warning if using some funky normalization.
-if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max
+if isfield(defaults,'cplot_normalize_to_max') && defaults.cplot_normalize_to_max
     disp('NOTE: these plots are normalized to the plot with the largest number of traces!!');
 end
 
@@ -97,22 +100,26 @@ end
 % calling makeplots again.
 % Position from LL corner is defined as [left bottom width height].
 % FIXME: change to normalized units so the buttons are scaled?
+% NOTE: must use anonymous function reference or saved .fig files may not find 
+% these functions if makeplots.m is changed.
 
 uicontrol( 'Style','pushbutton', 'String','Save files', ...
-           'Position',[20 20 80 30], 'Callback',@saveFiles2, ...
+           'Position',[20 20 80 30], 'Callback',@(x,y)saveFiles2(x,y), ...
            'Parent',h1 );
 
 uicontrol( 'Style','pushbutton', 'String','Change settings', ...
-           'Position',[110 20 130 30], 'Callback',@changeDisplaySettings2, ...
+           'Position',[110 20 130 30], 'Callback',@(x,y)changeDisplaySettings2(x,y), ...
            'Parent',h1 );
        
 uicontrol( 'Style','pushbutton', 'String','Reset settings', ...
-           'Position',[250 20 120 30], 'Callback',@resetSettings2, ...
+           'Position',[250 20 120 30], 'Callback',@(x,y)resetSettings2(x,y), ...
            'Parent',h1 );
 
 
 % =============== COMPATIBILITY with 2.11 and earlier ================
-% These were once nested functions, but were moved to reduce complexity.
+% The implementation of these functions changed in 2.12. Before, all data were
+% in the local stack so the buttons would not function correctly when loading
+% the figures from file. Disabled to prevent errors or confusion.
 % Without these, users cannot load old .fig files.
 function saveFiles(varargin) %#ok<DEFNU>
     disp('This feature is not available for versions before 2.12.');
@@ -125,15 +132,80 @@ end
 function resetSettings(varargin) %#ok<DEFNU>
     disp('This feature is not available for versions before 2.12.');
 end
-       
-end %FUNCTION MAKEPLOTS
-       
-       
-                 
-                 
+
+
+
 %% ================ GUI CALLBACKS ================ 
 % Called when any of the buttons at the bottom of the makeplots window are
-% clicked. All plot data is stored in guidata.
+% clicked. All plot data is stored in guidata. These are nested in the main
+% function scope to share persistent settings across plots.
+
+function changeDisplaySettings2(hObject,~)
+% Changes how much (how many frames) of the movie to show in plots.
+% This is equivalent to changing pophist_sumlen in cascadeConstants.
+
+handles = guidata(hObject);
+opt = handles.options;
+
+% 1. Get the new value from the user.
+prompt = {'Contour length (frames):', 'Contour offset (frames):', ...
+          'Contour scaling factor:', 'FRET bin size:', ...
+          'Hide photobleaching:', 'TD plot scaling factor:', ...
+          'Hide blinks in TD plots', 'Truncate TD plot'};
+      
+fields = {'contour_length', 'pophist_offset', ...
+          'cplot_scale_factor', 'contour_bin_size', ...
+          'cplot_remove_bleached', 'tdp_max', ...
+          'hideBlinksInTDPlots', 'truncate_tdplot' };
+currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
+
+answer = inputdlg(prompt, 'Change display settings', 1, currentopt);
+if isempty(answer), return; end  %user hit cancel
+
+% 2. Save new parameter values from user.
+for k=1:numel(answer),
+    original = opt.(fields{k});
+    opt.(fields{k}) = str2double(answer{k});
+    
+    if islogical(original)
+        opt.(fields{k}) = logical( opt.(fields{k}) );
+    end
+end
+
+opt.fret_axis = -0.1:opt.contour_bin_size:1.2;
+opt.contour_bounds = [1 opt.contour_length opt.fretRange];
+handles.options = opt;
+defaults = opt;  %save as starting values for future calls to makeplots.
+
+% 3. Redraw plots.
+plotData(hObject,handles);
+
+end %FUNCTION changeDisplaySettings
+
+
+
+function resetSettings2(hObject,~)
+% Reset all display settings to their defaults in cascadeConstants.
+
+handles = guidata(hObject);
+
+constants = cascadeConstants;
+opt = constants.defaultMakeplotsOptions;
+opt.contour_bounds = [1 opt.contour_length opt.fretRange];
+handles.options = opt;
+defaults = opt;  %save as starting values for future calls to makeplots.
+
+plotData(hObject,handles);
+
+end %FUNCTION resetSettings
+
+
+
+
+end %FUNCTION MAKEPLOTS
+
+
+
 
 function saveFiles2(hObject,~)
 % Save plot data to text files for importing and plotting in Origin.
@@ -160,67 +232,6 @@ for k=1:numel(base),
 end
     
 end %FUNCTION saveFiles
-
-
-
-function changeDisplaySettings2(hObject,~)
-% Changes how much (how many frames) of the movie to show in plots.
-% This is equivalent to changing pophist_sumlen in cascadeConstants.
-
-handles = guidata(hObject);
-opt = handles.options;
-
-% 1. Get the new value from the user.
-prompt = {'Contour length (frames):', 'Contour offset (frames):', ...
-          'Contour scaling factor:', 'FRET bin size:', ...
-          'Hide photobleaching:', 'TD plot scaling factor:', ...
-          'Hide blinks in TD plots', 'Truncate TD plot'};
-      
-fields = {'contour_length', 'pophist_offset', ...
-          'cplot_scale_factor', 'contour_bin_size', ...
-          'cplot_remove_bleached', 'tdp_max', ...
-          'hideBlinksInTDPlots', 'truncate_tdplot' };
-defaults = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
-
-answer = inputdlg(prompt, 'Change display settings', 1, defaults);
-if isempty(answer), return; end  %user hit cancel
-
-% 2. Save new parameter values from user.
-for i=1:numel(answer),
-    original = opt.(fields{i});
-    opt.(fields{i}) = str2double(answer{i});
-    
-    if islogical(original)
-        opt.(fields{i}) = logical( opt.(fields{i}) );
-    end
-end
-
-opt.fret_axis = -0.1:opt.contour_bin_size:1.2;
-opt.contour_bounds = [1 opt.contour_length opt.fretRange];
-handles.options = opt;
-
-% 3. Redraw plots.
-plotData(hObject,handles);
-
-
-end %FUNCTION changeDisplaySettings
-
-
-
-function resetSettings2(hObject,~)
-% Reset all display settings to their defaults in cascadeConstants.
-
-handles = guidata(hObject);
-
-constants = cascadeConstants;
-options = constants.defaultMakeplotsOptions;
-options.contour_bounds = [1 options.contour_length options.fretRange];
-handles.options = options;
-
-plotData(hObject,handles);
-
-end %FUNCTION resetSettings
-
 
 
 
@@ -331,8 +342,10 @@ for k=1:nFiles,
     title( titles{k}, 'Parent',ax );
     
     if ~options.hideText,
-        text( 0.90*options.contour_length, 0.94*options.contour_bounds(4), ...
-              sprintf('N=%d', N(k)), 'HorizontalAlignment','right', 'Parent',ax );
+        ap = get(ax,'Position');
+        annotation( handles.hFig, 'textbox', [ap(1)+0.9*ap(3) ap(2)+0.93*ap(4) 0.1*ap(3) 0.1*ap(4)], ...
+                    'String',sprintf('N=%d', N(k)), 'HorizontalAlignment','right', ...
+                    'LineStyle','none' );
     end
     
     if k==1,
@@ -480,8 +493,8 @@ for k=1:nFiles,
     % Formatting
     if ~options.hideText,
         textOpt = {'HorizontalAlignment','center', 'Parent',tdax(k)};
-        text( 0.43,0.8, sprintf('N_t=%.0f',t),            textOpt{:} );
-        text( 0.43,0.0, sprintf('t/s=%.2f',t/total_time), textOpt{:} );
+        text( 0.45,0.9, sprintf('N_t=%.0f',t),            textOpt{:} );
+        text( 0.45,0.0, sprintf('t/s=%.2f',t/total_time), textOpt{:} );
     end
     grid(tdax(k),'on');
 
