@@ -60,7 +60,7 @@ handles.output = hObject;
 guidata(hObject, handles);
 constants = cascadeConstants;
 
-set( handles.figure1, 'Name', ['rtdgui (version ' constants.version ')'] );
+set( handles.figure1, 'Name', ['rtdgui - ' constants.software] );
 
 % set default values
 % FIXME: these and the defaults in rtdTool should come from some shared
@@ -100,11 +100,11 @@ function updateStateDropdown(hObject,eventdata,handles)
 modelPath = get(handles.editModelPath,'String');
 if exist(modelPath,'file')
     qubModel = QubModel(modelPath);
-    stateList = cell(qubModel.nClass,1);
-    for i=1:qubModel.nClass
+    stateList = cell(qubModel.nClasses,1);
+    for i=1:qubModel.nClasses
         stateList{i} = num2str(i);
     end
-    set(handles.selProdState,'Value', qubModel.nClass);
+    set(handles.selProdState,'Value', qubModel.nClasses);
     set(handles.selProdState,'String',stateList);
     set(handles.selProdState,'Enable','on');
     set(handles.remakePlots, 'Enable','on');

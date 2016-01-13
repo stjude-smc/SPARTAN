@@ -1,19 +1,19 @@
-function varargout = cascadePipeline(varargin)
-% CASCADEPIPELINE M-file for cascadePipeline.fig
-%      CASCADEPIPELINE, by itself, creates a new CASCADEPIPELINE or raises the existing
+function varargout = spartan(varargin)
+% SPARTAN M-file for spartan.fig
+%      SPARTAN, by itself, creates a new SPARTAN or raises the existing
 %      singleton*.
 %
-%      H = CASCADEPIPELINE returns the handle to a new CASCADEPIPELINE or the handle to
+%      H = SPARTAN returns the handle to a new SPARTAN or the handle to
 %      the existing singleton*.
 %
-%      CASCADEPIPELINE('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in CASCADEPIPELINE.M with the given input arguments.
+%      SPARTAN('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in SPARTAN.M with the given input arguments.
 %
-%      CASCADEPIPELINE('Property','Value',...) creates a new CASCADEPIPELINE or raises the
+%      SPARTAN('Property','Value',...) creates a new SPARTAN or raises the
 %      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before cascadePipeline_OpeningFunction gets called.  An
+%      applied to the GUI before spartan_OpeningFunction gets called.  An
 %      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to cascadePipeline_OpeningFcn via varargin.
+%      stop.  All inputs are passed to spartan_OpeningFcn via varargin.
 %
 %      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
 %      instance to run (singleton)".
@@ -29,8 +29,8 @@ function varargout = cascadePipeline(varargin)
 gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @cascadePipeline_OpeningFcn, ...
-                   'gui_OutputFcn',  @cascadePipeline_OutputFcn, ...
+                   'gui_OpeningFcn', @spartan_OpeningFcn, ...
+                   'gui_OutputFcn',  @spartan_OutputFcn, ...
                    'gui_LayoutFcn',  [] , ...
                    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
@@ -59,32 +59,32 @@ combineDatasets; resizeTraces;
 
 
 
-% --- Executes just before cascadePipeline is made visible.
-function cascadePipeline_OpeningFcn(hObject, ~, handles, varargin)
+% --- Executes just before spartan is made visible.
+function spartan_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to cascadePipeline (see VARARGIN)
+% varargin   command line arguments to spartan (see VARARGIN)
 
 constants = cascadeConstants;
-set( handles.figure1, 'Name', ['smFRET data analysis pipeline (version ' constants.version ')'] );
+set( handles.figure1, 'Name', constants.software );
 
 % Set working directory in GUI
 set(handles.txtCWD, 'String',pwd);
 
-% Choose default command line output for cascadePipeline
+% Choose default command line output for spartan
 handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
 
-% UIWAIT makes cascadePipeline wait for user response (see UIRESUME)
+% UIWAIT makes spartan wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = cascadePipeline_OutputFcn(~, ~, handles) 
+function varargout = spartan_OutputFcn(~, ~, handles) 
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB

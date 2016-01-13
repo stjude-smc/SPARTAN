@@ -63,7 +63,7 @@ end
     
 % Load FRET parameters
 nClass = max(model.class);
-model.nClass = nClass;
+model.nClasses = nClass;
 model.mu = treeModel.Amps.data(1:nClass);
 model.sigma = treeModel.Stds.data(1:nClass);
 

@@ -45,9 +45,9 @@ if ~exist(dwtFilename,'file'),
     dwtFilename = fullfile(p, [f '.dwt']);
 end
 
-if ~exist(dwtFilename,'file'),
+% if ~exist(dwtFilename,'file'),
     dwtFilename = getFile('*.dwt','Select the corresponding dwell-time file');
-end
+% end
 
 
 % Load idealization data (.DWT)

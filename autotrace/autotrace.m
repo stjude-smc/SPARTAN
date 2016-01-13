@@ -64,7 +64,7 @@ function autotrace_OpeningFcn(hObject, ~, handles, varargin)
 constants = cascadeConstants();
 handles.constants = constants;
 
-set( handles.figure1, 'Name', ['autotrace (version ' constants.version ')'] );
+set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
 %---- INITIAL VALUES FOR PICKING CRITERIA
 criteria = constants.defaultAutotraceCriteria;

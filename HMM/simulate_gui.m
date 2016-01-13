@@ -66,7 +66,7 @@ handles.output = hObject;
 guidata(hObject, handles);
 
 constants = cascadeConstants;
-set( handles.figure1, 'Name', ['simulate (version ' constants.version ')'] );
+set( handles.figure1, 'Name', ['simulate - ' constants.software] );
 
 % UIWAIT makes simulate_gui wait for user response (see UIRESUME)
 % uiwait(handles.figure1);

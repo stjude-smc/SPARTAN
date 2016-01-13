@@ -20,9 +20,9 @@ nargoutchk(0,2);
 % On first run, get default parameter values from cascadeConstants. In future
 % runs, use the settings as adjusted from the previous instance.
 persistent defaults;
+c = cascadeConstants();
 
 if isempty(defaults),
-    c = cascadeConstants();
     defaults = c.defaultMakeplotsOptions;
 end
 
@@ -75,7 +75,7 @@ defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
 %% Display all plots
 
 if ~isfield(defaults,'targetAxes')
-    h1 = figure();
+    h1 = figure('Name', [mfilename ' - ' c.software]);
 else
     h1 = get(defaults.targetAxes{1,1},'parent');
 end

@@ -55,8 +55,8 @@ if ~isfield(handles,'constants')
     handles.output = hObject;
     handles.vals = [];
 
-    handles.constants = cascadeConstants();    
-    set( handles.figure1, 'Name', ['sorttraces (version ' handles.constants.version ')'] );
+    handles.constants = cascadeConstants();
+    set( handles.figure1, 'Name', [mfilename ' - ' handles.constants.software] );
 
     % Link x-axes - zooming on one plot will automatically zoom on the other
     ax = [handles.axFluor handles.axTotal handles.axFret];
@@ -929,7 +929,7 @@ guidata(handles.figure1, handles);
 if any( ~cellfun(@isempty,handles.bins) ),
     set(handles.btnSave,'Enable','on');
 end
-set(handles.btnSaveInPlace,'Enable','on');
+% set(handles.btnSaveInPlace,'Enable','on');
 
 plotter(handles);
 

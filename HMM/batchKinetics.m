@@ -88,7 +88,7 @@ set( handles.edMaxIterations,       'String', options.maxItr     );
 % set( handles.tblFixFret, 'Data', num2cell(false(3,2)) );
 
 constants = cascadeConstants;
-set( handles.figure1, 'Name', ['batchkinetics (version ' constants.version ')'] );
+set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
 
 % UIWAIT makes batchKinetics wait for user response (see UIRESUME)

@@ -41,9 +41,6 @@ nFiles = numel(filenames);
 %% Load dwell-times and calculate percent time in each state for each file.
 bootfun = @(times) 100*sum(times)/sum(times(:));
 
-meanPT = zeros(0);
-stdPT = zeros(0);
-
 for i=1:nFiles,
     
     % Load dwell-time information and convert to state assignment matrix.
@@ -71,6 +68,11 @@ for i=1:nFiles,
     end
 
     % Calculate bootstrap samples to estimate standard error.
+    if i==1,
+        meanPT = zeros(nFiles,nStates-1);
+        stdPT  = zeros(nFiles,nStates-1);
+    end
+    
     meanPT(i,:) = bootfun(tracePT);
     stdPT(i,:)  = std(  bootstrp(1000, bootfun, tracePT)  );
 end
