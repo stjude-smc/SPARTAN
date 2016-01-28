@@ -89,7 +89,7 @@ if isstruct( varargin{1} ) || isa(varargin{1},'Traces'),
     
     % Create a waitbar if this will take awhile.
     if useWaitbar && nTraces>400,
-        wbh = parfor_progress( sum(nTraces), 'Loading traces and calculating properties...' );
+        wbh = parfor_progressbar( sum(nTraces), 'Loading traces and calculating properties...' );
     end
     
     retval = traceStat_data( data,constants );
@@ -102,7 +102,7 @@ elseif iscell( varargin{1} ),
     
     % Create a waitbar if this will take awhile.
     if useWaitbar && sum(nTraces)>400,
-        wbh = parfor_progress( sum(nTraces), 'Loading traces and calculating properties...' );
+        wbh = parfor_progressbar( sum(nTraces), 'Loading traces and calculating properties...' );
     end
     
     % Load each file and calculate statistics. If files have >5000 traces, they
@@ -131,7 +131,7 @@ else
 end
     
 % Close the waitbar, if it was created.
-if ~isempty(wbh) && ishandle(wbh),
+if ~isempty(wbh),
     close(wbh);
 end
 
@@ -237,7 +237,7 @@ parfor (i=1:Ntraces, M)
     if ~isempty(lt) && lt<len,
         retval(i).lifetime = max(2,lt);
     else
-        if mod(i,50)==0, parfor_progress(wbh,50); end
+        if mod(i,10)==0 && ~isempty(wbh), wbh.iterate(10); end
         continue; %everything else is hard to calc w/o lifetime!
     end
     
@@ -386,8 +386,8 @@ parfor (i=1:Ntraces, M)
     
     
     % Update waitbar, once every 10 traces to reduce overhead.
-    if mod(i,50)==0,
-        parfor_progress(wbh,50);
+    if mod(i,10)==0 && ~isempty(wbh),
+        wbh.iterate(10);
     end
 end
 

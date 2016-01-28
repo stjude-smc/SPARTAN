@@ -90,9 +90,9 @@ if params.seperately,
     constants = cascadeConstants;
     
     if ~params.quiet,
-        wbh = parfor_progress(nTraces,'Idealizing traces separately,..');
+        wbh = parfor_progressbar(nTraces,'Idealizing traces separately,..');
     else
-        wbh = -1;
+        wbh = [];
     end
     
     % Use multi-process execution only for large datasets.
@@ -114,12 +114,12 @@ if params.seperately,
         dwt{n} = newDWT{1};
         LL(n) = newLL(end);
         
-        if ishandle(wbh) && mod(n,10)==0
-            parfor_progress(wbh,10);
+        if ~isempty(wbh) && mod(n,10)==0,
+            wbh.iterate(10);
         end
     end
     
-    if ishandle(wbh), close(wbh); end
+    if ~isempty(wbh), close(wbh); end
     
     offsets = nFrames*((1:nTraces)-1);
 else

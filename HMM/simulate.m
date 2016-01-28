@@ -149,7 +149,7 @@ tic;
 %%
 
 % Generate a set of uniform random numbers for choosing states
-wbh = parfor_progress(1.1*nTraces,'Simulating state sequences...');
+wbh = parfor_progressbar(1.1*nTraces,'Simulating state sequences...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
@@ -223,8 +223,8 @@ parfor (i=1:nTraces,M)
     [classes,times] = mergedwells( model.class(states), times );
     dwt{i} = [classes round(times)];
     
-    if mod(i,50)==0,  %fixme; not very useful with long traces.
-        parfor_progress(wbh,50);
+    if mod(i,20)==0,  %fixme; not very useful with long traces.
+        wbh.iterate(20); %#ok<PFBNS>
     end
     
     
@@ -270,7 +270,7 @@ end
 %--- Simulate fluorescence traces, adding gaussian read noise
 % Don't simulate traces unless requested to save time.
 if nargout>1,
-    parfor_progress(wbh,'Simulating noise...');
+    wbh.message = 'Simulating noise...';
 
 % Add read/background noise to fluorescence and recalculate FRET
 % if stdBackground~=0 || stdPhoton ~=0

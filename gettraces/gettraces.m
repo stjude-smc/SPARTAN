@@ -516,7 +516,8 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         
         elseif params.alignMethod==4,
             % Old, slow brute force method.
-            newAlign(i) = weberalign( donor_t, target_t, params );
+            error('weberalign method no longer available');
+            %newAlign(i) = weberalign( donor_t, target_t, params );
         end
         
         % Register acceptor side so that it is lined up with the donor.
@@ -621,7 +622,7 @@ nFrames = movie.nFrames;
 % Start the progress bar before initial setup; indicate something is happening.
 quiet = params.quiet;
 if ~quiet,
-    wbh = parfor_progress(1.1*nFrames,'Extracting traces from movie data');
+    wbh = parfor_progressbar(1.1*nFrames,'Extracting traces from movie data');
 end
 
 % Get x,y coordinates of picked peaks
@@ -710,11 +711,11 @@ parfor (k=1:nFrames, M)
     % Update waitbar. Using mod speeds up the loop, but isn't ideal because
     % indexes are executed somewhat randomly. Reasonably accurate despite this.
     if mod(k,10)==0 && ~quiet,
-        parfor_progress(wbh,10);
+        wbh.iterate(10);
     end
 end
 if ~quiet,
-    parfor_progress(wbh,'Correcting traces and calculating FRET...');
+    wbh.message = 'Correcting traces and calculating FRET...';
 end
 
 
@@ -793,8 +794,10 @@ data.recalculateFret();
 
 
 % ---- Metadata: save various metadata parameters from movie here.
-parfor_progress(wbh,0.1*nFrames);
-parfor_progress(wbh,'Saving traces...');
+if ~quiet,
+    wbh.iterate(0.1*nFrames);
+    wbh.message = 'Saving traces...';
+end
 
 % Keep only parameters for channels that are being analyzed, not all
 % possible channels in the configuration.
@@ -839,7 +842,7 @@ save_fname = fullfile(p, [name '.rawtraces']);
 
 saveTraces( save_fname, 'traces', data );
 
-if ~quiet && ishandle(wbh),
+if ~quiet,
     close(wbh);
 end
 % disp(toc);

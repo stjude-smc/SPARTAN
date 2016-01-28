@@ -69,8 +69,8 @@ model.fixSigma = [1 0];
 skmParams.seperately = 1;
 skmParams.quiet = 1;
 
-mu    = model.mu';
-sigma = model.sigma';
+mu    = to_col(model.mu);
+sigma = to_col(model.sigma);
 onState  = find( mu==max(mu) );
 offState = find( mu==min(mu) );
 
