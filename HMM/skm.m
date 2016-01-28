@@ -174,7 +174,7 @@ model = copy(initialModel);
 mu    = to_col(model.mu);
 sigma = to_col(model.sigma);
 p0    = to_col(model.p0);
-classes = [0; model.class];
+classes = [0; to_col(model.class)];
 A  = model.calcA(sampling/1000);  %transition probability matrix.
 
 while( itr < params.maxItr ),

@@ -1,4 +1,4 @@
-function [output,errors,hfig] = dyediag(fnames, modelfname)
+function [output,errors,hfig] = dyediag(fnames, modelInput)
 %dyediag  Fluorophore performance statistics (single-color)
 %
 %   dyediag(FILES) calculates trace statistics relevant for the evaluation
@@ -35,6 +35,9 @@ function [output,errors,hfig] = dyediag(fnames, modelfname)
 % TODO: ask what fluorescence channel(s) to analyze.
 
 
+narginchk(0,2);
+nargoutchk(0,3);
+
 
 %% Options
 
@@ -55,15 +58,27 @@ end
 nFiles = numel(fnames);  %actually the number of file groups/conditions.
 if isempty(fnames), return; end
 
-% Define Markov model for blinking events.
-% FIXME: should we just create a model?
-if nargin<2,
-    [f,p] = uigetfile('*.qmf','Select model');
-    if f==0, return; end
-    modelfname = fullfile(p,f);
-end
 
-model = QubModel(modelfname);
+% Load model for detecting blinks. States: 1) bleached, 2) blinking, 3) ON.
+if nargin>=2,
+    if isa(modelInput,'QubModel')
+        model = modelInput;
+    elseif isstruct(modelInput) || ischar(modelInput),
+        model = QubModel(modelInput);
+    else
+        error('Invalid model input. Must be a QubModel object or file name');
+    end
+else
+    % Define a standard internal model
+    model.p0    = [0.01 0.01 0.98]';
+    model.class = [1 1 2];
+    model.mu    = [0 1];
+    model.sigma = [0.1 0.1]; %fixme?
+    model.rates = [0        0       0
+                   0.01     0       1    %bleaching, ressurection rates.
+                   0        1       0];  %bleaching, blinking rate (s-1)
+    model = QubModel(model);
+end
 
 model.fixSigma = [1 0];
 skmParams.seperately = 1;
@@ -175,7 +190,7 @@ for i=1:nFiles,
     
     [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    ax(1,1) = subplot(2,5,1); hold on;
+    ax(1,1) = subplot(2,5,1); hold all;
     plot( bins, histdata );
     
     
@@ -186,7 +201,7 @@ for i=1:nFiles,
     
     [histdata,bins] = hist( snr, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    ax(1,2) = subplot(2,5,2); hold on;
+    ax(1,2) = subplot(2,5,2); hold all;
     plot( bins, histdata );
     
     
@@ -292,13 +307,13 @@ for i=1:nFiles,
     
     %-------------------------------------------------------------
     % 7) Display state lifetime histograms.
-    ax(1,3) = subplot(2,5,3); hold on;
+    ax(1,3) = subplot(2,5,3); hold all;
     survival(onTimes,dwellaxis);
     
-    ax(1,4) = subplot(2,5,4); hold on;
+    ax(1,4) = subplot(2,5,4); hold all;
     survival(offTimes,dwellaxis);
     
-    ax(1,5) = subplot(2,5,5); hold on;
+    ax(1,5) = subplot(2,5,5); hold all;
     survival(totalOn,dwellaxis);
     
     drawnow;
@@ -322,7 +337,7 @@ for i=1:numel(fieldIdx),
     fid = fieldIdx(i);
     statName = fields{fid};
     
-    ax(2,i) = subplot(2,5,5+i); hold on;
+    ax(2,i) = subplot(2,5,5+i); hold all;
     bar( 1:nFiles, output.(statName), 'r' );
     errorbar( 1:nFiles, output.(statName), errors.(statName)/2, '.k' );
     

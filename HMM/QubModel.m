@@ -58,6 +58,8 @@ methods
     %%%%%%%%%%%%%%%%%%%  CONSTRUCTOR & SERIALIZATION  %%%%%%%%%%%%%%%%%%%%
     
     function obj = QubModel( input )
+    % Create a new QubModel object. Inputs can be a .qmf file, a struct with the
+    % same fields as a QubModel, or a QubModel object to copy.
         
         % parfor seems to create empty objects it doesn't use. Silently ignore.
         if nargin<1, return;  end
@@ -65,6 +67,7 @@ methods
         % Copy another QubModel object
         if nargin==1 && isa(input,'QubModel')
             obj = copy(input);
+            obj.verify();
             return;
         
         % Load from a model struct (see qub_loadModel.m)
@@ -83,7 +86,9 @@ methods
         obj.fixRates = false( size(m.rates) );
         obj.fixMu    = false( size(m.mu)    );
         obj.fixSigma = false( size(m.sigma) );
-        obj.class = (1:length(m.rates))';  %assumes no degenerate states!
+        if ~isfield(m,'class'),
+            obj.class = (1:length(m.rates))';  %assumes no degenerate states!
+        end
         
         % Copy all relevant fields from input to object properties.
         mco   = ?QubModel;
@@ -95,8 +100,8 @@ methods
             end
         end
         
+        % Extract model display settings from qubTree.
         if ~isempty(obj.qubTree),
-            % Get display settings from the tree.
             obj.x = zeros( obj.nStates,1 );
             obj.y = zeros( obj.nStates,1 );
             for i=1:obj.nStates,
@@ -214,7 +219,7 @@ methods
     function tf = isempty(this)
         tf = isempty(this.class);
     end
-        
+    
     % Verify model is self-consistent and valid (see qub_verifyModel).
     % isValid is true if ok, or false if there is a problem. str is an error
     % message. models can have non-fatal problems (b=1, but a str is given).

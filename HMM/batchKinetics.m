@@ -184,7 +184,7 @@ end
 
 % Process analysis parameters from GUI
 options  = handles.options;
-model = struct(handles.model);  %FIXME: someday
+model = handles.model;
 
 if isfield(options,'fixFret'),
     assert( all(options.fixFret<=model.nStates) );
@@ -269,11 +269,7 @@ thresholdOptions = struct([]);
 
 % Remove intermediate files from previous runs.
 warning('off','MATLAB:DELETE:FileNotFound');
-delete('resultTree.mat');
-delete('mil_result.qtr');
-delete('result.qmf');
-delete('result.qrf');
-delete('bwmodel.qmf');
+delete('resultTree.mat','mil_result.qtr','result.qmf','result.qrf','bwmodel.qmf');
 
 
 if ~strcmp(options.idealizeMethod,'Do Nothing'),

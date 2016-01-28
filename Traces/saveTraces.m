@@ -269,6 +269,9 @@ if ~isfield(data.traceMetadata,'ids'),
     end
 end
 
+constants = cascadeConstants;
+data.fileMetadata(1).software = constants.software;
+
 % 2) Open file to save data to
 fid=fopen(filename,'w');
 
