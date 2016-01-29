@@ -84,14 +84,14 @@ end %for each file
 %% Display the result.
 if nargout>0, return; end
 
-figure;
+figure;  cax = axes;
 nStates = size(meanTPS,2);
-errorbar( repmat(1:nFiles,nStates,1)', meanTPS, stdTPS/2 );
+errorbar( cax, repmat(1:nFiles,nStates,1)', meanTPS, stdTPS/2 );
 
-xlabel('File number');
-ylabel('Transitions per second');
-xlim([0.5 nFiles+0.5]);
-set(gca,'XTick',1:nFiles);
+xlabel(cax, 'File number');
+ylabel(cax, 'Transitions per second');
+xlim(cax, [0.5 nFiles+0.5]);
+set(cax,'XTick',1:nFiles);
 
 
 

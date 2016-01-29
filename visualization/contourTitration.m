@@ -86,7 +86,7 @@ hist2d(end,end) = max_mol*2;
 % [cax,args] = axescheck(varargin{:});
 % cax = newplot(cax);
 figure;
-cax = gca;
+cax = axes;
 
 [~,hand] = contourf( cax, time_axis, fret_axis, hist2d, con );
 
@@ -95,7 +95,7 @@ set(hand, 'LineColor', 'none');
 
 set(cax,'xtick', 1:numel(files));
 set(cax,'ytick', 0:0.2:1)
-ylim( [0.2,1] );
+ylim(cax, [0.2,1] );
 
 xlabel(cax,'Condition');
 ylabel(cax,'FRET');

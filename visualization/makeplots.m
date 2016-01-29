@@ -329,7 +329,7 @@ for k=1:nFiles,
     
     %---- DRAW FRET CONTOUR PLOT ----
     if ~isfield(options,'targetAxes')
-        ax = subplot( nrows, nFiles, k );
+        ax = subplot( nrows, nFiles, k, 'Parent',handles.hFig );
     else
         ax = options.targetAxes{k,1};
     end
@@ -378,7 +378,7 @@ for k=1:nFiles,
     
     
     if ~isfield(options,'targetAxes')
-        ax = subplot( nrows, nFiles, nFiles+k );
+        ax = subplot( nrows, nFiles, nFiles+k, 'Parent',handles.hFig );
     elseif size(options.targetAxes,2)>1
         ax = options.targetAxes{k,2};
     else
@@ -481,7 +481,7 @@ for k=1:nFiles,
     
     %---- DISPLAY TD PLOT ----
     if ~isfield(options,'targetAxes')
-        tdax(k) = subplot( nrows, nFiles, 2*nFiles+k );  
+        tdax(k) = subplot( nrows, nFiles, 2*nFiles+k, 'Parent',handles.hFig );  
     elseif size(options.targetAxes,2)>2
         tdax(k) = options.targetAxes{k,3};
     else

@@ -99,15 +99,15 @@ for i=1:nFiles,
     
 end %for each file
 
-cla;
-stairs( output(:,1), output(:,2:end), 'LineWidth',2 );
-ylim( [0,1] );
-xlim( [0,sumlen] )
-set(gca,'xtick',0:30:sumlen);
-xlabel('Time (sec)');
-ylabel('Fraction Accommodated');
+figure;  cax = axes;
+stairs( cax, output(:,1), output(:,2:end), 'LineWidth',2 );
+ylim( cax, [0,1] );
+xlim( cax, [0,sumlen] )
+set(cax,'xtick',0:30:sumlen);
+xlabel(cax, 'Time (sec)');
+ylabel(cax, 'Fraction Accommodated');
 
-if nargin>1, legend(titles); end
+if nargin>1, legend(cax, titles); end
 
 save('accTime.txt','output','-ASCII');
 

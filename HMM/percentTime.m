@@ -81,9 +81,9 @@ end
 %% Plot the results
 if nargout>0, return; end
 
-figure;
+figure; cax = axes;
 nStates = size(meanPT,2);
-errorbar( repmat(1:nFiles,nStates,1)', meanPT, stdPT/2 );
+errorbar( cax, repmat(1:nFiles,nStates,1)', meanPT, stdPT/2 );
 
 % Construct titles with the state number and FRET values.
 states = (1:nStates)+REMOVEZERO;
@@ -93,12 +93,12 @@ titles = cell(nStates,1);
 for i=1:nStates,
     titles{i} = sprintf('State %d (%.2f)\t',states(i),fret(i));
 end
-legend(titles);
+legend(cax,titles);
 
-xlabel('File number');
-ylabel('Fraction occupancy');
-xlim([0.5 nFiles+0.5]);
-set(gca,'XTick',1:nFiles);
+xlabel(cax,'File number');
+ylabel(cax,'Fraction occupancy');
+xlim(cax,[0.5 nFiles+0.5]);
+set(cax,'XTick',1:nFiles);
 
 
 

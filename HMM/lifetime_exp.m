@@ -127,11 +127,11 @@ for i=1:nFiles+1,
             y = survival(:,idxCol);
 
             % Plot data and fit
-            ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i );
-            plot( dwellaxis, y, 'k.' ); hold on;
-            hp = plot( fits{i,j}, 'r-');
+            ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i, 'Parent',hFig );
+            plot( ax(i,j), dwellaxis, y, 'k.' ); hold on;
+            hp = plot( fits{i,j}, 'r-');  %FIXME: ax(i,j)
             set(hp,'LineWidth',2);
-            legend off;
+            legend(ax(i,j), 'off');
             
             if j==1, %first row
                 title(names{i});
@@ -143,29 +143,29 @@ for i=1:nFiles+1,
             y = survival(:,idxCol);
 
             % Plot data and fit
-            ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i );
-            plot( dwellaxis, y, 'LineWidth',2 );
+            ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i, 'Parent',hFig );
+            plot( ax(i,j), dwellaxis, y, 'LineWidth',2 );
             
             if j==1,
-                legend(names);
-                title('Overlay');
+                legend(ax(i,j), names);
+                title(ax(i,j), 'Overlay');
             end
         end
             
         % Set axis and plot titles, etc.
-        xlim( [0 xend] );
-        ylim( [0 1] );
+        xlim( ax(i,j), [0 xend] );
+        ylim( ax(i,j), [0 1] );
         
         if j==nStates,
-            xlabel('Time (s)' );
+            xlabel(ax(i,j), 'Time (s)' );
         else
-            xlabel('');
+            xlabel(ax(i,j), '');
         end
 
         if i==1, %first column)
-            ylabel( sprintf('State %d',j) );
+            ylabel( ax(i,j), sprintf('State %d',j) );
         else
-            ylabel('');
+            ylabel(ax(i,j), '');
         end
         
     end %for each state

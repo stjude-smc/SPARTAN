@@ -66,7 +66,8 @@ if nFiles>size(colors,1),
 end
 
 %
-figure;
+hf = figure;
+cax = axes('Parent',hf);
 
 
 % Model for removing dark state noise. Adjust if any state is < 0.4.
@@ -128,14 +129,14 @@ for i=1:nFiles
     % Spline interpolate the data so it's easier to see (but not saved that way)
     sx = fretaxis(1):0.001:fretaxis(end);
     sy = spline( fretaxis, pophist(:,1), sx );
-    plot( sx, sy, 'Color',colors(i,:), 'LineWidth',3 );
-    hold on;
+    plot( cax, sx, sy, 'Color',colors(i,:), 'LineWidth',3 );
+    hold(cax,'on');
     
     % Calculate and plot error bars
     if calcErrorBars
         pophistErrors = std(pophist,[],2);
         frethist(:,2*i) = pophistErrors;
-        errorbar( fretaxis, pophist(:,1), pophistErrors/2, 'x', 'Color',colors(i,:), 'LineWidth',1 );
+        errorbar( cax, fretaxis, pophist(:,1), pophistErrors/2, 'x', 'Color',colors(i,:), 'LineWidth',1 );
     end
     
     % Add histogram from current dataset to output
@@ -147,16 +148,15 @@ end
 
 
 % Decorate the plot with axes etc.
-hold off;
-ylabel( 'Percent of total time' );
-
-xlabel( 'FRET Efficiency' );
-xlim( [0.1 1.0] );
-yl = ylim;
-ylim( [0 yl(2)] );
+hold(cax,'off');
+ylabel( cax, 'Percent of total time' );
+xlabel( cax, 'FRET Efficiency' );
+xlim( cax, [0.1 1.0] );
+yl = ylim(cax);
+ylim( cax, [0 yl(2)] );
 
 if nargin>=2,
-    legend( titles );
+    legend( cax, titles );
 end
 
 

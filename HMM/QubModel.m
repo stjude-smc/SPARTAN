@@ -313,8 +313,10 @@ methods
     % is created.
         
     if nargin<2,
-        figure;
-        parent = axes;
+        hf = figure;
+        parent = axes('Parent',hf);
+    else
+        hf = gcf;  %FIXME
     end
     
     % Verify the model makes sense before trying to draw it.
@@ -335,9 +337,9 @@ methods
     lineFormat = {'Parent',parent, 'Color','k', 'LineWidth',linewidth };
     
     % Create a window for the model, or use one if given.
-    set(gcf,'WindowButtonMotionFcn',@figButtonMotion,'WindowButtonUpFcn',@dropObject); %FIXME
+    set(hf,'WindowButtonMotionFcn',@figButtonMotion,'WindowButtonUpFcn',@dropObject); %FIXME
     draggedBox = [];  %no box is being dragged right now.
-    cla; hold on;
+    cla(parent); hold(parent, 'on');
 
     % Get coordinates of states
     nStates = model.nStates;
@@ -393,12 +395,12 @@ methods
     % Position the lines and text in the correct places.
     moveLines();
 
-    axis equal;
+    axis(parent,'equal');
     set(parent,'ydir','reverse');  %mimic orientation in QuB
     set(parent,'YTick',[]);
     set(parent,'XTick',[]);
-    xlim([5 90]);
-    ylim([7 90]);
+    xlim(parent,[5 90]);
+    ylim(parent,[7 90]);
     
     %---- Add context menu to for additional options
     menu = uicontextmenu;

@@ -176,7 +176,7 @@ if opt.idlTraces
     kinModel = QubModel(opt.kinModel);
     kinModel.fixMu    = true( kinModel.nStates,1 );
     kinModel.fixSigma = true( kinModel.nStates,1 );
-    fretModel = [kinModel.mu' kinModel.sigma'];
+    fretModel = [to_col(kinModel.mu) to_col(kinModel.sigma)];
     
     for i=1:length(opt.fileList)
         % Idealize traces using SKM.
@@ -279,7 +279,7 @@ end
 plotWindow = figure;
 for i=1:nRow
     for j=1:nCol
-        figAxesCell{j,i} = subplot(nRow,nCol,(i-1)*nCol+j);
+        figAxesCell{j,i} = subplot(nRow,nCol,(i-1)*nCol+j, 'Parent',plotWindow);
     end
 end
 opt.constants.defaultMakeplotsOptions.targetAxes = figAxesCell;
@@ -306,27 +306,27 @@ makeplots(opt.allFiles,plotTitles,opt.constants.defaultMakeplotsOptions);
 % Display state occupancy plots if specified.
 if opt.stateOcc
     for i=1:nCol
-        subplot(nRow,nCol,(nRow-1)*nCol+i);
+        ax = subplot(nRow,nCol,(nRow-1)*nCol+i, 'Parent',plotWindow);
         stateOcc = dlmread(opt.stateOccFiles{i});
         
-        hold on;
+        hold(ax,'on');
         for j=2:size(stateOcc,1)
             if (j-1) <= length(opt.stateColors)
                 color = opt.stateColors{j-1};
             else
                 color = '';
             end
-            plot(100*stateOcc(j,:),color,'LineWidth',1.5);
+            plot(ax, 100*stateOcc(j,:),color,'LineWidth',1.5);
         end
         if i==1 % make axis labels and formatting consistent with makeplots
-            xlim([0 opt.constants.defaultMakeplotsOptions.contour_length]);
-            ylim([-5 105]);
-            xlabel('Time (frames)');
-            ylabel('Occupancy (%)');
+            xlim(ax, [0 opt.constants.defaultMakeplotsOptions.contour_length]);
+            ylim(ax, [-5 105]);
+            xlabel(ax, 'Time (frames)');
+            ylabel(ax, 'Occupancy (%)');
         end
-        set(gca,'YGrid','on');
-        box(gca,'on');
-        hold off;
+        set(ax,'YGrid','on');
+        box(ax,'on');
+        hold(ax,'off');
     end
 end
 

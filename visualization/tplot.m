@@ -69,14 +69,14 @@ if tdpfile~=0,
     title(tdpfile);
 end
 set(hand,'LineColor','none');
-colormap(options.cmap);
-% xlabel('Initial FRET');
-% set(gca,'XTick', i_axis(1):0.1:i_axis(end) )
-% set(gca,'YTick', f_axis(1):0.1:f_axis(end) )
-set(gca, 'PlotBoxAspectRatio', [1 1 1]);
+colormap(cax,options.cmap);
+% xlabel(cax,'Initial FRET');
+% set(cax,'XTick', i_axis(1):0.1:i_axis(end) )
+% set(cax,'YTick', f_axis(1):0.1:f_axis(end) )
+set(cax, 'PlotBoxAspectRatio', [1 1 1]);
 
 % if showLHA
-%     ylabel('Final FRET');
+%     ylabel(cax,'Final FRET');
 % end
 
 zoom on;

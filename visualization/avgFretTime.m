@@ -92,11 +92,12 @@ for i=1:nFiles,
 end
 
 % Plot the result
-figure;
-plot( output(:,1), output(:,2:end) );
-xlabel('Time (seconds)');
-ylabel('Average FRET value');
-legend(titles);
+hf = figure;
+ax = axes('Parent',hf);
+plot( ax, output(:,1), output(:,2:end) );
+xlabel(ax, 'Time (seconds)');
+ylabel(ax, 'Average FRET value');
+legend(ax, titles);
 
 
 

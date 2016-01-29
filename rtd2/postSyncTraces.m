@@ -59,7 +59,7 @@ end
 model = QubModel(modelFile);
 model.fixMu    = true( model.nStates,1 );
 model.fixSigma = true( model.nStates,1 );
-fretModel = [model.mu' model.sigma'];
+fretModel = [to_col(model.mu) to_col(model.sigma)];
 
 for i = 1:nFiles
     currentTraces = loadTraces(fileList{i});

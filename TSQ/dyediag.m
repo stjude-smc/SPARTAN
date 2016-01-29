@@ -190,8 +190,9 @@ for i=1:nFiles,
     
     [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    ax(1,1) = subplot(2,5,1); hold all;
-    plot( bins, histdata );
+    ax(1,1) = subplot(2,5,1, 'Parent',hfig);
+    hold( ax(1,1), 'all' );
+    plot( ax(1,1), bins, histdata );
     
     
     % Signal-to-noise over signal distributions
@@ -201,8 +202,9 @@ for i=1:nFiles,
     
     [histdata,bins] = hist( snr, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    ax(1,2) = subplot(2,5,2); hold all;
-    plot( bins, histdata );
+    ax(1,2) = subplot(2,5,2, 'Parent',hfig);
+    hold( ax(1,2), 'all' );
+    plot( ax(1,2), bins, histdata );
     
     
     %-------------------------------------------------------------
@@ -307,14 +309,17 @@ for i=1:nFiles,
     
     %-------------------------------------------------------------
     % 7) Display state lifetime histograms.
-    ax(1,3) = subplot(2,5,3); hold all;
-    survival(onTimes,dwellaxis);
+    ax(1,3) = subplot(2,5,3, 'Parent',hfig);
+    hold( ax(1,3), 'all' );
+    survival(ax(1,3), onTimes, dwellaxis);
     
-    ax(1,4) = subplot(2,5,4); hold all;
-    survival(offTimes,dwellaxis);
+    ax(1,4) = subplot(2,5,4, 'Parent',hfig);
+    hold( ax(1,4), 'all' );
+    survival(ax(1,4), offTimes, dwellaxis);
     
-    ax(1,5) = subplot(2,5,5); hold all;
-    survival(totalOn,dwellaxis);
+    ax(1,5) = subplot(2,5,5, 'Parent',hfig);
+    hold( ax(1,5), 'all' );
+    survival(ax(1,5), totalOn, dwellaxis);
     
     drawnow;
 end
@@ -325,7 +330,7 @@ for i=1:size(ax,2),
     xlabel( ax(1,i), colnames{i} );
 end
 
-legend(names);
+legend(ax(1,end), names);
 
 
 %% Make bar graphs to summarize the results
@@ -337,12 +342,14 @@ for i=1:numel(fieldIdx),
     fid = fieldIdx(i);
     statName = fields{fid};
     
-    ax(2,i) = subplot(2,5,5+i); hold all;
-    bar( 1:nFiles, output.(statName), 'r' );
-    errorbar( 1:nFiles, output.(statName), errors.(statName)/2, '.k' );
+    ax(2,i) = subplot(2,5,5+i, 'Parent',hfig);
+    hold( ax(2,i), 'on' );
+    bar( ax(2,i), 1:nFiles, output.(statName), 'r' );
     
-    ylabel(colnames{fid});
-    xlim([0.35 nFiles+0.65]);
+    errorbar( ax(2,i), 1:nFiles, output.(statName), errors.(statName)/2, '.k' );
+    
+    ylabel(ax(2,i), colnames{fid});
+    xlim(ax(2,i), [0.35 nFiles+0.65]);
 end
 
 xlabel(ax(2,1), 'Condition');
@@ -421,7 +428,7 @@ end %function stdbyfile
 
 
 
-function histdata = survival(times,dwellaxis)
+function histdata = survival(ax,times,dwellaxis)
 % Make and display a survival plot for exponentially distributed
 % dwell-times. dwellaxis are the bins to use for the histogram.
 
@@ -434,7 +441,7 @@ histdata = histc( times, dwellaxis );
 histdata = sum(histdata) - cumsum(histdata);  %survival plot
 histdata = histdata/histdata(1);  %normalize
 
-plot( dwellaxis, histdata );
+plot( ax, dwellaxis, histdata );
     
 end
 

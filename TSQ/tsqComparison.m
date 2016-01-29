@@ -33,7 +33,6 @@ if nFiles==0, return; end
 
 % cumsum histograms of lifetime must have same axes for each file
 % in terms of frames.  for now, just set aside space for number of bins.
-names = cell(nFiles,1);
 meanIntensity = zeros(nFiles,1);
 donorLifetime = ones(nFiles,nBins+1);
 fretLifetime  = ones(nFiles,nBins+1);
@@ -48,9 +47,9 @@ for i=1:nFiles,
     if ~exist('sampling','var')
         if data.time(1)==1,
             framerate = inputdlg('What is the sampling interval (in ms) for this data?');
-            sampling = str2double(framerate)
+            sampling = str2double(framerate);
         else
-            sampling = data.time(2)-data.time(1)
+            sampling = data.time(2)-data.time(1);
         end
     end
 
@@ -104,22 +103,22 @@ save( 'acclife.txt', 'fl', '-ASCII' );
 
 %% Display results to user for immediate interpretation.
 
-figure;
+hf = figure;
 
 % Show Donor photobleaching raw data
-subplot( 1,2,1 );
-plot( bins, donorLifetime,'LineWidth',2 );
-title( 'Donor lifetime' );
-ylabel('Fraction photobleached');
-xlabel('Time (sec)');
+ax = subplot( 1,2,1, 'Parent',hf );
+plot( ax, bins, donorLifetime,'LineWidth',2 );
+title( ax, 'Donor lifetime' );
+ylabel(ax, 'Fraction photobleached');
+xlabel(ax, 'Time (s)');
 
 % Show Acceptor photobleaching raw data
-subplot( 1,2,2 );
-plot( bins, fretLifetime,'LineWidth',2 );
-title(' Acceptor Lifetime' );
-ylabel('Fraction photobleached');
-xlabel('Time (sec)');
-legend( titles );
+ax = subplot( 1,2,2, 'Parent',hf );
+plot( ax, bins, fretLifetime,'LineWidth',2 );
+title(ax, ' Acceptor Lifetime' );
+ylabel(ax, 'Fraction photobleached');
+xlabel(ax, 'Time (s)');
+legend(ax, titles );
 
 % Fit bleaching rates to exponential decays
 tBleachDonor    = zeros(nFiles,1);

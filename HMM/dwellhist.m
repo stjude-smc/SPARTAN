@@ -203,26 +203,26 @@ setappdata(hFig,'names',names);
 ax = zeros(nStates,1);
 
 for state=1:nStates,
-    ax(state) = subplot( nStates, 1, state );
+    ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
     colIdx = (state-1)*nFiles + (1:nFiles) +1;
-    plot( dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
+    plot( ax(state), dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
 
-    xlim( [dwellaxis(1) xmax] );
-    ylim( [0 ymax] );
+    xlim( ax(state), [dwellaxis(1) xmax] );
+    ylim( ax(state), [0 ymax] );
 
     if ~params.logX,
-        ylabel('Dwell Survival (%)' );
+        ylabel(ax(state), 'Dwell Survival (%)' );
     else
-        ylabel('Counts (%)');
+        ylabel(ax(state), 'Counts (%)');
     end
     if state==nStates,
-        xlabel(xtitle);
+        xlabel(ax(state), xtitle);
     end
     
-    title( sprintf('State %d',state) );
+    title(ax(state), sprintf('State %d',state) );
 end
 
-legend(names);
+legend(ax(end), names);
 linkaxes(ax,'xy');
 
 % Add a control at the bottom of the GUI for saving the histograms to file.

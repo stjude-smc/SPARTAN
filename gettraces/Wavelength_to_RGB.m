@@ -67,10 +67,10 @@ RGB = Wavelength_to_RGB( 380:780 );
 CV = zeros(1,380+size(RGB,1),3);
 CV(1,380:780,:) = RGB;
 
-h = figure;
-imagesc(CV)
-set(gca,'xlim',[380 780],'yticklabel','');
-xlabel('Wavelength (nm)');
+h = figure;  cax = axes;
+imagesc(CV, 'Parent',cax)
+set(cax,'xlim',[380 780],'yticklabel','');
+xlabel(cax,'Wavelength (nm)');
 set(h,'Position',[465 564 560 94]);
 
 end
