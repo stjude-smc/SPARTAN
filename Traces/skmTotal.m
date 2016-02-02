@@ -1,5 +1,5 @@
 function idl = skmTotal( total, modelInput )
-%skmTotal   Idealizes total fluorescence intensity using SKM donor blinking.
+%skmTotal   Idealize total fluorescence intensity using SKM
 %
 %   IDL = skmTotal(TOTAL) idealizes the total fluorescence intensity traces
 %   in the rows of the matrix TOTAL using the segmental k-means algorithm to
@@ -24,22 +24,27 @@ nargoutchk(1,1);
 %% PARAMETERS
 skmParams.seperately = 1;
 skmParams.quiet = true;
-baseline = 0.2;  %sensitivity to partially quenched states.
 
-% Load model for detecting blinks.
-% States are: 1) dark, 2) blinking/partially-quenched, 3) ON.
-if isa(modelInput,'QubModel')
-    model = modelInput;
-elseif isstruct(modelInput) || ischar(modelInput),
-    model = QubModel(modelInput);
-else
-    model.p0    = [0.01 0.01 0.98]';
-    model.mu    = [0 baseline 1];
-    model.sigma = [0.15 0.15 0.3];
-    model.rates = [0        0       0
-                   0.1      0       2    %bleaching, ressurection rates.
-                   0.1      1       0];  %bleaching, blinking rate (s-1)
-    model = QubModel(model);
+% Define a default model: 1) dark, 2) blinking/quenched, 3) ON.
+model.p0    = [0.01 0.01 0.98]';
+model.mu    = [0 0.2 1];   %second value defines sensitivity to partially quenched states.
+model.sigma = [0.15 0.15 0.3];
+model.rates = [0        0       0
+               0.1      0       2    %bleaching, ressurection rates.
+               0.1      1       0];  %bleaching, blinking rate (s-1)
+model = QubModel(model);
+
+% Use a user-defined model instead
+if nargin>=2,
+    if isa(modelInput,'QubModel')
+        model = modelInput;
+    elseif isstruct(modelInput) || ischar(modelInput),
+        model = QubModel(modelInput);
+    elseif isnumeric(modelInput) && numel(modelInput)==1
+        model.mu(2) = modelInput;
+    else
+        error('Invalid model input')
+    end
 end
 
 % The blinking value is fixed so it doesn't creep up to the "on" state value.

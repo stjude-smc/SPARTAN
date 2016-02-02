@@ -200,12 +200,23 @@ methods
         %-------------  Set FRET to zero when the donor is dark  ------------%
         
         % Set FRET to zero when the donor is dark (total intensity at baseline).
-        if isfield(this.fileMetadata,'zeroMethod') && strcmpi(this.fileMetadata.zeroMethod,'skm')
-            alive = skmTotal( total, varargin{2:end} );
-        else
-            alive = thresholdTotal( total, varargin{2:end} );
-            % FIXME: save the thresholds that were used in traceMetadata.
+        if ~isfield(this.fileMetadata,'zeroMethod')
+            this.fileMetadata.zeroMethod = 'threshold';
         end
+        
+        switch lower(this.fileMetadata.zeroMethod)
+            case 'none'
+                alive = thresholdTotal( total, zeros(this.nTraces,1) );
+            case 'threshold'
+                alive = thresholdTotal( total, varargin{2:end} );
+            case 'skm'
+                alive = skmTotal( total, varargin{2:end} );
+            otherwise
+                warning('Unknown value for fileMetadata.zeroMethod. Defaulting to threshold method.');
+                this.fileMetadata.zeroMethod = 'threshold';
+                alive = thresholdTotal( total );
+        end
+        
         newfret(~alive) = 0;
         newfret2(~alive) = 0;
         

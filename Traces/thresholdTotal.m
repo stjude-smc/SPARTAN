@@ -1,5 +1,5 @@
 function [alive,thresholds] = thresholdTotal( total, thresholds )
-%skmTotal   Idealizes total fluorescence intensity using SKM donor blinking.
+%thresholdTotal   Idealize total fluorescence intensity using thresholds
 %
 %   [IDL,THRESH] = thresholdTotal(TOTAL) idealizes the total fluorescence 
 %   intensity traces in the rows of the matrix TOTAL using an automatically-
@@ -17,18 +17,19 @@ function [alive,thresholds] = thresholdTotal( total, thresholds )
 narginchk(1,2);
 nargoutchk(1,2);
 
-constants = cascadeConstants;
-nBkg = constants.NBK;
-nStd = constants.blink_nstd;
+const = cascadeConstants;
 
+% Process input arguments
 [nTraces,nFrames] = size(total);
 if nargin<2,
     thresholds = zeros(nTraces,1);
 end
+assert( isnumeric(thresholds) && numel(thresholds)==nTraces, 'Invalid threshold values');
 
-alive = true( size(total) );  %true where alive.
+% Determine where the donor bleached to restrict search for blinking events.
+lt = max(1, calcLifetime(total) );
 
-lt = max(1, calcLifetime(total) );  %photobleaching event time
+alive = true( size(total) );  %true where donor is alive.
 
 for i=1:nTraces,
     % Set FRET to zero after donor photobleaching.
@@ -37,10 +38,10 @@ for i=1:nTraces,
     % Set FRET to zero in areas where the donor is dark (blinking).
     % FIXME: Should manual thresholds be saved in traceMetadata?
     s = lt(i)+5;
-    range = s:min(s+nBkg, nFrames);
+    range = s:min(s+const.NBK, nFrames);
     if numel(range)>=10,
         if nargin<2, 
-            thresholds(i) = nStd*std(total(i,range));
+            thresholds(i) = const.blink_nstd*std(total(i,range));
         end
         darkRange = total( i, 1:lt(i) ) <= thresholds(i);
         alive(i,darkRange) = false;

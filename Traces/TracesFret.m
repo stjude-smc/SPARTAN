@@ -156,49 +156,52 @@ methods
     
     
     function this = recalculateFret( this, idx, varargin )
-    % DATA.recalculateFret() recalculates FRET efficiency from fluorescence
-    % in all traces in the TracesFret object DATA. FRET to zero during donor
-    % blinking events using automatically-calculated thresholds.
+    % DATA.recalculateFret() calculates FRET efficiency from fluorescence
+    % traces and saves the result in the fret property. FRET is set to zero
+    % where the donor is dark. The detectin method is specified in 
+    % fileMetadata.zeroMethod as 'none', 'skm', or 'threshold' (default).
     % 
-    % DATA.recalculateFret(IDX) only alters the subset of traces IDX.
+    % DATA.recalculateFret(IDX) only alters the traces listed in IDX. Logical
+    % arrays are not allowed.
     % 
-    % DATA.recalculateFret(..., THRESH) recalculates FRET effciency using 
-    % the supplied thresholds (used by sorttraces).
-    % 
-    % The method used for determining where the donor is dark is specified
-    % in fileMetadata.zeroMethod, which can be 'skm' or 'threshold' (default).
+    % DATA.recalculateFret(IDX, THRESH) uses the given thresholds THRESH, with
+    % one value for each trace referenced in IDX.
     
-        if ~isChannel(this,'fret'),
-            return; %no FRET to recalculate (single-color)
-        end
+        if ~isChannel(this,'fret'), return; end  %single color?
     
         % Get list of traces to correct; correct all if not specified.
         if nargin<3,  
-            idx = true(this.nTraces,1);
+            idx = 1:this.nTraces;
         end
         if isempty(idx), return; end
-        assert( isvector(idx) );
+        assert( isnumeric(idx) && isvector(idx), 'Invalid trace indexes' );
         
         % Realculate FRET efficiency, only in the selected traces.
         this.fret(idx,:) = this.acceptor(idx,:)./this.total(idx,:);
-        this.fret( isnan(this.fret) ) = 0;  %NaN can happen in low SNR traces.
+        this.fret( ~isfinite(this.fret) ) = 0;  %NaN can happen in low SNR traces.
         
-        % Set FRET to zero when the donor is dark (total intensity at baseline).        
+        % Determine where the donor is on/alive and not dark or quenched
         if ~isfield(this.fileMetadata,'zeroMethod')
             this.fileMetadata.zeroMethod = 'threshold';
         end
         
-        if strcmpi(this.fileMetadata.zeroMethod,'skm')
-            alive = skmTotal( this.total(idx,:), varargin{:} );
-        elseif strcmpi(this.fileMetadata.zeroMethod,'threshold')
-            alive = thresholdTotal( this.total(idx,:), varargin{:} );
+        switch lower(this.fileMetadata.zeroMethod)
+            case 'off'
+                alive = thresholdTotal( this.total(idx,:), zeros(this.nTraces,1) );
+            case 'threshold'
+                alive = thresholdTotal( this.total(idx,:), varargin{:} );
+            case 'skm'
+                alive = skmTotal( this.total(idx,:), varargin{:} );
+            otherwise
+                warning('Unknown value for fileMetadata.zeroMethod. Defaulting to threshold method.');
+                this.fileMetadata.zeroMethod = 'threshold';
+                alive = thresholdTotal( this.total(idx,:) );
         end
         
-        if ~strcmpi(this.fileMetadata.zeroMethod,'off'),
-            mask = false( size(this.fret) );
-            mask(idx,:) = ~alive;
-            this.fret(mask) = 0;
-        end
+        % Set FRET to zero when the donor is dark
+        mask = false( size(this.fret) );
+        mask(idx,:) = ~alive;
+        this.fret(mask) = 0;
         
     end %METHOD recalculateFret
     

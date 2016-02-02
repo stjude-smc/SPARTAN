@@ -140,7 +140,7 @@ end
 if ~isfield(data.fileMetadata,'zeroMethod'),
     data.fileMetadata.zeroMethod = 'threshold';
 end
-useThresh = ~strcmpi(data.fileMetadata.zeroMethod,'skm');
+useThresh = strcmpi(data.fileMetadata.zeroMethod,'threshold');
 
 
 % Make sure time axis is in seconds (not frames)
@@ -402,7 +402,7 @@ trace = handles.data.getSubset(mol);
 handles.stats = traceStat(trace);
 handles.trace = trace;
 
-if ~strcmpi(handles.data.fileMetadata.zeroMethod,'skm'),
+if strcmpi(handles.data.fileMetadata.zeroMethod,'threshold'),
     if trace.isChannel('fret') && isnan(handles.fretThreshold(mol)),
         total = zeros( size(trace) );
 
@@ -772,7 +772,7 @@ updateTraceData( handles );
 
 
 
-function edCrosstalk_Callback(hObject, eventdata, handles ) %#ok<DEFNU>
+function edCrosstalk_Callback(hObject, ~, handles ) %#ok<DEFNU>
 % Called when user changes the text box for specifying FRET threshold.
 %
 tag = get(hObject,'Tag');
@@ -794,7 +794,7 @@ end
 set( handles.(name), 'Value',crosstalk );
 
 % Make the corrections and update plots.
-sldCrosstalk_Callback( handles.(name), eventdata, handles, ch );
+sldCrosstalk_Callback( handles.(name), [], handles );
 
 
 
@@ -929,7 +929,7 @@ guidata(handles.figure1, handles);
 if any( ~cellfun(@isempty,handles.bins) ),
     set(handles.btnSave,'Enable','on');
 end
-% set(handles.btnSaveInPlace,'Enable','on');
+set(handles.btnSaveInPlace,'Enable','on');
 
 plotter(handles);
 
@@ -938,47 +938,55 @@ plotter(handles);
 
 
 
-function data = adjustTraces( handles, indexes )
-% Recalculate FRET and stats. This is called following any changes made to
-% the fluorescence traces (bg subtraction, crosstalk, etc) or the FRET
-% threshold.
+function output = adjustTraces( handles, indexes )
+% DATA = adjustTraces( handles, INDEXES ) returns a new Traces object DATA
+% applying all adjustments (background, gamma, crosstalk, and FRET threshold)
+% to the data loaded from file (handles.data).
+% Traces that were not adjusted (handles.adjusted is false) are unaltered.
+% If trace INDEXES are given, DATA only includes those traces.
 
-% Extract traces of interest, without modifying the input argument.
 if nargin<2,
     indexes = 1:handles.data.nTraces;
 end
-data = handles.data.getSubset(indexes);
 
-chNames = data.channelNames(data.idxFluor);  %should be in order of wavelength.
-nFlour = numel(data.idxFluor);
+% Extract traces of interest and associated parameters for adjustment.
+output = handles.data.getSubset(indexes);  %creates a copy with selected traces
+crosstalk   = handles.crosstalk(indexes,:,:);
+gamma       = handles.gamma(indexes,:);
+thresholds  = handles.fretThreshold(indexes);
+idxAdjusted = to_row( find(handles.adjusted(indexes)) );  %ones to adjust
 
-for i=1:numel(indexes), 
-    m = indexes(i); %i is index into data subset, m is index into all traces.
-    if ~handles.adjusted(m), continue; end
-    
-    % Subtract blue intensity bleeding onto red channels.
-    % The order of operations matters here.
+
+chNames = output.channelNames(output.idxFluor);  %increasing wavelength order.
+nFlour = numel(output.idxFluor);
+
+for i=idxAdjusted,
+    % Subtract forward crosstalk (blue to red). The order matters.
     for src=1:nFlour,
         for dst=1:nFlour,
             if src>=dst, continue; end  %only consider forward crosstalk
             
             ch1 = chNames{src};
             ch2 = chNames{dst};
-            crosstalk = handles.crosstalk(m,src,dst);
-            data.(ch2)(i,:) = data.(ch2)(i,:) - crosstalk*data.(ch1)(i,:);
+            output.(ch2)(i,:) = output.(ch2)(i,:) - crosstalk(i,src,dst)*output.(ch1)(i,:);
         end
     end
     
     % Scale channels so their relative brightness is the same.
-    for j=1:nFlour,
-        data.(chNames{j})(i,:) = data.(chNames{j})(i,:)*handles.gamma(m,j);
+    for ch=1:nFlour,
+        output.(chNames{ch})(i,:) = output.(chNames{ch})(i,:)*gamma(i,ch);
     end
 
-end %for each trace
-    
-% Calculate total intensity and donor lifetime.
-% FIXME: should thresholds be specified in metadata?
-data.recalculateFret( handles.adjusted(indexes), handles.fretThreshold(indexes) );
+end %for each selected, adjusted trace
+
+
+% Recalculate FRET from the corrected data, removing donor dark states.
+if isfield(output.fileMetadata,'zeroMethod') && strcmpi(output.fileMetadata.zeroMethod,'threshold'),
+    output.recalculateFret( idxAdjusted, thresholds(idxAdjusted) );
+else
+    output.recalculateFret( idxAdjusted );
+end
+
 
 % END FUNCTION adjustTraces
 

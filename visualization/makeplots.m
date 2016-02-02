@@ -25,7 +25,9 @@ c = cascadeConstants();
 if isempty(defaults),
     defaults = c.defaultMakeplotsOptions;
 end
-
+if isfield(defaults,'targetAxes'),
+    defaults = rmfield(defaults,'targetAxes');  %left over from rtdTool
+end
 
 
 %% Process input data and parameters
