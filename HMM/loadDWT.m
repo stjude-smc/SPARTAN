@@ -37,23 +37,30 @@ while 1,
     % Segment: 1 Dwells: 6 Sampling(ms): 10 Start(ms): 0 ClassCount: 4 0.01
     %                                 0.034 0.15 0.061 0.3 0.061 0.55 0.061
     data = textscan(fid, 'Segment: %f Dwells: %f Sampling(ms): %f Start(ms): %f ClassCount: %f %[^\n]');
-    segid = data{1};
-    if numel(segid) == 0, break; end
+    if numel(data{1}) == 0, break; end
     
-    ndwells   = data{2};
-    sampling  = data{3};
-    startTime = data{4};
-    %nClasses  = data{5};
-    
-    % Reshape model to expected dimensions (FRET first column, std second).
-    m = sscanf(data{6}{1},'%f');
-    modelOut = zeros( numel(m)/2, 2 );
-    modelOut(:,1) = m(1:2:end); %FRET values
-    modelOut(:,2) = m(2:2:end); %standard deviations
-    model{segid} = modelOut; %#ok<AGROW>
-    nStates(segid) = numel(m)/2;
-    
-    offsets(segid) = startTime/sampling;  %segment start time (frames)
+    % Loop over any empty segments, which will be grouped by textscan.
+    % Most often segid will be scalar.
+    for i=1:numel(data{1}),
+        segid     = data{1}(i);
+        ndwells   = data{2}(i);
+        sampling  = data{3}(i);
+        startTime = data{4}(i);
+        %nClasses  = data{5}(i);
+        
+        % Reshape model to expected dimensions (FRET first column, std second).
+        m = sscanf(data{6}{i},'%f');
+        modelOut = zeros( numel(m)/2, 2 );
+        modelOut(:,1) = m(1:2:end); %FRET values
+        modelOut(:,2) = m(2:2:end); %standard deviations
+        model{segid} = modelOut; %#ok<AGROW>
+        nStates(segid) = numel(m)/2;
+
+        offsets(segid) = startTime/sampling;  %segment start time (frames)
+        
+        % Dummy dwell list for empty traces
+        dwells{segid} = zeros(0,2); %#ok<AGROW>
+    end
     
     % Load dwell-times in this segment
     data = fscanf(fid, '%f', [2 ndwells])';
