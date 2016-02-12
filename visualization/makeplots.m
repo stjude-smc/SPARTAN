@@ -82,6 +82,10 @@ else
     h1 = get(defaults.targetAxes{1,1},'parent');
 end
 
+% Force the cursor to be normal arrow. When loading from .fig files, it is
+% sometimes mysteriously 'watch'. MATLAB bug?
+set(h1,'CreateFcn','set(gcbo,''pointer'',''arrow'')');
+
 newHandles.options = defaults;
 newHandles.baseFilenames = baseFilenames;
 newHandles.dataFilenames = dataFilenames;
@@ -295,6 +299,10 @@ else
 end
 
 
+% Remove latent annotations, if any.
+delete(findall(handles.hFig,'Tag','Nmol'))
+
+
 
 %%
 for k=1:nFiles,
@@ -344,10 +352,10 @@ for k=1:nFiles,
     title( titles{k}, 'Parent',ax );
     
     if ~options.hideText,
-        ap = get(ax,'Position');
-        annotation( handles.hFig, 'textbox', [ap(1)+0.9*ap(3) ap(2)+0.9*ap(4) 0.1*ap(3) 0.1*ap(4)], ...
+        ap = get(ax,'Position');  %left bottom width height
+        annotation( handles.hFig, 'textbox', [ap(1)+0.925*ap(3) ap(2)+0.925*ap(4) 0.1*ap(3) 0.1*ap(4)], ...
                     'String',sprintf('N=%d', N(k)), 'HorizontalAlignment','right', ...
-                    'LineStyle','none' );
+                    'LineStyle','none', 'tag','Nmol' );
     end
     
     if k==1,
