@@ -1,7 +1,7 @@
-function [h1,dataFilenames] = makeplots(dataFilenames, titles, varargin)
+function varargout = makeplots(dataFilenames, titles, varargin)
 %MAKEPLOTS  Creates an array of contour, pop hist, and TD plots
 % 
-%   H = MAKEPLOTS(FILES, TITLES, OPTIONS)
+%   MAKEPLOTS(FILES, TITLES, OPTIONS)
 %   Creates a 3xN panel of 2D and 1D population histograms and TD plots,
 %   where FILES specifies the locations of the datasets to plot.  TITLES
 %   specifies the titles to plot above each dataset (optional).
@@ -93,6 +93,15 @@ newHandles.titles = titles;
 newHandles.hFig = h1;
 
 plotData(h1,newHandles);
+
+
+% Set outputs, if requested.
+switch nargout,
+    case 1
+        varargout = {h1};
+    case 2
+        varargout = {h1,dataFilenames};
+end
 
 
 % Give a warning if using some funky normalization.
