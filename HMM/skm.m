@@ -29,7 +29,7 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 %
 %   See also: QubModel, idealize, forward_viterbi.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
 
@@ -233,21 +233,21 @@ while( itr < params.maxItr ),
         % Get all datapoints assigned to <class>
         edata = data( idlClasses==class );
         
-        if length(edata)<1, continue; end
+        if numel(edata)<1, continue; end
         
         % Resestimate parameters as their expectation from observations.
         if ~model.fixMu(class)
-            mu(class) = mean( edata );
+            mu(class) = sum(edata)/numel(edata);
         end
         if ~model.fixSigma(class)
-            sigma(class) = std( edata );
+            sigma(class) = sqrt(var(edata));
             sigma(class) = max(sigma(class),0.01); %prevent convergace to 0
         end
     end
     
     
     % Check for convergence
-    if length(LL)>1 && abs(LL(end)-LL(end-1))<params.convLL,
+    if numel(LL)>1 && abs(LL(end)-LL(end-1))<params.convLL,
         break;
     end
     

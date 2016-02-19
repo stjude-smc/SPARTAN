@@ -18,7 +18,7 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %    data file (linearized TRACES).  LL is a 1xN vector of the log-likelihood 
 %    ofeach trace, given the sequence of states (Viterbi path) and the model.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
 [nTraces,nFrames] = size(obs);
@@ -62,9 +62,8 @@ LL = zeros(1,nTraces);
 for i=1:nTraces,
 
     % Trim trace to remove data after donor photobleaching (where E=0).
-    trace = obs(i,:);
-    traceLen = find(trace~=0, 1,'last');
-    trace = trace(1:traceLen);
+    traceLen = find(obs(i,:)~=0, 1,'last');
+    trace = obs(i,1:traceLen);
     
     if isempty(traceLen) || traceLen<2,
         dwt{i} = zeros(0,nStates);

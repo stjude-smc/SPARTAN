@@ -13,7 +13,7 @@ function result = rleFilter( signal, tau )
 x = signal;
 
 % Create a run-length-encoded version of signal
-i = [ find(x(1:end-1) ~= x(2:end)) length(x) ]; %run end positions
+i = [ find(x(1:end-1) ~= x(2:end)) numel(x) ]; %run end positions
 len = diff([ 0 i ]);
 val = x(i);
 

@@ -12,7 +12,7 @@ function idl = skmTotal( total, modelInput )
 %
 %   See also: thresholdTotal, skm, TracesFret.recalculateFret.
 
-%   Copyright 2015 Cornell University All Rights Reserved.
+%   Copyright 2015-2016 Cornell University All Rights Reserved.
 
 %   FIXME: consider adding an extra parameter that defined the amplitude of
 %   the "dark" state to tune the sensitivity to above-baseline noise.
@@ -24,6 +24,7 @@ nargoutchk(1,1);
 %% PARAMETERS
 skmParams.seperately = 1;
 skmParams.quiet = true;
+skmParams.maxItr = 20; %typically 3-5, very rarely more than 10.
 
 % Define a default model: 1) dark, 2) blinking/quenched, 3) ON.
 model.p0    = [0.01 0.01 0.98]';
