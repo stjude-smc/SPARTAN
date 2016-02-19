@@ -15,7 +15,8 @@ function data = scaleacceptor( varargin )
 %
 %    See also gammacorrect.
 
-%   Copyright 2014-2015 Cornell University All Rights Reserved.
+%   Copyright 2014-2016 Cornell University All Rights Reserved.
+
 
 %% Process input
 
@@ -71,17 +72,7 @@ for i=1:numel(scale_factor),
     data.(ch) = scale_factor(i)*data.(ch);
 end
 
-% If 3-color and fret calculation method isn't known, ask the user.
-if data.isChannel('fret2') && ~isfield(data.fileMetadata,'isTandem3'),
-    result = questdlg('Can you assume there is no donor->acceptor2 FRET?', ...
-                    '3-color FRET calculation','Yes','No','Cancel','No');
-    if strcmp(result,'Cancel'),  return;  end
-    data.fileMetadata.isTandem3 = double( strcmp(result,'Yes') );
-end
-
-% Calculate total intensity and donor lifetime.
-% Fret thresholds are recalculated at this step.
-% Any earlier fine-tuning in sorttraces will be lost.
+% Recalculate FRET using the new acceptor fluorescence values.
 data.recalculateFret();
 
 

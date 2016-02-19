@@ -76,6 +76,9 @@ idl = dwtToIdl(dwt, offsets, nFrames, nTraces)==3;
 idl = imerode(idl, [1 1 1]);
 
 
+idl(isnan(idl)) = 0;
+
+
 
 end %function skmTotal
     

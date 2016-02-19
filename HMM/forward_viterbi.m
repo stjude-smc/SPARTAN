@@ -27,13 +27,18 @@ ltp(ltp==-Inf) = -1e10;
 lep(lep==-Inf) = -1e10;
 
 
-% If possible, run the binary (mex) version instead.
+% Run the faster binary (mex) version if possible
 try
     [vPath,vLL] = forward_viterbix( double(lsp),double(ltp),double(lep) );
-    assert( all(vPath>0) && vLL<0 );
     return;
-catch
-    %disp('Falling back on the matlab version');
+    
+catch err
+    if strcmpi(err.identifier, 'MATLAB:UndefinedFunction'),
+        disp('fowrard_viterbi: MEX not found. Falling back on the MATLAB version');
+    else
+        disp('WARNING: error in fowrard_viterbix.mex');
+        disp(err);
+    end
 end
 
 
