@@ -92,8 +92,6 @@ cmosCommon.overlap_thresh = 3.5; %remove molecules that are w/i X pixels.
 cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
 cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
-cmosCommon.scaleAcceptor = 1;    %scale acceptor channel intensity for unequal apparent brightness.
-
 
 % Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.
 emccdCommon = cmosCommon;
@@ -128,6 +126,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
+p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
 % % For a few movies taken with old versions of Flash Gordon
@@ -180,6 +179,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = 0.075;  %donor->acceptor
+p.scaleAcceptor = 1;
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
@@ -203,6 +203,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = 0.13;   %Cy3->Cy5
+p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
 
@@ -216,6 +217,7 @@ p.wavelengths = [532 640 730];
 p.crosstalk   = zeros(4);
 p.crosstalk(1,2) = 0.12;   %Cy3->Cy5
 p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
+p.scaleAcceptor = [1 1];
 profiles(end+1) = p;
 
 
@@ -233,6 +235,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy5','Cy7'};
 p.wavelengths = [640 730];
 p.crosstalk   = 0.11;
+p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
 

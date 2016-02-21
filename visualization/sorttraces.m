@@ -9,7 +9,7 @@ function varargout = sorttraces(varargin)
 %    be all usable molecules. "Best" could be a few very high-quality,
 %    repressentative traces used for publication.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 04-Nov-2015 15:05:04
 
@@ -189,14 +189,11 @@ handles.bins = cell(3,1);
 [p,fname] = fileparts( filename );
 inds_fname = fullfile(p, [fname '_savedState.mat']);
 if ~exist(inds_fname,'file'),
-    inds_fname = fullfile(p, [fname '_picked_inds.txt']);
+    inds_fname = fullfile(p, [fname '_picked_inds.txt']);  %legacy
 end
 
 if exist(inds_fname,'file'),
-    % FIXME: ask user whether to load corrections, selections, or both.
-    text = 'These traces have been binned before.  ';
-    text = [text 'Do you want to reload your selections?'];
-    answer = questdlg(text, 'Load picking selections?','Yes','No','Yes');
+    answer = questdlg('Load previously saved state?', mfilename, 'Yes','No', 'Yes');
     
     if strcmp(answer,'Yes'),
         handles = loadSavedState(handles, inds_fname);
@@ -213,29 +210,16 @@ for i=1:numel(handles.binNames),
 end
 
 % Turn on other controls that can now be used now that a file is loaded.
-offon = {'off','on'};
-isFret = offon{ ismember('fret',data.channelNames)+1 };
-isThreeColor = offon{ ismember('fret2',data.channelNames)+1 };
+set( [handles.edThreshold   handles.sldThreshold handles.edCrosstalk1 ...
+      handles.sldCrosstalk1 handles.edGamma1     handles.sldGamma1], ...
+      'Enable', onoff(ismember('fret',data.channelNames)) );
 
-set(handles.edThreshold,  'Enable',isFret );
-set(handles.sldThreshold, 'Enable',isFret );
-set(handles.edCrosstalk1, 'Enable',isFret );
-set(handles.sldCrosstalk1,'Enable',isFret );
-set(handles.edGamma1,     'Enable',isFret );
-set(handles.sldGamma1,    'Enable',isFret );
+set( [handles.edCrosstalk2  handles.sldCrosstalk2 handles.edCrosstalk3 ...
+      handles.sldCrosstalk3 handles.edGamma2      handles.sldGamma2], ...
+      'Enable', onoff(ismember('fret2',data.channelNames)) );
 
-set(handles.edCrosstalk2, 'Enable',isThreeColor );
-set(handles.sldCrosstalk2,'Enable',isThreeColor );
-set(handles.edCrosstalk3, 'Enable',isThreeColor );
-set(handles.sldCrosstalk3,'Enable',isThreeColor );
-set(handles.edGamma2,     'Enable',isThreeColor );
-set(handles.sldGamma2,    'Enable',isThreeColor );
-
-set(handles.btnPrint,    'Enable','on' );
-set(handles.btnLoadDWT,  'Enable','on' );
-set(handles.btnGettraces,'Enable','on' );
-
-set( [handles.edThreshold handles.sldThreshold], 'Enable', offon{useThresh+1} );
+set( [handles.edThreshold handles.sldThreshold], 'Enable', onoff(useThresh) );
+set( [handles.btnPrint handles.btnLoadDWT handles.btnGettraces], 'Enable','on');
 
 % Reset x-axis label to reflect time or frame-based.
 time = data.time;
@@ -381,16 +365,8 @@ else
 end
 
 % Make sure that the molecule selected actually exists.
-if mol+1>handles.data.nTraces
-    set(handles.btnNextBottom,'Enable','off');
-else
-    set(handles.btnNextBottom,'Enable','on');
-end
-if mol-1>=1
-    set(handles.btnPrevBottom,'Enable','on');
-else
-    set(handles.btnPrevBottom,'Enable','off');
-end
+set(handles.btnNextBottom, 'Enable', onoff(mol+1<=handles.data.nTraces) );
+set(handles.btnPrevBottom, 'Enable', onoff(mol-1>=1) );
 
 % Reset these values for the new trace.
 fluorNames = handles.data.channelNames( handles.data.idxFluor );
@@ -532,25 +508,15 @@ addToBin_Callback(handles.(chkName),[],handles,index);
 %----------SAVE TRACES----------%
 % --- Executes on button press in btnSave.
 function btnSave_Callback(hObject, ~, handles) %#ok<DEFNU>
-% User clicked "Save Traces".
-% Traces files are saved for each bin in which there are picked molecules.
+% Save selected traces in a new file for each bin.
 
 [p,f]=fileparts(handles.filename);
 baseFilename = fullfile(p,f);
 
-%--- Save trace adjustments and indexes of picked molecules to file
-% Saves a .mat file with a structure containing all the information necessary to
-% recover the internal state of sorttraces as it is now.
-savedState.version = handles.constants.version;
+% Save the current state of the GUI (selections, adjustments, etc)
+saveState(handles);
 
-fields = {'binNames','bins','adjusted','crosstalk','gamma','background','fretThreshold'};
-for i=1:numel(fields),
-    savedState.(fields{i}) = handles.(fields{i});
-end
-save( [baseFilename '_savedState.mat'], '-struct', 'savedState' );
-
-
-%--- Save files
+% Save selected traces in one file per bin
 binNames = lower( strrep(handles.binNames,' ','_') );  %FIXME: may need to remove other special characters.
 
 for i=1:numel(handles.bins),
@@ -558,109 +524,86 @@ for i=1:numel(handles.bins),
     savePickedTraces( handles, filename, handles.bins{i} );
 end
 
-
-% Finish up
 set(hObject,'Enable','off');
 
-% end function btnSave_Callback
+% END FUNCTION btnSave_Callback
+
+
+
+
+% --- Executes on button press in btnSaveInPlace.
+function btnSaveInPlace_Callback(~, ~, handles) %#ok<DEFNU>
+% Save all traces to a new file with all corrections applied.
+
+% Save the current state of the GUI (selections, adjustments, etc)
+saveState(handles);
+
+% Ask the user for a target filename to save as
+[p,f] = fileparts(handles.filename);
+filename = fullfile(p,[f '_adjusted.traces']);
+
+[f,p] = uiputfile('.traces','Save current file as:',filename);
+if f==0, return; end
+
+% Apply all corrections and save traces and idealization to file.
+savePickedTraces( handles, fullfile(p,f), 1:handles.data.nTraces );
+
+set(handles.btnSaveInPlace,'Enable','off');
+
+% END FUNCTION savePickedTraces
+
 
 
 
 function savePickedTraces( handles, filename, indexes )
 % Save picked traces and idealizations to file.
 
-% Sort indexes so they are in the same order as in the file, rather than in
-% the order selected.
-indexes = sort(indexes);
+[p,f] = fileparts(filename);
+baseFilename = fullfile(p,f);
+dwtfname = [baseFilename '.qub.dwt'];
 
 % If no traces remain, there is nothing to save. Rather than save an empty file,
 % save nothing and delete any previously saved files.
 if isempty(indexes),
-    if exist(filename,'file'),
-        delete(filename);
-    end
-
-    [p,f] = fileparts(filename);
-    dwtfname = fullfile(p, [f '.qub.dwt']);
-    if exist(dwtfname,'file'),
-        delete(dwtfname);
-    end
-
+    if exist(filename,'file'),  delete(filename);  end
+    if exist(dwtfname,'file'),  delete(dwtfname);  end
     return;
 end
 
 set(handles.figure1,'pointer','watch'); drawnow;
 
-% Put together the subset of selected traces for saving, applying any
-% adjustments made to the trace data.
-data = adjustTraces(handles,indexes);  %creates a copy
-
-% Save the trace data to file
-[~,~,e] = fileparts(filename);
-if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
-    saveTraces( filename, data );
-elseif strcmp(e,'.txt'),
-    saveTraces( filename, 'txt', data );
-else
-    error('Unknown file format extension');
-end
+% Select traces, apply all corrections, and save to file.
+indexes = sort(indexes);  %ensure traces are in original order
+saveTraces( filename, adjustTraces(handles,indexes) );
 
 % Save idealizations of selected traces, if available.
 if ~isempty(handles.idl),
-    
-    [p,f] = fileparts(filename);
-    dwtFilename = fullfile(p, [f '.qub.dwt']);
-    
-    % Convert to dwell-time series and save to file.
     [dwt,offsets] = idlToDwt( handles.idl(indexes,:) );
-    
     saveDWT( dwtFilename, dwt, offsets, handles.dwtModel, handles.data.sampling );
 end
 
 set(handles.figure1,'pointer','arrow');
 
-% end function savePickedTraces
+% END FUNCTION savePickedTraces
 
 
 
-% --- Executes on button press in btnSaveInPlace.
-function btnSaveInPlace_Callback(~, ~, handles) %#ok<DEFNU>
-% Button to overwrite the current file with modifications, rather than
-% saving results to selected traces.
 
+function saveState( handles )
+% Save a .mat containing the current GUI state to be recovered later.
 
-% Ask the user for a target filename to save as, with the current file as the
-% default.
-[p,f,e] = fileparts(handles.filename);
-filename = fullfile(p,[f '_adjusted' e]);
+savedState.version = handles.constants.version;
 
-[inputfile,inputpath] = uiputfile('.traces','Save picked traces as:',filename);
-if inputfile==0, return; end
-
-filename = fullfile(inputpath,inputfile);
-
-
-% Put together the subset of selected traces for saving, applying any
-% adjustments made to the trace data.
-data = adjustTraces(handles);  %creates a copy
-
-% Save the current data state to the file.
-[~,~,e] = fileparts(filename);
-if strcmp(e,'.traces') || strcmp(e,'.rawtraces'),
-    saveTraces( filename, data );
-elseif strcmp(e,'.txt'),
-    saveTraces( filename, 'txt', data );
-else
-    error('Unknown file format extension');
+fields = {'binNames','bins','adjusted','crosstalk','gamma','background','fretThreshold'};
+for i=1:numel(fields),
+    savedState.(fields{i}) = handles.(fields{i});
 end
 
+[p,f] = fileparts(handles.filename);
+filename = fullfile(p,[f '_savedState.mat']);
+save(filename, '-struct', 'savedState');
 
-% The idealization, if any, is NOT saved by this... FIXME?
-
-set(handles.btnSaveInPlace,'Enable','off');
-
-
-% END FUNCTION savePickedTraces
+% END FUNCTION saveState
 
 
 
@@ -734,11 +677,7 @@ end
 
 
 % Update GUI controls to allow undo if something has been changed.
-if mode<4
-    set(handles.btnSubUndo,'Enable','on');    %allow undo
-else
-    set(handles.btnSubUndo,'Enable','off');    %disable undo
-end
+set(handles.btnSubUndo, 'Enable', onoff(mode<4));
 
 updateTraceData( handles );
 
@@ -924,13 +863,7 @@ function handles = updateTraceData( handles )
 handles.adjusted(handles.molecule_no) = true;
 guidata(handles.figure1, handles);
 
-% Since some kind of change was made, allow the user to save the file or
-% selections in their new state.
-if any( ~cellfun(@isempty,handles.bins) ),
-    set(handles.btnSave,'Enable','on');
-end
-set(handles.btnSaveInPlace,'Enable','on');
-
+set([handles.btnSave handles.btnSaveInPlace], 'Enable','on');
 plotter(handles);
 
 % END FUNCTION updateTraceData
@@ -1498,17 +1431,20 @@ plotter(handles);
 
 
 
-
 % --- Executes when user attempts to close figure1.
 function sorttraces_CloseRequestFcn(hObject, ~, handles) %#ok<DEFNU>
-% 
+% Give the user a chance to save current state before closing.
 
-% Ask the user if the traces should be saved before closing. FIXME:
-if strcmpi(get(handles.btnSave,'Enable'),'on') || strcmpi(get(handles.btnSaveInPlace,'Enable'),'on')
-    a = questdlg( 'Are you sure you want to exit? (You might lose changes)',...
-                  'Exit without saving', 'OK','Cancel', 'OK' ); 
-    if ~strcmp(a,'OK'),
-        return;
+if strcmpi(get(handles.btnSave,'Enable'),'on') && ...
+   strcmpi(get(handles.btnSaveInPlace,'Enable'),'on'),
+
+    a = questdlg('Save current state before exiting?', 'Close sorttraces', ...
+                 'Yes','No','Cancel', 'Yes' );
+    switch a
+        case 'Yes'
+            saveState(handles);
+        case 'Cancel'
+            return; %do not close yet
     end
 end
 
@@ -1519,3 +1455,8 @@ end
 
 % Close the sorttraces window
 delete(hObject);
+
+% END FUNCTION sorttraces_CloseRequestFcn
+
+
+

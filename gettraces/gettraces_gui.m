@@ -15,7 +15,7 @@ function varargout = gettraces_gui(varargin)
 %      separate .traces files using the established threshold and txtOverlap
 %      rejection. Batch mode is not recursive.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 % Last Modified by GUIDE v2.5 24-Nov-2015 11:11:28
 
@@ -899,6 +899,7 @@ guidata(hObject,handles);
 function handles = cboGeometry_Callback(hObject, ~, handles)
 %
 
+
 % If running, stop the "auto detect" timer. Otherwise, it may be triggered by
 % the change in settings.
 fileTimer = timerfind('Name','gettraces_fileTimer');
@@ -917,8 +918,7 @@ params = constants.gettraces_profiles(sel);
 handles.params = params;
 
 
-% Reset all GUI elements to reflect the default settings in the currently
-% selected profile.
+% Set all GUI to defaults of currently selected profile.
 if ~isfield(params,'don_thresh') || params.don_thresh==0,
     set( handles.txtIntensityThreshold,'String','' );
 else
@@ -928,38 +928,23 @@ end
 set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
 set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
 set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
-set( handles.chkRecursive, 'Value', params.recursive    );
-set( handles.chkOverwrite, 'Value', params.skipExisting );
-set( handles.cboAlignMethod,   'Value',1 ); %params.alignment.method
-set( handles.edScaleAcceptor, 'String',num2str(params.scaleAcceptor) );
+set( handles.chkRecursive,   'Value', params.recursive    );
+set( handles.chkOverwrite,   'Value', params.skipExisting );
+set( handles.cboAlignMethod, 'Value', params.alignMethod  );
 
-if handles.params.geometry==1, %Single-channel recordings
-    set( handles.txtDACrosstalk,    'Enable','off', 'String','', 'Visible','on' );
-    set( handles.btnCrosstalk,      'Visible','off' );
-    set( handles.btnScaleAcceptor,  'Visible','off' );
-    set( handles.btnSaveAlignment,  'Enable','off' );
-    set( handles.btnLoadAlignment,  'Enable','off' );
-else  %Multi-channel recordings
-    set( handles.btnSaveAlignment,  'Enable','on' );
-    set( handles.btnLoadAlignment,  'Enable','on' );
-end
+set( handles.edScaleAcceptor, 'String', num2str(params.scaleAcceptor) );
+set( handles.txtDACrosstalk,  'String', num2str(params.crosstalk) );
 
-% For multi-color FRET, the matrix of possible crosstalk values can't
-% be handled in a little text box, so use a button for a dialog with
-% all of the values listed instead (see btnCrosstalk_Callback).
-if handles.params.geometry>1 && numel(params.crosstalk)==1,
-    set( handles.txtDACrosstalk, 'Enable','on', 'Visible','on', ...
-                                    'String',num2str(params.crosstalk) );
-    set( handles.edScaleAcceptor, 'Enable','on', 'Visible','on', ...
-                                  'String',num2str(params.scaleAcceptor) );
-    set( handles.btnCrosstalk,     'Visible','off'  );
-    set( handles.btnScaleAcceptor, 'Visible','on'  );
-elseif handles.params.geometry>2,
-    set( handles.txtDACrosstalk,   'Visible','off' );
-    set( handles.edScaleAcceptor,  'Visible','off' );
-    set( handles.btnCrosstalk,     'Visible','on'  );
-    set( handles.btnScaleAcceptor, 'Visible','on'  );
-end
+% Enable alignment, crosstalk, and scale controls only in multi-color.
+set( [handles.cboAlignMethod   handles.btnSaveAlignment handles.cboZeroMehod ...
+      handles.btnLoadAlignment handles.txtDACrosstalk   handles.btnCrosstalk ...
+      handles.edScaleAcceptor  handles.btnScaleAcceptor], ...
+     'Enable',onoff(handles.params.geometry>1) );
+
+set(handles.txtDACrosstalk,   'Visible', onoff(numel(params.crosstalk)<2) );
+set(handles.btnCrosstalk,     'Visible', onoff(numel(params.crosstalk)>1)  );
+set(handles.edScaleAcceptor,  'Visible', onoff(numel(params.scaleAcceptor)<2) );
+set(handles.btnScaleAcceptor, 'Visible', onoff(numel(params.scaleAcceptor)>1)  );
 
 
 % If a movie has already been loaded, reload movie with new setup.
@@ -1174,7 +1159,8 @@ if ~isfield(params,'scaleAcceptor') || isempty(params.scaleAcceptor),
 end
 
 % Prompt the user for new multipliers for gamma correction.
-prompts = strcat(params.chNames(idx), ':');
+prompts = cellfun( @(a,b)sprintf('%s (%s):',a,b), params.chNames(idx), ...
+                                 params.chDesc(idx), 'UniformOutput',false );
 defaults = cellfun(@num2str, num2cell(params.scaleAcceptor), 'UniformOutput',false);
 
 result = inputdlg(prompts, 'Gettraces: scale acceptor', 1, defaults);
