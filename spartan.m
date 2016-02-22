@@ -69,6 +69,7 @@ function spartan_OpeningFcn(hObject, ~, handles, varargin)
 
 constants = cascadeConstants;
 set( handles.figure1, 'Name', constants.software );
+updateSpartan; %check for updates
 
 % Set working directory in GUI
 set(handles.txtCWD, 'String',pwd);

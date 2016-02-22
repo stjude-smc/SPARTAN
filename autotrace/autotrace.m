@@ -59,6 +59,7 @@ function autotrace_OpeningFcn(hObject, ~, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to autotrace (see VARARGIN)
 
+updateSpartan; %check for updates
 
 %---- PROGRAM CONSTANTS
 constants = cascadeConstants();

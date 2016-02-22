@@ -58,6 +58,7 @@ function simulate_gui_OpeningFcn(hObject, ~, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to simulate_gui (see VARARGIN)
 
+updateSpartan; %check for updates
 
 % Choose default command line output for simulate_gui
 handles.output = hObject;

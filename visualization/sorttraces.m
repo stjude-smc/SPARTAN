@@ -42,6 +42,7 @@ end
 function sorttraces_OpeningFcn(hObject, ~, handles, varargin)
 % Setup GUI controls in their default state (no file loaded).
 
+updateSpartan; %check for updates
 
 % Initialize GUI if sorrtraces is being launched for the first time.
 if ~isfield(handles,'constants')
@@ -1074,14 +1075,15 @@ axis(handles.axTotal,'auto');
 if ismember('fret',chNames),
     plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,data.nFrames), 'b-');
     
-    mean_on_signal  = mean( total(1:lt) );
+    mean_on_signal = mean( total(data.fret~=0) );
     mean_off_signal = mean( total(lt+5:end) );
 
-    simplified_cy3=[mean_on_signal*ones(1,lt)...
-            mean_off_signal*ones(1,data.nFrames-lt)];
+    simplified_cy3 = mean_on_signal*(data.fret~=0);
+    simplified_cy3(data.fret==0) = mean_off_signal;
+        
     simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
             mean_off_signal*ones(1,data.nFrames-FRETlifetime)];
-
+    
     plot( handles.axTotal, time,simplified_cy5,'r' );
     plot( handles.axTotal, time,simplified_cy3,'g' );
 end

@@ -45,6 +45,8 @@ end
 function gettraces_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 
+updateSpartan; %check for updates
+
 % Load colormap for image viewer
 handles.colortable = gettraces_colormap();
 

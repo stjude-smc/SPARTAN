@@ -17,6 +17,8 @@ narginchk(0,3);
 nargoutchk(0,2);
 
 
+updateSpartan; %check for updates
+
 % On first run, get default parameter values from cascadeConstants. In future
 % runs, use the settings as adjusted from the previous instance.
 persistent defaults;

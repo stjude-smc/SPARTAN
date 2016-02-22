@@ -1,4 +1,4 @@
-function data = scaleacceptor( varargin )
+function varargout = scaleacceptor( varargin )
 % scaleacceptor Scale acceptor fluorescence so that gamma is ~1.
 %
 %    The FRET-distance relationship is generally defined assuming that the donor
@@ -47,7 +47,8 @@ if nargin>=2,
 else
     ch = ~cellfun( @isempty, strfind(data.channelNames,'acceptor') );
     nCh = sum(ch);
-    prompts = strcat( 'Scale factor for ', data.channelNames(ch), ':' );
+    prompts = cellfun( @(x)sprintf('Scale %s by:',x), data.channelNames(ch), ...
+                       'UniformOutput',false );
     
     answer = inputdlg( prompts, 'Enter factor to scale acceptor intensity', 1, ...
                                                        repmat({'1'},[nCh 1]) );
@@ -75,6 +76,9 @@ end
 % Recalculate FRET using the new acceptor fluorescence values.
 data.recalculateFret();
 
+if nargout>=1,
+    varargout{1} = data;
+end
 
 
 %% Save the result

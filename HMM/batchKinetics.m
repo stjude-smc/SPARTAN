@@ -55,6 +55,8 @@ function batchKinetics_OpeningFcn(hObject, ~, handles, varargin)
 % handles    structure with handles and user data (see GUIDATA)
 % varargin   command line arguments to batchKinetics (see VARARGIN)
 
+updateSpartan; %check for updates
+
 % Choose default command line output for batchKinetics
 handles.output = hObject;
 
