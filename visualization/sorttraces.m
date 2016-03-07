@@ -944,79 +944,51 @@ printdlg(handles.figure1);
 function plotter(handles)
 % Draw traces for current molecule and update displayed stats.
 
-% Only "adjust" the data if some setting was changed. This way, the data appears
-% exactly as it is in the file unless something is changed. This also makes just
-% looking at traces somewhat faster.
-m    = handles.molecule_no;
+
+% Adjust data if some setting was changed.
+m = handles.molecule_no;
 
 if handles.adjusted(m),
     data = adjustTraces(handles,m);
 else
     data = handles.trace;
 end
-    
 
 chNames = data.channelNames;
+fluorCh = chNames(data.idxFluor);
+nCh = numel(fluorCh);
 
 
-% If open, show the molecule location over the field image.
-% Get the coordinates for all of the fluorescence channels.
+% Show the molecule location within field of view, if the window is open.
 if ishandle(handles.axFOV),
-    traceMetadata = data.traceMetadata;
-
-    % Verify that the currently-loaded movie matches the one current molecule.
-    % They are not necessarily the same except for rawtraces files.
-    % Assumes that files have properly formatted IDs. Not in old formats?
-    output = strsplit(traceMetadata.ids,'#');
-    [movieFilename,~] = deal( output{:} );
+    output = strsplit(data.traceMetadata.ids,'#');
     
-    if ~strcmp(handles.movieFilename,movieFilename),
-        %btnGettraces_Callback(hObject, [], handles);
-        close( get(handles.axFOV,'Parent') );
-    
-    else
+    if strcmp(handles.movieFilename, output{1}),
         % Get x/y location of current molecule in each fluorescence channel.
-        fields = fieldnames(traceMetadata);
-        xs = find(  ~cellfun( @isempty, strfind(fields,'_x') )  );
-        ys = find(  ~cellfun( @isempty, strfind(fields,'_y') )  );
-
-        x = [];  y = [];
-        for i=1:numel(xs),
-            x = [ x ; traceMetadata.(fields{xs(i)}) ];
-            y = [ y ; traceMetadata.(fields{ys(i)}) ];
+        x = nan(nCh,1);  y = nan(nCh,1);
+        for i=1:nCh,
+            if isfield(data.traceMetadata, [fluorCh{i} '_x']) && ...
+                    isfield(data.traceMetadata, [fluorCh{i} '_y']),
+                x(i) = data.traceMetadata.([fluorCh{i} '_x']);
+                y(i) = data.traceMetadata.([fluorCh{i} '_y']);
+            end
         end
-        disp([x y]);
-
+        
         % Draw markers on selection points.
-        axes(handles.axFOV);
         delete(findobj(handles.axFOV,'type','line'));
-        line( x,y, 'LineStyle','none','marker','o','color','w' );
-
-        % If available, draw a circle shape that scales with the image and is
-        % easier to see. Requires 2014.
-        if exist('viscircles','file'),
-            viscircles( handles.axFOV, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
-        end
-
-        figure(handles.figure1);  %return focus to main window.
+        line( x,y, 'LineStyle','none','marker','o','color','w', 'Parent',handles.axFOV );
+        viscircles( handles.axFOV, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
+    else
+        % Close if current molecule is not from the loaded movie.
+        % FIXME: should instead load the new movie and continue seamlessly.
+        close( get(handles.axFOV,'Parent') );
     end
 end
 
 
-% Determine colors to user for plotting fluorescence.
-fluorCh = chNames(handles.data.idxFluor);
-nCh = numel(fluorCh);
-
+% Determine colors for plotting fluorescence.
 if isfield(data.fileMetadata,'wavelengths'),
     chColors = Wavelength_to_RGB( data.fileMetadata.wavelengths );
-elseif ismember('fret',data.channelNames),
-    % For old FRET data (missing metadata), use the old standard colors.
-    wavelengths = zeros(1,nCh);
-    wavelengths( strcmp(chNames,'factor')    ) = 473;
-    wavelengths( strcmp(chNames,'donor')     ) = 532;
-    wavelengths( strcmp(chNames,'acceptor')  ) = 640;
-    wavelengths( strcmp(chNames,'acceptor2') ) = 730;
-    chColors = Wavelength_to_RGB(wavelengths);
 else
     chColors = jet(nCh);  %color in order from blue to red as an approximation
 end
@@ -1342,10 +1314,6 @@ function btnGettraces_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Display an image of the field-of-view from the movie that the current trace
 % came from and its physical location in each fluorescence channel. Iterating
 % over traces will then update the molecule location.
-%
-% FIXME: this works correctly for showing the current trace, but we assume all
-% traces are from the same movie, which is only the case for rawtraces files.
-% Fixing this requres some work....
 
 
 % Get the filename and movie coordinates of the selected trace.
@@ -1368,8 +1336,7 @@ else
     return;
 end
 
-% Sometimes the traces filename is in the ID instead of the movie.
-% Remove the file extension and add a guess.
+% Handle IDs that use the trace file name instead of the movie.
 [p,f,e] = fileparts(movieFilename);
 if ~strcmp(e,'.stk') && ~strcmp(e,',tiff') && ~strcmp(e,'.tif'),
     e = '.tif';
@@ -1379,9 +1346,6 @@ end
 
 % Find the movie data given in metadata, if it exists, plot an image from
 % the first few frames, and indicate the location of the molecule.
-% FIXME: need to save this image in the metadata rather than having to find
-% the original movie file, which may not be around long.
-% FIXME: automatically split the image up into each fluorescence channel.
 if isempty(handles.axFOV) || ~ishandle(handles.axFOV),    
     
     % If the movie file doesn't exist, allow the user to look for it.
@@ -1405,12 +1369,7 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
     figure;
     handles.axFOV = gca;
 
-    % Load colormap for image viewer
-    fid=fopen('colortable.txt','r');
-    colortable = fscanf(fid,'%d',[3 256]);
-    colortable = colortable'/255;
-    fclose(fid);
-
+    % Load an image from the first 10 frames of the movie.
     stkData = gettraces( movieFilename );
     image_t = stkData.stk_top-stkData.background;
 
@@ -1418,9 +1377,9 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
     sort_px = sort(stkData.stk_top(:));
     val = sort_px( floor(0.98*numel(sort_px)) );
     imshow( image_t, [0 val], 'Parent',handles.axFOV );
-    colormap(colortable);
+    colormap(handles.axFOV, gettraces_colormap);
     
-    zoom on;
+    zoom(handles.axFOV,'on');
     guidata(hObject,handles);
 end
 
