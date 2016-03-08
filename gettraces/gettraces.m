@@ -720,41 +720,31 @@ end
 
 
 % Convert fluorescence to arbitrary units to photon counts.
-if isfield(params,'photonConversion') && ~isempty(params.photonConversion) && params.photonConversion~=0,
+if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
     traces = traces./params.photonConversion;
+    data.fileMetadata(1).units = 'photons';
 else
-    warning( 'gettraces:noPhotonConversion', ...
-             'Conversion from ADU to photons was not performed!' );
+    data.fileMetadata(1).units = 'AU';
 end
 
 
-% Extract individual channels from the traces matrix.
-% For channel names, ignore empty strings that are placeholders for
-% unused channels.
-if params.geometry==1, %single-channel    
-    data.donor    = traces;
-    data.acceptor = zeros( size(traces), 'single' );
+% Add trace data to the Traces output object
+for i=1:nCh,
+    data.(chNames{i}) = traces(i:nCh:end,:);
+end
     
-elseif params.geometry>1, %two- or three- or four-color
-    % Add each fluorescence channel to the data structure.
-    for i=1:nCh,
-        data.( data.channelNames{i} ) = traces(i:nCh:end,:);
-    end
-    
-    % Spectral crosstalk correction.
-    if numel(params.crosstalk)==1,
-        data.acceptor = data.acceptor - params.crosstalk*data.donor;
-    else
-        % The order of operations matters here.
-        nFluor = numel(data.idxFluor);
-        for src=1:nFluor,
-            for dst=1:nFluor,
-                if src>=dst, continue; end  %only consider forward crosstalk
-                ch1 = data.channelNames{src};
-                ch2 = data.channelNames{dst};
-                crosstalk = params.crosstalk(src,dst);
-                data.(ch2) = data.(ch2) - crosstalk*data.(ch1);
-            end
+% Spectral crosstalk correction.
+if nCh>1 && numel(params.crosstalk)==1,
+    data.acceptor = data.acceptor - params.crosstalk*data.donor;
+elseif nCh>1 && numel(params.crosstalk)>1
+    % The order of operations matters here.
+    for src=1:nCh,
+        for dst=1:nCh,
+            if src>=dst, continue; end  %only consider forward crosstalk
+            ch1 = chNames{src};
+            ch2 = chNames{dst};
+            crosstalk = params.crosstalk(src,dst);
+            data.(ch2) = data.(ch2) - crosstalk*data.(ch1);
         end
     end
 end

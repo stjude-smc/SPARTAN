@@ -218,7 +218,6 @@ end %FUNCTION resetSettings
 
 
 
-
 end %FUNCTION MAKEPLOTS
 
 
@@ -293,6 +292,7 @@ else
 end
 
 histmax = zeros(nFiles,1);
+cplotax = zeros(nFiles,1);  %contour plot axes
 histax = zeros(nFiles,1);  %1D histogram axes
 tdax = zeros(nFiles,1);  %tdplot axes
 
@@ -336,6 +336,10 @@ for k=1:nFiles,
         fret = data.fret;
     end
     
+    if isempty(fret),
+        disp('FRET Data missing, skipping.'); continue;
+    end
+    
     
     %% ============== DRAW POPULATION CONTOUR HISTOGRAMS ============== 
     
@@ -354,6 +358,7 @@ for k=1:nFiles,
     else
         ax = options.targetAxes{k,1};
     end
+    cplotax(k) = ax;
     
     % Draw the contour plot (which may be time-binned)
     % FIXME: we are passing the default options
@@ -415,7 +420,7 @@ for k=1:nFiles,
     if ~has_dwt(k) || options.no_statehist || isempty(shist)
         fretaxis = cplotdata(2:end,1);      
         histdata = cplotdata(2:end,2:options.contour_length+1)*100;
-        pophist = sum(histdata,2)/options.contour_length;   %normalization
+        pophist = nansum(histdata,2)/options.contour_length;   %normalization
         
         histmax(k) = max(max( pophist(fretaxis>0.05) ));
         
@@ -533,6 +538,8 @@ for k=1:nFiles,
     
 end  %for each file.
 
+set(handles.hFig,'pointer','arrow'); drawnow;
+
 
 
 %% =================== FINISH UP =================== 
@@ -548,6 +555,8 @@ guidata(hObject,handles);
 
 
 % Scale histograms to match
+linkaxes( cplotax, 'xy' );
+
 if any(histax)
     linkaxes( histax, 'xy' );
     ylim( histax(1), [0 max(histmax)+0.5] );
@@ -558,7 +567,6 @@ if any(tdax),
 end
 
 
-set(handles.hFig,'pointer','arrow'); drawnow;
 
 end  % function plotData
 

@@ -118,6 +118,10 @@ p.chDesc       = {'Cy3'};
 p.wavelengths  = 532;
 profiles(1)    = p;
 
+% p.name        = 'sCMOS, Twin-Cam (Cy3-only)';
+% p.geometry    = 2;
+% profiles(end+1) = p;
+
 
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5)';
 p.geometry    = 2;

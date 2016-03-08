@@ -74,48 +74,6 @@ end
 % Update handles structure
 guidata(hObject, handles);
 
-% gettraces may be called from sorttraces to load the movie associated with
-% a particular trace. The first argument is then the filename of the movie
-% file and the second argument is the x-y coordinate of the trace.
-if numel(varargin) > 0,
-    handles.stkfile = varargin{1};
-    traceMetadata = varargin{2};
-    
-    % Get the coordinates for all of the fluorescence channels.
-    fields = fieldnames(traceMetadata);
-    xs = find(  ~cellfun( @isempty, strfind(fields,'_x') )  );
-    ys = find(  ~cellfun( @isempty, strfind(fields,'_y') )  );
-    
-    x = zeros(0,2);  y = zeros(0,2);
-    
-    for i=1:numel(xs),
-        x = [ x  traceMetadata.(fields{xs(i)}) ];
-        y = [ y  traceMetadata.(fields{ys(i)}) ];
-    end
-    
-    handles.total_x = x;  handles.total_y = y;
-    handles.rtotal_x = zeros(0,2);
-    handles.rtotal_y = zeros(0,2);
-    
-    % Choose the appropriate profile and configure the GUI.
-    handles.params.geometry = 1;
-    set( handles.cboGeometry, 'Value', 1 );
-    handles = cboGeometry_Callback(handles.cboGeometry,[],handles);
-    
-    handles.num = length(x)/numel(xs);
-    set(handles.nummoles,'String',num2str(handles.num));
-    
-    % Load stk file
-    handles = OpenStk( handles.stkfile, handles, hObject );
-    set(handles.getTraces,'Enable','on');
-    
-    % Highlight the selected trace.
-    highlightPeaks(handles);
-end
-
-% Update handles structure
-guidata(hObject, handles);
-
 
 
 % --- Outputs from this function are returned to the command line.
@@ -938,10 +896,11 @@ set( handles.edScaleAcceptor, 'String', num2str(params.scaleAcceptor) );
 set( handles.txtDACrosstalk,  'String', num2str(params.crosstalk) );
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
+nCh = numel(handles.params.idxFields);
 set( [handles.cboAlignMethod   handles.btnSaveAlignment handles.cboZeroMehod ...
       handles.btnLoadAlignment handles.txtDACrosstalk   handles.btnCrosstalk ...
       handles.edScaleAcceptor  handles.btnScaleAcceptor], ...
-     'Enable',onoff(handles.params.geometry>1) );
+     'Enable',onoff(nCh>1) );
 
 set(handles.txtDACrosstalk,   'Visible', onoff(numel(params.crosstalk)<2) );
 set(handles.btnCrosstalk,     'Visible', onoff(numel(params.crosstalk)>1)  );
