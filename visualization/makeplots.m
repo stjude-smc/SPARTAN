@@ -214,10 +214,14 @@ base = handles.baseFilenames;
 
 for k=1:numel(base),
     % Save contour FRET histogram
-    dlmwrite( [base{k} '_hist.txt'] , handles.cplotdataAll{k}, ' ' );
+    if ~isempty(handles.cplotdataAll{k}),
+        dlmwrite( [base{k} '_hist.txt'] , handles.cplotdataAll{k}, ' ' );
+    end
 
     % Save display-format (time-binned) contour FRET histogram.
-    dlmwrite( [base{k} '_displayhist.txt'], handles.cpdataAll{k}, ' ');
+    if ~isempty(handles.cpdataAll{k}),
+        dlmwrite( [base{k} '_displayhist.txt'], handles.cpdataAll{k}, ' ');
+    end
 
     % State histogram
     if ~isempty(handles.shistAll{k}),
@@ -297,23 +301,14 @@ else
     nrows = 2;
 end
 
-histmax = zeros(nFiles,1);
-cplotax = zeros(nFiles,1);  %contour plot axes
-histax = zeros(nFiles,1);  %1D histogram axes
-tdax = zeros(nFiles,1);  %tdplot axes
+[histmax,cplotax,histax,tdax] = deal( zeros(nFiles,1) );
+[cplotdataAll,cpdataAll,shistAll,tdpAll,idl] = deal( cell(nFiles,1) );
 
-cplotdataAll = cell(nFiles,1); %contour plots, all data
-cpdataAll    = cell(nFiles,1); %contour plots, as displayed
-shistAll     = cell(nFiles,1); %state occupancy histograms
-tdpAll       = cell(nFiles,1); %td plots
-
-% load idealization data from previous calls if possible.
-% Warning: this could be too large to fit in memory?
-if isfield(handles,'idl'),
-    idl = handles.idl;
-else
-    idl = cell(nFiles,1);
-end
+% Load cached idealization data from previous calls if possible.
+% FIXME: not implemented because of memory requirements.
+% if isfield(handles,'idl'),
+%     idl = handles.idl;
+% end
 
 
 % Remove latent annotations, if any.
@@ -380,17 +375,10 @@ for k=1:nFiles,
                     'LineStyle','none', 'tag','Nmol' );
     end
     
-    if k==1,
-         ylabel(ax,'FRET');
-         xlabel(ax,'Time (frames)');
-    else
-        set(ax,'YTickLabel',[])
+    if k>1,
         ylabel(ax,'');
         xlabel(ax,'');
     end
-    ylim( ax, options.fretRange );
-    set(ax,'YGrid','on');
-    box(ax,'on');
     drawnow;
     
     
@@ -440,6 +428,11 @@ for k=1:nFiles,
         histdata = shist(:,2:end)*100;
         [~,nStates] = size(histdata);
         
+        % Pad with empty bins for display
+        df = mean(diff(bins));
+        bins = [bins(1)-df; bins; bins(end)+df];  %#ok
+        histdata = [zeros(1,nStates); histdata; zeros(1,nStates)];  %#ok
+        
         % If requested, remove 0-FRET peak and renormalize
         if options.ignoreState0
             nStates = nStates-1;
@@ -470,18 +463,6 @@ for k=1:nFiles,
         histmax(k) = max( totalHist(bins>0.05) );
     end
     
-    
-    % Formatting
-    hold(ax,'off');
-    if k==1,
-        ylabel( ax,'Occupancy (%)' );
-        xlabel( ax,'FRET' );
-    else
-       set(ax,'yticklabel',[]);
-    end
-    set(ax,'YGrid','on');
-    xlim( ax,options.fretRange );
-    box(ax,'on');
     drawnow;
     
     
@@ -495,7 +476,10 @@ for k=1:nFiles,
     
     %---- LOAD TDPLOT DATA ----
     tdp = tdplot(idl{k}, data, options);
-    assert( tdp(1,1) ~= 0, 'Invalid TDP' );
+    if tdp(1,1)==0,
+        disp('Skipping invalid TDP');
+        continue;
+    end
     
     % If total time (normalization factor) is saved in TD plot, use it to
     % get raw number of transitions
@@ -519,7 +503,6 @@ for k=1:nFiles,
     else
         continue;
     end
-    box(tdax(k),'on');
     tplot( tdax(k), tdp, options );
     
     % Formatting
@@ -528,17 +511,6 @@ for k=1:nFiles,
         text( 0.45,0.9, sprintf('N_t=%.0f',t),            textOpt{:} );
         text( 0.45,0.0, sprintf('t/s=%.2f',t/total_time), textOpt{:} );
     end
-    grid(tdax(k),'on');
-
-    if k==1,
-        ylabel(tdax(k),'Final FRET');
-        xlabel(tdax(k),'Inital FRET');
-    else
-        set(tdax(k),'yticklabel',[]);
-    end
-    ylim(tdax(k), options.fretRange );
-    xlim(tdax(k), options.fretRange );
-    
     
     drawnow;
     
@@ -555,21 +527,48 @@ handles.cplotdataAll = cplotdataAll;
 handles.cpdataAll = cpdataAll;
 handles.shistAll = shistAll;
 handles.tdpAll = tdpAll;
-handles.idl = idl;
+% handles.idl = idl;
 
 guidata(hObject,handles);
 
 
-% Scale histograms to match
-linkaxes( cplotax, 'xy' );
+% Finish formatting all plots, including linking the axes
+if any(cplotax)
+    cplotax = cplotax(cplotax~=0);
+    linkaxes( cplotax, 'xy' );
+    ylim( cplotax(1), options.fretRange );
+    
+    ylabel(cplotax(1),'FRET');
+    xlabel(cplotax(1),'Time (frames)');
+    set(cplotax(2:end),'YTickLabel',[]);
+    
+    set(cplotax, 'YGrid','on', 'Box','on');
+end
 
-if any(histax)
+if any(histax),
+    histax = histax(histax~=0);
     linkaxes( histax, 'xy' );
     ylim( histax(1), [0 max(histmax)+0.5] );
+    xlim( histax(1), options.fretRange );
+    
+    ylabel( histax(1),'Occupancy (%)' );
+    xlabel( histax(1),'FRET' );
+    set(histax(2:end),'yticklabel',[]);
+    
+    set(histax, 'YGrid','on', 'Box','on');
 end
 
 if any(tdax),
-    linkaxes( tdax(tdax~=0), 'xy' );
+    tdax = tdax(tdax~=0);
+    linkaxes(tdax, 'xy');
+    ylim(tdax(1), options.fretRange );
+    xlim(tdax(1), options.fretRange );
+    
+    ylabel(tdax(1),'Final FRET');
+    xlabel(tdax(1),'Inital FRET');
+    set(tdax(2:end),'yticklabel',[]);
+    
+    set(tdax, 'XGrid','on', 'YGrid','on', 'Box','on');
 end
 
 
