@@ -19,10 +19,10 @@ if isempty(needsupdate), needsupdate = false; end
 output = needsupdate;
 
 persistent checktime;
-if ~isempty(checktime) && datetime('now')<checktime,
+if ~isempty(checktime) && now<checktime,
     return;
 end
-checktime = datetime('now') + days(DELAY_SHORT);
+checktime = now + DELAY_SHORT;
 
 % Get current version number
 constants = cascadeConstants;
@@ -32,7 +32,7 @@ current = cellfun( @(s)sscanf(s,'%f'), strsplit(constants.version,'.') );
 %% Check online for the latest version.
 fprintf('Checking for updates to SPARTAN... ');
 try
-    input = webread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1');
+    input = urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1');
     latest = cellfun( @(s)sscanf(s,'%d'), strsplit(input,'.') );
     assert( isnumeric(latest) || numel(latest)==3, 'Invalid version number' );
 catch
@@ -74,10 +74,10 @@ switch a
         end
 
     case 'Stop asking'
-        checktime = datetime('now') + days(Inf);
+        checktime = now + Inf;
     otherwise
         % User closed the window or hit "not now"
-        checktime = datetime('now') + days(DELAY_LONG);
+        checktime = now + DELAY_LONG;
 end
 
 
