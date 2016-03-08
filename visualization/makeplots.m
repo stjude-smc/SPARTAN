@@ -16,20 +16,10 @@ function varargout = makeplots(dataFilenames, titles, varargin)
 narginchk(0,3);
 nargoutchk(0,2);
 
-
 updateSpartan; %check for updates
 
-% On first run, get default parameter values from cascadeConstants. In future
-% runs, use the settings as adjusted from the previous instance.
-persistent defaults;
-c = cascadeConstants();
-
-if isempty(defaults),
-    defaults = c.defaultMakeplotsOptions;
-end
-if isfield(defaults,'targetAxes'),
-    defaults = rmfield(defaults,'targetAxes');  %left over from rtdTool
-end
+% Get default or last makeplots settings.
+defaults = mpdefault;
 
 
 %% Process input data and parameters
@@ -79,6 +69,7 @@ defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
 %% Display all plots
 
 if ~isfield(defaults,'targetAxes')
+    c = cascadeConstants();
     h1 = figure('Name', [mfilename ' - ' c.software]);
 else
     h1 = get(defaults.targetAxes{1,1},'parent');
@@ -152,14 +143,17 @@ end
 
 
 
+end %FUNCTION MAKEPLOTS
+
+
+
+
 %% ================ GUI CALLBACKS ================ 
 % Called when any of the buttons at the bottom of the makeplots window are
-% clicked. All plot data is stored in guidata. These are nested in the main
-% function scope to share persistent settings across plots.
+% clicked. All plot data is stored in guidata.
 
 function changeDisplaySettings2(hObject,~)
-% Changes how much (how many frames) of the movie to show in plots.
-% This is equivalent to changing pophist_sumlen in cascadeConstants.
+% Prompt user to change any makeplots display settings.
 
 handles = guidata(hObject);
 opt = handles.options;
@@ -176,7 +170,7 @@ fields = {'contour_length', 'pophist_offset', ...
           'hideBlinksInTDPlots', 'truncate_tdplot' };
 currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
 
-answer = inputdlg(prompt, 'Change display settings', 1, currentopt);
+answer = inputdlg(prompt, 'Makeplots display settings', 1, currentopt);
 if isempty(answer), return; end  %user hit cancel
 
 % 2. Save new parameter values from user.
@@ -192,7 +186,7 @@ end
 opt.fret_axis = -0.1:opt.contour_bin_size:1.2;
 opt.contour_bounds = [1 opt.contour_length opt.fretRange];
 handles.options = opt;
-defaults = opt;  %save as starting values for future calls to makeplots.
+mpdefault(opt);  %save as starting values for future calls to makeplots.
 
 % 3. Redraw plots.
 plotData(hObject,handles);
@@ -205,21 +199,10 @@ function resetSettings2(hObject,~)
 % Reset all display settings to their defaults in cascadeConstants.
 
 handles = guidata(hObject);
-
-constants = cascadeConstants;
-opt = constants.defaultMakeplotsOptions;
-opt.contour_bounds = [1 opt.contour_length opt.fretRange];
-handles.options = opt;
-defaults = opt;  %save as starting values for future calls to makeplots.
-
+handles.options = mpdefault([]);  %reset to default, save persistent state.
 plotData(hObject,handles);
 
 end %FUNCTION resetSettings
-
-
-
-end %FUNCTION MAKEPLOTS
-
 
 
 
@@ -249,6 +232,29 @@ end
     
 end %FUNCTION saveFiles
 
+
+function output = mpdefault(input)
+% Read and write access to persistent makeplots settings.
+% mpdefault(INPUT) saves the INPUT state. empty input resets to defaults.
+% OUTPUT = mpdefault() get the current persistent state.
+
+persistent mpd;
+
+if nargin>0, mpd=input; end
+
+if isempty(mpd),
+    const = cascadeConstants();
+    mpd = const.defaultMakeplotsOptions;
+    mpd.contour_bounds = [1 mpd.contour_length mpd.fretRange];
+end
+
+if isfield(mpd,'targetAxes'),
+    mpd = rmfield(mpd,'targetAxes');  %left over from rtdTool
+end
+
+output = mpd;
+
+end %FUNCTION mpdefault
 
 
 
