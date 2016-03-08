@@ -151,11 +151,6 @@ set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
 handles.model = QubModel(fname);
 handles.model.showModel( handles.axModel );
 
-celldata = num2cell(false(handles.model.nClasses,4));
-celldata(:,1) = num2cell(handles.model.mu);
-celldata(:,3) = num2cell(handles.model.sigma);
-set( handles.tblFixFret, 'Data', celldata );
-
 % Enable saving the model
 set( handles.btnSaveModel, 'Enable','on' );
 
@@ -163,6 +158,12 @@ set( handles.btnSaveModel, 'Enable','on' );
 if ~isempty(handles.dataFilenames),
     set(handles.btnExecute,'Enable','on');
 end
+
+% Automatically update the parameter table when the model is altered.
+handles.modelUpdateListener = addlistener(handles.model, ...
+                            {'mu','fixMu','sigma','fixSigma'}, 'PostSet', ...
+                            @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
+handles.model.mu = handles.model.mu;  %trigger table update
 
 % Update handles structure
 guidata(hObject, handles);
@@ -670,20 +671,35 @@ guidata(hObject, handles);
 
 % --- Executes when entered data in editable cell(s) in tblFixFret.
 function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
-% hObject    handle to tblFixFret (see GCBO)
-% eventdata  structure with the following fields (see UITABLE)
-%	Indices: row and column indices of the cell(s) edited
-%	PreviousData: previous data for the cell(s) edited
-%	EditData: string(s) entered by the user
-%	NewData: EditData or its converted form set on the Data property. Empty if Data was not changed
-%	Error: error string when failed to convert EditData to appropriate value for Data
-% handles    structure with handles and user data (see GUIDATA)
+% Update QubModel object with new settings from the table
+
+handles.modelUpdateListener.Enabled = false;
+
 data = get(hObject,'Data');
 handles.model.mu       = [data{:,1}];
 handles.model.fixMu    = [data{:,2}];
 handles.model.sigma    = [data{:,3}];
 handles.model.fixSigma = [data{:,4}];
-guidata(hObject, handles);
+
+handles.modelUpdateListener.Enabled = true;
+
+% END FUNCTION tblFixFret_CellEditCallback
+
+
+% --- Executes when the QubModel object is altered.
+function modelUpdate_Callback(tblFixFret,event)
+% Update tblFixFret to reflect current model parameters
+
+model = event.AffectedObject;
+
+celldata = num2cell(false(model.nClasses,4));
+celldata(:,1) = num2cell(model.mu);
+celldata(:,2) = num2cell(model.fixMu);
+celldata(:,3) = num2cell(model.sigma);
+celldata(:,4) = num2cell(model.fixSigma);
+set( tblFixFret, 'Data', celldata );
+
+% END FUNCTION modelUpdate_Callback
 
 
 % --- Executes on button press in btnSaveModel.

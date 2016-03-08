@@ -14,7 +14,7 @@ classdef QubModel < matlab.mixin.Copyable
 % internal qubTree object.
 
  
-properties (SetAccess=public, GetAccess=public)
+properties (SetAccess=public, GetAccess=public, SetObservable)
     % Model parameters
     class;     %class number for each state (1-based)
     p0;        %initial probabilities
@@ -31,12 +31,11 @@ properties (SetAccess=public, GetAccess=public)
     fixSigma;
 end
 
-
 % Model properties derived from model parameters (above).
 properties (SetAccess=immutable, GetAccess=public, Dependent)
     nStates;
     nClasses;
-end % Dependent properties
+end
 
 properties (SetAccess=protected, GetAccess=public)
     % Full path and name of the model file that was loaded. This cannot be
@@ -51,7 +50,6 @@ properties (SetAccess=protected, GetAccess=public)
     % This includes many parameters we don't use but QuB expects.
     qubTree;
 end
-
 
 
 methods
