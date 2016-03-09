@@ -16,10 +16,11 @@ DELAY_LONG  = 7;  %days before reminding about known updates
 % version status.
 persistent needsupdate;
 if isempty(needsupdate), needsupdate = false; end
-output = needsupdate;
 
 persistent checktime;
 if ~isempty(checktime) && now<checktime,
+    % Check was performed recently. Skip for now to save time.
+    if nargout>0, output = needsupdate; end
     return;
 end
 checktime = now + DELAY_SHORT;
@@ -42,7 +43,7 @@ catch
 end
 
 needsupdate = latest(1)>current(1) || latest(2)>current(2) || latest(3)>current(3);
-output = needsupdate;
+if nargout>0, output = needsupdate; end
 if ~needsupdate,
     fprintf('Up to date.\n\n');
     return;
