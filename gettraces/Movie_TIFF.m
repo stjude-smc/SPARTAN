@@ -39,10 +39,13 @@ end %end public properties
 
 
 properties (SetAccess=protected, GetAccess=protected),
-    movieHeaders = [];  %metadata for all frames across all files (struct).
+    movieHeaders = [];  %metadata for all frames across all files (struct array).
     nFramesPerMovie = [];
     
-    offsets = {};  %for each file, list of byte offsets to binary frame data.
+    offsets = {};       %byte offsets to each frame (one file per cell).
+    
+    useFread = false;   %use fread (faster) if true; imread otherwise.
+    swap = false;       %swap byte order if not the same as native (assumed to be little-endian)
 end
 
 
@@ -104,7 +107,7 @@ methods
                 times{i} = firstTime(i) + (0:numel(info)-1)*ms;
                 
             else
-                warning('Movie_TIFF:NoDateTime','No DateTime field. Using frame number as time axis.');
+                disp('Warning: No DateTime field. Using frame number as time axis.');
                 firstTime(i) = 1 + sum( obj.nFramesPerMovie(1:i-1) );
                 times{i} = firstTime(i)+(1:numel(info))-1;
             end
@@ -190,10 +193,17 @@ methods
             % TODO
         end
         
-        % If using fread for optimized files, no need to keep headers. This can
-        % speed up the parfor loop in gettraces by minimizing data transfers.
-        if ~isempty(obj.offsets) && all( ~cellfun(@isempty,obj.offsets) ),
+        % Determine if the optimized fread version can be used.
+        obj.useFread = strcmpi(obj.header.Compression,'Uncompressed') && ...
+            ~isempty(obj.offsets) && all( ~cellfun(@isempty,obj.offsets) );
+        
+        obj.swap = strcmpi(obj.header.ByteOrder, 'big-endian');
+        
+        % Clear data not used by the chosen method to speed parfor calls.
+        if obj.useFread,
             obj.movieHeaders = {};
+        else
+            obj.offsets = [];
         end
         
     end %constructor
@@ -218,25 +228,24 @@ methods
     
     
     function data = readFrame( obj, idx )
-        assert( numel(idx)==1 && idx>=1 && idx<=obj.nFrames, 'Invalid index' ); 
+        %assert( numel(idx)==1 && idx>=1 && idx<=obj.nFrames, 'Invalid index' ); 
         
         % Determine which file this frame number belongs to.
         movieFirstFrame = 1+cumsum([0 obj.nFramesPerMovie]);
         idxFile = find( idx>=movieFirstFrame, 1, 'last' );
         idx = idx - movieFirstFrame(idxFile)+1;
         
-        %offsets = obj.movieHeaders{idxFile}(idx).StripOffsets;
-        
-        if isempty(obj.offsets) || isempty(obj.offsets{idxFile}),
-            % Slower version that can read frames broken up into strips.
-            data = imread( obj.filenames{idxFile}, ...
-                     'Info',obj.movieHeaders{idxFile}, 'Index',idx );
-        else
+        if obj.useFread,
             % Fast version for optimized TIFF stacks.
             fid = fopen( obj.filenames{idxFile}, 'r' );
             fseek( fid, obj.offsets{idxFile}(idx), -1 );
             data = fread( fid, [obj.nX obj.nY], ['*' obj.precision] )';
+            if obj.swap, data = swapbytes(data); end
             fclose(fid);
+        else
+            % Slower version tolerant to fragmentation and unusual parameters.
+            data = imread( obj.filenames{idxFile}, ...
+                     'Info',obj.movieHeaders{idxFile}, 'Index',idx );
         end
     end
     
@@ -279,7 +288,7 @@ for i=1:size(tokens,1)
         if k>cnt, return; end
     end
     if strcmp(tok, 'Exposure')
-        [v, c, e, pos] = sscanf(val, '%i');
+        [v, ~, ~, pos] = sscanf(val, '%i');
         unit = val(pos:length(val));
         %return the exposure in milli-seconds
         switch( unit )
