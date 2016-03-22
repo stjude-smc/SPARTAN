@@ -879,17 +879,21 @@ function output = adjustTraces( handles, indexes )
 % Traces that were not adjusted (handles.adjusted is false) are unaltered.
 % If trace INDEXES are given, DATA only includes those traces.
 
+% Extract traces of interest
 if nargin<2,
     indexes = 1:handles.data.nTraces;
 end
+output = handles.data.getSubset(indexes);  %creates a copy
 
-% Extract traces of interest and associated parameters for adjustment.
-output = handles.data.getSubset(indexes);  %creates a copy with selected traces
+% Determine which traces have adjustments that must be applied.
+idxAdjusted = to_row( find(handles.adjusted(indexes)) );  %ones to adjust
+if numel(idxAdjusted)==0, return; end
+
+
+% Make all adjustments to raw data
 crosstalk   = handles.crosstalk(indexes,:,:);
 gamma       = handles.gamma(indexes,:);
 thresholds  = handles.fretThreshold(indexes);
-idxAdjusted = to_row( find(handles.adjusted(indexes)) );  %ones to adjust
-
 
 chNames = output.channelNames(output.idxFluor);  %increasing wavelength order.
 nFlour = numel(output.idxFluor);

@@ -379,7 +379,6 @@ for k=1:nFiles,
         ylabel(ax,'');
         xlabel(ax,'');
     end
-    drawnow;
     
     
     
