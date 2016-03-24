@@ -194,6 +194,6 @@ if nargout==0,
     dlmwrite(outfile,tdp,' ');
 end
 
-fprintf('t=%d  N=%d  t/n=%f\n', [nTrans nTraces nTrans/nTraces]);
+% fprintf('t=%d  N=%d  t/n=%f\n', [nTrans nTraces nTrans/nTraces]);
 
 

@@ -1,11 +1,11 @@
-function [hist2d] = makecplot( input, options )
+function hist2d = makecplot( input, options )
 % MAKECPLOT   Creates a contour plot of FRET values over time.
 %
-%   [HIST] = MAKECPLOT( FRET )
+%   HIST = MAKECPLOT( FRET )
 %   Sums FRET values from FRET (traces in rows) into a histogram at each
 %   point in time (HIST).
 %
-%   [HIST] = MAKECPLOT( FILENAME )
+%   HIST = MAKECPLOT( FILENAME )
 %   Sums FRET values from data loaded from FILENAME. The histogram data is
 %   also saved in a file with the extension "_normhist.txt".
 %
@@ -14,8 +14,10 @@ function [hist2d] = makecplot( input, options )
 %   histograms should be made. These are listed below in makeplots.m.
 %   FIXME: These actually need some work for consistency and setting all
 %   the defaults in cascadeConstants.m
+%
+%   See also: makeplots, cplot.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
 % Load data
@@ -27,7 +29,7 @@ if ischar(input)
     if size(data.donor,1)<1,
         error('File is empty: %s',data_filename);
     end
-elseif isstruct(input)
+elseif isa(input,'Traces') || isstruct(input)
     fret = input.fret; %assuming traces data structure
 elseif isnumeric(input),
     fret = input;
@@ -37,6 +39,7 @@ end
 
 % Load options
 if nargin<2,
+    constants = cascadeConstants;
     options = constants.defaultMakeplotsOptions;
 end
 

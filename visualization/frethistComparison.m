@@ -1,11 +1,16 @@
-function f = frethistComparison(files, titles, settings)
-% FRETHISTCOMPARISON  Overlays multiple 1D FRET histograms for comparison
+function varargout = frethistComparison(files, titles, settings)
+%fresthistComparison  1D FRET histogram
 %
-%   Prompts user for locations of traces files to load.  Creates 1D
-%   FRET histograms.  Plots each seperately as stair plots, with
-%   different colors and a legend.
+%   fresthistComparison(FILES) loads each .traces file in the cell array FILES
+%   sums all traces and time points for a 1D histogram for each file.
+%   These are then plotted for comparison.
+%
+%   fresthistComparison() will prompt the user for files.
+%
+%   OUT = fresthistComparison(...) will save the histograms in the matrix OUT
+%   with the first column having the FRET values of each bin.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
 if nargin<3,
@@ -53,7 +58,13 @@ if ~iscell(files),
 end
 
 nFiles = numel(files);
-if nFiles == 0,  return;  end
+if nFiles==0,  return;  end
+
+% Create titles if not specified.
+if nargin<2,
+    [~,titles] = cellfun(@fileparts, files, 'UniformOutput',false);
+    titles = trimtitles(titles);
+end
 
 
 % If there are a ton of datapoints, we can't use the simple colors above.
@@ -66,8 +77,7 @@ if nFiles>size(colors,1),
 end
 
 %
-hf = figure;
-cax = axes('Parent',hf);
+cax = axes('Parent',figure);
 
 
 % Model for removing dark state noise. Adjust if any state is < 0.4.
@@ -123,7 +133,7 @@ for i=1:nFiles
         
         % Create FRET histogram from the bootstrapped dataset
         histdata  = hist( data, fretaxis );
-        pophist(:,s) = histdata/sum(histdata);   %normalization
+        pophist(:,s) = 100*histdata/sum(histdata);   %normalization
     end
     
     % Spline interpolate the data so it's easier to see (but not saved that way)
@@ -149,14 +159,16 @@ end
 
 % Decorate the plot with axes etc.
 hold(cax,'off');
-ylabel( cax, 'Percent of total time' );
-xlabel( cax, 'FRET Efficiency' );
+ylabel( cax, 'Counts (%)' );
+xlabel( cax, 'FRET' );
 xlim( cax, [0.1 1.0] );
 yl = ylim(cax);
 ylim( cax, [0 yl(2)] );
 
-if nargin>=2,
-    legend( cax, titles );
+if nFiles>1,
+    legend(cax, titles);
+else
+    title(cax, titles{i});
 end
 
 
@@ -165,9 +177,35 @@ end
 if ~calcErrorBars,
     frethist = frethist(:,1:2:end); %remove error bar columns.
 end
-    
-f = [fretaxis frethist];
-save( 'pophist.txt', 'f', '-ASCII' );
+
+
+output = [fretaxis frethist];
+if nargout>0,
+    varargout{1} = output;
+    return;
+end
+
+
+%% Save histogram to file
+if nFiles==1,
+    [p,f] = fileparts(files{1});
+    outputFilename = fullfile(p, [f '_pophist.txt']);
+else
+    outputFilename = 'pophist.txt';
+end
+
+[f,p] = uiputfile('*.txt', [mfilename ': save output'], outputFilename);
+outputFilename = fullfile(p,f);
+
+if f~=0,
+    % Write header line
+    fid = fopen(outputFilename,'w');
+    fprintf(fid,'FRET\t%s\n', strjoin(titles,'\t'));
+    fclose(fid);
+
+    dlmwrite(outputFilename,output,'-append','delimiter','\t');
+end
+
 
 
 end

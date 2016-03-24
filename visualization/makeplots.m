@@ -19,14 +19,13 @@ nargoutchk(0,2);
 updateSpartan; %check for updates
 
 % Get default or last makeplots settings.
-defaults = mpdefault;
+defaults = mpdefault();
 
 
 %% Process input data and parameters
 
 % If no files are given, prompt the user.
 if nargin<1,
-    disp('Select traces files and hit cancel when finished');
     dataFilenames = getFiles('*.traces','Choose a traces file:');
 end
 
@@ -35,25 +34,16 @@ if ~iscell(dataFilenames),
 end
 
 nFiles = numel(dataFilenames);
-if nFiles == 0,
-    return;
-end
+if nFiles==0, return; end
 
-
-if nargin>=2 && ischar(titles)
-    titles = {titles};
-end
 
 % Generate plot titles and base filenames if none given.
-baseFilenames = cell(nFiles,1);
-
-for i=1:nFiles,
-    [p,f] = fileparts( dataFilenames{i} );
-    baseFilenames{i} = fullfile(p,f);
-
-    if nargin<2 || isempty(titles),
-        titles{i} = strrep(f,'_',' ');
-    end
+[p,f] = cellfun(@fileparts, dataFilenames, 'UniformOutput',false);
+baseFilenames = fullfile(p,f);
+if nargin<2,
+    titles = trimtitles(f);
+elseif ischar(titles),
+    titles = {titles};
 end
 
 
