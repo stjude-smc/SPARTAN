@@ -1,40 +1,59 @@
-function titles = trimtitles(titles)
-% Remove common elements at the beginning and end of sets of strings
+function titles = trimtitles(files)
+%trimtitles Generate short figure titles for a cell array of file names
 %
-%   STR = trimtitles(STR) removes any text at the beginning and end of all
-%   elements in the cell array STR that are identical in all elements.
-%   Useful for creating figure titles from long filenames.
+%   STR = trimtitles(FILES) strips the path and extension, and any text at the
+%   beginning and end in common, from each elements in the cell array FILES
+%   to generate short figure titles for figure legends.
 %
 %   See also: makeplots, frethistComparison, avgFretTime
 
 %   Copyright 2016 Cornell University All Rights Reserved.
 
-% FIXME: What about titles that end up empty because they are all common?
+% FIXME: only chop at word bounderies.
 
+
+% Verify input arguments
 narginchk(1,1);
 nargoutchk(0,1);
 
-% Remove underscores that can be interpreted as subscripts.
+if ischar(files),
+    files={files};
+elseif ~iscell(files) || ~all(cellfun(@ischar,files))
+    error('Invalid input. Must be a cell array of strings');
+end
+nFiles = numel(files);
+
+
+% Extract file names and remove underscores (interpreted as subscripts).
+[~,titles] = cellfun(@fileparts, files, 'UniformOutput',false);
 titles = strrep(titles,'_',' ');
 
-% Nothing more to do if there is only one title.
-ntitles = numel(titles);
-if ntitles<2, return; end
+if nFiles<2, return; end  %nothing more to do.
+
 
 % Remove common characters from the beginning
 titlecat = char(titles);
-mask = sum(  titlecat - repmat(titlecat(1,:),[ntitles 1])  );
+mask = sum(  titlecat - repmat(titlecat(1,:),[nFiles 1])  );
 first = find(mask>0,  1, 'first');
-titles = cellstr( titlecat(:,first:end) );
+if ~isempty(first),
+    titles = cellstr( titlecat(:,first:end) );
+end
+
+% Use file numbers if all file names are identical
+if all( cellfun(@isempty, titles) ),
+    titles = cellfun(@num2str,num2cell(1:nFiles),'UniformOutput',false);
+    return;
+end
+
 
 % Remove from the end by right justifying the text
 titlecat = strjust( char(titles),'right' );
-mask = sum(  titlecat - repmat(titlecat(1,:),[ntitles 1])  );
+mask = sum(  titlecat - repmat(titlecat(1,:),[nFiles 1])  );
 last = find(mask~=0, 1, 'last');
 titles = cellstr( strjust(titlecat(:,1:last),'left') );
 
-% Insert a placeholer for any empty elements
-e = cellfun(@isempty, titles);
+% Insert placeholers for any empty elements.
+e = cellfun(@isempty,titles);
 [titles{e}] = deal('-');
 
 end

@@ -62,8 +62,7 @@ if nFiles==0,  return;  end
 
 % Create titles if not specified.
 if nargin<2,
-    [~,titles] = cellfun(@fileparts, files, 'UniformOutput',false);
-    titles = trimtitles(titles);
+    titles = trimtitles(files);
 end
 
 

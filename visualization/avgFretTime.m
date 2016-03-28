@@ -24,8 +24,7 @@ if ~iscell(files), files = {files}; end
 nFiles = numel(files);
 
 % Generate plot titles and base filenames if none given.
-[~,f] = cellfun(@fileparts, files, 'UniformOutput',false);
-titles = trimtitles(f);
+titles = trimtitles(files);
 
 
 
