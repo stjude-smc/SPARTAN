@@ -52,9 +52,10 @@ if nargin<1,
 end
 
 % if just one filename given, convert to cell array
-if ~iscell( dwtfilename ),
+if ~iscell(dwtfilename),
     dwtfilename = {dwtfilename};
 end
+dwtfilename = findDwt(dwtfilename);  %find .dwt from .traces file names.
 
 nFiles = numel(dwtfilename);
 if nFiles==0, return; end
@@ -62,15 +63,11 @@ if nFiles==0, return; end
 
 
 %% ------ Load dwell-times from .dwt files
-names = cell(nFiles,1);
+names = trimtitles(dwtfilename);
 dwts  = cell(nFiles,1);
 sampling = zeros(nFiles,1);
 
 for i=1:nFiles,
-    % Generate short names for each file for display.
-    [~,f] = fileparts(dwtfilename{i});
-    names{i} = strrep( strrep(f,'.qub',''), '_',' ' );
-    
     % Load dwell-times a list per state, concatinating dwells from all traces,
     % ignoring the zero-FRET state if applicable.
     if params.removeBlinks,
@@ -152,7 +149,7 @@ for file=1:nFiles,
         else
             counts = histc( log10(dwellc)', dwellaxis );
             histdata = counts./dlx;  %normalize by log-space bin size
-            histdata = histdata/sum(histdata);  %normalize to 1
+            histdata = 100*histdata/sum(histdata);  %normalize to 1
         end
         
         % Add to the output matrix
@@ -182,13 +179,14 @@ end
 % end
 
 % Find a good zoom axis range for viewing all of the histograms.
-if ~params.logX,
-    xmax = 4* max(meanTime(:));
-    xtitle = 'Time (s)';
-else
+if params.logX,
+    dwellaxis = 10.^dwellaxis;
+    dwellhist(:,1) = dwellaxis;
     xmax = dwellaxis(end);
-    xtitle = 'Time (log_{10} s)';
+else
+    xmax = 4* max(meanTime(:));
 end
+xtitle = 'Time (s)';
 
 h = dwellhist(:,2:end);
 ymax = max( h(:) );
@@ -205,20 +203,20 @@ ax = zeros(nStates,1);
 for state=1:nStates,
     ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
     colIdx = (state-1)*nFiles + (1:nFiles) +1;
-    plot( ax(state), dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
 
-    xlim( ax(state), [dwellaxis(1) xmax] );
-    ylim( ax(state), [0 ymax] );
-
-    if ~params.logX,
-        ylabel(ax(state), 'Dwell Survival (%)' );
-    else
+    if params.logX,
+        semilogx( ax(state), dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
         ylabel(ax(state), 'Counts (%)');
+    else
+        plot( ax(state), dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
+        ylabel(ax(state), 'Dwell Survival (%)');
     end
     if state==nStates,
         xlabel(ax(state), xtitle);
     end
     
+    xlim( ax(state), [dwellaxis(1) xmax] );
+    ylim( ax(state), [0 ymax] );
     title(ax(state), sprintf('State %d',state) );
 end
 
@@ -230,6 +228,7 @@ uicontrol( 'Style','pushbutton', 'String','Save...', ...
            'Position',[15 15 75 30], 'Callback',@saveDwelltimes, ...
            'Parent',hFig );
 
+       
 
 end %function dwellhist
 
@@ -260,7 +259,6 @@ names = getappdata(hFig,'names');
 
 nFiles = numel(names);
 nStates = (size(dwellhist,2)-1)/nFiles;
-
 
 % Ask the user for an output filename.
 [f,p] = uiputfile('*.txt','Select output filename','dwellhist.txt');

@@ -580,7 +580,7 @@ saveTraces( filename, adjustTraces(handles,indexes) );
 % Save idealizations of selected traces, if available.
 if ~isempty(handles.idl),
     [dwt,offsets] = idlToDwt( handles.idl(indexes,:) );
-    saveDWT( dwtFilename, dwt, offsets, handles.dwtModel, handles.data.sampling );
+    saveDWT( dwtfname, dwt, offsets, handles.dwtModel, handles.data.sampling );
 end
 
 set(handles.figure1,'pointer','arrow');
