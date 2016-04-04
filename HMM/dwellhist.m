@@ -85,9 +85,9 @@ else
                'Position',[15 15 75 30], 'Callback',@saveDwelltimes, ...
                'Parent',hFig );
            
-%     uicontrol( 'Style','pushbutton', 'String','Settings...', ...
-%                'Position',[115 15 75 30], 'Callback',@dwellhist_settings, ...
-%                'Parent',hFig );
+    uicontrol( 'Style','pushbutton', 'String','Settings...', ...
+               'Position',[115 15 75 30], 'Callback',@dwellhist_settings, ...
+               'Parent',hFig );
            
     uicontrol( 'Style','pushbutton', 'String','Replot...', ...
                'Position',[215 15 75 30], 'Callback',@dwellhist_plot, ...
@@ -279,6 +279,8 @@ if params.logX
             ordinate = 'Counts (% of file)';
         case 'time'
             ordinate = 'Counts s^{-1}';
+        otherwise
+            error('Invalid normalization setting');
     end
 end
 
@@ -313,6 +315,51 @@ linkaxes(ax,'xy');
 set(handles.hFig,'pointer','arrow'); drawnow;
 
 end %function dwellhist_plot
+
+
+
+
+
+%% Dialog to change parameters
+function dwellhist_settings(hObject,~,~)
+%
+
+handles = guidata(hObject);
+opt = handles.params;
+
+% 1. Get the new value from the user.
+prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
+fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
+currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
+
+answer = inputdlg(prompt, [mfilename ' display settings'], 1, currentopt);
+if isempty(answer), return; end  %user hit cancel
+
+% 2. Save new parameter values from user.
+for k=1:numel(answer),
+    original = opt.(fields{k});
+    
+    if isnumeric(original)
+        opt.(fields{k}) = str2double(answer{k});
+    elseif islogical(original)
+        opt.(fields{k}) = logical(str2double(answer{k}));
+    else
+        opt.(fields{k}) = answer{k};
+    end
+    
+    % FIXME: verify string fields.
+end
+
+handles.params = opt;
+guidata(hObject,handles);
+
+% 3. Redraw plots.
+dwellhist_plot(hObject);
+
+
+
+end %function dwellhist_settings
+
 
 
 
