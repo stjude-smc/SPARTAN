@@ -1,61 +1,63 @@
-function [meanTime,dwellhist,names] = dwellhist( dwtfilename, inputParams )
-% dwellhist  Survival plots of state dwell-times
+function varargout = dwellhist( dwtfilename, inputParams )
+%dwellhist  Dwell-time histograms
 % 
-%   [MEANS,HIST] = dwellhist(FILES) creates survival plots of state dwell-times 
-%   for each state in each .dwt file in the cell array FILES. The first column 
-%   of HIST is the X-axis for all plots. For each state, HIST has a series of
-%   consecutivecolumns for each file in FILES so that the columns order is:
-%       State1/File1, State1/File2, ... State2/File1, State2/File2, ...
-%   MEANS contains mean dwell-times for each state (columns) and file (rows).
-%   The mean of an exponential distribution is approximately the time constant.
+%   dwellhist(FILES) displays log-scale dwell-time histograms for each
+%   .dwt file in the cell array FILES (must all have same time resolution).
 %
-%   dwellhist(FILES) with no output arguments displays the survival plots,
-%   with a button to save the histgrams as a text file with column headers.
+%   HIST = dwellhist(FILES) returns histograms in the columns of HIST as:
+%     [X_axis, State1/File1, State2/File1, ..., State1/File2, State2/File2, ...]
+%   The X-axis is in seconds.
 %
-%   [...] = dwellhist(...,PARAMS) specifies optional parameters in the struct
-%   PARAMS to control how the histograms are made (true/false values):
+%   dwellhist() prompts the user for a list of files.
 %
-%      'removeBlinks': Ignore dwells in the dark state, assumed to be state 1.
+%   dwellhist(...,PARAMS) give optional parameters in struct PARAMS:
+%
+%      'removeBlinks': Remove dwells in dark states (class 1). Default=true.
 %                      Dwells broken up by such blinks are merged, with the
 %                      time during the blink added to surrounding dwells.
 %
 %      'logX':         Use a log-scale times axis to aid visualization of 
-%                      multi- exponential distributions. See Sigworth and Sine
-%                      (1987), Biophys J 50, p. 1047-1054.
+%                      multi- exponential distributions (default=true).
+%                      See Sigworth and Sine (1987), Biophys J 50, p. 1047-1054.
+%
+%      'dx':           Log-scale time axis bin size. default=0.2.
+%
+%      'normalize':    log-scale histogram normalization method:
+%                      'off'   - raw dwell counts, no normalization.
+%                      'state' - each state; sum of each histogram=1. (default)
+%                      'file'  - all states; sum of all histograms per file=1.
+%                      'time'  - dwell counts per second of observation time
 %
 %   See also: lifetime_exp, loadDwelltimes, removeBlinks.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
-
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
 %% ---- USER TUNABLE PARAMETERS ----
 
-% Sine-sigworth transformation.
 params.logX = true;
-dx = 0.2;  %bin width for log scale plots (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
-
-% Remove blinking events (dwells in state 1)
-params.removeBlinks = true;  % merge blinks into previous dwell
+dx = 0.2;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
+params.removeBlinks = true;
+params.normalize = 'state';
 
 % Merge options, giving the user's options precedence.
 if nargin>1,
     params = mergestruct( params, inputParams );
 end
 
+% Check parameters
+assert( all(ismember(params.normalize,{'off','state','file','time'})), ...
+        'Invalid normalization option' );
+
 
 
 %% Prompt user for file names if not given.
 if nargin<1,
-    disp('Select DWT files, hit cancel when finished');
     dwtfilename = getFiles('*.dwt','Choose dwell-time files');
 end
 
-% if just one filename given, convert to cell array
-if ~iscell(dwtfilename),
-    dwtfilename = {dwtfilename};
-end
-dwtfilename = findDwt(dwtfilename);  %find .dwt from .traces file names.
+% Find .dwt files if given .traces files.
+dwtfilename = findDwt(dwtfilename);
 
 nFiles = numel(dwtfilename);
 if nFiles==0, return; end
@@ -64,20 +66,18 @@ if nFiles==0, return; end
 
 %% ------ Load dwell-times from .dwt files
 names = trimtitles(dwtfilename);
-dwts  = cell(nFiles,1);
+dwells  = cell(nFiles,1);  %consolidated list of dwell times in each state
 sampling = zeros(nFiles,1);
 
 for i=1:nFiles,
     % Load dwell-times a list per state, concatinating dwells from all traces,
     % ignoring the zero-FRET state if applicable.
     if params.removeBlinks,
-        [dwellc,sampling(i)] = loadDwelltimes( dwtfilename{i}, 'removeBlinks' );
-        dwellc = dwellc(2:end);
+        [dwells{i},sampling(i)] = loadDwelltimes( dwtfilename{i}, 'removeBlinks' );
+        dwells{i} = dwells{i}(2:end);
     else
-        [dwellc,sampling(i)] = loadDwelltimes( dwtfilename{i} );
+        [dwells{i},sampling(i)] = loadDwelltimes( dwtfilename{i} );
     end
-    
-    dwts{i} = dwellc;
 end
 
 % Verify all input idealizations are roughly consistent.
@@ -86,7 +86,7 @@ if ~all(sampling==sampling(1)),
 end
 sampling = sampling(1)/1000;  %convert to seconds.
 
-nStates = cellfun(@numel, dwts);
+nStates = cellfun(@numel, dwells);
 if ~all(nStates==nStates(1)),
     warning('Idealization models have a different number of states');
 end
@@ -96,18 +96,18 @@ nStates = max(nStates);
 % Get dwell time limits for setting axes limits later.
 meanTime = zeros(nFiles,nStates);  %mean dwell-time per state/file.
 maxTime = 0;  %longest dwell in seconds
+totalTime = zeros(nFiles,nStates);
 
 for i=1:nFiles,
-    dwellc = dwts{i};
+    dwellc = dwells{i};
     maxTime = max( maxTime, max(vertcat(dwellc{:})) );
     meanTime(i,:) = cellfun(@mean, dwellc)';
+    totalTime(i,:) = cellfun(@sum, dwellc)';
 end
 
 
 
-%% Create dwell-time survival histograms
-
-% Create x-axis bins for histc. Note that these are BIN EDGES!
+%% Calculate dwell time bins (EDGES)
 if ~params.logX,
     % Linear X-axis in seconds.
     dwellaxis = 0:sampling:maxTime;
@@ -128,16 +128,16 @@ else
     dlx = [dlx dlx(end)];
 end
 
-dwellhist = zeros( numel(dwellaxis), 1+(nStates*nFiles) );
-dwellhist(:,1) = dwellaxis;
 
+%% Calculate histograms
+histograms = cell(nFiles,nStates);
 
 for file=1:nFiles,
+    ndwells = cellfun(@numel,dwells{file});
+            
     for state=1:nStates,
-        dwellc = dwts{file}{state};
-        
-        % Add a small constant to ensure dwells fall in the correct bin.
-        dwellc = dwellc+sampling/10;
+        % Small constant ensures dwells fall in the correct histogram bin.
+        dwellc = dwells{file}{state} +sampling/10;
         
         % Make linear-scale survival plot.
         if ~params.logX,
@@ -149,50 +149,73 @@ for file=1:nFiles,
         else
             counts = histc( log10(dwellc)', dwellaxis );
             histdata = counts./dlx;  %normalize by log-space bin size
-            histdata = 100*histdata/sum(histdata);  %normalize to 1
+            histdata = histdata/sum(histdata);  %normalize to 1
+            
+            switch params.normalize
+                case 'off'  %raw dwell counts
+                    histdata = histdata*ndwells(state);
+                case 'state'  %fraction of counts in each bin for this state
+                    histdata = 100*histdata;
+                case 'file'  %fraction of counts in each bin across entire file
+                    histdata = 100*histdata *ndwells(state)/sum(ndwells);
+                case 'time'  %fraction of dwells per total observation time
+                    histdata = histdata*ndwells(state)/sum(totalTime(file,:));
+            end
         end
         
-        % Add to the output matrix
-        colIdx = ((state-1)*nFiles)+file+1;
-        dwellhist( :, colIdx ) = histdata;
+        histograms{file,state} = to_col(histdata);
     end
 end
 
-% Do not display plots or save the output if the histogram matrix is requested.
-if nargout>0, return; end
 
-if nFiles>1,
-    disp('Mean dwell-times are listed with files across rows and states across columns.');
+% Combine histograms into a matrix for saving.
+if params.logX,
+    dwellaxis = 10.^dwellaxis;
 end
+dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
+
+% Do not display plots if the histogram matrix is requested.
+if nargout>0,
+    output = {dwellhist,names,meanTime};
+    [varargout{1:nargout}] = output{1:nargout};
+    
+    if nFiles>1,
+        disp('Mean dwell-times are listed with files across rows and states across columns.');
+    end
+    return;
+end
+
 
 
 
 %% Display the histograms
 
-% If there are a ton of datapoints, we can't use the simple colors above.
-% Instead, just use a simple blue-to-red gradient
-% if nFiles>5,
-%     colors = zeros(nFiles,3);
-%     interval = (1/(nFiles-1));
-%     colors(:,1) = 0:interval:1;
-%     colors(:,3) = 1:-interval:0;
-% end
-
 % Find a good zoom axis range for viewing all of the histograms.
 if params.logX,
-    dwellaxis = 10.^dwellaxis;
-    dwellhist(:,1) = dwellaxis;
     xmax = dwellaxis(end);
 else
     xmax = 4* max(meanTime(:));
 end
-xtitle = 'Time (s)';
+h = [histograms{:}];
+ymax = max(h(:));
 
-h = dwellhist(:,2:end);
-ymax = max( h(:) );
 
-% Save the histogram data in the figure and add a button so the data
-% can be saved to file by the user.
+% Choose ordinate label based on normalization
+if params.logX
+    switch params.normalize
+        case 'off'
+            ordinate = 'Counts';
+        case 'state'
+            ordinate = 'Counts (%)';
+        case 'file'
+            ordinate = 'Counts (% of file)';
+        case 'time'
+            ordinate = 'Counts s^{-1}';
+    end
+end
+
+
+% Save the histogram data in the figure for access by callback functions.
 hFig = figure;
 setappdata(hFig,'dwellhist',dwellhist);
 setappdata(hFig,'names',names);
@@ -202,17 +225,16 @@ ax = zeros(nStates,1);
 
 for state=1:nStates,
     ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
-    colIdx = (state-1)*nFiles + (1:nFiles) +1;
 
     if params.logX,
-        semilogx( ax(state), dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
-        ylabel(ax(state), 'Counts (%)');
+        semilogx( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
+        ylabel(ax(state), ordinate);
     else
-        plot( ax(state), dwellaxis, dwellhist(:,colIdx), '-', 'LineWidth',2 );
+        plot( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
         ylabel(ax(state), 'Dwell Survival (%)');
     end
     if state==nStates,
-        xlabel(ax(state), xtitle);
+        xlabel(ax(state), 'Time (s)');
     end
     
     xlim( ax(state), [dwellaxis(1) xmax] );

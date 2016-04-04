@@ -37,10 +37,8 @@ mask = sum(  abs( titlecat - repmat(titlecat(1,:),[nFiles 1]) )  );
 first = find(mask~=0,  1, 'first');
 if ~isempty(first),
     titles = cellstr( titlecat(:,first:end) );
-end
-
-% Use file numbers if all file names are identical
-if all( cellfun(@isempty, titles) ),
+else
+    % All file names are identical; use numbers instead.
     titles = cellfun(@num2str,num2cell(1:nFiles),'UniformOutput',false);
     return;
 end
@@ -51,6 +49,7 @@ titlecat = strjust( char(titles),'right' );
 mask = sum(  abs( titlecat - repmat(titlecat(1,:),[nFiles 1]) )  );
 last = find(mask~=0, 1, 'last');
 titles = cellstr( strjust(titlecat(:,1:last),'left') );
+
 
 % Insert placeholers for any empty elements.
 e = cellfun(@isempty,titles);

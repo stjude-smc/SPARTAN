@@ -1,6 +1,10 @@
 function filenames = findDwt( filenames )
 % FINDDWT  Look for .dwt files associated with .traces files
 
+% Process input arguments
+if ischar(filenames),
+    filenames={filenames};
+end
 
 for i=1:numel(filenames),
     [p,f,e] = fileparts( filenames{i} );
