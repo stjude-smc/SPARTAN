@@ -36,9 +36,9 @@ function varargout = dwellhist( dwtfilename, inputParams )
 %% ---- USER TUNABLE PARAMETERS ----
 
 params.logX = true;
-dx = 0.2;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
+params.dx = 0.2;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
 params.removeBlinks = true;
-params.normalize = 'state';
+params.normalize = 'time';
 
 % Merge options, giving the user's options precedence.
 if nargin>1,
@@ -52,20 +52,48 @@ assert( all(ismember(params.normalize,{'off','state','file','time'})), ...
 
 
 %% Prompt user for file names if not given.
+
+% Get list of .dwt files to load
 if nargin<1,
     dwtfilename = getFiles('*.dwt','Choose dwell-time files');
 end
-
-% Find .dwt files if given .traces files.
 dwtfilename = findDwt(dwtfilename);
+names = trimtitles(dwtfilename);
+if numel(dwtfilename)==0, return; end
 
-nFiles = numel(dwtfilename);
-if nFiles==0, return; end
+% Calculate dwell-time histograms
+[dwellaxis,histograms,meanTime] = dwellhist2(dwtfilename,params);
+dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
+
+% If the histogram output is requested, don't plot anything.
+if nargout>0,
+    output = {dwellhist,names,meanTime};
+    [varargout{1:nargout}] = output{1:nargout};
+    
+% Plot dwell times
+else
+    % Save the histogram data in the figure for access by callback functions.
+    hFig = figure;
+    setappdata(hFig,'dwellhist',dwellhist);
+    setappdata(hFig,'names',names);
+
+    dwellhist_plot(dwellaxis,histograms,names,params);
+end
+
+
+
+end %function dwellhist
+
+
+
+
 
 
 
 %% ------ Load dwell-times from .dwt files
-names = trimtitles(dwtfilename);
+function [dwellaxis,histograms,meanTime] = dwellhist2(dwtfilename,params)
+
+nFiles = numel(dwtfilename);
 dwells  = cell(nFiles,1);  %consolidated list of dwell times in each state
 sampling = zeros(nFiles,1);
 
@@ -114,7 +142,7 @@ if ~params.logX,
 else
     % Create a log time axis with a fixed number of bins.
     % histcounts uses bin edges of E(k) <= X(i) < E(k+1).
-    dwellaxis = log10(sampling):dx:log10(maxTime*3);
+    dwellaxis = log10(sampling):params.dx:log10(maxTime*3);
     
     % Force the bins edges to be exact intervals of the time resolution.
     % The histogram will better sample the discrete nature of the data.
@@ -172,30 +200,27 @@ end
 if params.logX,
     dwellaxis = 10.^dwellaxis;
 end
-dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
 
-% Do not display plots if the histogram matrix is requested.
-if nargout>0,
-    output = {dwellhist,names,meanTime};
-    [varargout{1:nargout}] = output{1:nargout};
-    
-    if nFiles>1,
-        disp('Mean dwell-times are listed with files across rows and states across columns.');
-    end
-    return;
-end
+
+
+end %function dwellhist2
+
+
 
 
 
 
 %% Display the histograms
+function dwellhist_plot(dwellaxis,histograms,names,params)
 
+[~,nStates] = size(histograms);
+    
 % Find a good zoom axis range for viewing all of the histograms.
-if params.logX,
+% if params.logX,
     xmax = dwellaxis(end);
-else
-    xmax = 4* max(meanTime(:));
-end
+% else
+%     xmax = 4* max(meanTime(:));
+% end
 h = [histograms{:}];
 ymax = max(h(:));
 
@@ -215,16 +240,11 @@ if params.logX
 end
 
 
-% Save the histogram data in the figure for access by callback functions.
-hFig = figure;
-setappdata(hFig,'dwellhist',dwellhist);
-setappdata(hFig,'names',names);
-
 % Display survival plots, one state per panel.
 ax = zeros(nStates,1);
 
 for state=1:nStates,
-    ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
+    ax(state) = subplot( nStates, 1, state );%, 'Parent',hFig );
 
     if params.logX,
         semilogx( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
@@ -247,12 +267,13 @@ linkaxes(ax,'xy');
 
 % Add a control at the bottom of the GUI for saving the histograms to file.
 uicontrol( 'Style','pushbutton', 'String','Save...', ...
-           'Position',[15 15 75 30], 'Callback',@saveDwelltimes, ...
-           'Parent',hFig );
+           'Position',[15 15 75 30], 'Callback',@saveDwelltimes );%, ...
+           %'Parent',hFig );
 
        
 
-end %function dwellhist
+end %function dwellhist_plot
+
 
 
 function [newVal,idx] = nearestBin( values, bins )
