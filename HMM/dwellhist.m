@@ -1,12 +1,10 @@
-function varargout = dwellhist( dwtfilename, inputParams )
+function varargout = dwellhist(dwtfilename, inputParams)
 %dwellhist  Dwell-time histograms
 % 
-%   dwellhist(FILES) displays log-scale dwell-time histograms for each
-%   .dwt file in the cell array FILES (must all have same time resolution).
-%
-%   HIST = dwellhist(FILES) returns histograms in the columns of HIST as:
-%     [X_axis, State1/File1, State2/File1, ..., State1/File2, State2/File2, ...]
-%   The X-axis is in seconds.
+%   [X,HIST] = dwellhist(FILES) dwell-time histograms for each .dwt file in 
+%   the cell array FILES (must all have same time resolution). HIST is a cell
+%   array with files in rows and states in columns size=[nFiles,nStates].
+%   The X are the bin edges in seconds.
 %
 %   dwellhist() prompts the user for a list of files.
 %
@@ -28,7 +26,7 @@ function varargout = dwellhist( dwtfilename, inputParams )
 %                      'file'  - all states; sum of all histograms per file=1.
 %                      'time'  - dwell counts per second of observation time
 %
-%   See also: lifetime_exp, loadDwelltimes, removeBlinks.
+%   See also: dwellplots, lifetime_exp, loadDwelltimes, removeBlinks.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
@@ -57,56 +55,19 @@ assert( all(ismember(params.normalize,{'off','state','file','time'})), ...
 if nargin<1,
     dwtfilename = getFiles('*.dwt','Choose dwell-time files');
 end
+if ischar(dwtfilename), dwtfilename={dwtfilename}; end
 dwtfilename = findDwt(dwtfilename);
-names = trimtitles(dwtfilename);
 if numel(dwtfilename)==0, return; end
 
 
-% If the histogram output is requested, don't plot anything.
-if nargout>0,
-    [dwellaxis,histograms,meanTime] = dwellhist2(dwtfilename,params);
-    dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
-    
-    output = {dwellhist,names,meanTime};
-    [varargout{1:nargout}] = output{1:nargout};
-    
-% Otherwise, plot dwell times
-else
-    % Save the histogram data in the figure for access by callback functions.
-    hFig = figure;
-    handles.hFig = hFig;
-    handles.names = names;
-    handles.params = params;
-    handles.dwtfilename = dwtfilename;
-    guidata(hFig,handles);
-
-    % Add a control at the bottom of the GUI for saving the histograms to file.
-    uicontrol( 'Style','pushbutton', 'String','Save...', ...
-               'Position',[15 15 75 30], 'Callback',@saveDwelltimes, ...
-               'Parent',hFig );
-           
-    uicontrol( 'Style','pushbutton', 'String','Settings...', ...
-               'Position',[115 15 75 30], 'Callback',@dwellhist_settings, ...
-               'Parent',hFig );
-           
-    uicontrol( 'Style','pushbutton', 'String','Replot...', ...
-               'Position',[215 15 75 30], 'Callback',@dwellhist_plot, ...
-               'Parent',hFig );
-       
-    dwellhist_plot(hFig);
+% If there are no outputs requested, display instead.
+if nargout==0,
+    dwellplots(dwtfilename,params);
 end
 
 
 
-end %function dwellhist
-
-
-
-
-
-%% ------ Load dwell-times from .dwt files
-function [dwellaxis,histograms,meanTime] = dwellhist2(dwtfilename,params)
-
+%%
 nFiles = numel(dwtfilename);
 dwells  = cell(nFiles,1);  %consolidated list of dwell times in each state
 sampling = zeros(nFiles,1);
@@ -136,14 +97,12 @@ nStates = max(nStates);
 
 
 % Get dwell time limits for setting axes limits later.
-meanTime = zeros(nFiles,nStates);  %mean dwell-time per state/file.
 maxTime = 0;  %longest dwell in seconds
 totalTime = zeros(nFiles,nStates);
 
 for i=1:nFiles,
     dwellc = dwells{i};
     maxTime = max( maxTime, max(vertcat(dwellc{:})) );
-    meanTime(i,:) = cellfun(@mean, dwellc)';
     totalTime(i,:) = cellfun(@sum, dwellc)';
 end
 
@@ -215,9 +174,11 @@ if params.logX,
     dwellaxis = 10.^dwellaxis;
 end
 
+output = {dwellaxis,histograms};
+[varargout{1:nargout}] = output{1:nargout};
 
 
-end %function dwellhist2
+end %function dwellhist
 
 
 
@@ -234,171 +195,5 @@ end
 
 end
 
-
-
-
-
-%% Display the histograms
-function dwellhist_plot(hObject,~,~)
-% Actually plots the dwell-time histograms.
-
-
-% Get GUI data from initial call
-handles = guidata(hObject);
-names   = handles.names;
-params  = handles.params;
-
-set(handles.hFig,'pointer','watch'); drawnow;
-
-
-% Recalculate histograms directly from file.
-[dwellaxis,histograms] = dwellhist2(handles.dwtfilename,params);
-
-handles.dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
-guidata(hObject,handles);  %update for later calls to saveDwelltimes()
-
-
-% Find a good zoom axis range for viewing all of the histograms.
-% if params.logX,
-    xmax = dwellaxis(end);
-% else
-%     xmax = 4* max(meanTime(:));
-% end
-h = [histograms{:}];
-ymax = max(h(:));
-
-
-% Choose ordinate label based on normalization
-if params.logX
-    switch params.normalize
-        case 'off'
-            ordinate = 'Counts';
-        case 'state'
-            ordinate = 'Counts (%)';
-        case 'file'
-            ordinate = 'Counts (% of file)';
-        case 'time'
-            ordinate = 'Counts s^{-1}';
-        otherwise
-            error('Invalid normalization setting');
-    end
-end
-
-
-% Display survival plots, one state per panel.
-[~,nStates] = size(histograms);
-ax = zeros(nStates,1);
-
-for state=1:nStates,
-    ax(state) = subplot( nStates, 1, state, 'Parent',handles.hFig );
-
-    if params.logX,
-        semilogx( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
-        ylabel(ax(state), ordinate);
-    else
-        plot( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
-        ylabel(ax(state), 'Dwell Survival (%)');
-    end
-    if state==nStates,
-        xlabel(ax(state), 'Time (s)');
-    end
-    
-    xlim( ax(state), [dwellaxis(1) xmax] );
-    ylim( ax(state), [0 ymax] );
-    title(ax(state), sprintf('State %d',state) );
-end
-
-legend(ax(end), names);
-linkaxes(ax,'xy');
-
-
-set(handles.hFig,'pointer','arrow'); drawnow;
-
-end %function dwellhist_plot
-
-
-
-
-
-%% Dialog to change parameters
-function dwellhist_settings(hObject,~,~)
-%
-
-handles = guidata(hObject);
-opt = handles.params;
-
-% 1. Get the new value from the user.
-prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
-fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
-currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
-
-answer = inputdlg(prompt, [mfilename ' display settings'], 1, currentopt);
-if isempty(answer), return; end  %user hit cancel
-
-% 2. Save new parameter values from user.
-for k=1:numel(answer),
-    original = opt.(fields{k});
-    
-    if isnumeric(original)
-        opt.(fields{k}) = str2double(answer{k});
-    elseif islogical(original)
-        opt.(fields{k}) = logical(str2double(answer{k}));
-    else
-        opt.(fields{k}) = answer{k};
-    end
-    
-    % FIXME: verify string fields.
-end
-
-handles.params = opt;
-guidata(hObject,handles);
-
-% 3. Redraw plots.
-dwellhist_plot(hObject);
-
-
-
-end %function dwellhist_settings
-
-
-
-
-
-%% ------ Save results to file for plotting in Origin
-function saveDwelltimes(hObject,~,~)
-% Callback function for the "save histograms" button in the histogram figure.
-
-% Get histogram data saved in the figure object.
-handles = guidata(hObject);
-dwellhist = handles.dwellhist;
-names = handles.names;
-
-nFiles = numel(names);
-nStates = (size(dwellhist,2)-1)/nFiles;
-
-% Ask the user for an output filename.
-[f,p] = uiputfile('*.txt','Select output filename','dwellhist.txt');
-if f==0, return; end  %user hit cancel.
-outFilename = fullfile(p,f);
-
-
-% Output header lines
-fid = fopen(outFilename,'w');
-fprintf(fid,'Time (s)');
-
-for state=1:nStates,
-    for i=1:nFiles
-        fprintf(fid,'\tState%d %s',state,names{i});
-    end
-end
-fprintf(fid,'\n');
-fclose(fid);
-
-
-% Output histogram data
-dlmwrite(outFilename, dwellhist, 'delimiter','\t', '-append');
-
-
-end
 
 
