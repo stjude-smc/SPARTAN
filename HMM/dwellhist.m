@@ -38,7 +38,7 @@ function varargout = dwellhist( dwtfilename, inputParams )
 params.logX = true;
 params.dx = 0.2;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
 params.removeBlinks = true;
-params.normalize = 'time';
+params.normalize = 'state';
 
 % Merge options, giving the user's options precedence.
 if nargin>1,
@@ -61,30 +61,44 @@ dwtfilename = findDwt(dwtfilename);
 names = trimtitles(dwtfilename);
 if numel(dwtfilename)==0, return; end
 
-% Calculate dwell-time histograms
-[dwellaxis,histograms,meanTime] = dwellhist2(dwtfilename,params);
-dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
 
 % If the histogram output is requested, don't plot anything.
 if nargout>0,
+    [dwellaxis,histograms,meanTime] = dwellhist2(dwtfilename,params);
+    dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
+    
     output = {dwellhist,names,meanTime};
     [varargout{1:nargout}] = output{1:nargout};
     
-% Plot dwell times
+% Otherwise, plot dwell times
 else
     % Save the histogram data in the figure for access by callback functions.
     hFig = figure;
-    setappdata(hFig,'dwellhist',dwellhist);
-    setappdata(hFig,'names',names);
+    handles.hFig = hFig;
+    handles.names = names;
+    handles.params = params;
+    handles.dwtfilename = dwtfilename;
+    guidata(hFig,handles);
 
-    dwellhist_plot(dwellaxis,histograms,names,params);
+    % Add a control at the bottom of the GUI for saving the histograms to file.
+    uicontrol( 'Style','pushbutton', 'String','Save...', ...
+               'Position',[15 15 75 30], 'Callback',@saveDwelltimes, ...
+               'Parent',hFig );
+           
+%     uicontrol( 'Style','pushbutton', 'String','Settings...', ...
+%                'Position',[115 15 75 30], 'Callback',@dwellhist_settings, ...
+%                'Parent',hFig );
+           
+    uicontrol( 'Style','pushbutton', 'String','Replot...', ...
+               'Position',[215 15 75 30], 'Callback',@dwellhist_plot, ...
+               'Parent',hFig );
+       
+    dwellhist_plot(hFig);
 end
 
 
 
 end %function dwellhist
-
-
 
 
 
@@ -207,14 +221,43 @@ end %function dwellhist2
 
 
 
+function [newVal,idx] = nearestBin( values, bins )
+% For each VALUE, find the BIN with the closest value.
+
+newVal = zeros( size(values) );
+idx = zeros( size(values) );
+
+for i=1:numel(values),
+    [~,idx(i)] = min( abs(bins-values(i)) );
+    newVal(i) = bins(idx(i));
+end
+
+end
+
+
 
 
 
 %% Display the histograms
-function dwellhist_plot(dwellaxis,histograms,names,params)
+function dwellhist_plot(hObject,~,~)
+% Actually plots the dwell-time histograms.
 
-[~,nStates] = size(histograms);
-    
+
+% Get GUI data from initial call
+handles = guidata(hObject);
+names   = handles.names;
+params  = handles.params;
+
+set(handles.hFig,'pointer','watch'); drawnow;
+
+
+% Recalculate histograms directly from file.
+[dwellaxis,histograms] = dwellhist2(handles.dwtfilename,params);
+
+handles.dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
+guidata(hObject,handles);  %update for later calls to saveDwelltimes()
+
+
 % Find a good zoom axis range for viewing all of the histograms.
 % if params.logX,
     xmax = dwellaxis(end);
@@ -241,10 +284,11 @@ end
 
 
 % Display survival plots, one state per panel.
+[~,nStates] = size(histograms);
 ax = zeros(nStates,1);
 
 for state=1:nStates,
-    ax(state) = subplot( nStates, 1, state );%, 'Parent',hFig );
+    ax(state) = subplot( nStates, 1, state, 'Parent',handles.hFig );
 
     if params.logX,
         semilogx( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
@@ -265,29 +309,11 @@ end
 legend(ax(end), names);
 linkaxes(ax,'xy');
 
-% Add a control at the bottom of the GUI for saving the histograms to file.
-uicontrol( 'Style','pushbutton', 'String','Save...', ...
-           'Position',[15 15 75 30], 'Callback',@saveDwelltimes );%, ...
-           %'Parent',hFig );
 
-       
+set(handles.hFig,'pointer','arrow'); drawnow;
 
 end %function dwellhist_plot
 
-
-
-function [newVal,idx] = nearestBin( values, bins )
-% For each VALUE, find the BIN with the closest value.
-
-newVal = zeros( size(values) );
-idx = zeros( size(values) );
-
-for i=1:numel(values),
-    [~,idx(i)] = min( abs(bins-values(i)) );
-    newVal(i) = bins(idx(i));
-end
-
-end
 
 
 
@@ -296,9 +322,9 @@ function saveDwelltimes(hObject,~,~)
 % Callback function for the "save histograms" button in the histogram figure.
 
 % Get histogram data saved in the figure object.
-hFig = get(hObject,'Parent');
-dwellhist = getappdata(hFig,'dwellhist');
-names = getappdata(hFig,'names');
+handles = guidata(hObject);
+dwellhist = handles.dwellhist;
+names = handles.names;
 
 nFiles = numel(names);
 nStates = (size(dwellhist,2)-1)/nFiles;
