@@ -24,14 +24,13 @@ handles.params = params;
 guidata(hFig,handles);
 
 
-% Add a control at the bottom of the GUI for saving the histograms to file.
-uicontrol( 'Style','pushbutton', 'String','Save...', ...
-           'Position',[15 15 75 30], 'Callback',@dwellplots_save, ...
-           'Parent',hFig );
+% Add menu items
+hTxtMenu = findall(gcf, 'tag', 'figMenuGenerateCode');
+set(hTxtMenu, 'Label','Export as .txt', 'Callback',@dwellplots_save);
 
-uicontrol( 'Style','pushbutton', 'String','Settings...', ...
-           'Position',[105 15 75 30], 'Callback',@dwellplots_settings, ...
-           'Parent',hFig );
+hEditMenu = findall(gcf, 'tag', 'figMenuEdit');
+delete(allchild(hEditMenu));
+uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',@dwellplots_settings);
 
 
 % Load .dwt files, calculate histograms, and plot them
