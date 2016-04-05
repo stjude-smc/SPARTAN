@@ -38,7 +38,7 @@ colors = [ 0      0      0    ; ...  % black
 removeDarkState = true;
 
 % Settings for error bar calculation.
-calcErrorBars = false;  % if true, use bootstrapping to display error bars
+calcErrorBars = true;  % if true, use bootstrapping to display error bars
 
 if calcErrorBars
     nBootstrap = 100;  %number of bootstrap samples to make.
@@ -60,23 +60,6 @@ end
 nFiles = numel(files);
 if nFiles==0,  return;  end
 
-% Create titles if not specified.
-if nargin<2,
-    titles = trimtitles(files);
-end
-
-
-% If there are a ton of datapoints, we can't use the simple colors above.
-% Instead, just use a simple blue-to-red gradient
-if nFiles>size(colors,1),
-    colors = zeros(nFiles,3);
-    interval = (1/(nFiles-1));
-    colors(:,1) = 0:interval:1;
-    colors(:,3) = 1:-interval:0;
-end
-
-%
-cax = axes('Parent',figure);
 
 
 % Model for removing dark state noise. Adjust if any state is < 0.4.
@@ -93,18 +76,16 @@ if removeDarkState,
 end
 
 
-%% 
-frethist = zeros(nbins,2*nFiles);
+%% Calculate histograms
+frethist = zeros(nbins,2*nFiles);  %hist1, err1, hist2, err2, ...
 
-% Load FRET histograms
 for i=1:nFiles
     
     % Load FRET data
     data = loadTraces( files{i} );
     fret = data.fret( :, pophist_offset+(1:pophist_sumlen) );
     [nTraces,nFrames] = size(fret);
-    
-    
+        
     % Idealize data to 2-state model to eliminate dark-state dwells
     if removeDarkState,
         [dwt,~,~,offsets] = skm( fret, data.sampling, model, skmParams );
@@ -113,7 +94,6 @@ for i=1:nFiles
         % Use all datapoints for histogram otherwise
         idl = repmat(2,size(fret));
     end
-    
     
     % Calculate FRET histograms from many bootstrap datasets
     pophist = zeros(nbins,nBootstrap);
@@ -135,24 +115,69 @@ for i=1:nFiles
         pophist(:,s) = 100*histdata/sum(histdata);   %normalization
     end
     
-    % Spline interpolate the data so it's easier to see (but not saved that way)
-    sx = fretaxis(1):0.001:fretaxis(end);
-    sy = spline( fretaxis, pophist(:,1), sx );
-    plot( cax, sx, sy, 'Color',colors(i,:), 'LineWidth',3 );
-    hold(cax,'on');
-    
     % Calculate and plot error bars
     if calcErrorBars
         pophistErrors = std(pophist,[],2);
         frethist(:,2*i) = pophistErrors;
-        errorbar( cax, fretaxis, pophist(:,1), pophistErrors/2, 'x', 'Color',colors(i,:), 'LineWidth',1 );
     end
     
     % Add histogram from current dataset to output
     % Add bootstrapped errors from current dataset
     frethist(:,2*i-1) = pophist(:,1); %use the first set: all traces.
+end
 
-    drawnow;
+
+
+%% Display histograms
+
+% Create titles if not specified.
+if nargin<2,
+    titles = trimtitles(files);
+end
+
+% If there are a ton of datapoints, we can't use the simple colors above.
+% Instead, just use a simple blue-to-red gradient
+if nFiles>size(colors,1),
+    colors = zeros(nFiles,3);
+    interval = (1/(nFiles-1));
+    colors(:,1) = 0:interval:1;
+    colors(:,3) = 1:-interval:0;
+end
+
+%
+hFig = figure;
+cax = axes('Parent',hFig);
+
+% Save the histogram data in the figure for access by callback functions.
+handles.hFig = hFig;
+handles.titles = titles;
+handles.files = files;
+handles.params = settings;
+guidata(hFig,handles);
+
+% Add menu items
+hTxtMenu = findall(gcf, 'tag', 'figMenuGenerateCode');
+set(hTxtMenu, 'Label','Export as .txt', 'Callback',@frethistComparison_save);
+
+hEditMenu = findall(gcf, 'tag', 'figMenuEdit');
+delete(allchild(hEditMenu));
+uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',@frethistComparison_settings);
+
+hold(cax,'on');
+    
+for i=1:nFiles
+    pophist = frethist(:,2*i-1);
+    
+    % Spline interpolate the data so it's easier to see (but not saved that way)
+    sx = fretaxis(1):0.001:fretaxis(end);
+    sy = spline( fretaxis, pophist, sx );
+    plot( cax, sx, sy, 'Color',colors(i,:), 'LineWidth',3 );
+    
+    if calcErrorBars,
+        pophistErrors = frethist(:,2*i);
+        errorbar( cax, fretaxis, pophist, pophistErrors/2, 'x', ...
+                                          'Color',colors(i,:), 'LineWidth',1 );
+    end
 end
 
 
@@ -171,6 +196,7 @@ else
 end
 
 
+%%
 % Save the results. If calcErrorBars is true, every other column has the
 % error bars of the associated histogram.
 if ~calcErrorBars,
@@ -184,8 +210,23 @@ if nargout>0,
     return;
 end
 
+handles.output = output;
+guidata(hFig,handles);
+
+
+end %function frethistComparison
+
+
 
 %% Save histogram to file
+function frethistComparison_save(hObject,~,~)
+
+handles = guidata(hObject);
+files = handles.files;
+output = handles.output;
+titles = handles.titles;
+nFiles = numel(files);
+
 if nFiles==1,
     [p,f] = fileparts(files{1});
     outputFilename = fullfile(p, [f '_pophist.txt']);
@@ -193,7 +234,7 @@ else
     outputFilename = 'pophist.txt';
 end
 
-[f,p] = uiputfile('*.txt', [mfilename ': save output'], outputFilename);
+[f,p] = uiputfile('*.txt', [mfilename ': save histograms'], outputFilename);
 outputFilename = fullfile(p,f);
 
 if f~=0,
@@ -204,8 +245,6 @@ if f~=0,
 
     dlmwrite(outputFilename,output,'-append','delimiter','\t');
 end
-
-
 
 end
 
