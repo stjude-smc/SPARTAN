@@ -1,14 +1,24 @@
-function varargout = frethistComparison(files, titles, settings)
+function varargout = frethistComparison(files, settings)
 %fresthistComparison  1D FRET histogram
 %
-%   fresthistComparison(FILES) loads each .traces file in the cell array FILES
-%   sums all traces and time points for a 1D histogram for each file.
-%   These are then plotted for comparison.
+%   fresthistComparison(FILES) plots 1D FRET histogram, summing over all
+%   traces and frames, for each .traces file in the cell array FILES.
 %
 %   fresthistComparison() will prompt the user for files.
 %
-%   OUT = fresthistComparison(...) will save the histograms in the matrix OUT
-%   with the first column having the FRET values of each bin.
+%   OUT = fresthistComparison(...) will return the histogram data in the matrix
+%   OUT, but will not plot anything.
+%
+%   [...] = frethistComparison(FILES,PARAMS) specifies optional parameters in
+%   the struct PARAMS. Many are the same as for makeplots, but also:
+%
+%     'removeDarkState': Use SKM to idealize FRET to detect dark state dwells
+%                        (acceptor blinking) and remove from histograms.
+%
+%     'model':           Model for idealizing FRET data to remove dark states.
+%
+%     'nBootstrap':      Number of bootstrap samples for calculating error bars.
+%                        If set to 1, no error bars will be shown.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
@@ -19,28 +29,18 @@ if nargin<3,
 end
 
 % Display settings:
-% Most of these are the same as makeplots so that they look the same, but
-% you can override those defaults below.
 pophist_sumlen = settings.contour_length; % how many frames to use.
 pophist_offset = settings.pophist_offset; % first N frames to throw out.
 fretaxis = settings.fret_axis';
 nbins = length(fretaxis);
 
-colors = [ 0      0      0    ; ...  % black
-           0.75   0      0.75 ; ...  % purple
-           0      0.75   0.75 ; ...  % cyan
-           0      0.5    0    ; ...  % green
-           0.75   0.75   0    ; ...  % yellow
-           1      0      0    ; ...  % red
-           0.6    0      0    ];     % dark red
-
 % Settings for removing the zero-FRET state.
-removeDarkState = true;
+settings.removeDarkState = true;
 
 % Settings for error bar calculation.
-calcErrorBars = true;  % if true, use bootstrapping to display error bars
+settings.calcErrorBars = true;
 
-if calcErrorBars
+if settings.calcErrorBars
     nBootstrap = 100;  %number of bootstrap samples to make.
 else 
     nBootstrap = 1;
@@ -48,22 +48,17 @@ end
 
 
 % Prompt user for filenames if not supplied
-if nargin < 1 || isempty(files),
-    disp('Select traces files, hit cancel when finished');
-    files = getFiles([],'Choose a traces file:');
+if nargin<1,
+    files = getFiles();
 end
-
-if ~iscell(files),
-    files = {files};
-end
+if ~iscell(files), files = {files}; end
 
 nFiles = numel(files);
 if nFiles==0,  return;  end
 
 
-
 % Model for removing dark state noise. Adjust if any state is < 0.4.
-if removeDarkState,
+if settings.removeDarkState,
     model.p0    = [0.01 0.99]';
     model.rates = [0 5; 1 0];
     model.mu       = [0.01 0.3];
@@ -87,7 +82,7 @@ for i=1:nFiles
     [nTraces,nFrames] = size(fret);
         
     % Idealize data to 2-state model to eliminate dark-state dwells
-    if removeDarkState,
+    if settings.removeDarkState,
         [dwt,~,~,offsets] = skm( fret, data.sampling, model, skmParams );
         idl = dwtToIdl( dwt, offsets, nFrames, nTraces );
     else
@@ -116,7 +111,7 @@ for i=1:nFiles
     end
     
     % Calculate and plot error bars
-    if calcErrorBars
+    if settings.calcErrorBars
         pophistErrors = std(pophist,[],2);
         frethist(:,2*i) = pophistErrors;
     end
@@ -127,13 +122,77 @@ for i=1:nFiles
 end
 
 
+% Save the results. If calcErrorBars is true, every other column has the
+% error bars of the associated histogram.
+if ~settings.calcErrorBars,
+    frethist = frethist(:,1:2:end); %remove error bar columns.
+end
 
-%% Display histograms
+
+output = [fretaxis frethist];
+if nargout>0,
+    varargout{1} = output;
+    return;
+end
+
+%% Setup GUI
 
 % Create titles if not specified.
 if nargin<2,
     titles = trimtitles(files);
 end
+
+hFig = figure;
+
+% Save the histogram data in the figure for access by callback functions.
+handles.hFig = hFig;
+handles.titles = titles;
+handles.files = files;
+handles.params = settings;
+handles.frethist = frethist;
+handles.fretaxis = fretaxis;
+handles.output = output;
+guidata(hFig,handles);
+
+% Add menu items
+hTxtMenu = findall(gcf, 'tag', 'figMenuGenerateCode');
+set(hTxtMenu, 'Label','Export as .txt', 'Callback',@frethistComparison_save);
+
+hEditMenu = findall(gcf, 'tag', 'figMenuEdit');
+delete(allchild(hEditMenu));
+uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',@frethistComparison_display);
+
+
+frethistComparison_display(hFig,handles);
+
+
+end %function frethistComparison
+
+
+
+
+%% Display histograms
+function frethistComparison_display(hObject,~,~)
+
+
+colors = [ 0      0      0    ; ...  % black
+           0.75   0      0.75 ; ...  % purple
+           0      0.75   0.75 ; ...  % cyan
+           0      0.5    0    ; ...  % green
+           0.75   0.75   0    ; ...  % yellow
+           1      0      0    ; ...  % red
+           0.6    0      0    ];     % dark red
+
+
+handles = guidata(hObject);
+frethist = handles.frethist;
+fretaxis = handles.fretaxis;
+titles   = handles.titles;
+params   = handles.params;
+nFiles = numel(titles);
+
+cax = cla(handles.hFig);
+hold(cax,'on');
 
 % If there are a ton of datapoints, we can't use the simple colors above.
 % Instead, just use a simple blue-to-red gradient
@@ -143,40 +202,17 @@ if nFiles>size(colors,1),
     colors(:,1) = 0:interval:1;
     colors(:,3) = 1:-interval:0;
 end
+set(cax,'ColorOrder',colors);
 
-%
-hFig = figure;
-cax = axes('Parent',hFig);
+% Spline interpolate the data so it's easier to see (but not saved that way)
+sx = fretaxis(1):0.001:fretaxis(end);
+sy = spline( fretaxis, frethist(:,2*(1:nFiles)-1)', sx );
+plot( cax, sx, sy, 'LineWidth',3 );
 
-% Save the histogram data in the figure for access by callback functions.
-handles.hFig = hFig;
-handles.titles = titles;
-handles.files = files;
-handles.params = settings;
-guidata(hFig,handles);
-
-% Add menu items
-hTxtMenu = findall(gcf, 'tag', 'figMenuGenerateCode');
-set(hTxtMenu, 'Label','Export as .txt', 'Callback',@frethistComparison_save);
-
-hEditMenu = findall(gcf, 'tag', 'figMenuEdit');
-delete(allchild(hEditMenu));
-uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',@frethistComparison_settings);
-
-hold(cax,'on');
-    
-for i=1:nFiles
-    pophist = frethist(:,2*i-1);
-    
-    % Spline interpolate the data so it's easier to see (but not saved that way)
-    sx = fretaxis(1):0.001:fretaxis(end);
-    sy = spline( fretaxis, pophist, sx );
-    plot( cax, sx, sy, 'Color',colors(i,:), 'LineWidth',3 );
-    
-    if calcErrorBars,
-        pophistErrors = frethist(:,2*i);
-        errorbar( cax, fretaxis, pophist, pophistErrors/2, 'x', ...
-                                          'Color',colors(i,:), 'LineWidth',1 );
+if params.calcErrorBars,
+    for i=1:nFiles,
+        errorbar( fretaxis, frethist(:,2*i-1), frethist(:,2*i)/2, '.', ...
+                  'LineWidth',1, 'Color',colors(i,:) );
     end
 end
 
@@ -192,29 +228,12 @@ ylim( cax, [0 yl(2)] );
 if nFiles>1,
     legend(cax, titles);
 else
-    title(cax, titles{i});
+    title(cax, titles{1});
 end
 
 
-%%
-% Save the results. If calcErrorBars is true, every other column has the
-% error bars of the associated histogram.
-if ~calcErrorBars,
-    frethist = frethist(:,1:2:end); %remove error bar columns.
+
 end
-
-
-output = [fretaxis frethist];
-if nargout>0,
-    varargout{1} = output;
-    return;
-end
-
-handles.output = output;
-guidata(hFig,handles);
-
-
-end %function frethistComparison
 
 
 
