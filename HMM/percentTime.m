@@ -87,8 +87,8 @@ for i=1:nFiles,
 
     % Calculate bootstrap samples to estimate standard error.
     if i==1,
-        meanPT = zeros(nFiles,nStates-1);
-        stdPT  = zeros(nFiles,nStates-1);
+        meanPT = zeros(nFiles, size(tracePT,2));
+        stdPT  = zeros(nFiles, size(tracePT,2));
     end
     
     meanPT(i,:) = bootfun(tracePT);
