@@ -24,13 +24,7 @@ if ishandle(varargin{1}),
 else
     hFig = figure;
 end
-
-switch numel(varargin)
-    case 1
-        dwtfilename = varargin{1};
-    case 2
-        [dwtfilename,params] = varargin{:};
-end
+[dwtfilename,params] = varargin{:};
 
 if numel(dwtfilename)==0, return; end
 names = trimtitles(dwtfilename);
@@ -42,8 +36,8 @@ set(hTxtMenu, 'Label','Export as .txt', 'Callback',@dwellplots_save);
 
 prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
 fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
-% types  = {'logical','logical','double',{'none','state','file','time'}};
-cb = @(~,~,~)settingsDialog(params,fields,prompt,@dwellplots,hFig,dwtfilename);
+types{4} = {'none','state','file','time'};
+cb = @(~,~,~)settingsDialog(params,fields,prompt,types,@dwellplots,{hFig,dwtfilename});
 
 hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
 delete(allchild(hEditMenu));
