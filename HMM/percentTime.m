@@ -1,41 +1,55 @@
-function [meanPT,stdPT] = percentTime( filenames, truncateLength )
+function [meanPT,stdPT] = percentTime(varargin)
 % PERCENTTIME  Stable state probabilities
 %
-%   [MEAN,STD] = percentTime( FILESNAMES ) calculates the percentage time spent 
-%   in each non-zero FRET state (MEAN) and standard error of the measurement
-%   (STD) estimated with bootstrap samples from the dwell-time information in
-%   each file in the cell array FILENAMES. For both outputs, states are listed
-%   across columns and files across rows.
+%   PT = percentTime(FILES) is the overall occupancy in each FRET state from
+%   .dwt files in the cell array FILES. States are in columns, files in rows.
 %
-%   [...] = percentTime( FILESNAMES, LEN ) truncates the traces to LEN frames.
-%   This is useful to match the window size of makeplots, particularly to avoid
-%   potential bias cuased by differing photobleaching rates in each state.
-%   
-%   NOTE: the zero-FRET state (1) is ignored.
+%   [PT,SE] = percentTime(FILES) returns the bootstrapped standard errors (SE).
+%
+%   percentTime(...) if no outputs are requested, data are displayed instead.
+%
+%   [...] = percentTime(FILES,PARAMS) specifies optional parameters:  (defaults)
+%     'truncateLength': number of frames from beginning to use.       (all)
+%     'hideZeroState':  Do not show zero-FRET state (class 1).        (true)
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
-
-
-%% OPTIONS
-
-% Only consider non-zero FRET states. zero-FRET state assumed to be state 1.
-REMOVEZERO = true;
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-%% Get filename from user if not specified.
-if nargin<1,
-    filenames = getFiles('*.dwt','Choose an idealization file:');    
-else
-    % If only a single file is specified, turn it into a cell array
-    if ischar(filenames),
-        filenames = {filenames};
-    end
+% Default parameter values
+params.truncateLength = Inf;
+params.hideZeroState = true;
+
+
+%% Process input arguments
+narginchk(0,3);
+nargoutchk(0,2);
+[cax,args] = axescheck(varargin{:});
+
+switch numel(args)
+    case 0
+        filenames = getFiles('*.dwt','Choose idealization files:');
+    case 1
+        filenames = args{1};
+    case 2
+        [filenames,inputParams] = args{:};
+        params = mergestruct(params, inputParams);
 end
 
 % If .traces files are given, silently look for associated .dwt file.
 filenames = findDwt(filenames);
-    
 nFiles = numel(filenames);
+
+
+% Get axes target if given. If not and no outputs requested, make a new one.
+if ~isempty(cax),
+    hFig = get(cax,'Parent');
+    set(hFig, 'pointer','watch'); drawnow;
+end
+
+if isempty(cax) && nargout==0,
+    hFig = figure;
+    set(hFig, 'pointer','watch'); drawnow;
+end
 
 
 %% Load dwell-times and calculate percent time in each state for each file.
@@ -52,7 +66,7 @@ for i=1:nFiles,
 
     % Truncate the idealization if necessary
     if nargin>=2,
-        idl = idl( :, 1:min(len,truncateLength) );
+        idl = idl( :, 1:min(len,params.truncateLength) );
     end
 
     % Calculate percent time of each trace seperately
@@ -63,7 +77,7 @@ for i=1:nFiles,
     end
 
     % Remove zero state from consideration:
-    if REMOVEZERO,
+    if params.hideZeroState,
         tracePT = tracePT(:,2:end);
     end
 
@@ -77,16 +91,17 @@ for i=1:nFiles,
     stdPT(i,:)  = std(  bootstrp(1000, bootfun, tracePT)  );
 end
 
-
-%% Plot the results
 if nargout>0, return; end
 
-figure; cax = axes;
+
+
+%% Plot the results
 nStates = size(meanPT,2);
+cax = cla(hFig);
 errorbar( cax, repmat(1:nFiles,nStates,1)', meanPT, stdPT/2 );
 
 % Construct titles with the state number and FRET values.
-states = (1:nStates)+REMOVEZERO;
+states = (1:nStates)+params.hideZeroState;
 fret = model(states,1);
 
 titles = cell(nStates,1);
@@ -100,10 +115,18 @@ ylabel(cax,'Fraction occupancy');
 xlim(cax,[0.5 nFiles+0.5]);
 set(cax,'XTick',1:nFiles);
 
+set( get(cax,'Parent'), 'pointer','arrow' );  drawnow;
+
+
+% Add menu to change settings
+hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
+delete(allchild(hEditMenu));
+cb = @(~,~,~)settingsDialog(params,@percentTime,{cax,filenames});
+uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',cb);
+
 
 
 end % FUNCTION percentTime
-
-
+ 
 
 
