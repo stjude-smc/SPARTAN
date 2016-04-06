@@ -1,9 +1,11 @@
-function dwellplots(dwtfilename, params)
+function dwellplots(varargin)
 %dwellplots  Display dwell-time histograms
 % 
 %   dwellplots(FILES,PARAMS) displays log-scale dwell-time histograms for each
 %   .dwt file in the cell array FILES (must all have same time resolution).
 %   PARAMS is a struct array with optional arguments.
+%
+%   dwellplots(FIG,...) specifies a target figure to draw the plot in.
 %   
 %   For internal use only. Use dwellhist() instead.
 %
@@ -11,57 +13,55 @@ function dwellplots(dwtfilename, params)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
+narginchk(1,3)
+nargoutchk(0,0);
+
+
+%% Process input arguments and create display window
+if ishandle(varargin{1}),
+    hFig = varargin{1};
+    varargin = varargin(2:end);
+else
+    hFig = figure;
+end
+
+switch numel(varargin)
+    case 1
+        dwtfilename = varargin{1};
+    case 2
+        [dwtfilename,params] = varargin{:};
+end
 
 if numel(dwtfilename)==0, return; end
+names = trimtitles(dwtfilename);
 
 
-% Save the histogram data in the figure for access by callback functions.
-hFig = figure;
-handles.hFig = hFig;
-handles.names = trimtitles(dwtfilename);
-handles.dwtfilename = dwtfilename;
-handles.params = params;
-guidata(hFig,handles);
-
-
-% Add menu items
-hTxtMenu = findall(gcf, 'tag', 'figMenuGenerateCode');
+% Add menu items for adjusting settings and saving output to file.
+hTxtMenu = findall(hFig, 'tag', 'figMenuGenerateCode');
 set(hTxtMenu, 'Label','Export as .txt', 'Callback',@dwellplots_save);
 
-hEditMenu = findall(gcf, 'tag', 'figMenuEdit');
+prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
+fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
+% types  = {'logical','logical','double',{'none','state','file','time'}};
+cb = @(~,~,~)settingsDialog(params,fields,prompt,@dwellplots,hFig,dwtfilename);
+
+hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
 delete(allchild(hEditMenu));
-uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',@dwellplots_settings);
-
-
-% Load .dwt files, calculate histograms, and plot them
-dwellplots_display(hFig);
+uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',cb);
 
 
 
-end %function dwellplots
+%% Create histograms
+set(hFig,'pointer','watch'); drawnow;
+[dwellaxis,histograms] = dwellhist(dwtfilename,params);
 
-
-
-
-%% Display the histograms
-function dwellplots_display(hObject,~,~)
-% Actually plots the dwell-time histograms.
-
-
-% Get GUI data from initial call
-handles = guidata(hObject);
-names   = handles.names;
-params  = handles.params;
-
-set(handles.hFig,'pointer','watch'); drawnow;
-
-
-% Recalculate histograms directly from file.
-[dwellaxis,histograms] = dwellhist(handles.dwtfilename,params);
-
+handles.names = names;
 handles.dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
-guidata(hObject,handles);  %update for later calls to saveDwelltimes()
+guidata(hFig,handles);  %save for later calls to saveDwelltimes()
 
+
+
+%% Display survival plots, one state per panel.
 
 % Find a good zoom axis range for viewing all of the histograms.
 % if params.logX,
@@ -72,11 +72,10 @@ guidata(hObject,handles);  %update for later calls to saveDwelltimes()
 h = [histograms{:}];
 ymax = max(h(:));
 
-
 % Choose ordinate label based on normalization
 if params.logX
     switch params.normalize
-        case 'off'
+        case {'none','off'}
             ordinate = 'Counts';
         case 'state'
             ordinate = 'Counts (%)';
@@ -89,13 +88,12 @@ if params.logX
     end
 end
 
-
-% Display survival plots, one state per panel.
+% Draw survival plots
 [~,nStates] = size(histograms);
 ax = zeros(nStates,1);
 
 for state=1:nStates,
-    ax(state) = subplot( nStates, 1, state, 'Parent',handles.hFig );
+    ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
 
     if params.logX,
         semilogx( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
@@ -116,54 +114,10 @@ end
 legend(ax(end), names);
 linkaxes(ax,'xy');
 
-
-set(handles.hFig,'pointer','arrow'); drawnow;
-
-end %function dwellhist_plot
+set(hFig,'pointer','arrow'); drawnow;
 
 
-
-
-
-%% Dialog to change parameters
-function dwellplots_settings(hObject,~,~)
-%
-
-handles = guidata(hObject);
-opt = handles.params;
-
-% 1. Get the new value from the user.
-prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
-fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
-currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
-
-answer = inputdlg(prompt, [mfilename ' display settings'], 1, currentopt);
-if isempty(answer), return; end  %user hit cancel
-
-% 2. Save new parameter values from user.
-for k=1:numel(answer),
-    original = opt.(fields{k});
-    
-    if isnumeric(original)
-        opt.(fields{k}) = str2double(answer{k});
-    elseif islogical(original)
-        opt.(fields{k}) = logical(str2double(answer{k}));
-    else
-        opt.(fields{k}) = answer{k};
-    end
-    
-    % FIXME: verify string fields.
-end
-
-handles.params = opt;
-guidata(hObject,handles);
-
-% 3. Redraw plots.
-dwellplots_display(hObject);
-
-
-
-end %function dwellhist_settings
+end %function dwellplots
 
 
 

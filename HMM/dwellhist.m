@@ -44,8 +44,9 @@ if nargin>1,
 end
 
 % Check parameters
-assert( all(ismember(params.normalize,{'off','state','file','time'})), ...
-        'Invalid normalization option' );
+if ~all(ismember(params.normalize,{'off','none','state','file','time'})),
+    error('Invalid normalization option ''%s''',params.normalize);
+end
 
 
 
@@ -153,7 +154,7 @@ for file=1:nFiles,
             histdata = histdata/sum(histdata);  %normalize to 1
             
             switch params.normalize
-                case 'off'  %raw dwell counts
+                case {'none','off'}  %raw dwell counts
                     histdata = histdata*ndwells(state);
                 case 'state'  %fraction of counts in each bin for this state
                     histdata = 100*histdata;
