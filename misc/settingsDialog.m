@@ -27,9 +27,12 @@ end
 % Parse out field and function arguments from beginning and end of varargin.
 idxFun = find(  cellfun( @(x)isa(x,'function_handle'), varargin )  );
 assert( numel(idxFun)<=1, 'Multiple function inputs now allowed' );
-args = varargin(1:idxFun-1);
-fun  = varargin{idxFun};
-fin  = varargin{idxFun+1};
+if ~isempty(idxFun)
+    args = varargin(1:idxFun-1);
+else
+    args = varargin;
+end
+    
 
 % Construct default field names, prompts, etc.
 fields = fieldnames(input);
@@ -65,8 +68,17 @@ for k=1:numel(answer),
     
     if isnumeric(value)
         value = str2double(answer{k});
+        
     elseif islogical(value)
-        value = logical(str2double(answer{k}));
+        switch lower(answer{k})
+            case {'on','true','yes'}
+                value = true;
+            case {'off','false','no'}
+                value = false;
+            otherwise
+                value = logical(str2double(answer{k}));
+        end
+        
     else
         value = answer{k};
     end
@@ -85,7 +97,9 @@ end
 
 
 %% Execute callback to update target with new settings.
-if ~isempty(fun),
+if ~isempty(idxFun),
+    fun  = varargin{idxFun};
+    fin  = varargin{idxFun+1};
     fun(fin{:}, output);
 end
 

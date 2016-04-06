@@ -13,6 +13,8 @@ function dwellplots(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
+% FIXME: if targetting other axes, this will alter the menus...
+
 narginchk(1,3)
 nargoutchk(0,0);
 
@@ -28,20 +30,6 @@ end
 
 if numel(dwtfilename)==0, return; end
 names = trimtitles(dwtfilename);
-
-
-% Add menu items for adjusting settings and saving output to file.
-hTxtMenu = findall(hFig, 'tag', 'figMenuGenerateCode');
-set(hTxtMenu, 'Label','Export as .txt', 'Callback',@dwellplots_save);
-
-prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
-fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
-types{4} = {'none','state','file','time'};
-cb = @(~,~,~)settingsDialog(params,fields,prompt,types,@dwellplots,{hFig,dwtfilename});
-
-hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
-delete(allchild(hEditMenu));
-uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',cb);
 
 
 
@@ -64,7 +52,7 @@ guidata(hFig,handles);  %save for later calls to saveDwelltimes()
 %     xmax = 4* max(meanTime(:));
 % end
 h = [histograms{:}];
-ymax = max(h(:));
+ymax = 1.1*max(h(:));
 
 % Choose ordinate label based on normalization
 if params.logX
@@ -109,6 +97,29 @@ legend(ax(end), names);
 linkaxes(ax,'xy');
 
 set(hFig,'pointer','arrow'); drawnow;
+
+
+%% Add menu items for adjusting settings and saving output to file.
+hTxtMenu = findall(hFig, 'tag', 'figMenuGenerateCode');
+set(hTxtMenu, 'Label','Export as .txt', 'Callback',@dwellplots_save);
+
+hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)dwellplots(getFiles('*.dwt'),params) );
+
+hMenu = findall(hFig,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)dwellplots(hFig,getFiles('*.dwt'),params) );
+
+
+prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
+fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
+types{4} = {'none','state','file','time'};
+cb = @(~,~)settingsDialog(params,fields,prompt,types,@dwellplots,{hFig,dwtfilename});
+
+hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
+delete(allchild(hEditMenu));
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
+
 
 
 end %function dwellplots

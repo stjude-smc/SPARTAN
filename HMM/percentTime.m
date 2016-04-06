@@ -42,6 +42,7 @@ end
 % If .traces files are given, silently look for associated .dwt file.
 filenames = findDwt(filenames);
 nFiles = numel(filenames);
+if nFiles==0, return; end
 
 
 % Get axes target if given. If not and no outputs requested, make a new one.
@@ -104,7 +105,7 @@ if nargout>0, return; end
 
 %% Plot the results
 nStates = size(meanPT,2);
-cax = cla(hFig);
+cax = newplot(hFig);
 errorbar( cax, repmat(1:nFiles,nStates,1)', meanPT, stdPT/2 );
 
 % Construct titles with the state number and FRET values.
@@ -122,10 +123,18 @@ ylabel(cax,'Fraction occupancy');
 xlim(cax,[0.5 nFiles+0.5]);
 set(cax,'XTick',1:nFiles);
 
-set( get(cax,'Parent'), 'pointer','arrow' );  drawnow;
+set(hFig, 'pointer','arrow');  drawnow;
 
 
-% Add menu to change settings
+%% Add menu to change settings
+hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)percentTime(getFiles('*.dwt'),params) );
+
+hMenu = findall(hFig,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)percentTime(cax,getFiles('*.dwt'),params) );
+
+
 hEditMenu = findall(hFig, 'tag','figMenuEdit');
 delete(allchild(hEditMenu));
 cb = @(~,~) settingsDialog(params,@percentTime,{cax,filenames});
