@@ -1,18 +1,22 @@
-function [meanPT,stdPT] = percentTime(varargin)
+function varargout = percentTime(varargin)
 % PERCENTTIME  Stable state probabilities
 %
-%   PT = percentTime(FILES) is the overall occupancy in each FRET state from
-%   .dwt files in the cell array FILES. States are in columns, files in rows.
-%
-%   [PT,SE] = percentTime(FILES) returns the bootstrapped standard errors (SE).
-%
-%   percentTime(...) if no outputs are requested, data are displayed instead.
+%   [PT,SE] = percentTime(FILES) returns the overall occupancy in each FRET  
+%   state (PT) and bootstrapped standard errors (SE) from .dwt files in the
+%   cell array FILES. States are in columns, files in rows.
 %
 %   [...] = percentTime(FILES,PARAMS) specifies optional parameters:  (defaults)
-%     'truncateLength': number of frames from beginning to use.       (all)
+%     'truncateLength': number of frames from beginning to use.       (Inf)
 %     'hideZeroState':  Do not show zero-FRET state (class 1).        (true)
+% 
+%   percentTime(...) if no outputs are requested, data are displayed instead.
+%   
+%   percentTime(AX,...) draws the plot in the scalar axes AX.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
+
+% FIXME: if targetting other axes, this will alter the menus...
+% Could consider, generally, to use zoom context menu instead...
 
 
 % Default parameter values
@@ -91,6 +95,9 @@ for i=1:nFiles,
     stdPT(i,:)  = std(  bootstrp(1000, bootfun, tracePT)  );
 end
 
+% Set output values
+output = {meanPT,stdPT};
+[varargout{1:nargout}] = output{1:nargout};
 if nargout>0, return; end
 
 
@@ -119,11 +126,18 @@ set( get(cax,'Parent'), 'pointer','arrow' );  drawnow;
 
 
 % Add menu to change settings
-hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
+hEditMenu = findall(hFig, 'tag','figMenuEdit');
 delete(allchild(hEditMenu));
-cb = @(~,~,~)settingsDialog(params,@percentTime,{cax,filenames});
-uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',cb);
+cb = @(~,~) settingsDialog(params,@percentTime,{cax,filenames});
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
 
+txt = sprintf(['%f ' repmat('%f',1,size(meanPT,2)-1) '\n'], meanPT');
+cb = @(~,~) clipboard('copy',txt);
+uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',cb);
+
+txt = sprintf(['%f ' repmat('%f',1,size(stdPT,2)-1) '\n'], stdPT');
+cb = @(~,~) clipboard('copy',txt);
+uimenu('Label','Copy errors', 'Parent',hEditMenu, 'Callback',cb);
 
 
 end % FUNCTION percentTime
