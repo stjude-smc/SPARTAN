@@ -1,38 +1,52 @@
-function [meanTPS,stdTPS] = transitionsPerSecond( dwtFilenames )
+function varargout = transitionsPerSecond(varargin)
 % transitionsPerSecond  Calculate average transition rates
 %
-%   TPS = transitionsPerSecond( FILES ) calculates the average number of
-%   transitions per second observed in each of the specified dwell-time FILES.
+%   [TPS,ERR] = transitionsPerSecond( FILES ) calculates the average number of
+%   transitions per second in each .dwt file in the cell array FILES.
 %   Transitions to and from the dark state (blinking) are ignored.
+%   ERR are bootstrapped standard errors for each file.
+%   
+%   [...] = transitionsPerSecond(FILES,PARAMS) specifies optional parameters:
+%     'removeZeroState': Do not consider the zero-FRET state (class 1).  (true)
+%
+%   transitionsPerSecond(...) if no outputs requested, display in a new figure.
+%
+%   transitionsPerSecond(AX,...) plots in the scalar axes AX.
 %
 %   See also: percentTime, makeplots.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
+
+
+% Default parameter values
+% params.truncateLength = Inf;
+params.removeZeroState = true;
 
 
 
-%% USER TUNABLE PARAMTERS
+%% Process input arguments
+narginchk(0,3);
+nargoutchk(0,2);
+[cax,args] = axescheck(varargin{:});
 
-% Only consider non-zero FRET states. zero-FRET state assumed to be state 1.
-REMOVEZERO = true;
-
-
-%% Get input filenames from user if not specified.
-if nargin<1,
-    % Request filenames from user
-    dwtFilenames = getFiles('*.dwt','Choose an idealization file:');
-    
-else
-    % If only a single file is specified, turn it into a cell array
-    if ischar(dwtFilenames),
-        dwtFilenames = {dwtFilenames};
-    end
+switch numel(args)
+    case 0
+        dwtFilenames = getFiles('*.dwt','Choose idealization files:');
+    case 1
+        dwtFilenames = args{1};
+    case 2
+        [dwtFilenames,inputParams] = args{:};
+        params = mergestruct(params, inputParams);
 end
+if ischar(dwtFilenames),
+    dwtFilenames = {dwtFilenames};
+end
+nFiles = numel(dwtFilenames);
+if nFiles==0, return; end
 
 % If .traces files are given, silently look for associated .dwt file.
 dwtFilenames = findDwt(dwtFilenames);
 
-nFiles = numel(dwtFilenames);
 
 
 %% Calculate transitions/sec for each datafile using bootstrap sampling.
@@ -53,7 +67,7 @@ for i=1:nFiles,
         states = dwells{trace}(:,1);
         times  = dwells{trace}(:,2);
 
-        if REMOVEZERO,
+        if params.removeZeroState,
             % Remove dwells in lowest FRET state (assuming it is the dark state)
             times  = times(states>1);
             states = states(states>1);
@@ -79,19 +93,57 @@ for i=1:nFiles,
     
 end %for each file
 
+% Handle output parameters
+outputs = {meanTPS,stdTPS};
+[varargout{1:nargout}] = outputs{1:nargout};
+
+if nargout>0 && isempty(cax),
+    return;
+end
+
 
 
 %% Display the result.
-if nargout>0, return; end
 
-figure;  cax = axes;
+% Make a new figure or clear user-defined target.
+if isempty(cax),
+    hFig = figure;
+else
+    hFig = get(cax,'Parent');
+end
+cax = newplot(hFig);
+
 nStates = size(meanTPS,2);
 errorbar( cax, repmat(1:nFiles,nStates,1)', meanTPS, stdTPS/2 );
 
-xlabel(cax, 'File number');
 ylabel(cax, 'Transitions per second');
 xlim(cax, [0.5 nFiles+0.5]);
 set(cax,'XTick',1:nFiles);
+
+labels = trimtitles(dwtFilenames);
+if max(cellfun(@numel,labels))<20,
+    set(cax,'XTick',1:nFiles, 'XTickLabelRotation',30);
+    set(cax,'XTickLabel',labels);
+else
+    xlabel(cax,'File number');
+end
+
+
+
+%% Add menus to change settings, get data, open new plots, etc.
+hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)transitionsPerSecond(getFiles('*.dwt'),params) );
+
+hMenu = findall(hFig,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params) );
+
+
+hEditMenu = findall(hFig, 'tag','figMenuEdit');
+delete(allchild(hEditMenu));
+
+uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,[meanTPS stdTPS]});
+
 
 
 

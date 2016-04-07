@@ -1,40 +1,52 @@
-function varargout = avgFretTime( files )
+function varargout = avgFretTime(varargin)
 %avgFretTime  Average FRET trajectory across all traces with bleaching removed.
 %
-%   avgFretTime(FILES) loads each .traces file in the cell array FILES, 
-%   takes the median the FRET values from all traces in each frame, and plots
-%   an average trajectory for each.
+%   OUT = avgFretTime(FILES) median FRET trajectory for each .traces file in
+%   the cell array FILES (first column is time axis in seconds).
 %
-%   avgFretTime() will prompt the user for files.
+%   OUT = avgFretTime() will prompt the user for files to load.
 %
-%   OUT = avgFretTime(...) will save the timecourses in the matrix OUT with the
-%   first column having the time axis in seconds. Nothing will be plotted.
+%   avgFretTime(...) with no outputs displays the data in a new figure.
+%
+%   avgFretTime(AX,...) plots in the the scalar axes AX.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Settings
-truncateLen = 300;  %frames to calculate over
-constants.min_fret = 0.175;  % minimum fret value, below which we assume there is no FRET.
+% Default parameter values
+params.truncateLen = 300;  %frames to calculate over
+params.min_fret = 0.175;  % minimum fret value, below which we assume there is no FRET.
 
-% Get list of files if not specified.
-if nargin<1, files = getFiles(); end
-if isempty(files), return; end
-if ~iscell(files), files = {files}; end
+
+
+%% Process input arguments
+narginchk(0,3);
+nargoutchk(0,1);
+[cax,args] = axescheck(varargin{:});
+
+switch numel(args)
+    case 0
+        files = getFiles();
+    case 1
+        files = args{1};
+    case 2
+        [files,inputParams] = args{:};
+        params = mergestruct(params, inputParams);
+end
+
+if ~iscell(files), files={files}; end
 nFiles = numel(files);
-
-% Generate plot titles and base filenames if none given.
-titles = trimtitles(files);
+if nFiles==0,  return;  end
 
 
 
 %% Calculate average FRET trajectories
-output = zeros(truncateLen,1+nFiles);
+output = zeros(params.truncateLen,1+nFiles);
 
 for i=1:numel(files),
     % Load FRET data and truncate to target length
     data = loadTraces( files{i} );
-    data.nFrames = truncateLen;
+    data.nFrames = params.truncateLen;
     
     if i==1,
         output(:,1) = data.time;  %convert to seconds
@@ -46,8 +58,8 @@ for i=1:numel(files),
     
     % For each trace, average the FRET values at each frame to create an
     % average FRET trace. Exclude regions where the dyes are dark.
-    for j=1:truncateLen,
-        nonzero = data.fret(:,j) >= constants.min_fret;
+    for j=1:params.truncateLen,
+        nonzero = data.fret(:,j) >= params.min_fret;
         output(j,i+1) = median( data.fret(nonzero,j) );
     end
 
@@ -56,15 +68,61 @@ end %for each trace.
 output(:,1) = output(:,1)/1000;  %convert to seconds
 
 
-if nargout>0,
+if nargout>0 && isempty(cax),
     varargout{1} = output;
     return;
 end
 
 
+%% Plot the result
+if ~isempty(cax),
+    hFig = get(cax,'Parent');
+else
+    hFig = figure;
+end
+cax = newplot(hFig);
 
+plot( cax, output(:,1), output(:,2:end) );
+xlabel(cax, 'Time (s)');
+ylabel(cax, 'Average FRET value');
+
+titles = trimtitles(files);
+if nFiles>1,
+    title('');
+    legend(cax, titles);
+else
+    title(cax, titles{1});
+    delete(legend(cax));
+end
+
+
+%% Add menu items
+hMenu = findall(hFig,'tag','figMenuGenerateCode');
+set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,output});
+
+hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)avgFretTime(getFiles(),params) );
+
+hMenu = findall(hFig,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)avgFretTime(cax,getFiles(),params) );
+
+
+hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
+delete(allchild(hEditMenu));
+uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,output});
+
+
+end %function avgFretTime
+
+
+
+
+%  =========================================================================  %
 %% Save the output to file.
-if nFiles==1,
+function exportTxt(~,~,files,output)
+
+if numel(files)==1,
     [p,f] = fileparts(files{1});
     outputFilename = fullfile(p, [f '_' mfilename '.txt']);
 else
@@ -77,25 +135,13 @@ outputFilename = fullfile(p,f);
 if f~=0,
     % Write header line
     fid = fopen(outputFilename,'w');
-    fprintf(fid,'Time (s)\t%s\n', strjoin(titles,'\t'));
+    fprintf(fid,'Time (s)\t%s\n', strjoin(trimtitles(files),'\t'));
     fclose(fid);
 
     dlmwrite(outputFilename,output,'-append','delimiter','\t');
 end
 
-
-
-%% Plot the result
-ax = axes('Parent',figure);
-plot( ax, output(:,1), output(:,2:end) );
-xlabel(ax, 'Time (s)');
-ylabel(ax, 'Average FRET value');
-if nFiles>1,
-    legend(ax, titles);
-else
-    title(ax, titles{1});
-end
-
+end %function avgFretTime_save
 
 
 

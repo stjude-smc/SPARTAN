@@ -57,6 +57,7 @@ if isempty(cax) && nargout==0,
 end
 
 
+
 %% Load dwell-times and calculate percent time in each state for each file.
 bootfun = @(times) 100*sum(times)/sum(times(:));
 
@@ -117,16 +118,24 @@ for i=1:nStates,
     titles{i} = sprintf('State %d (%.2f)\t',states(i),fret(i));
 end
 legend(cax,titles);
-
-xlabel(cax,'File number');
 ylabel(cax,'Fraction occupancy');
+
 xlim(cax,[0.5 nFiles+0.5]);
 set(cax,'XTick',1:nFiles);
+
+labels = trimtitles(filenames);
+if max(cellfun(@numel,labels))<20,
+    set(cax,'XTick',1:nFiles, 'XTickLabelRotation',30);
+    set(cax,'XTickLabel',labels);
+else
+    xlabel(cax,'File number');
+end
 
 set(hFig, 'pointer','arrow');  drawnow;
 
 
-%% Add menu to change settings
+
+%% Add menus to change settings, get data, open new plots, etc.
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)percentTime(getFiles('*.dwt'),params) );
@@ -140,13 +149,9 @@ delete(allchild(hEditMenu));
 cb = @(~,~) settingsDialog(params,@percentTime,{cax,filenames});
 uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
 
-txt = sprintf(['%f ' repmat('%f',1,size(meanPT,2)-1) '\n'], meanPT');
-cb = @(~,~) clipboard('copy',txt);
-uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',cb);
+uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,meanPT});
+uimenu('Label','Copy errors', 'Parent',hEditMenu, 'Callback',{@clipboardmat,stdPT});
 
-txt = sprintf(['%f ' repmat('%f',1,size(stdPT,2)-1) '\n'], stdPT');
-cb = @(~,~) clipboard('copy',txt);
-uimenu('Label','Copy errors', 'Parent',hEditMenu, 'Callback',cb);
 
 
 end % FUNCTION percentTime

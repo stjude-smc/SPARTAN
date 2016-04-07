@@ -19,7 +19,7 @@ narginchk(1,3)
 nargoutchk(0,0);
 
 
-%% Process input arguments and create display window
+%% Process input arguments calculate histograms
 if ishandle(varargin{1}),
     hFig = varargin{1};
     varargin = varargin(2:end);
@@ -32,14 +32,9 @@ if numel(dwtfilename)==0, return; end
 names = trimtitles(dwtfilename);
 
 
-
-%% Create histograms
+% Calculate histograms
 set(hFig,'pointer','watch'); drawnow;
 [dwellaxis,histograms] = dwellhist(dwtfilename,params);
-
-handles.names = names;
-handles.dwellhist = [to_col(dwellaxis) horzcat(histograms{:})];
-guidata(hFig,handles);  %save for later calls to saveDwelltimes()
 
 
 
@@ -101,7 +96,8 @@ set(hFig,'pointer','arrow'); drawnow;
 
 %% Add menu items for adjusting settings and saving output to file.
 hTxtMenu = findall(hFig, 'tag', 'figMenuGenerateCode');
-set(hTxtMenu, 'Label','Export as .txt', 'Callback',@dwellplots_save);
+output = [to_col(dwellaxis) horzcat(histograms{:})];
+set(hTxtMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,dwtfilename,output});
 
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
@@ -120,6 +116,8 @@ hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
 delete(allchild(hEditMenu));
 uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
 
+uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,output});
+
 
 
 end %function dwellplots
@@ -129,19 +127,15 @@ end %function dwellplots
 
 
 %% ------ Save results to file for plotting in Origin
-function dwellplots_save(hObject,~,~)
+function exportTxt(~,~,files,output)
 % Callback function for the "save histograms" button in the histogram figure.
 
-% Get histogram data saved in the figure object.
-handles = guidata(hObject);
-dwellhist = handles.dwellhist;
-names = handles.names;
-
+names = trimtitles(files);
 nFiles = numel(names);
-nStates = (size(dwellhist,2)-1)/nFiles;
+nStates = (size(output,2)-1)/nFiles;
 
 % Ask the user for an output filename.
-[f,p] = uiputfile('*.txt','Select output filename','dwellhist.txt');
+[f,p] = uiputfile('*.txt','Select output filename',[mfilename '.txt']);
 if f==0, return; end  %user hit cancel.
 outFilename = fullfile(p,f);
 
@@ -160,7 +154,7 @@ fclose(fid);
 
 
 % Output histogram data
-dlmwrite(outFilename, dwellhist, 'delimiter','\t', '-append');
+dlmwrite(outFilename, output, 'delimiter','\t', '-append');
 
 
 end

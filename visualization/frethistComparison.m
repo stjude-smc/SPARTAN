@@ -1,4 +1,4 @@
-function varargout = frethistComparison(files, inputParams)
+function varargout = frethistComparison(varargin)
 %fresthistComparison  1D FRET histogram
 %
 %   fresthistComparison(FILES) plots 1D FRET histogram, summing over all
@@ -15,6 +15,8 @@ function varargout = frethistComparison(files, inputParams)
 %     'pophist_offset':  number of frames to skip at the beginning.
 %     'calcErrorBars':   Calculating error bars with bootstrapping.
 %     'removeBlinks':    Use SKM remove dark state dwells.
+%
+%  frethistComparison(AX,...) plots in the the scalar axes AX.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
@@ -25,50 +27,141 @@ params = constants.defaultMakeplotsOptions;
 params.removeBlinks  = false;
 params.calcErrorBars = false;
 
-if nargin>1,
-    params = mergeStruct(params, inputParams);
+% Default colors, if there aren't too many files.
+colors = [ 0      0      0    ; ...  % black
+           0.75   0      0.75 ; ...  % purple
+           0      0.75   0.75 ; ...  % cyan
+           0      0.5    0    ; ...  % green
+           0.75   0.75   0    ; ...  % yellow
+           1      0      0    ; ...  % red
+           0.6    0      0    ];     % dark red
+
+
+%% Process input arguments
+narginchk(0,3);
+nargoutchk(0,3);
+[cax,args] = axescheck(varargin{:});
+
+switch numel(args)
+    case 0
+        files = getFiles();
+    case 1
+        files = args{1};
+    case 2
+        [files,inputParams] = args{:};
+        params = mergestruct(params, inputParams);
 end
 
-% Prompt user for filenames if not supplied
-if nargin<1,
-    files = getFiles();
-end
-if ~iscell(files), files = {files}; end
+if ~iscell(files), files={files}; end
 if numel(files)==0,  return;  end
 
-
 % Only calculate histograms if hist data is requested.
-if nargout>0,
-    [fretaxis,frethist,errors] = frethistComparison_calc(files,params);
-    output = {fretaxis,frethist,errors};
-    [varargout{1:nargout}] = output{1:nargout};
+if nargout>0 && isempty(cax),
+    [varargout{1:nargout}] = pophist(files,params);
     return;
 end
 
+% Create a new figure if no target given.
+if ~isempty(cax),
+    hFig = get(cax,'Parent');
+else
+    hFig = figure;
+end
 
-% Save the histogram data in the figure for access by callback functions.
-handles = struct('hFig',figure, 'files',{files}, 'params',params);
-guidata(handles.hFig,handles);
 
-% Add menu items
-hTxtMenu = findall(gcf, 'tag', 'figMenuGenerateCode');
-set(hTxtMenu, 'Label','Export as .txt', 'Callback',@frethistComparison_save);
+%% Draw histograms
+set(hFig,'pointer','watch'); drawnow;
 
-hEditMenu = findall(gcf, 'tag', 'figMenuEdit');
+nFiles = numel(files);
+
+if nFiles>size(colors,1),
+    colors = zeros(nFiles,3);
+    interval = (1/(nFiles-1));
+    colors(:,1) = 0:interval:1;
+    colors(:,3) = 1:-interval:0;
+end
+
+
+% Calculate histograms
+[fretaxis,frethist,errors] = pophist(files,params);
+% output = zeros( numel(fretaxis), size(frethist,2)*2+1 );
+% output(:,1) = fretaxis;
+% output(:,2:2:end) = frethist;
+% output(:,3:2:end) = errors;
+output = [to_col(fretaxis) frethist];
+% guidata(hFig, struct('files',{files},'output',output));  %for frethistComparison_save()
+
+
+% Plot histograms. Splines are for better display only.
+cax = newplot(hFig);
+hold(cax,'on');
+set(cax,'ColorOrder',colors);
+
+sx = fretaxis(1):0.001:fretaxis(end);
+sy = spline(fretaxis, frethist', sx);
+plot(cax, sx, sy, 'LineWidth',3);
+
+if params.calcErrorBars,
+    for i=1:nFiles,
+        errorbar(cax, fretaxis, frethist(:,i), errors(:,i)/2, '.', ...
+                  'LineWidth',1, 'Color',colors(i,:));
+    end
+end
+
+
+% Decorate the plot with axes etc.
+hold(cax,'off');
+ylabel( cax, 'Counts (%)' );
+xlabel( cax, 'FRET' );
+xlim( cax, [0.1 1.0] );
+yl = ylim(cax);
+ylim( cax, [0 yl(2)] );
+
+titles = trimtitles(files);
+if numel(titles)>1,
+    legend(cax, titles);
+    title(cax,'');
+else
+    delete(legend(cax));
+    title(cax, titles{1});
+end
+
+set(hFig,'pointer','arrow'); drawnow;
+
+
+%% Add menu items
+hMenu = findall(hFig,'tag','figMenuGenerateCode');
+set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,output});
+
+hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)frethistComparison(getFiles(),params) );
+
+hMenu = findall(hFig,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)frethistComparison(cax,getFiles(),params) );
+
+
+hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
 delete(allchild(hEditMenu));
-uimenu('Label','Display settings...', 'Parent',hEditMenu, 'Callback',@frethistComparison_settings);
 
-% Plot the histograms
-frethistComparison_display(handles.hFig);
+fields = {'removeBlinks', 'calcErrorBars', 'contour_length', 'pophist_offset'};
+prompt = {'Remove blinks:', 'Show error bars:', 'Frames', 'Offset:'};
+cb = @(~,~) settingsDialog(params,fields,prompt,@frethistComparison,{cax,files});
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
+
+cb = @(~,~)frethistComparison(cax,files);
+uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',cb);
+
+uimenu('Label','Copy data', 'Parent',hEditMenu, 'Callback',{@clipboardmat,output});
 
 
-end %function frethistComparison
+end
 
 
 
-%%
-function [fretaxis,frethist,errors] = frethistComparison_calc(files,settings)
-%
+%%==========================================================================%%
+%% Calculate 1D FRET histograms
+function [fretaxis,frethist,errors] = pophist(files,settings)
 
 
 % Display settings:
@@ -145,140 +238,15 @@ for i=1:nFiles
 end
 
 
-end %function frethistComparison_calc
+end %function pophist
 
 
 
 
-
-%% Display histograms
-function frethistComparison_display(hObject,~,~)
-%
-
-handles = guidata(hObject);
-set(handles.hFig,'pointer','watch'); drawnow;
-
-params  = handles.params;
-titles  = trimtitles(handles.files);
-nFiles  = numel(titles);
-
-
-% Define parameters
-colors = [ 0      0      0    ; ...  % black
-           0.75   0      0.75 ; ...  % purple
-           0      0.75   0.75 ; ...  % cyan
-           0      0.5    0    ; ...  % green
-           0.75   0.75   0    ; ...  % yellow
-           1      0      0    ; ...  % red
-           0.6    0      0    ];     % dark red
-
-if nFiles>size(colors,1),
-    colors = zeros(nFiles,3);
-    interval = (1/(nFiles-1));
-    colors(:,1) = 0:interval:1;
-    colors(:,3) = 1:-interval:0;
-end
-
-
-% Calculate histograms anew
-[fretaxis,frethist,errors] = frethistComparison_calc(handles.files,params);
-% handles.output = zeros( numel(fretaxis), size(frethist,2)*2+1 );
-% handles.output(:,1) = fretaxis;
-% handles.output(:,2:2:end) = frethist;
-% handles.output(:,3:2:end) = errors;
-handles.output = [to_col(fretaxis) frethist];
-guidata(hObject,handles);
-
-
-% Plot histograms. Splines are for better display only.
-cax = cla(handles.hFig);
-hold(cax,'on');
-set(cax,'ColorOrder',colors);
-
-sx = fretaxis(1):0.001:fretaxis(end);
-sy = spline( fretaxis, frethist', sx );
-plot( cax, sx, sy, 'LineWidth',3 );
-
-if params.calcErrorBars,
-    for i=1:nFiles,
-        errorbar( fretaxis, frethist(:,i), errors(:,i)/2, '.', ...
-                  'LineWidth',1, 'Color',colors(i,:) );
-    end
-end
-
-
-% Decorate the plot with axes etc.
-hold(cax,'off');
-ylabel( cax, 'Counts (%)' );
-xlabel( cax, 'FRET' );
-xlim( cax, [0.1 1.0] );
-yl = ylim(cax);
-ylim( cax, [0 yl(2)] );
-
-if nFiles>1,
-    legend(cax, titles);
-else
-    title(cax, titles{1});
-end
-
-set(handles.hFig,'pointer','arrow'); drawnow;
-
-
-end
-
-
-
-
-
-%% Dialog to change parameters
-function frethistComparison_settings(hObject,~,~)
-
-handles = guidata(hObject);
-opt = handles.params;
-
-% 1. Get the new value from the user.
-prompt = {'Remove blinks:', 'Show error bars:', 'Frames', 'Offset:'};
-fields = {'removeBlinks', 'calcErrorBars', 'contour_length', 'pophist_offset'};
-currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
-
-answer = inputdlg(prompt, [mfilename ' display settings'], 1, currentopt);
-if isempty(answer), return; end  %user hit cancel
-
-% 2. Save new parameter values from user.
-for k=1:numel(answer),
-    original = opt.(fields{k});
-    
-    if isnumeric(original)
-        opt.(fields{k}) = str2double(answer{k});
-    elseif islogical(original)
-        opt.(fields{k}) = logical(str2double(answer{k}));
-    else
-        opt.(fields{k}) = answer{k};
-    end
-    
-    % FIXME: verify string fields.
-end
-
-handles.params = opt;
-guidata(hObject,handles);
-
-% 3. Redraw plots.
-frethistComparison_display(hObject);
-
-
-
-end %function dwellhist_settings
-
-
-
-
-
+%%==========================================================================%%
 %% Save histogram to file
-function frethistComparison_save(hObject,~,~)
+function exportTxt(~,~,files,output)
 
-handles = guidata(hObject);
-files = handles.files;
-output = handles.output;
 nFiles = numel(files);
 
 if nFiles==1,
