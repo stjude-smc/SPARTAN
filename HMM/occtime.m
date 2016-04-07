@@ -10,7 +10,7 @@ function varargout = occtime(varargin)
 %
 %   occupancyTimecourse(...) with no outputs displays the data in a new figure.
 %
-%   occupancyTimecourse(AX,...) plots in the the scalar axes AX.
+%   occupancyTimecourse(AX,...) plots in the the axes AX (one per file)
 
 %   Copyright 2016 Cornell University All Rights Reserved.
 
@@ -22,7 +22,7 @@ params.nFrames = 300;  %number of frames to show
 
 
 %% Process input arguments
-narginchk(0,2);
+narginchk(0,3);
 nargoutchk(0,2);
 [varargout{1:nargout}] = deal([]);
 
@@ -44,7 +44,7 @@ switch numel(args)
         params = mergestruct(params, inputParams);
 end
 cellinput = iscell(files);
-% files = findDwt(files);
+files = findDwt(files);
 
 nFiles = numel(files);
 if nFiles==0,  return;  end
@@ -54,6 +54,18 @@ nFrames = params.nFrames;
 if ~isempty(ax) && numel(ax)~=nFiles,
     error('Input axes must match number of files');
 end
+
+
+% Create figure
+hasTarget = ~isempty(ax);
+if hasTarget,
+    hFig = get(ax(1),'Parent');
+    set(hFig,'pointer','watch'); drawnow;
+elseif nargout==0
+    hFig = figure;
+    set(hFig,'pointer','watch'); drawnow;
+end
+
 
 
 %% Calculate occupancy
@@ -82,6 +94,7 @@ for f=1:nFiles,
 end
 
 % Return in the same format is input (matrix in, matrix out).
+
 if nargout>0
     if ~cellinput,
         output = {occupancy{1},time};
@@ -95,16 +108,15 @@ end
 
 
 %% Display plots with occupancy
-hasTarget = ~isempty(ax);
-if ~hasTarget,
-    hFig = figure;
-end
 titles = trimtitles(files);
+
+h = [occupancy{:}];
+ymax = 1.1*max(h(:));
 
 % Format list of states (number, mean FRET value) for legend.
 lgtxt = cell(nStates,1);
 for s=1:nStates,
-    lgtxt{s} = sprintf('State %d (%.2f)\t',s,fret(s));
+    lgtxt{s} = sprintf('%d (%.2f)\t',s,fret(s));
 end
 
 for i=1:nFiles,
@@ -126,14 +138,78 @@ for i=1:nFiles,
 
     title(ax(i), titles{i});
     xlim(ax(i), [time(1) time(end)]);
+    ylim(ax(i), [0 ymax]);
 end
 
 linkaxes(ax,'xy');
+set(hFig,'pointer','arrow'); drawnow;
+
+
+
+%% Add menus to change settings, get data, open new plots, etc.
+txtout = [time occupancy{:}];
+hMenu = findall(hFig,'tag','figMenuGenerateCode');
+set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,txtout});
+
+hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)occtime(getFiles('*.dwt'),params) );
+
+hMenu = findall(hFig,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)occtime(ax,getFiles('*.dwt'),params) );
+
+
+hEditMenu = findall(hFig, 'tag','figMenuEdit');
+delete(allchild(hEditMenu));
+cb = @(~,~) settingsDialog(params,@occtime,{ax,files});
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
+uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',@(~,~)occtime(ax,files));
+uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,txtout});
+
+
 
 end %function occupancyTimecourse
 
 
-%% Save to file
+%  =========================================================================  %
+%% Save the output to file.
+function exportTxt(~,~,files,output)
+
+nFiles = numel(files);
+nStates = (size(output,2)-1)/nFiles;
+
+if numel(files)==1,
+    [p,f] = fileparts(files{1});
+    outputFilename = fullfile(p, [f '_' mfilename '.txt']);
+else
+    outputFilename = [mfilename '.txt'];
+end
+
+[f,p] = uiputfile('*.txt', [mfilename ': save output'], outputFilename);
+if f==0, return; end  %user hit cancel.
+outFilename = fullfile(p,f);
+
+
+% Output header lines
+fid = fopen(outFilename,'w');
+fprintf(fid,'Time (s)');
+names = trimtitles(files);
+
+for i=1:nFiles
+    for state=1:nStates,
+        fprintf(fid,'\t%s (State %d)',names{i},state);
+    end
+end
+fprintf(fid,'\n');
+fclose(fid);
+
+
+% Output histogram data
+dlmwrite(outFilename, output, 'delimiter','\t', '-append');
+
+
+end %function avgFretTime_save
+
 
 
 

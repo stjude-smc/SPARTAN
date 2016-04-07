@@ -93,7 +93,6 @@ for i=1:nFiles,
         meanPT = zeros(nFiles, size(tracePT,2));
         stdPT  = zeros(nFiles, size(tracePT,2));
     end
-[varargout{1:nargout}] = deal([]);
     
     meanPT(i,:) = bootfun(tracePT);
     stdPT(i,:)  = std(  bootstrp(1000, bootfun, tracePT)  );
