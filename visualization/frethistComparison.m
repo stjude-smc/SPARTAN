@@ -40,6 +40,7 @@ colors = [ 0      0      0    ; ...  % black
 %% Process input arguments
 narginchk(0,3);
 nargoutchk(0,3);
+[varargout{1:nargout}] = deal([]);
 [cax,args] = axescheck(varargin{:});
 
 switch numel(args)

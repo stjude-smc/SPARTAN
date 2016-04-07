@@ -51,6 +51,7 @@ end
 
 
 %% Prompt user for file names if not given.
+[varargout{1:nargout}] = deal([]);
 
 % Get list of .dwt files to load
 if nargin<1,

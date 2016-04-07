@@ -27,6 +27,7 @@ params.hideZeroState = true;
 %% Process input arguments
 narginchk(0,3);
 nargoutchk(0,2);
+[varargout{1:nargout}] = deal([]);
 [cax,args] = axescheck(varargin{:});
 
 switch numel(args)
@@ -92,6 +93,7 @@ for i=1:nFiles,
         meanPT = zeros(nFiles, size(tracePT,2));
         stdPT  = zeros(nFiles, size(tracePT,2));
     end
+[varargout{1:nargout}] = deal([]);
     
     meanPT(i,:) = bootfun(tracePT);
     stdPT(i,:)  = std(  bootstrp(1000, bootfun, tracePT)  );

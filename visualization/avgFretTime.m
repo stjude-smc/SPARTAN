@@ -22,6 +22,7 @@ params.min_fret = 0.175;  % minimum fret value, below which we assume there is n
 %% Process input arguments
 narginchk(0,3);
 nargoutchk(0,1);
+[varargout{1:nargout}] = deal([]);
 [cax,args] = axescheck(varargin{:});
 
 switch numel(args)

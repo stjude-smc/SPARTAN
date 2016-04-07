@@ -27,6 +27,7 @@ params.removeZeroState = true;
 %% Process input arguments
 narginchk(0,3);
 nargoutchk(0,2);
+[varargout{1:nargout}] = deal([]);
 [cax,args] = axescheck(varargin{:});
 
 switch numel(args)
