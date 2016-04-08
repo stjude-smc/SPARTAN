@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 04-Nov-2015 15:05:04
+% Last Modified by GUIDE v2.5 08-Apr-2016 12:30:15
 
 
 % Begin initialization code - DO NOT EDIT
@@ -220,7 +220,7 @@ set( [handles.edCrosstalk2  handles.sldCrosstalk2 handles.edCrosstalk3 ...
       'Enable', onoff(ismember('fret2',data.channelNames)) );
 
 set( [handles.edThreshold handles.sldThreshold], 'Enable', onoff(useThresh) );
-set( [handles.btnPrint handles.btnLoadDWT handles.btnGettraces], 'Enable','on');
+set( [handles.tbLoadIdl handles.mnuLoadIdl handles.tbGettraces handles.mnuGettraces], 'Enable','on');
 
 % Reset x-axis label to reflect time or frame-based.
 time = data.time;
@@ -282,6 +282,9 @@ else
 end
 zoom reset;  %remember new axis limits when zooming out.
 
+set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
+     handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
+     handles.mnuCorrResetAll], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION OpenTracesFile
@@ -337,7 +340,7 @@ else
     return;
 end
 
-set(handles.btnSave,'Enable','on');
+set([handles.tbSave handles.mnuSave], 'Enable','on');
 
 %END FUNCTION loadSavedState
 
@@ -487,7 +490,7 @@ for i=1:numel(handles.bins),
     set( handles.(edName), 'String',num2str(numel(handles.bins{i})) );
 end
 
-set(handles.btnSave,'Enable','on');
+set([handles.tbSave handles.mnuSave], 'Enable','on');
 guidata(hObject,handles);
 
 
@@ -508,7 +511,7 @@ addToBin_Callback(handles.(chkName),[],handles,index);
 
 %----------SAVE TRACES----------%
 % --- Executes on button press in btnSave.
-function btnSave_Callback(hObject, ~, handles) %#ok<DEFNU>
+function btnSave_Callback(~, ~, handles) %#ok<DEFNU>
 % Save selected traces in a new file for each bin.
 
 [p,f]=fileparts(handles.filename);
@@ -525,7 +528,7 @@ for i=1:numel(handles.bins),
     savePickedTraces( handles, filename, handles.bins{i} );
 end
 
-set(hObject,'Enable','off');
+set([handles.tbSave handles.mnuSave], 'Enable','off');
 
 % END FUNCTION btnSave_Callback
 
@@ -548,8 +551,6 @@ if f==0, return; end
 
 % Apply all corrections and save traces and idealization to file.
 savePickedTraces( handles, fullfile(p,f), 1:handles.data.nTraces );
-
-set(handles.btnSaveInPlace,'Enable','off');
 
 % END FUNCTION savePickedTraces
 
@@ -864,7 +865,7 @@ function handles = updateTraceData( handles )
 handles.adjusted(handles.molecule_no) = true;
 guidata(handles.figure1, handles);
 
-set([handles.btnSave handles.btnSaveInPlace], 'Enable','on');
+set([handles.mnuSave handles.tbSave], 'Enable','on');
 plotter(handles);
 
 % END FUNCTION updateTraceData
@@ -1037,8 +1038,9 @@ for c=1:numel(fluorCh),
     end
 end
 
-set( handles.txtTitle, 'String', [ 'Molecule ' num2str(m) ' of ' ...
-                        num2str(handles.data.nTraces) ' of "' data_fname '"'] );
+titleTxt = [ 'Molecule ' num2str(m) ' of ' num2str(handles.data.nTraces) ...
+            ' in "' strrep(data_fname,'_',' ') '"'];
+title(handles.axFluor,titleTxt);
 axis(handles.axFluor,'auto');
 
 
@@ -1180,7 +1182,7 @@ else
     
 end %if errors
 
-set(handles.btnClearIdl,'Enable','on');
+set(handles.mnuClearIdl,'Enable','on');
 
 % END FUNCTION loadDWT_ex
 
@@ -1194,7 +1196,7 @@ handles.idl = [];
 handles.idlFret = [];
 
 guidata(hObject,handles);
-set(handles.btnClearIdl,'Enable','off');
+set(handles.mnuClearIdl,'Enable','off');
 
 plotter(handles);
 
@@ -1222,7 +1224,7 @@ set(handles.(chkName),'Value',1);
 edName = sprintf('editBin%d',index);
 set( handles.(edName), 'String',num2str(numel(handles.bins{index})) );
 
-set(handles.btnSave,'Enable','on');
+set([handles.tbSave handles.mnuSave],'Enable','on');
 guidata(hObject,handles);
 
 %end function btnSelAll_Callback
@@ -1245,7 +1247,7 @@ if strcmp(result,'OK'),
     edName = sprintf('editBin%d',index);
     set( handles.(edName), 'String',num2str(0) );
 
-    set(handles.btnSave,'Enable','on');
+    set([handles.tbSave handles.mnuSave], 'Enable','on');
     guidata(hObject,handles);
 end
 
@@ -1400,8 +1402,8 @@ plotter(handles);
 function sorttraces_CloseRequestFcn(hObject, ~, handles) %#ok<DEFNU>
 % Give the user a chance to save current state before closing.
 
-if strcmpi(get(handles.btnSave,'Enable'),'on') && ...
-   strcmpi(get(handles.btnSaveInPlace,'Enable'),'on'),
+if strcmpi(get(handles.mnuSave,'Enable'),'on') && ...
+   strcmpi(get(handles.mnuSaveAs,'Enable'),'on'),
 
     a = questdlg('Save current state before exiting?', 'Close sorttraces', ...
                  'Yes','No','Cancel', 'Yes' );
@@ -1422,6 +1424,3 @@ end
 delete(hObject);
 
 % END FUNCTION sorttraces_CloseRequestFcn
-
-
-
