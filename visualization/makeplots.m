@@ -93,32 +93,26 @@ if isfield(defaults,'cplot_normalize_to_max') && defaults.cplot_normalize_to_max
 end
 
 
-% =============== ADD GUI CONTROLS ================ 
-% These are buttons and things to save the plots or manipulate them without
-% calling makeplots again.
-% Position from LL corner is defined as [left bottom width height].
-% FIXME: change to normalized units so the buttons are scaled?
-% NOTE: must use anonymous function reference or saved .fig files may not find 
-% these functions if makeplots.m is changed.
+% =============== ADD GUI CONTROLS ================
+hMenu = findall(h1,'tag','figMenuUpdateFileNew');
+delete(allchild(hMenu));
+set(hMenu, 'Callback', @(~,~)makeplots() );
 
-uicontrol( 'Style','pushbutton', 'String','Save files', ...
-           'Position',[20 20 80 30], 'Callback',@(x,y)saveFiles2(x,y), ...
-           'Parent',h1 );
+% hMenu = findall(h1,'tag','figMenuOpen');
+% set(hMenu, 'Callback', @(~,~)makeplots(h1,getFiles(),titles,defaults) );
 
-uicontrol( 'Style','pushbutton', 'String','Change settings', ...
-           'Position',[110 20 130 30], 'Callback',@(x,y)changeDisplaySettings2(x,y), ...
-           'Parent',h1 );
+hMenu = findall(h1,'tag','figMenuGenerateCode');
+set(hMenu, 'Label','Export .txt files', 'Callback',@(x,y)saveFiles2(x,y));
        
-uicontrol( 'Style','pushbutton', 'String','Reset settings', ...
-           'Position',[250 20 120 30], 'Callback',@(x,y)resetSettings2(x,y), ...
-           'Parent',h1 );
+hEditMenu = findall(h1, 'tag','figMenuEdit');
+delete(allchild(hEditMenu));
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',@(x,y)changeDisplaySettings2(x,y));
+uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',@(x,y)resetSettings2(x,y));
+
 
 
 % =============== COMPATIBILITY with 2.11 and earlier ================
-% The implementation of these functions changed in 2.12. Before, all data were
-% in the local stack so the buttons would not function correctly when loading
-% the figures from file. Disabled to prevent errors or confusion.
-% Without these, users cannot load old .fig files.
+% Display a warning instead of crashing.
 function saveFiles(varargin) %#ok<DEFNU>
     disp('This feature is not available for versions before 2.12.');
 end
@@ -146,7 +140,6 @@ function changeDisplaySettings2(hObject,~)
 % Prompt user to change any makeplots display settings.
 
 handles = guidata(hObject);
-opt = handles.options;
 
 % 1. Get the new value from the user.
 prompt = {'Contour length (frames):', 'Contour offset (frames):', ...
@@ -158,20 +151,7 @@ fields = {'contour_length', 'pophist_offset', ...
           'cplot_scale_factor', 'contour_bin_size', ...
           'cplot_remove_bleached', 'tdp_max', ...
           'hideBlinksInTDPlots', 'truncate_tdplot' };
-currentopt = cellfun( @(x)num2str(opt.(x)), fields, 'UniformOutput',false );
-
-answer = inputdlg(prompt, 'Makeplots display settings', 1, currentopt);
-if isempty(answer), return; end  %user hit cancel
-
-% 2. Save new parameter values from user.
-for k=1:numel(answer),
-    original = opt.(fields{k});
-    opt.(fields{k}) = str2double(answer{k});
-    
-    if islogical(original)
-        opt.(fields{k}) = logical( opt.(fields{k}) );
-    end
-end
+opt = settingsDialog(handles.options,fields,prompt);
 
 opt.fret_axis = -0.1:opt.contour_bin_size:1.2;
 opt.contour_bounds = [1 opt.contour_length opt.fretRange];

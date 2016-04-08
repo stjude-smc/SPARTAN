@@ -1,5 +1,4 @@
 function output = settingsDialog(input,varargin)
-%function output = settingsDialog(input, fields,prompt,types, fun,fin)
 %settingsDialog  Input dialog to change arbitrary struct fields
 %
 %   OPT = settingsDialog(OPT) displays an inputdlg with one line for each
@@ -59,7 +58,7 @@ output = input;
 currentopt = cellfun( @(x)num2str(input.(x)), fields, 'UniformOutput',false );
 
 % Prompt user for new values
-answer = inputdlg(prompt, [mfilename ' display settings'], 1, currentopt);
+answer = inputdlg(prompt, 'Change settings', 1, currentopt);
 if isempty(answer), return; end  %user hit cancel
 
 % Reformat user answers to original format.
