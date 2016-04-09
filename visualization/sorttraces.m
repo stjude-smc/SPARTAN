@@ -281,11 +281,13 @@ else
     ylim(handles.axFret, 'auto');
 end
 zoom reset;  %remember new axis limits when zooming out.
+% set([handles.axFluor handles.axTotal],'XTickLabel',{});
 
 set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
      handles.mnuCorrResetAll], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
+
 
 % END FUNCTION OpenTracesFile
 
@@ -445,6 +447,7 @@ set(handles.btnSubUndo,     'Enable','off');
 
 plotter(handles);
 
+% END FUNCTION editGoTo_Callback
 
 
 %----------GO BACK TO PREVIOUS MOLECULE----------%
@@ -1041,13 +1044,12 @@ end
 titleTxt = [ 'Molecule ' num2str(m) ' of ' num2str(handles.data.nTraces) ...
             ' in "' strrep(data_fname,'_',' ') '"'];
 title(handles.axFluor,titleTxt);
-axis(handles.axFluor,'auto');
 
 
 % Plot total fluorescence
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
-axis(handles.axTotal,'auto');
+axis([handles.axTotal handles.axFluor],'auto');
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
