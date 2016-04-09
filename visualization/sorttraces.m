@@ -67,7 +67,6 @@ if ~isfield(handles,'constants')
     % Hold is needed so we don't lose the grid/zoom/etc settings, which are
     % lost when a new plot is generated on the axes...
     for i=1:numel(ax),
-        grid( ax(i), 'on' );
         zoom( ax(i), 'on' );
         hold( ax(i), 'on' );
         set( zoom(ax(i)), 'ActionPostCallback',@zoom_callback);
@@ -75,7 +74,6 @@ if ~isfield(handles,'constants')
     
     ylabel( handles.axFluor, 'Fluorescence' );
     ylabel( handles.axTotal, 'Total Fluorescence' );
-    ylim( handles.axFret, [-0.1 1] );
     
     handles.axFOV = [];
     handles.idl = [];
@@ -135,6 +133,7 @@ data = loadTraces( filename );
 
 if isempty(data),
     warndlg('File is empty, so it cannot be loaded');
+    set(handles.figure1,'pointer','arrow'); drawnow;
     return;
 end
 
@@ -204,8 +203,8 @@ end
 % Initialize picking boxes
 for i=1:numel(handles.binNames),
     set( handles.(sprintf('editBin%d',i)), 'String',num2str(numel(handles.bins{i})) );
-    set( handles.(sprintf('btnSelAll%d',i)), 'Enable','on' );
-    set( handles.(sprintf('btnSelClear%d',i)), 'Enable','on' );
+    set( handles.(sprintf('mnuSelAll%d',i)), 'Enable','on' );
+    set( handles.(sprintf('mnuClear%d',i)), 'Enable','on' );
     set( handles.(sprintf('chkBin%d',i)), 'String',handles.binNames{i}, ...
          'Enable','on', 'Value', 0);
 end
@@ -233,16 +232,23 @@ end
 xlim( handles.axFret, [time(1) time(end)] );
 
 % Look for an corresponding idealization file and load it if found.
-dwt_fname = fullfile(p, [fname '.qub.dwt']);
-dwt_fname2 = fullfile(p, [fname '.dwt']);
-
-if exist( dwt_fname, 'file' ),
-    handles = loadDWT_ex( handles, dwt_fname );
-elseif exist( dwt_fname2, 'file' ),
-    handles = loadDWT_ex( handles, dwt_fname2 );
-else
+try
+    dwt_fname = findDwt({filename});
+    handles = loadDWT_ex( handles, dwt_fname{1} );
+catch
     handles.idl = [];
     handles.idlFret = [];
+end
+
+% Molecule location
+% FIXME: assumes donor is at the origin (upper left).
+axis(handles.axLocation,'square');
+if isfield(data.fileMetadata,'fieldSize')
+    szMovie = data.fileMetadata.movieSize;
+    axis(handles.axLocation, [0 szMovie(1) 0 szMovie(2)]);
+else
+    xlim(handles.axLocation, [0 max([data.traceMetadata.donor_x])] );
+    ylim(handles.axLocation, [0 max([data.traceMetadata.donor_y])] );
 end
 
 
@@ -281,8 +287,8 @@ else
     ylim(handles.axFret, 'auto');
 end
 zoom reset;  %remember new axis limits when zooming out.
-% set([handles.axFluor handles.axTotal],'XTickLabel',{});
 
+% Enable buttons
 set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
      handles.mnuCorrResetAll], 'Enable','on');
@@ -439,11 +445,6 @@ set( handles.sldGamma1, 'Value', handles.gamma(mol,2) );
 
 set( handles.edGamma2, 'String', sprintf('%.2f',handles.gamma(mol,3)) );
 set( handles.sldGamma2,'Value',  handles.gamma(mol,3) );
-
-set(handles.btnSubDonor,    'Enable','on' );
-set(handles.btnSubBoth,     'Enable','on' );
-set(handles.btnSubAcceptor, 'Enable','on' );
-set(handles.btnSubUndo,     'Enable','off');
 
 plotter(handles);
 
@@ -679,10 +680,6 @@ if mode==4,
         handles.data.(ch)(m,:) = handles.data.(ch)(m,:) + handles.backgrounds(i);
     end    
 end
-
-
-% Update GUI controls to allow undo if something has been changed.
-set(handles.btnSubUndo, 'Enable', onoff(mode<4));
 
 updateTraceData( handles );
 
@@ -992,6 +989,11 @@ if ishandle(handles.axFOV),
         close( get(handles.axFOV,'Parent') );
     end
 end
+
+% Draw molecule location in small panel
+cla(handles.axLocation);
+loc = [data.traceMetadata.donor_x data.traceMetadata.donor_y];
+viscircles(handles.axLocation, loc, 5);
 
 
 % Determine colors for plotting fluorescence.
