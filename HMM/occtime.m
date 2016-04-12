@@ -6,11 +6,11 @@ function varargout = occtime(varargin)
 %   and time across rows. The time axis is in seconds.
 %   If files is a cell array, OCC is a cell array, one per file.
 %
-%   [...] = occupancyTimecourse() will prompt the user for files to load.
+%   [...] = occtime() will prompt the user for files to load.
 %
-%   occupancyTimecourse(...) with no outputs displays the data in a new figure.
+%   occtime(...) with no outputs displays the data in a new figure.
 %
-%   occupancyTimecourse(AX,...) plots in the the axes AX (one per file)
+%   occtime(AX,...) plots in the the axes AX (one per file)
 
 %   Copyright 2016 Cornell University All Rights Reserved.
 
@@ -44,6 +44,7 @@ switch numel(args)
         params = mergestruct(params, inputParams);
 end
 cellinput = iscell(files);
+if ~iscell(files), files={files}; end
 files = findDwt(files);
 
 nFiles = numel(files);
@@ -94,7 +95,6 @@ for f=1:nFiles,
 end
 
 % Return in the same format is input (matrix in, matrix out).
-
 if nargout>0
     if ~cellinput,
         output = {occupancy{1},time};
@@ -208,36 +208,6 @@ fclose(fid);
 dlmwrite(outFilename, output, 'delimiter','\t', '-append');
 
 
-end %function avgFretTime_save
+end %function exportTxt
 
 
-
-
-% [dwt,sampling,~,fretModel] = loadDWT(dwtFile);
-% nStates = size(fretModel,1);
-% 
-% occupancy = zeros(nStates,traceLength);
-% time = 0:sampling:(traceLength-1)*sampling;
-% 
-% for i=1:length(dwt)
-%     currentTrace = dwt{i};
-%     currentPosition = 1;
-%     %allStates = currentTrace(:,1);
-%     for j=1:size(currentTrace,1)
-%         currentState = currentTrace(j,1);
-%         currentLength = currentTrace(j,2);
-%         endPosition = currentPosition + currentLength - 1;
-%         occupancy(currentState,currentPosition:endPosition) = occupancy(currentState,currentPosition:endPosition) + 1;
-%         currentPosition = endPosition+1;
-%     end
-% end
-% 
-% for i=1:size(occupancy,2)
-%     occupancy(:,i) = occupancy(:,i)./sum(occupancy(:,i));
-% end
-% 
-% [path,name,~] = fileparts(dwtFile);
-% outFile = fullfile(path, [name '_stateOcc.txt']);
-% dlmwrite(outFile,vertcat(time,occupancy));
-% 
-% end
