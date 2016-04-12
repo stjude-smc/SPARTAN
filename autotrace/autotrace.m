@@ -99,7 +99,7 @@ longNames  = struct2cell(ln);
 shortNames = fieldnames(ln);
 
 % Add trace statistic names to dropdown boxes above histogram axes.
-handles.cboNames = strcat('cboStat',{'1','2','3','4','5'});
+handles.cboNames = strcat('cboStat',{'1','2','3','4'}); %,'5'});
 
 for id=1:length(handles.cboNames),
     % Also set options in combobox
@@ -111,7 +111,7 @@ set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
 set( handles.cboStat2, 'Value', find(strcmp('donorlife',shortNames))  );
 set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
 set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
-set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
+% set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
 % Setup special criteria selection drop-down boxes.
 handles.nCriteriaBoxes = 7;
@@ -187,7 +187,6 @@ function OpenTracesFile_Callback(hObject, ~, handles) %#ok<*DEFNU>
 %--- Open file with user-interface.
 filter = {'*.rawtraces;*.traces','All traces files (*.rawtraces,*.traces)'; ...
           '*.rawtraces','Raw traces files (*.rawtraces)'; ...
-          '*.txt','Old format traces files (*.txt)'; ...
           '*.*','All files (*.*)'  };
       
 [datafile,datapath] = uigetfile( filter,'Choose a traces file:', ...
@@ -217,8 +216,8 @@ else
 end
 
 % Shorten display name by removing initial part of the path if too long.
-if length(fileDisplayText)>70,
-    fileDisplayText = ['...' fileDisplayText(end-70:end)];
+if length(fileDisplayText)>90,
+    fileDisplayText = ['...' fileDisplayText(end-90:end)];
 end
 
 set(handles.editFilename,'String', fileDisplayText);
@@ -335,8 +334,7 @@ end
 function handles = OpenTracesBatch( hObject, handles )
 % Calculate and display trace statistics for the current list of files.
 
-set(handles.figure1, 'pointer', 'watch')
-drawnow;
+set(handles.figure1, 'pointer', 'watch'); drawnow;
 
 % Clear out old data to save memory.
 if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
@@ -359,7 +357,7 @@ clear infoStruct;
 % Select traces according to the current criteria.
 handles = PickTraces_Callback(hObject,handles);
 
-set(handles.figure1, 'pointer', 'arrow');
+set(handles.figure1, 'pointer', 'arrow'); drawnow;
 
 % END FUNCTION OpenTracesBatch
 
@@ -391,8 +389,7 @@ guidata(hObject,handles);
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
 function SaveTraces( filename, handles )
 
-set(handles.figure1, 'pointer', 'watch')
-drawnow;
+set(handles.figure1, 'pointer', 'watch'); drawnow;
 
 % Build list of trace indexes in each file
 picks = handles.inds_picked;
@@ -415,7 +412,8 @@ options.outFilename = filename;
 loadPickSaveTraces( handles.inputfiles, handles.criteria, options );
 
 set(handles.figure1, 'pointer', 'arrow');
-set(handles.SaveTraces,'Enable','off');
+set([handles.mnuFileSave handles.tbFileSave],'Enable','off');
+drawnow;
 
 
 % END FUNCTION SaveTraces_Callback
@@ -453,7 +451,7 @@ fclose(fid);
 dlmwrite( filename, data', '-append', 'delimiter','\t' );
 
 % Disable button as a means of confirming operation success.
-set(handles.btnSaveProperties,'Enable','off');
+set(handles.mnuFileSaveProp,'Enable','off');
 guidata(hObject,handles);
 
 % END FUNCTION SaveProperties_Callback
@@ -468,7 +466,7 @@ guidata(hObject,handles);
 function ViewPickedTraces_Callback(hObject, ~, handles)
 
 % If not already, save the selected traces to file.
-if strcmpi( get(handles.SaveTraces,'Enable'), 'on' );
+if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' );
     outfile = SaveTraces_Callback(hObject, [], handles);
 else
     outfile = handles.outfile;
@@ -510,7 +508,7 @@ for id=1:handles.nCriteriaBoxes
         str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
 end
 
-
+% 
 % Get criteria values for all the fixed GUI elements.
 % chk_corr is listed twice because it applies to two distinct criteria.
 % Overlap must be handled seperately since it doesn't have an associated textbox.
@@ -544,10 +542,9 @@ handles.picked_mols = numel(handles.inds_picked);
 
 % If at least one trace is picked, turn some buttons on.
 if handles.picked_mols > 0
-    set(handles.SaveTraces,'Enable','on');
-    set(handles.MakeContourPlot,'Enable','on');
-    set(handles.ViewPickedTraces,'Enable','on');
-    set(handles.btnSaveProperties,'Enable','on');
+    set( [handles.mnuFileSave handles.tbFileSave handles.mnuViewPlots ...
+          handles.tbViewPlots handles.mnuViewTraces handles.tbViewTraces ...
+          handles.mnuFileSaveProp], 'Enable','on');
 end
 
 % Turn some other buttons on/off.
@@ -556,9 +553,7 @@ set(handles.MoleculesPicked,'String', ...
 
         
 % Update trace statistic histograms for traces passing selection criteria.
-nAxes = length( handles.cboNames );
-
-for i=1:nAxes,
+for i=1:length(handles.cboNames),
     cboStat_Callback(handles.(handles.cboNames{i}), [], handles);
 end
 
@@ -580,7 +575,7 @@ function MakeContourPlot_Callback(hObject, ~, handles)
 % Display FRET contour plot of currently selected traces.
 
 % If not already, save the currently selected traces to file.
-if strcmpi( get(handles.SaveTraces,'Enable'), 'on' );
+if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' );
     outfile = SaveTraces_Callback(hObject, [], handles);
 else
     outfile = handles.outfile;
@@ -658,7 +653,7 @@ bar( ax, binCenters, data, 1 );
 grid(ax,'on');
 
 if id==1,
-    ylabel( handles.axStat1, 'Number of Traces (%)' );
+    ylabel(handles.axStat1, 'Count (%)');
 end
 
 % Save histogram data in plot for launching cftool
@@ -742,7 +737,7 @@ function stopFileTimer(~,~,hObject)
 % This function is called when there is an error during the timer callback
 % or when the timer is stopped.
 handles = guidata(hObject);
-set(handles.chkAutoBatch,'Value',0);
+set(handles.mnuAutoBatch,'Value',0);
 
 % END FUNCTION stopFileTimer
 
@@ -756,7 +751,7 @@ handles = guidata(hObject);
 % Kill the timer if the directory is inaccessible
 if ~exist(targetDir,'dir'),
     disp('Autotrace: stopping batch mode: directory was moved or is inaccessible');
-    set(handles.chkAutoBatch,'Value',0);
+    set(handles.mnuAutoBatch,'Value',0);
     
     fileTimer = timerfind('Name','autotrace_fileTimer');
     stop(fileTimer);
