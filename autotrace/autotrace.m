@@ -216,8 +216,8 @@ else
 end
 
 % Shorten display name by removing initial part of the path if too long.
-if length(fileDisplayText)>90,
-    fileDisplayText = ['...' fileDisplayText(end-90:end)];
+if length(fileDisplayText)>100,
+    fileDisplayText = ['...' fileDisplayText(end-100:end)];
 end
 
 set(handles.editFilename,'String', fileDisplayText);
