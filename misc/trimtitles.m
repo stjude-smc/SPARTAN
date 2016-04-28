@@ -9,8 +9,6 @@ function titles = trimtitles(files)
 
 %   Copyright 2016 Cornell University All Rights Reserved.
 
-% FIXME: only chop at word bounderies.
-
 
 % Verify input arguments
 narginchk(1,1);
@@ -23,33 +21,47 @@ elseif ~iscell(files) || ~all(cellfun(@ischar,files))
 end
 nFiles = numel(files);
 
-
 % Extract file names and remove underscores (interpreted as subscripts).
 [~,titles] = cellfun(@fileparts, files, 'UniformOutput',false);
-titles = strrep(titles,'_',' ');
+titles = strtrim( strrep(titles,'_',' ') );
 
 if nFiles<2, return; end  %nothing more to do.
 
 
-% Remove common characters from the beginning
-titlecat = char(titles);
-mask = sum(  abs( titlecat - repmat(titlecat(1,:),[nFiles 1]) )  );
-first = find(mask~=0,  1, 'first');
-if ~isempty(first),
-    titles = cellstr( titlecat(:,first:end) );
-else
-    % All file names are identical; use numbers instead.
-    titles = cellfun(@num2str,num2cell(1:nFiles),'UniformOutput',false);
-    return;
+% Split each title into words, delimited by any symbol.
+temp = cell(numel(titles), 0);
+for i=1:nFiles,
+    line = titles{i};
+    
+    idx = [1 find(~arrayfun(@isalpha_num,line)) numel(line)+1];
+    for j=1:numel(idx)-1,
+        temp{i,j} = line(idx(j):idx(j+1)-1);
+    end
 end
 
+% Prevent errors with unique.
+[temp{cellfun(@isempty,temp)}] = deal('');
 
-% Remove from the end by right justifying the text
-titlecat = strjust( char(titles),'right' );
-mask = sum(  abs( titlecat - repmat(titlecat(1,:),[nFiles 1]) )  );
-last = find(mask~=0, 1, 'last');
-titles = cellstr( strjust(titlecat(:,1:last),'left') );
 
+% Remove identical words at the beginning.
+while numel( unique(temp(:,1)) )==1
+    temp(:,1) = [];
+end
+
+% Remove identical words at end by right aligning cell array
+e = sum( cellfun(@isempty,temp), 2);
+for i=1:size(temp,1),
+    temp(i,:) = circshift(temp(i,:), e(i), 2);
+end
+while numel( unique(temp(:,end)) )==1
+    temp(:,end) = [];
+end
+
+% Recombine words to full strings for each file.
+titles = cell(size(titles));
+for i=1:numel(titles),
+    titles{i} = strtrim( [temp{i,:}] );
+end
 
 % Insert placeholers for any empty elements.
 e = cellfun(@isempty,titles);
