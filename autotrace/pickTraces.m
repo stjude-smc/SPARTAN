@@ -32,9 +32,11 @@ function [indexes,values] = pickTraces( stats, criteria  )
 %     criteria.(fields(i)) = defaults.(fields(i));
 % end
 
+% Recognized special criteria not using the typical format.
+special = {'maxTotalSigma', 'random'};
+
 
 Ntraces = numel(stats);
-
 picks = ones(1,Ntraces);
 
 
@@ -65,9 +67,9 @@ for i=1:numel(fn)
     elseif strfind(fn{i},'eq_')==1,
         cn = fn{i}(4:end);
         eq = '==';
+    elseif any(strcmpi(fn{i},special))
+        continue; %these are handled later
     else
-        % You will get a warning for using the "non-standard" criteria
-        % below, but they will actually still be applied, despite the warning.
         warning( 'pickTraces:badCriteria', 'Filtering criteria %s not recognized. Ignoring.', fn{i} );
         continue;
     end

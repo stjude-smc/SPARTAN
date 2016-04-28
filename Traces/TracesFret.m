@@ -93,7 +93,8 @@ methods
         idx = find(  cellfun( @(x) ~isempty(strfind(x,'fret')), this.channelNames )  );
     end
 
-    % Calculate total fluorescence intensity
+    % Calculate total fluorescence intensity of channels involved in FRET.
+    % This excludes 'factor' or other miscellaneous channels.
     function T = total(this,varargin)
         % Create struct for subsref, if the user requested a slice of the total
         % intensity matrix, saving memory by not constructing the full matrix.
@@ -105,8 +106,11 @@ methods
         end
         
         % Sum intensity from all fluorescence channels.
-        for c=1:numel(this.idxFluor),
-            S(1).subs = this.channelNames{this.idxFluor(c)};
+        idxCh = ismember(this.channelNames,{'donor','donor2','acceptor','acceptor2'});
+        ch = this.channelNames(idxCh);
+        
+        for c=1:numel(ch),
+            S(1).subs = ch{c};
             if c==1,
                 T = subsref( this, S );
             else
