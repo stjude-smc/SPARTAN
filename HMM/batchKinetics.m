@@ -22,13 +22,13 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 14-Aug-2015 17:46:22
+% Last Modified by GUIDE v2.5 02-May-2016 11:49:57
 
 
 %% GUI Callbacks
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
                    'gui_OpeningFcn', @batchKinetics_OpeningFcn, ...
@@ -61,7 +61,7 @@ updateSpartan; %check for updates
 handles.output = hObject;
 
 % Set initial internal state of the program
-handles.modelFilename = fullfile(pwd,'*.qmf');
+handles.modelFilename = [];
 handles.model = [];
 handles.dataFilenames = {};
 handles.dwtFilenames  = {};
@@ -83,18 +83,12 @@ handles = guidata(hObject);
 set( handles.cboKineticsMethod, 'Value',1 );  %Do nothing
 cboKineticsMethod_Callback(handles.cboKineticsMethod,[],handles);
 
-set( handles.edBootstrapN,          'String', options.bootstrapN );
-set( handles.edDeadTime,            'String', options.deadTime   );
-set( handles.chkIdealizeSeperately, 'Value',  options.seperately );
-set( handles.edMaxIterations,       'String', options.maxItr     );
-% set( handles.tblFixFret, 'Data', num2cell(false(3,2)) );
-
 constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
 
-% UIWAIT makes batchKinetics wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
+% END FUNCTION batchKinetics_OpeningFcn
+
 
 
 % --- Outputs from this function are returned to the command line.
@@ -115,7 +109,7 @@ varargout{1} = handles.output;
 % --- Executes on button press in btnLoadData.
 function btnLoadData_Callback(hObject, ~, handles) %#ok<DEFNU>
 
-%------ Prompt use for location to save file in...
+% Prompt use for location to save file in...
 handles.dataFilenames = getFiles([],'Select traces files to analyze');
 handles.dataPath = pwd;
 
@@ -124,10 +118,19 @@ if ~isempty(handles.model),
     set(handles.btnExecute,'Enable','on');
 end
 
-text = sprintf('%d files loaded.',numel(handles.dataFilenames));
+text = sprintf('%d files selected.',numel(handles.dataFilenames));
 set(handles.txtFileInfo,'String',text);
-set(handles.btnMakeplots,'Enable','on');
+set([handles.btnMakeplots handles.mnuViewMakeplots], 'Enable','on');
 
+% Look for .dwt files if data were already analyzed.
+try
+    handles.dwtFilenames = findDwt(handles.dataFilenames);
+  
+    set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
+          handles.mnuViewPercentTime handles.mnuViewTPS ...
+          handles.btnOccTime handles.mnuViewOccTime], 'Enable','on');
+catch
+end
 guidata(hObject, handles);
 
 
@@ -139,30 +142,30 @@ function btnLoadModel_Callback(hObject, ~, handles) %#ok<DEFNU>
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+if isempty(handles.modelFilename),
+    handles.modelFilename = fullfile(pwd,'*.qmf');
+end
+
 % Ask the user for a filename
 [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
 if fname==0, return; end
 fname = fullfile(p,fname);
-set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
 
 % Load the model and show the model properties in the GUI.
 % The model's properties are automatically updated whenever the model is
 % modified in the GUI.
 handles.model = QubModel(fname);
 handles.model.showModel( handles.axModel );
+title(handles.axModel, ['...' fname(max(1,end-40):end)], 'interpreter','none');
 
-% Enable saving the model
-set( handles.btnSaveModel, 'Enable','on' );
-
-% If data are already loaded, enable the Execute button
-if ~isempty(handles.dataFilenames),
-    set(handles.btnExecute,'Enable','on');
-end
+% Enable relevant GUI controls
+set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
+set(handles.btnExecute,'Enable',onoff(~isempty(handles.dataFilenames)));
 
 % Automatically update the parameter table when the model is altered.
 handles.modelUpdateListener = addlistener(handles.model, ...
-                            {'mu','fixMu','sigma','fixSigma'}, 'PostSet', ...
-                            @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
+                        {'mu','fixMu','sigma','fixSigma'}, 'PostSet', ...
+                        @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
 handles.model.mu = handles.model.mu;  %trigger table update
 
 % Update handles structure
@@ -201,8 +204,8 @@ if isfield(options,'fixStdev'),
 end
 
 % Update GUI for "Running" status.
-set(handles.btnExecute,'Enable','off');
-set(handles.btnStop,'Enable','on');
+% set(handles.btnExecute,'Enable','off');
+% set(handles.btnStop,'Enable','on');
 
 % Run the analysis algorithms...
 [resultTree,handles.dwtFilenames] = runParamOptimizer(model,handles.dataFilenames,options); %#ok<ASGLU>
@@ -213,9 +216,10 @@ save('resultTree.mat','resultTree');
 % qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 
 % Update GUI for finished status.
-set(handles.btnStop,'Enable','off');
-set(handles.btnExecute,'Enable','on');
-set(handles.btnLifetimeExp,'Enable','on');
+% set(handles.btnStop,'Enable','off');
+set( [handles.btnExecute handles.btnDwellhist handles.btnMakeplots ...
+      handles.mnuDwellhist handles.mnuViewPercentTime handles.btnPT ...
+      handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime], 'Enable','on');
 disp('Finished!');
 
 % Update handles structure
@@ -224,16 +228,9 @@ guidata(hObject, handles);
 
 
 
-% --- Executes on button press in btnStop.
+% % --- Executes on button press in btnStop.
 function btnStop_Callback(~, ~, handles) %#ok<DEFNU>
-% hObject    handle to btnStop (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Set a variable somewhere to tell algorithm its time to stop....
-% FIXME!!!
-
-% Allow the user to start again...
+% FIXME: this should stop any task mid-execution.
 set(handles.btnExecute,'Enable','on');
 
 
@@ -608,16 +605,10 @@ handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
 % If user selected "Do Nothing", disable idealization option controls.
-names = {'tblFixFret','chkIdealizeSeperately','edMaxIterations'};
-if get(hObject,'Value')==1,
-    for i=1:numel(names),
-        set(handles.(names{i}),'Enable','off');
-    end
-else
-    for i=1:numel(names),
-        set(handles.(names{i}),'Enable','on');
-    end
-end
+enable = onoff( get(hObject,'Value')>1 );
+set(handles.mnuIdlSettings, 'Enable',enable);
+
+% END FUNCTION cboIdealizationMethod_Callback
     
     
 % --- Executes on selection change in cboKineticsMethod.
@@ -630,43 +621,11 @@ handles.options.kineticsMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
 % If user selected "Do Nothing", disable idealization option controls.
-if get(hObject,'Value')==1,
-    set(handles.edBootstrapN,'Enable','off');
-    set(handles.edDeadTime,'Enable','off');
-else
-    set(handles.edBootstrapN,'Enable','on');
-    set(handles.edDeadTime,'Enable','on');
-end
+enable = onoff( get(hObject,'Value')>1 );
+set(handles.mnuKineticsSettings, 'Enable',enable);
 
+% END FUNCTION cboKineticsMethod_Callback
 
-function edBootstrapN_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Kinetic estimation options: number of bootstrap samples to test
-
-N = floor(str2double( get(hObject,'String') ));
-N = max(1,N); %must be at least =1.
-set(hObject,'String',num2str(N));
-handles.options.bootstrapN = N;
-guidata(hObject, handles);
-
-
-function edDeadTime_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Idealization options: fix FRET standard deviationsto specified values.
-handles.options.deadTime = str2double( get(hObject,'String') );
-guidata(hObject, handles);
-
-
-% --- Executes on button press in chkIdealizeSeperately.
-function chkIdealizeSeperately_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Idealization options: fix FRET standard deviationsto specified values.
-handles.options.seperately = get(hObject,'Value');
-guidata(hObject, handles);
-
-
-
-function edMaxIterations_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Maximum number of iterations boxed changed.
-handles.options.maxItr = str2double( get(hObject,'String') );
-guidata(hObject, handles);
 
 
 % --- Executes when entered data in editable cell(s) in tblFixFret.
@@ -716,22 +675,57 @@ fname = handles.model.filename;
 if f~=0,
     fname = fullfile(p,f);
     handles.model.save( fname );
-    set( handles.edModelFilename, 'String',['...' fname(max(1,end-45):end)] );
+    title(handles.axModel, ['...' fname(max(1,end-40):end)], 'interpreter', 'none');
 end
 
 
-% --- Executes on button press in btnMakeplots.
+% ========================  PLOTTING FUNCTIONS  ======================== %
+% Executed when plotting menu or toolbar buttons are clicked.
+
 function btnMakeplots_Callback(~, ~, handles) %#ok<DEFNU>
-% Display ensemble plots with the currently-loaded data.
-if ~isempty(handles.dataFilenames),
-    makeplots( handles.dataFilenames );
-end
+makeplots(handles.dataFilenames);
 
-
-% --- Executes on button press in btnLifetimeExp.
-function btnLifetimeExp_Callback(~, ~, handles) %#ok<DEFNU>
-% Compare state lifetimes for all loaded dwell-time files.
-% FIXME: should look for both .dwt and .qub.dwt
+function btnDwellhist_ClickedCallback(~, ~, handles) %#ok<DEFNU>
 if ~isempty(handles.dwtFilenames),
-    lifetime_exp( handles.dwtFilenames );
+    dwellhist(handles.dwtFilenames);
 end
+
+function btnPT_ClickedCallback(~, ~, handles) %#ok<DEFNU>
+if ~isempty(handles.dwtFilenames),
+    percentTime(handles.dwtFilenames);
+end
+
+function btnOccTime_ClickedCallback(~, ~, handles) %#ok<DEFNU>
+if ~isempty(handles.dwtFilenames),
+    occtime(handles.dwtFilenames);
+end
+
+function mnuViewTPS_Callback(~, ~, handles) %#ok<DEFNU>
+if ~isempty(handles.dwtFilenames),
+    transitionsPerSecond(handles.dwtFilenames);
+end
+
+
+
+% =========================  SETTINGS DIALOGS  ========================= %
+
+function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Change idealization (SKM) settings
+
+prompt = {'Idealize traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
+fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
+handles.options = settingsDialog(handles.options, fields, prompt);
+guidata(hObject,handles);
+
+% END FUNCTION mnuIdlSettings_Callback
+
+
+function mnuKineticsSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Change kinetic parameter estimation (MIL) settings
+
+prompt = {'Bootstrap samples:', 'Dead time (frames):'};
+fields = {'bootstrapN', 'deadTime'};
+handles.options = settingsDialog(handles.options, fields, prompt);
+guidata(hObject,handles);
+
+% END FUNCTION mnuIdlSettings_Callback
