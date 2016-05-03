@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 02-May-2016 16:11:54
+% Last Modified by GUIDE v2.5 03-May-2016 14:00:45
 
 
 % Begin initialization code - DO NOT EDIT
@@ -66,6 +66,7 @@ for i=1:numel(profiles),
         set(h, 'Checked','on');
     end
 end
+set(handles.mnuSettingsCustom,'Position',numel(profiles)+1);
 
 % Setup default values for parameter values -- 2-color FRET.
 handles.alignment = [];  %current alignment parameters (status)
@@ -136,21 +137,17 @@ end
 
 % Trancate name if too long ot fit into window without wrapping.
 fnameText = fullfile(p, [f e]);
-
-if numel(fnameText)>110,
-    fnameText = ['...' fnameText(end-110:end)];
-end
-
-if numel(filename)>1,
-    fnameText = [fnameText ' (multiple files)'];
+if numel(fnameText)>90,
+    fnameText = ['...' fnameText(end-90:end)];
 end
 
 set( handles.txtFilename, 'String',fnameText);
 set( handles.txtAlignWarning, 'Visible','off' );
 
 set([handles.txtOverlapStatus handles.txtIntegrationStatus, ...
-     handles.txtWindowOverlap handles.txtPSFWidth handles.txtAlignStatus ...
-     handles.nummoles], 'String', '');
+     handles.txtWindowOverlap handles.txtPSFWidth handles.nummoles], ...
+     'String', '');
+set(handles.panAlignment, 'Title','Software Alignment', 'ForegroundColor',[0 0 0]);
 set(handles.tblAlignment, 'Data',{});
 
 
@@ -224,14 +221,14 @@ elseif handles.params.geometry>2,
     handles.total_t = fields{1} + fields{2} + fields{3} + fields{4};
     
     % Setup axes
-    handles.axUL = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5   0.25 0.5] );
-    handles.axUR = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35  0.5   0.25 0.5] );
-    handles.axLL = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.25 0.5] );
-    handles.axLR = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35  0.025 0.25 0.5] );
+    handles.axUL = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5   0.3 0.45] );
+    handles.axUR = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35  0.5   0.3 0.45] );
+    handles.axLL = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.3 0.45] );
+    handles.axLR = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35  0.025 0.3 0.45] );
     ax = [handles.axUL handles.axUR handles.axLL handles.axLR];
 
     % Also plot the total intensity image.
-    handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.65 0.25 0.25 0.5] );
+    handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.7 0.25 0.3 0.45] );
 end
 
 
@@ -250,7 +247,7 @@ for i=1:numel(fields),
         % Give each field a title with the background color matching the
         % wavelength of that channel.        
         h = title( ax(i), [chNames{idxCh} ' (' handles.params.chDesc{idxCh} ') #' num2str(i)], ...
-                                 'BackgroundColor',chColors(idxCh,:) );
+                   'BackgroundColor',chColors(idxCh,:), 'FontSize',10 );
 
         % Use white text for very dark background colors.
         if sum(chColors(idxCh,:)) < 1,
@@ -266,14 +263,13 @@ linkaxes( [ax handles.axTotal] );
 imshow( handles.total_t, [low*2 val*2], 'Parent',handles.axTotal );
 colormap(handles.axTotal,handles.colortable);
 zoom(handles.axTotal,'on');
-title(handles.axTotal,'Total Intensity');
+title(handles.axTotal,'Total Intensity', 'FontSize',10);
 
 % Finish up
 set(handles.figure1,'pointer','arrow');
 set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
 
 guidata(hObject,handles);
-
 
 %end function OpenStk
 
@@ -324,16 +320,14 @@ nFiles = length(movieFiles);
 pause(0.1);
 
 
-% ---- For each file in the user-selected directory
+% ---- Run the ordinary gettraces procedure on each file
 nTraces  = zeros(nFiles,1); % number of peaks found in file X
 existing = zeros(nFiles,1); % true if file was skipped (traces file exists)
 
-% Show progress information
-% h = waitbar(0,'Extracting traces from movies...');
-set(handles.txtProgress,'String','Running...');
-
-% For each file...
 for i=1:nFiles
+    text = sprintf('Batch Processing: %d/%d (%.0f%% complete)', i,nFiles, 100*((i-1)/nFiles) );
+    set(handles.txtProgress,'String',text);
+    
     stk_fname = movieFiles(i).name;
     handles.stkfile = stk_fname;
     
@@ -342,7 +336,6 @@ for i=1:nFiles
     traceFname = fullfile(p, [name '.rawtraces']);
     
     if skipExisting && exist(traceFname,'file'),
-        %disp( ['Skipping (already processed): ' stk_fname] );
         existing(i) = 1;
         continue;
     end
@@ -356,7 +349,7 @@ for i=1:nFiles
         continue;
     end
     
-    % Load STK file
+    % Load movie file
     handles = OpenStk(handles.stkfile,handles, hObject);
     
     % Pick molecules using default parameter values
@@ -365,16 +358,9 @@ for i=1:nFiles
     % Save the traces to file
     mnuFileSave_Callback(hObject, [], handles);
     
-    % Update progress information
-    text = sprintf('Running: %.0f%%', 100*(i/nFiles) );
-    set(handles.txtProgress,'String',text);
-    nTraces(i) = handles.num;
-    
+    nTraces(i) = handles.num;    
     guidata(hObject,handles);
-%     waitbar(i/nFiles, h);
 end
-% close(h);
-
 
 
 % ----- Create log file with results
@@ -382,9 +368,7 @@ log_fid = fopen( fullfile(direct,'gettraces.log'), 'wt' );
 
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');
-
-output = evalc('disp(handles.params)');
-fprintf(log_fid, '%s', output);
+fprintf(log_fid, '%s', evalc('disp(handles.params)'));
 %FIXME: structure parameters are not displayed here (alignment!)
 
 % Log list of files processed by gettraces
@@ -402,10 +386,11 @@ fclose(log_fid);
 
 
 
-% ----- Update GUI
-set(handles.txtProgress,'String','Finished.');
+% ----- Wrap up
+set(handles.txtProgress,'String','Batch processing: finished.');
 guidata(hObject,handles);
 
+% END FUNCTION batchmode_Callback
 
 
 
@@ -450,7 +435,7 @@ title( handles.axTotal, 'Total Intensity' );
 set( handles.txtAlignWarning, 'Visible','off' );
 
 if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
-    set( handles.txtAlignStatus, 'String', '' );
+    set(handles.panAlignment, 'Title','Software Alignment');
     handles.alignment = [];
     
 % Display alignment status to inform user if realignment may be needed.
@@ -460,9 +445,9 @@ else
     handles.alignment = a;
     
     if handles.params.alignMethod==1,
-        text = 'Alignment deviation:';
+        text = 'Alignment Deviation:';
     else
-        text = 'Alignment applied:';
+        text = 'Alignment Applied:';
     end
     
     tableData = get(handles.tblAlignment,'Data');
@@ -492,7 +477,7 @@ else
         end
     end
     
-    set( handles.txtAlignStatus, 'String', text );
+    set(handles.panAlignment, 'Title',text);
 
     % Color the text to draw attention to it if the alignment is bad.
     % FIXME: this should depend on the nhood/window size. 1 px may be small.
@@ -501,11 +486,11 @@ else
     % or color="#FF00FF"). <center> tag might also be useful.
     if any( [a.abs_dev] > 0.25 ),
         d = max( [a.abs_dev] );
-        set( handles.tblAlignment,   'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
-        set( handles.txtAlignStatus, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
+        set( handles.tblAlignment, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
+        set( handles.panAlignment, 'ForegroundColor', min(1,d*[1 0 0]) );
     else
-        set( handles.tblAlignment,   'ForegroundColor', [0 0 0] );
-        set( handles.txtAlignStatus, 'ForegroundColor', [0 0 0] );
+        set( handles.tblAlignment, 'ForegroundColor', [0 0 0] );
+        set( handles.panAlignment, 'ForegroundColor', [0 0 0] );
     end
     
     % Total misalignment (no corresponding peaks) can give a relatively low
@@ -877,7 +862,6 @@ cboGeometry_Callback(hObject, [], handles);
 function handles = cboGeometry_Callback(hObject, ~, handles)
 %
 
-
 % If running, stop the "auto detect" timer. Otherwise, it may be triggered by
 % the change in settings.
 fileTimer = timerfind('Name','gettraces_fileTimer');
@@ -896,15 +880,15 @@ handles.params = params;
 
 
 % Set all GUI to defaults of currently selected profile.
-if ~isfield(params,'don_thresh') || params.don_thresh==0,
-    set( handles.txtIntensityThreshold,'String','' );
-else
-    set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
-end
+% if ~isfield(params,'don_thresh') || params.don_thresh==0,
+%     set( handles.txtIntensityThreshold,'String','' );
+% else
+%     set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
+% end
 
-set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
-set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
-set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
+% set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
+% set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
+% set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
 set( handles.mnuBatchRecursive,   'Checked', onoff(params.recursive)    );
 set( handles.mnuBatchOverwrite,   'Checked', onoff(params.skipExisting) );
 
@@ -917,7 +901,7 @@ set( handles.txtDACrosstalk,  'String', num2str(params.crosstalk) );
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
 nCh = numel(handles.params.idxFields);
-set( [handles.mnuAlign handles.cboZeroMehod handles.txtDACrosstalk ...
+set( [handles.mnuAlign handles.txtDACrosstalk ...
       handles.btnCrosstalk handles.edScaleAcceptor  ...
       handles.btnScaleAcceptor],  'Enable',onoff(nCh>1) );
 
@@ -933,6 +917,23 @@ if isfield(handles,'stkfile'),
 end
 
 guidata(hObject,handles);
+
+
+
+% --------------------------------------------------------------------
+function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Called when Settings->Customize... menu clicked.
+% Allows the user to temporarily alter settings for the current profile.
+
+prompt = {'Threshold (0 for auto):', 'Window size (px):', ...
+          'Min. separation (px):', 'ADU/photo-e conversion:', 'Donor blink detection:'};
+fields = {'don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
+          'photonConversion', 'zeroMethod' };
+types = {[],[],[],[],{'Threshold','SKM'}};
+handles.params = settingsDialog(handles.params,fields,prompt,types);
+guidata(hObject,handles);
+
+% END FUNCTION mnuSettingsCustom_Callback
 
 
 
@@ -987,7 +988,6 @@ msgbox( output, 'MetaMorph metadata' );
 
 
 
-
 % --- Executes on button press in btnLoadAlignment.
 function btnLoadAlignment_Callback(hObject, ~, handles)
 % Load software alignment settings previously saved to file. The file
@@ -1030,7 +1030,6 @@ handles.params.alignMethod = 2;
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
 
-
 %end function btnLoadAlignment_Callback
 
 
@@ -1060,7 +1059,6 @@ if f,
     alignment = rmfield( handles.alignment, {'quality'} );   %#ok<NASGU>
     save( fullfile(p,f), 'alignment' );
 end
-
 
 %end function btnSaveAlignment_Callback
 
@@ -1113,7 +1111,6 @@ end
 
 handles.params.crosstalk = crosstalk;
 guidata(hObject,handles);
-
 
 %end function btnCrosstalk_Callback
 

@@ -83,7 +83,7 @@ for k=1:numel(answer),
     end
     
     % Enforce type constraints
-    if iscell(types{k}) && ~ismember(value,types{k}),
+    if iscell(types{k}) && ~ismember(lower(value),lower(types{k})),
         errordlg( { sprintf('Invalid value for %s. Must be one of:',fields{k}); ...
                     strjoin(types{k},', ') } );
         output = input;
