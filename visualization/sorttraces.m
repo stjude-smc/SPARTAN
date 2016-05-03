@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 08-Apr-2016 12:30:15
+% Last Modified by GUIDE v2.5 03-May-2016 18:40:58
 
 
 % Begin initialization code - DO NOT EDIT
@@ -218,7 +218,8 @@ set( [handles.edCrosstalk2  handles.sldCrosstalk2 handles.edCrosstalk3 ...
       'Enable', onoff(ismember('fret2',data.channelNames)) );
 
 set( [handles.edThreshold handles.sldThreshold], 'Enable', onoff(useThresh) );
-set( [handles.tbLoadIdl handles.mnuLoadIdl handles.tbGettraces handles.mnuGettraces], 'Enable','on');
+set( [handles.tbLoadIdl handles.mnuLoadIdl handles.tbGettraces ...
+      handles.mnuGettraces handles.mnuZeroMethod], 'Enable','on');
 
 % Reset x-axis label to reflect time or frame-based.
 time = data.time;
@@ -1048,7 +1049,9 @@ axis([handles.axTotal handles.axFluor],'auto');
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
-    plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,data.nFrames), 'b-');
+    if strcmpi(data.fileMetadata.zeroMethod,'threshold')
+        plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,data.nFrames), 'b-');
+    end
     
     mean_on_signal = mean( total(data.fret~=0) );
     mean_off_signal = mean( total(lt+5:end) );
@@ -1419,3 +1422,41 @@ end
 delete(hObject);
 
 % END FUNCTION sorttraces_CloseRequestFcn
+
+
+
+
+% --------------------------------------------------------------------
+function mnuZeroMethod_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Set method for detecting donor blinks (setting FRET to zero).
+
+zeroMethod = handles.data.fileMetadata.zeroMethod;
+current = find( strcmp(zeroMethod,TracesFret.zeroMethodNames) );
+
+[sel,ok] = listdlg('PromptString','Method to detect donor blinking and set FRET to zero:', ...
+                   'SelectionMode','single','ListSize',[300 120], ...
+                   'ListString',TracesFret.zeroMethodDesc, ...
+                   'InitialValue',current );
+
+if ok && sel~=current,
+    set(handles.figure1,'pointer','watch'); drawnow;
+    
+    % Recalculate FRET with the new mode.
+    handles.data.fileMetadata.zeroMethod = TracesFret.zeroMethodNames{sel};
+    handles.data.recalculateFret();
+    
+    % Update GUI controls and redraw current trace.
+    set([handles.edThreshold handles.sldThreshold], 'Enable', onoff(sel==2));
+    
+    if sel==2,
+        handles.fretThreshold(:) = NaN;
+    else
+        handles.fretThreshold(:) = 0;
+    end
+    guidata(hObject,handles);
+    
+    editGoTo_Callback(hObject, [], handles);
+    set(handles.figure1,'pointer','arrow'); drawnow;
+end
+
+% END FUNCTION mnuZeroMethod_Callback

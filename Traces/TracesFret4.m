@@ -205,7 +205,7 @@ methods
         end
         
         switch lower(this.fileMetadata.zeroMethod)
-            case 'none'
+            case 'off'
                 alive = thresholdTotal( total, zeros(this.nTraces,1) );
             case 'threshold'
                 alive = thresholdTotal( total, varargin{2:end} );

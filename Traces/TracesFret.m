@@ -40,6 +40,12 @@ properties (Dependent)
     idxFret;   %indexes to FRET channels
 end
 
+properties (Constant,Hidden=true)
+    % Defines the accepted methods for detecting donor blinking.
+    zeroMethodNames = {'off','threshold','skm'};
+    zeroMethodDesc  = {'Off','Automatic Threshold','Idealization (SKM)'};
+end
+
 
 
 methods
