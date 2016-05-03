@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 24-Nov-2015 11:11:28
+% Last Modified by GUIDE v2.5 02-May-2016 16:11:54
 
 
 % Begin initialization code - DO NOT EDIT
@@ -46,33 +46,37 @@ function gettraces_OpeningFcn(hObject, ~, handles, varargin)
 % This function has no output args, see OutputFcn.
 
 updateSpartan; %check for updates
+constants = cascadeConstants();
+set( handles.figure1, 'Name', ['gettraces - ' constants.software] );
 
 % Load colormap for image viewer
 handles.colortable = gettraces_colormap();
 
-% Initialize GUI if gettraces is being launched for the first time.
-if ~isfield(handles,'params')
-    % Choose default command line output for gettraces
-    handles.output = hObject;
-    
-    % Setup dropdown list of configuration profiles.
-    constants = cascadeConstants();
-    set( handles.cboGeometry, 'String',{constants.gettraces_profiles.name}, ...
-                              'Value',constants.gettraces_defaultProfile );
-    
-    % Setup default values for parameter values -- 2-color FRET.
-    params = constants.gettraces_profiles(constants.gettraces_defaultProfile);
-    handles.alignment = [];  %current alignment parameters (status)
-    handles.params = params;
-    
-    % Set up GUI elements to reflect the internal parameter values.
-    handles = cboGeometry_Callback(handles.cboGeometry, [], handles);
-    
-    set( handles.figure1, 'Name', ['gettraces - ' constants.software] );
+% Choose default command line output for gettraces
+handles.output = hObject;
+
+% Add profiles from cascadeConstants to settings menu.
+profiles = {constants.gettraces_profiles.name};
+for i=1:numel(profiles),
+    h = uimenu(handles.mnuProfiles, 'Label',profiles{i}, 'Callback',@mnuProfiles_Callback);
+    if i>1 && lower(profiles{i}(1))~=lower(profiles{i-1}(1)),
+        set(h, 'Separator','on');
+    end
+    if i==constants.gettraces_defaultProfile,
+        set(h, 'Checked','on');
+    end
 end
 
-% Update handles structure
+% Setup default values for parameter values -- 2-color FRET.
+handles.alignment = [];  %current alignment parameters (status)
+handles.profile = constants.gettraces_defaultProfile;
 guidata(hObject, handles);
+
+% Set up GUI elements to reflect the internal parameter values.
+cboGeometry_Callback(hObject, [], handles);
+
+% END FUNCTION gettraces_OpeningFcn
+
 
 
 
@@ -133,22 +137,22 @@ end
 % Trancate name if too long ot fit into window without wrapping.
 fnameText = fullfile(p, [f e]);
 
-if numel(fnameText)>90,
-    fnameText = ['...' fnameText(end-90:end)];
+if numel(fnameText)>110,
+    fnameText = ['...' fnameText(end-110:end)];
 end
 
 if numel(filename)>1,
     fnameText = [fnameText ' (multiple files)'];
 end
 
-set( handles.txtFilename,          'String',fnameText);
-set( handles.txtOverlapStatus,     'String', '' );
-set( handles.txtIntegrationStatus, 'String', '' );
-set( handles.txtWindowOverlap,     'String', '' );
-set( handles.txtPSFWidth,          'String', '' );
-set( handles.txtAlignStatus,      'String', '' );
+set( handles.txtFilename, 'String',fnameText);
 set( handles.txtAlignWarning, 'Visible','off' );
-set(handles.nummoles,'String','');
+
+set([handles.txtOverlapStatus handles.txtIntegrationStatus, ...
+     handles.txtWindowOverlap handles.txtPSFWidth handles.txtAlignStatus ...
+     handles.nummoles], 'String', '');
+set(handles.tblAlignment, 'Data',{});
+
 
 set(handles.figure1,'pointer','watch'); drawnow;
 
@@ -266,8 +270,8 @@ title(handles.axTotal,'Total Intensity');
 
 % Finish up
 set(handles.figure1,'pointer','arrow');
-set(handles.getTraces,'Enable','on');
-set(handles.btnMetadata,'Enable','on');
+set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
+
 guidata(hObject,handles);
 
 
@@ -297,14 +301,14 @@ function batchmode_Callback(hObject, ~, handles,direct)
 % direct     target directory location to look for new files
 
 % Get input parameter values
-skipExisting = get(handles.chkOverwrite,'Value');
-recursive = get(handles.chkRecursive,'Value');
+skipExisting = strcmpi( get(handles.mnuBatchOverwrite,'Checked'), 'on');
+recursive = strcmpi( get(handles.mnuBatchRecursive,'Checked'), 'on');
 
 % Get location of files for gettraces to process
 if nargin>=4 && exist(direct,'dir'),
     % Get a fresh copy of handles. The one passed in arguments is an old
     % copy made when the timer was created. Kind of ugly...
-    handles = guidata(handles.chkAutoBatch);
+    handles = guidata(handles.mnuBatchRecursive);
 else
     direct=uigetdir('','Choose directory:');
     if direct==0, return; end
@@ -359,7 +363,7 @@ for i=1:nFiles
     handles = getTraces_Callback(hObject, [], handles);
     
     % Save the traces to file
-    saveTraces_Callback(hObject, [], handles);
+    mnuFileSave_Callback(hObject, [], handles);
     
     % Update progress information
     text = sprintf('Running: %.0f%%', 100*(i/nFiles) );
@@ -598,8 +602,8 @@ handles.num = numel(handles.total_x);
 set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
                                     numel(handles.rtotal_x)+handles.num) );
 
-set(handles.saveTraces,'Enable','on');
-set(handles.btnHidePicks,'Enable','on');
+set([handles.btnSave handles.mnuFileSave handles.mnuHidePeaks], ...
+    'Enable','on');
 
 set(handles.figure1,'pointer','arrow');
 guidata(hObject,handles);
@@ -682,7 +686,6 @@ axes(handles.axTotal);
 line( handles.total_x,  handles.total_y,  style2{:},  'Parent',handles.axTotal  );
 line( handles.rtotal_x, handles.rtotal_y, style2b{:}, 'Parent',handles.axTotal );
 
-
 % end function highlightPeaks
 
 
@@ -690,8 +693,8 @@ line( handles.rtotal_x, handles.rtotal_y, style2b{:}, 'Parent',handles.axTotal )
 
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
-% --- Executes on button press in saveTraces.
-function saveTraces_Callback(~, ~, handles)
+% --- Executes on button press in mnuFileSave.
+function mnuFileSave_Callback(~, ~, handles)
 
 set(handles.figure1,'pointer','watch'); drawnow;
 
@@ -711,6 +714,7 @@ gettraces( stkData, handles.params, filename );
 
 set(handles.figure1,'pointer','arrow'); drawnow;
 
+% END FUNCTION mnuFileSave_Callback
 
 
 
@@ -854,6 +858,20 @@ guidata(hObject,handles);
 
 
 
+function mnuProfiles_Callback(hObject, ~)
+% Called when any imaging profile is selected from the "Settings" menu.
+% Marks only the active profile and breaks up the movie.
+
+handles = guidata(hObject);
+set(findobj('Parent',get(hObject,'Parent')), 'Checked','off');
+set(hObject, 'Checked','on');  %FIXME?
+handles.profile = get(hObject,'Position');
+
+cboGeometry_Callback(hObject, [], handles);
+
+% END FUNCTION mnuProfiles_Callback
+
+
 
 % --- Executes on selection change in cboGeometry.
 function handles = cboGeometry_Callback(hObject, ~, handles)
@@ -866,15 +884,14 @@ fileTimer = timerfind('Name','gettraces_fileTimer');
 if ~isempty(fileTimer),
     stop(fileTimer);
     delete(fileTimer);
-    set(handles.chkAutoBatch,'Value',0);
+    set(handles.mnuBatchAuto,'Checked','off');
 end
 
 % Get parameter values associated with the selected profile.
 % Warning: if cascadeConstants is changed to add a new profile or rearrange
 % profiles, this can have unpredictable effects...
 constants = cascadeConstants;
-sel = get(hObject,'Value');
-params = constants.gettraces_profiles(sel);
+params = constants.gettraces_profiles(handles.profile);
 handles.params = params;
 
 
@@ -888,19 +905,21 @@ end
 set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
 set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
 set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
-set( handles.chkRecursive,   'Value', params.recursive    );
-set( handles.chkOverwrite,   'Value', params.skipExisting );
-set( handles.cboAlignMethod, 'Value', params.alignMethod  );
+set( handles.mnuBatchRecursive,   'Checked', onoff(params.recursive)    );
+set( handles.mnuBatchOverwrite,   'Checked', onoff(params.skipExisting) );
+
+set( findobj('Parent',handles.mnuAlign), 'Checked','off' );
+set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
+     'Checked','on' );
 
 set( handles.edScaleAcceptor, 'String', num2str(params.scaleAcceptor) );
 set( handles.txtDACrosstalk,  'String', num2str(params.crosstalk) );
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
 nCh = numel(handles.params.idxFields);
-set( [handles.cboAlignMethod   handles.btnSaveAlignment handles.cboZeroMehod ...
-      handles.btnLoadAlignment handles.txtDACrosstalk   handles.btnCrosstalk ...
-      handles.edScaleAcceptor  handles.btnScaleAcceptor], ...
-     'Enable',onoff(nCh>1) );
+set( [handles.mnuAlign handles.cboZeroMehod handles.txtDACrosstalk ...
+      handles.btnCrosstalk handles.edScaleAcceptor  ...
+      handles.btnScaleAcceptor],  'Enable',onoff(nCh>1) );
 
 set(handles.txtDACrosstalk,   'Visible', onoff(numel(params.crosstalk)<2) );
 set(handles.btnCrosstalk,     'Visible', onoff(numel(params.crosstalk)>1)  );
@@ -975,9 +994,6 @@ function btnLoadAlignment_Callback(hObject, ~, handles)
 % the "align" structure defined in gettraces, including dx, dy, theta, etc.
 %
 
-% Reset the GUI to its previous state until alignment file is correctly loaded.
-set( handles.cboAlignMethod, 'Value',handles.params.alignMethod );
-
 % This should only be used in multi-color experiments.
 assert( handles.params.geometry>1 );
 
@@ -1010,7 +1026,6 @@ end
 
 % Update GUI (alignment was successfully loaded) and pick molecules again.
 handles.params.alignMethod = 2;
-set( handles.cboAlignMethod, 'Value',2 );
 
 handles = getTraces_Callback( hObject, [], handles);
 guidata(hObject,handles);
@@ -1155,7 +1170,11 @@ guidata(hObject,handles);
 % --- Executes on selection change in cboAlignMethod.
 function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
-sel = get(hObject,'Value');
+
+sel = get(hObject,'Position');
+mnuMeth = findobj('Parent',handles.mnuAlign);
+set(mnuMeth, 'Checked','off');
+set(hObject, 'Checked','on');
 
 if sel==2
     % Load alignment from file.
@@ -1166,7 +1185,6 @@ else
     handles = getTraces_Callback(hObject, [], handles);
     guidata(hObject,handles);
 end
-
 
 % END FUNCTION cboAlignMethod_Callback
 
@@ -1195,18 +1213,14 @@ if ~isempty(fileTimer),
 end
 
 % Start a new timer if requested
-if get(hObject,'Value') == get(hObject,'Max'),
+if strcmpi(get(hObject,'Checked'), 'off'),
     % Ask the user for a directory location
     targetDir = uigetdir('','Choose directory:');
-    if targetDir==0,
-        set( hObject, 'Value', get(hObject,'Min') );
-        return;
-    end
+    if targetDir==0, return; end
     disp(targetDir);
     
-    % Force "skip processed data" setting so we don't end up trying to
-    % reprocess every movie in every iteration.
-    set(handles.chkOverwrite,'Value',1);
+    % Force "skip existing"; process only new movies in each iteration.
+    set(handles.mnuBatchOverwrite,'Checked','on');
     
     % Start a thread that will periodically check for new movies every 5
     % seconds and process them automatically.
@@ -1217,19 +1231,19 @@ if get(hObject,'Value') == get(hObject,'Max'),
                               'StopFcn',{@stopFileTimer,hObject}, ...
                               'Period',2.0,'BusyMode','drop');
     start(fileTimer);
+    set(hObject, 'Checked','on');
     %FIXME: add an error/stop function to clear the checkbox.
+else
+    set(hObject, 'Checked','off');
 end
-
-% guidata(hObject,handles);
 
 % END FUNCTION chkAutoBatch_Callback
 
 
 function stopFileTimer(~,~,hObject)
-% This function is called when there is an error during the timer callback
-% or when the timer is stopped.
+% Called on error during timer callback or when the timer is stopped.
 handles = guidata(hObject);
-set(handles.chkAutoBatch,'Value',0);
+set(handles.mnuBatchOverwrite,'Checked','off');
 
 % END FUNCTION stopFileTimer
 
