@@ -201,10 +201,9 @@ if exist(inds_fname,'file'),
 end
 
 % Initialize picking boxes
+set(handles.mnuBin, 'Enable','on');
 for i=1:numel(handles.binNames),
     set( handles.(sprintf('editBin%d',i)), 'String',num2str(numel(handles.bins{i})) );
-    set( handles.(sprintf('mnuSelAll%d',i)), 'Enable','on' );
-    set( handles.(sprintf('mnuClear%d',i)), 'Enable','on' );
     set( handles.(sprintf('chkBin%d',i)), 'String',handles.binNames{i}, ...
          'Enable','on', 'Value', 0);
 end
@@ -291,7 +290,7 @@ zoom reset;  %remember new axis limits when zooming out.
 % Enable buttons
 set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
-     handles.mnuCorrResetAll], 'Enable','on');
+     handles.mnuCorrResetAll handles.btnSubBoth], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 
@@ -980,8 +979,6 @@ if ishandle(handles.axFOV),
         end
         
         % Draw markers on selection points.
-        delete(findobj(handles.axFOV,'type','line'));
-        line( x,y, 'LineStyle','none','marker','o','color','w', 'Parent',handles.axFOV );
         viscircles( handles.axFOV, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
     else
         % Close if current molecule is not from the loaded movie.
@@ -993,7 +990,8 @@ end
 % Draw molecule location in small panel
 cla(handles.axLocation);
 loc = [data.traceMetadata.donor_x data.traceMetadata.donor_y];
-viscircles(handles.axLocation, loc, 5);
+line( loc(1),loc(2), 'MarkerSize',4, 'LineStyle','none', 'Marker','o',...
+                     'Color','r', 'Parent',handles.axLocation );
 
 
 % Determine colors for plotting fluorescence.
@@ -1035,13 +1033,8 @@ cla( handles.axFluor );
 for c=1:numel(fluorCh),
     trace = data.(fluorCh{c});
     plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
-    
-    if c==1
-        total=trace;
-    else
-        total = total + trace;
-    end
 end
+total = data.total; %Excludes 'factor' and misc channels
 
 titleTxt = [ 'Molecule ' num2str(m) ' of ' num2str(handles.data.nTraces) ...
             ' in "' strrep(data_fname,'_',' ') '"'];
@@ -1122,7 +1115,7 @@ if isChannel(data,'donor') && isChannel(data,'acceptor'),
         set( handles.edZoomCorr, 'String',sprintf('%.2f',zcorr(1,2)) );
     end
     
-end;
+end
 
 %END FUNCTION
 
@@ -1134,12 +1127,10 @@ function btnLoadDWT_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Loads an idealization (.dwt file) for later plotting in plotter().
 
 handles = loadDWT_ex( handles );
-
-% Save data to GUI
 guidata(hObject,handles);
-
-% Update GUI
 plotter(handles);
+
+% END FUNCTION btnLoadDWT_Callback
 
 
 

@@ -27,9 +27,10 @@ REESTIMATE = true;
 %%
 
 % If no file is specified, ask for one from the user.
-filename = getFile('*.traces','Select a traces file');
+if nargin<1,
+    filename = getFile('*.traces','Select a traces file');
+end
 if isempty(filename), return; end  %user hit cancel
-
 
 % Load traces data
 data = loadTraces(filename);
@@ -38,16 +39,14 @@ data = loadTraces(filename);
 
 % Get idealization filename if not provided.
 if nargin<2,
-    [p,f] = fileparts(filename);
-    dwtFilename = fullfile(p, [f '.qub.dwt']);
+    try
+        dwtFilename = findDwt({filename});
+        dwtFilename = dwtFilename{1};
+    catch
+        [p,f] = fileparts(filename);
+        dwtFilename = getFile([p f '.qub.dwt'],'Select the corresponding dwell-time file');
+    end
 end
-if ~exist(dwtFilename,'file'),
-    dwtFilename = fullfile(p, [f '.dwt']);
-end
-
-% if ~exist(dwtFilename,'file'),
-    dwtFilename = getFile('*.dwt','Select the corresponding dwell-time file');
-% end
 
 
 % Load idealization data (.DWT)
