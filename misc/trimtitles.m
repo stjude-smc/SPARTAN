@@ -42,10 +42,15 @@ end
 % Prevent errors with unique.
 [temp{cellfun(@isempty,temp)}] = deal('');
 
-
 % Remove identical words at the beginning.
-while numel( unique(temp(:,1)) )==1
+while ~isempty(temp) && numel( unique(temp(:,1)) )==1
     temp(:,1) = [];
+end
+
+% Use numbers if all the files are identical.
+if isempty(temp),
+    titles = cellfun(@num2str, num2cell(1:4), 'UniformOutput',false);
+    return;
 end
 
 % Remove identical words at end by right aligning cell array
