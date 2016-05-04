@@ -51,36 +51,21 @@ end
 
 
 %----------INITIALIZATION OF THE GUI----------%
-% --- Executes just before autotrace is made visible.
 function autotrace_OpeningFcn(hObject, ~, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to autotrace (see VARARGIN)
+% Executes just before autotrace is made visible.
 
 updateSpartan; %check for updates
 
 %---- PROGRAM CONSTANTS
 constants = cascadeConstants();
-handles.constants = constants;
-
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
-%---- INITIAL VALUES FOR PICKING CRITERIA
 criteria = constants.defaultAutotraceCriteria;
 handles.criteria = criteria;
 
-%---- OTHER USER-TUNABLE PARAMETERS
-handles.nHistBins=40; % histogram bins size
-
-
 %---- Initialize input fields with values defined above.
-if isfield(criteria,'eq_overlap') && criteria.eq_overlap==0,
-    set(handles.chk_overlap,'Value',1);
-else
-    set(handles.chk_overlap,'Value',0);
-end
+value = isfield(criteria,'eq_overlap') && criteria.eq_overlap==0;
+set(handles.chk_overlap,'Value',value);
 
 set( handles.ed_min_corr, 'String',num2str(criteria.min_corr)    );
 set( handles.ed_max_corr, 'String',num2str(criteria.max_corr)    );
@@ -88,7 +73,6 @@ set( handles.ed_snr,      'String',num2str(criteria.min_snr)     );
 set( handles.ed_bg,       'String',num2str(criteria.max_bg)      );
 set( handles.ed_ncross,   'String',num2str(criteria.max_ncross)  );
 set( handles.ed_acclife,  'String',num2str(criteria.min_acclife) );
-
 
 %---- Setup drop-down boxes listing trace statistics.
 
@@ -99,10 +83,8 @@ longNames  = struct2cell(ln);
 shortNames = fieldnames(ln);
 
 % Add trace statistic names to dropdown boxes above histogram axes.
-handles.cboNames = strcat('cboStat',{'1','2','3','4'}); %,'5'});
-
+handles.cboNames = strcat('cboStat',{'1','2','3','4'});
 for id=1:length(handles.cboNames),
-    % Also set options in combobox
     set( handles.(['cboStat' num2str(id)]), 'String', longNames );
 end
 
@@ -111,7 +93,6 @@ set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
 set( handles.cboStat2, 'Value', find(strcmp('donorlife',shortNames))  );
 set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
 set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
-% set( handles.cboStat5, 'Value', find(strcmp('bg',shortNames))    );
 
 % Setup special criteria selection drop-down boxes.
 handles.nCriteriaBoxes = 7;
@@ -121,34 +102,14 @@ for id=1:handles.nCriteriaBoxes
     set( handles.(['cboCriteria' num2str(id)]), 'String', criteriaNames );
 end
 
-% FIXME: in future, default criteria values may include some that will show
-% up in the "special" boxes. Code is needed here to set these up.
-
-
 %---- Add context menus to the plots to launch curve fitting or copy data.
-% Ideally, you should be able to drop-in any variant of the interface,
-% with variable numbers of histogram boxes, etc and have it still work.
-menu = uicontextmenu;
-
-% Context menu for launching Matlab's curve fitting tool
-uimenu( menu, 'Label','Curve Fitting...', 'Callback',...
-       'autotrace(''launchFitTool_Callback'',gca)' );
-
-% Context menu for copying the raw statistic data
-% for fitting in other programs (like Origin)
-uimenu( menu, 'Label','Copy data', 'Callback',...
-       'autotrace(''copyPlotData_Callback'',gca)' );
-
-% Add context menu to all axes (histograms of trace statistics).
 zoom off;
 hZoom = zoom(handles.figure1);
-set(hZoom, 'UIContextMenu', menu );
+set(hZoom, 'UIContextMenu', handles.mnuStat);
 zoom on;
 
 % Choose default command line output for autotrace
 handles.output=hObject;
-
-% Update handles structure
 guidata(hObject,handles);
 
 % END FUNCTION autotrace_OpeningFcn
@@ -157,14 +118,8 @@ guidata(hObject,handles);
 
 % --- Outputs from this function are returned to the command line.
 function varargout = autotrace_OutputFcn(~, ~, handles)
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
 % Get default command line output from handles structure
 varargout{1}=handles.output;
-
 % END FUNCTION autotrace_OutputFcn
 
 
@@ -204,7 +159,6 @@ handles.inputdir = datapath;
 handles.inputfiles = filename;
 
 %--- Update GUI listing of number of files and file types
-disp('Loading files...');
 for i=1:numel(handles.inputfiles),
     disp( handles.inputfiles{i} );
 end
@@ -346,7 +300,7 @@ end
 handles.outfile = fullfile(p, [f '_auto.traces']);
 
 % Calculate trace stats
-[infoStruct,nTracesPerFile] = traceStat( handles.inputfiles, handles.constants );
+[infoStruct,nTracesPerFile] = traceStat(handles.inputfiles);
 handles.nTraces = numel( infoStruct );
 handles.nTracesPerFile = nTracesPerFile;
                     
@@ -628,7 +582,7 @@ if strcmp(statToPlot,'corr'),
     bins = -1:0.1:1;
     statDecimals = '%.2f';
 else
-    bins = handles.nHistBins; %let hist choose N bin centers.
+    bins = 40; %let hist choose N bin centers.
     statDecimals = '%.1f';
 end
 

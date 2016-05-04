@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 03-May-2016 14:00:45
+% Last Modified by GUIDE v2.5 04-May-2016 11:22:35
 
 
 % Begin initialization code - DO NOT EDIT
@@ -98,11 +98,9 @@ function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % This happens with very large (sCMOS) movies > 2GB in size.
 [datafile,datapath] = uigetfile( '*.stk;*.tif;*.tiff', 'Choose a movie file', ...
                                  'MultiSelect','on' );
-
 if ~iscell(datafile),
     if datafile==0, return; end  %user hit cancel
 end
-
 handles.stkfile = strcat(datapath,datafile);
 
 % Load the movie
@@ -184,10 +182,6 @@ image_t = handles.stk_top-stkData.background;
 [nrow,ncol] = size(image_t);
 fields = {};  ax = [];
 
-chNames = upperFirst( handles.params.chNames );
-chNames = strrep(chNames, 'Factor','Factor Binding'); %for display only!
-
-
 %---- Show fields for Single-Channel (full-chip) recordings.
 if handles.params.geometry==1,
     handles.total_t = image_t;
@@ -231,9 +225,11 @@ elseif handles.params.geometry>2,
     handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.7 0.25 0.3 0.45] );
 end
 
+handles.ax = ax;
 
 % Show fluorescence fields for all channels
 chColors = Wavelength_to_RGB(handles.params.wavelengths);
+chNames = handles.params.chNames;
 
 for i=1:numel(fields),
     % i is the index of physical CCD chip locations.
@@ -253,11 +249,20 @@ for i=1:numel(fields),
         if sum(chColors(idxCh,:)) < 1,
             set(h,'Color',[1 1 1]);
         end
+        
+        set(ax(i), 'UserData',idxCh);
     end
 end
 
 % Link axes so zooming one zooms all.
 linkaxes( [ax handles.axTotal] );
+    
+% Context menus for field-specific settings (names, wavelength, etc).
+% FIXME: this also adds one to "total intensity"...
+zoom(handles.figure1,'off');
+hZoom = zoom(handles.figure1);
+set(hZoom, 'UIContextMenu', handles.mnuField);
+zoom(handles.figure1,'on');
 
 % Show total fluorescence channel
 imshow( handles.total_t, [low*2 val*2], 'Parent',handles.axTotal );
@@ -274,20 +279,6 @@ guidata(hObject,handles);
 %end function OpenStk
 
 
-function names = upperFirst(names)
-% Make the first letter of a string uppercase
-
-if ~iscell(names)
-    names = {names};
-end
-
-for i=1:numel(names),
-    if ~isempty( names{i} ),
-        names{i} = [upper(names{i}(1)) names{i}(2:end)];
-    end
-end
-    
-% end
 
 
 % --------------- OPEN ALL STK'S IN DIRECTORY (BATCH) --------------- %
@@ -925,11 +916,12 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
-prompt = {'Threshold (0 for auto):', 'Window size (px):', ...
-          'Min. separation (px):', 'ADU/photo-e conversion:', 'Donor blink detection:'};
+prompt = {'Threshold (0 for auto):', 'Integration window size (px):', ...
+          'Minimum separation (px):', 'ADU/photon conversion:', ...
+          'Donor blink detection method:', 'Integration neighbhorhood (px):'};
 fields = {'don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
-          'photonConversion', 'zeroMethod' };
-types = {[],[],[],[],{'Threshold','SKM'}};
+          'photonConversion', 'zeroMethod', 'nhoodSize'};
+types = {[],[],[],[],{'off','threshold','skm'}};
 handles.params = settingsDialog(handles.params,fields,prompt,types);
 guidata(hObject,handles);
 
@@ -1252,3 +1244,52 @@ function updateFileTimer(~,~,hObject,targetDir)
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 
 % END FUNCTION updateFileTimer
+
+
+% --------------------------------------------------------------------
+function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Context menu to alter field-specific settings (name, wavelength, etc).
+% FIXME: alter settingsDialog to make this work somehow?
+
+fieldID = get(gca,'UserData');
+if isempty(fieldID), return; end  %total intensity field
+
+% Prompt for new values and verify validity.
+prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Excitation wavelength (nm):'};
+currentopt = {handles.params.chNames{fieldID} handles.params.chDesc{fieldID} ...
+              num2str(handles.params.wavelengths(fieldID)) };
+
+answer = inputdlg(prompt, 'Change settings', 1, currentopt);
+if isempty(answer), return; end   %user hit cancel
+
+if ~ismember(answer{1}, properties(TracesFret4)),
+    errordlg( ['Invalid channel name ' answer{1}] );
+    return;
+end
+
+% Save the new parameters
+handles.params.chNames{fieldID}     = answer{1};
+handles.params.chDesc{fieldID}      = answer{2};
+handles.params.wavelengths(fieldID) = str2double(answer{3});
+guidata(hObject,handles);
+
+% Update the GUI. FIXME should call a function.
+axID = handles.params.idxFields(fieldID);
+chColor = Wavelength_to_RGB(handles.params.wavelengths(fieldID));
+
+h = title( handles.ax(axID), [answer{1} ' (' answer{2} ') #' num2str(axID)], ...
+           'BackgroundColor',chColor, 'FontSize',10 );
+
+if sum(chColor)<1,
+    set(h,'Color',[1 1 1]); %white text for dark backgrounds.
+else
+    set(h,'Color',[0 0 0]);
+end
+
+% END FUNCTION mnuFieldSettings_Callback
+
+
+
+
+
+
