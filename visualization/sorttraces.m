@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 03-May-2016 18:40:58
+% Last Modified by GUIDE v2.5 05-May-2016 12:10:15
 
 
 % Begin initialization code - DO NOT EDIT
@@ -36,51 +36,47 @@ end
 
 
 
-
-
 % --- Executes just before sorttraces is made visible.
 function sorttraces_OpeningFcn(hObject, ~, handles, varargin)
 % Setup GUI controls in their default state (no file loaded).
 
 updateSpartan; %check for updates
 
-% Initialize GUI if sorrtraces is being launched for the first time.
-if ~isfield(handles,'constants')
-    disp('Keyboard shortcuts:');
-    disp('   Left arrow key  = Previous molecule');
-    disp('   Right arrow key = Next molecule');
-    disp('   a, s, d = Put molecule in No, All, or Best FRET, respectively');
-    disp('   z       = Zoom in to trace. Press again to zoom out');    
-    
-    % Choose default command line output for sorttraces
-    handles.output = hObject;
-    handles.vals = [];
+disp('Keyboard shortcuts:');
+disp('   Left arrow key  = Previous molecule');
+disp('   Right arrow key = Next molecule');
+disp('   a, s, d = Put molecule in No, All, or Best FRET, respectively');
+disp('   z       = Zoom in to trace. Press again to zoom out');    
 
-    handles.constants = cascadeConstants();
-    set( handles.figure1, 'Name', [mfilename ' - ' handles.constants.software] );
+% Choose default command line output for sorttraces
+handles.output = hObject;
+handles.vals = [];
 
-    % Link x-axes - zooming on one plot will automatically zoom on the other
-    ax = [handles.axFluor handles.axTotal handles.axFret];
-    linkaxes(ax,'x');
-    
-    % SETUP AXES labels and settings.
-    % Hold is needed so we don't lose the grid/zoom/etc settings, which are
-    % lost when a new plot is generated on the axes...
-    for i=1:numel(ax),
-        zoom( ax(i), 'on' );
-        hold( ax(i), 'on' );
-        set( zoom(ax(i)), 'ActionPostCallback',@zoom_callback);
-    end
-    
-    ylabel( handles.axFluor, 'Fluorescence' );
-    ylabel( handles.axTotal, 'Total Fluorescence' );
-    
-    handles.axFOV = [];
-    handles.idl = [];
-    handles.idlFret = [];
-    guidata(hObject, handles);
+constants = cascadeConstants();
+set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
+
+% Setup FRET threshold line dragging callbacks
+set(handles.figure1, 'WindowButtonMotionFcn',@(a,b)sorttraces('threshDrag_Callback',a,b,guidata(a)), ...
+                     'WindowButtonUpFcn',@(a,b)sorttraces('threshUp_Callback',a,b,guidata(a)));
+handles.threshDrag = false;
+
+% Link x-axes - zooming on one plot will automatically zoom on the other
+ax = [handles.axFluor handles.axTotal handles.axFret];
+linkaxes(ax,'x');
+
+% SETUP AXES labels and settings.
+% Hold is needed so we don't lose the grid/zoom/etc settings, which are
+% lost when a new plot is generated on the axes...
+for i=1:numel(ax),
+    zoom( ax(i), 'on' );
+    hold( ax(i), 'on' );
+    set( zoom(ax(i)), 'ActionPostCallback',@zoom_callback);
 end
 
+ylabel( handles.axFluor, 'Fluorescence' );
+ylabel( handles.axTotal, 'Total Fluorescence' );
+[handles.axFOV, handles.idl, handles.idlFret] = deal([]);
+guidata(hObject, handles);
 
 % If called by autotrace, 2nd argument is filename of traces output file.
 if numel(varargin) > 1
@@ -100,17 +96,8 @@ end
 
 % --- Outputs from this function are returned to the command line.
 function varargout = sorttraces_OutputFcn(~, ~, handles)
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Get default command line output from handles structure
 varargout{1} = handles.output;
-
-
 %--- END FUNCTION sorttraces_OutputFcn
-
 
 
 
@@ -209,15 +196,13 @@ for i=1:numel(handles.binNames),
 end
 
 % Turn on other controls that can now be used now that a file is loaded.
-set( [handles.edThreshold   handles.sldThreshold handles.edCrosstalk1 ...
-      handles.sldCrosstalk1 handles.edGamma1     handles.sldGamma1], ...
+set( [handles.edCrosstalk1 handles.sldCrosstalk1 handles.edGamma1 handles.sldGamma1], ...
       'Enable', onoff(ismember('fret',data.channelNames)) );
 
 set( [handles.edCrosstalk2  handles.sldCrosstalk2 handles.edCrosstalk3 ...
       handles.sldCrosstalk3 handles.edGamma2      handles.sldGamma2], ...
       'Enable', onoff(ismember('fret2',data.channelNames)) );
 
-set( [handles.edThreshold handles.sldThreshold], 'Enable', onoff(useThresh) );
 set( [handles.tbLoadIdl handles.mnuLoadIdl handles.tbGettraces ...
       handles.mnuGettraces handles.mnuZeroMethod], 'Enable','on');
 
@@ -363,6 +348,7 @@ set([handles.tbSave handles.mnuSave], 'Enable','on');
 function handles = editGoTo_Callback(hObject, ~, handles)
 % Called when user changes the molecule number textbox. Jump to and plot
 % the indicated trace.
+constants = cascadeConstants;
 
 % Get trace ID from GUI
 mol=str2double( get(handles.editGoTo,'String') );
@@ -401,23 +387,15 @@ if strcmpi(handles.data.fileMetadata.zeroMethod,'threshold'),
         end
 
         s = handles.stats.lifetime + 5;
-        range = s:min(s+handles.constants.NBK,trace.nFrames);
+        range = s:min(s+constants.NBK,trace.nFrames);
 
         if numel(range)<10,
             handles.fretThreshold(mol) = 150; %arbitrary
         else
-            handles.fretThreshold(mol) = handles.constants.blink_nstd * std(total(range));
+            handles.fretThreshold(mol) = constants.blink_nstd * std(total(range));
         end
     end
 end
-
-guidata(hObject,handles);
-
-
-% Adjust scroll bar range if the new value falls outside of it.
-sldMax = get( handles.sldThreshold, 'max' );
-sldMax = max( sldMax, 2*handles.fretThreshold(mol) );
-set( handles.sldThreshold, 'max', sldMax );
 
 % Set bin checkboxes
 for i=1:numel(handles.bins),
@@ -437,16 +415,14 @@ for i=1:numel(from),
     set( handles.(name), 'Value', crosstalk );
 end
 
-set( handles.edThreshold,  'String', sprintf('%.2f',handles.fretThreshold(mol)) );
-set( handles.sldThreshold, 'Value',  handles.fretThreshold(mol) );
-
 set( handles.edGamma1, 'String', sprintf('%.2f',handles.gamma(mol,2)) );
 set( handles.sldGamma1, 'Value', handles.gamma(mol,2) );
 
 set( handles.edGamma2, 'String', sprintf('%.2f',handles.gamma(mol,3)) );
 set( handles.sldGamma2,'Value',  handles.gamma(mol,3) );
 
-plotter(handles);
+handles = plotter(handles);
+guidata(hObject,handles);
 
 % END FUNCTION editGoTo_Callback
 
@@ -598,7 +574,8 @@ set(handles.figure1,'pointer','arrow');
 function saveState( handles )
 % Save a .mat containing the current GUI state to be recovered later.
 
-savedState.version = handles.constants.version;
+constants = cascadeConstants;
+savedState.version = constants.version;
 
 fields = {'binNames','bins','adjusted','crosstalk','gamma','background','fretThreshold'};
 for i=1:numel(fields),
@@ -740,48 +717,6 @@ sldCrosstalk_Callback( handles.(name), [], handles );
 
 
 %---------------------------------------------------%
-
-% --- Executes on slider movement.
-function sldThreshold_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Called when user changes the scroll bar for specifying FRET threshold.
-%
-
-mol = handles.molecule_no;
-
-% Update edit box with new value
-handles.fretThreshold(mol) = get(hObject,'Value');
-set(handles.edThreshold,'String', sprintf('%.2f',handles.fretThreshold(mol)) );
-
-% Plot data with new threshold value
-updateTraceData( handles );
-
-% END FUNCTION sldThreshold_Callback
-
-
-
-function edThreshold_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Called when user changes the text box for specifying FRET threshold.
-%
-
-mol = handles.molecule_no;
-handles.fretThreshold(mol) = str2double( get(hObject,'String') );
-
-% Verify the value is within the range of the slider bar. If not, it should
-% be expanded to accomodate the new value or this will give an error.
-sldMax = get( handles.sldThreshold,'max' );
-sldMax = max( sldMax, 1.5*handles.fretThreshold(mol) );
-set( handles.sldThreshold, 'max', sldMax );
-
-% Update slider with new value
-set( handles.sldThreshold, 'Value', handles.fretThreshold(mol) );
-
-% Plot data with new threshold value
-updateTraceData( handles );
-
-% END FUNCTION edThreshold_Callback
-
-
-
 function edGamma_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Text box for adjusting apparent gamma was changed. Scale acceptor1.
 % A value of 1 means no adjustment. A value of 5 will multiply the acceptor
@@ -857,16 +792,17 @@ editGoTo_Callback( hObject, [], handles );
 
 
 
+
 function handles = updateTraceData( handles )
 % Recalculate FRET, update plots, and save GUI data (handles).
 % This is called following any changes made to the fluorescence traces
 % (bg subtraction, crosstalk, etc) or the FRET threshold.
 
 handles.adjusted(handles.molecule_no) = true;
-guidata(handles.figure1, handles);
 
 set([handles.mnuSave handles.tbSave], 'Enable','on');
-plotter(handles);
+handles = plotter(handles);
+guidata(handles.figure1, handles);
 
 % END FUNCTION updateTraceData
 
@@ -946,7 +882,7 @@ printdlg(handles.figure1);
 
 
 %----------PLOT TRACES----------%
-function plotter(handles)
+function handles = plotter(handles)
 % Draw traces for current molecule and update displayed stats.
 
 
@@ -1049,10 +985,6 @@ axis([handles.axTotal handles.axFluor],'auto');
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
-    if strcmpi(data.fileMetadata.zeroMethod,'threshold')
-        plot( handles.axTotal, time, repmat(handles.fretThreshold(m),1,data.nFrames), 'b-');
-    end
-    
     mean_on_signal = mean( total(data.fret~=0) );
     mean_off_signal = mean( total(lt+5:end) );
 
@@ -1064,6 +996,13 @@ if ismember('fret',chNames),
     
     plot( handles.axTotal, time,simplified_cy5,'r' );
     plot( handles.axTotal, time,simplified_cy3,'g' );
+    
+    % Show adjustable FRET threshold line, if applicable.
+    if strcmpi(data.fileMetadata.zeroMethod,'threshold')
+        handles.hThresh = plot( handles.axTotal, time([1 data.nFrames]), ...
+                repmat(handles.fretThreshold(m),1,2), 'b-', ...
+                'ButtonDownFcn',@(a,b)sorttraces('threshDown_Callback',a,b,guidata(a)));
+    end
 end
 
 
@@ -1089,9 +1028,9 @@ drawnow;
 % end function plotter.
 
 
-
 function zoom_callback(hObject, ~)
-% Called as ActionPostCallback for any of the axes objects upon zooming
+% Called as ActionPostCallback for any of the axes objects upon zooming.
+% Updates any stats (correlation) calculated over the zoomed region.
 
 handles = guidata(hObject);
 m = handles.molecule_no;
@@ -1124,17 +1063,46 @@ end
 
 
 
+%=========================================================================%
+%===================   FRET THRESHOLD LINE DRAGGING   ====================%
+function threshDown_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Called when the user STARTS dragging the FRET threshold line in axTotal.
+% This allows the user to the manually set the threshold.
+handles.threshDrag = true;
+guidata(hObject,handles);
 
-% --- Executes on button press in btnLoadDWT.
+function threshUp_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Called when the user STOPS dragging the FRET threshold line in axTotal.
+if handles.threshDrag,
+    cp = get(handles.axTotal,'CurrentPoint');
+    handles.fretThreshold(handles.molecule_no) = cp(1,2);
+    handles.threshDrag = false;
+    guidata(hObject,handles);
+    
+    handles = updateTraceData(handles);
+    guidata(hObject,handles);
+end
+
+function threshDrag_Callback(~, ~, handles) %#ok<DEFNU>
+% Called repeatedly while the FRET threshold line in axTotal is dragged.
+% Allows the user to the manually set the threshold.
+if handles.threshDrag,
+    cp = get(handles.axTotal,'CurrentPoint');
+    set( handles.hThresh, 'YData', [cp(1,2) cp(1,2)] );
+end
+
+
+
+%=========================================================================%
+%==================   IDEALIZATION BUTTON CALLBACKS   ====================%
 function btnLoadDWT_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Loads an idealization (.dwt file) for later plotting in plotter().
 
 handles = loadDWT_ex( handles );
+handles = plotter(handles);
 guidata(hObject,handles);
-plotter(handles);
 
 % END FUNCTION btnLoadDWT_Callback
-
 
 
 function handles = loadDWT_ex( handles, varargin)
@@ -1192,13 +1160,13 @@ function btnClearIdl_Callback(hObject, ~, handles) %#ok<DEFNU>
 
 handles.idl = [];
 handles.idlFret = [];
-
-guidata(hObject,handles);
 set(handles.mnuClearIdl,'Enable','off');
 
-plotter(handles);
+handles = plotter(handles);
+guidata(hObject,handles);
 
 % END FUNCTION btnClearIdl_Callback
+% ----------------------------------------------------------------------
 
 
 
@@ -1384,12 +1352,12 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
     colormap(handles.axFOV, gettraces_colormap);
     
     zoom(handles.axFOV,'on');
-    guidata(hObject,handles);
 end
 
 
 % Show molecule location
-plotter(handles);
+handles = plotter(handles);
+guidata(hObject,handles);
 
 % end function btnGettraces_Callback
 
@@ -1425,7 +1393,6 @@ delete(hObject);
 
 
 
-
 % --------------------------------------------------------------------
 function mnuZeroMethod_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Set method for detecting donor blinks (setting FRET to zero).
@@ -1446,8 +1413,6 @@ if ok && sel~=current,
     handles.data.recalculateFret();
     
     % Update GUI controls and redraw current trace.
-    set([handles.edThreshold handles.sldThreshold], 'Enable', onoff(sel==2));
-    
     if sel==2,
         handles.fretThreshold(:) = NaN;
     else
