@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 04-May-2016 11:22:35
+% Last Modified by GUIDE v2.5 05-May-2016 14:14:00
 
 
 % Begin initialization code - DO NOT EDIT
@@ -135,8 +135,8 @@ end
 
 % Trancate name if too long ot fit into window without wrapping.
 fnameText = fullfile(p, [f e]);
-if numel(fnameText)>90,
-    fnameText = ['...' fnameText(end-90:end)];
+if numel(fnameText)>80,
+    fnameText = ['...' fnameText(end-80:end)];
 end
 
 set( handles.txtFilename, 'String',fnameText);
@@ -441,24 +441,23 @@ else
         text = 'Alignment Applied:';
     end
     
-    tableData = get(handles.tblAlignment,'Data');
+    tableData = cell(numel(a)-1,6);
     fmt = {'% 0.2f','% 0.2f','% 0.2f','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
+    idxShow = find(  ~arrayfun(@(x)isempty(x.theta), a)  );  %field numbers
     
-    for i=1:numel(a),
-        if ~isempty(a(i).theta),
-            %FIXME: quality is not defined for all alignments (!)
-            %FIXME: indexing here assumes donor is first; it may not be!
-            row = [a(i).dx a(i).dy a(i).theta 100*(a(i).sx-1) a(i).quality a(i).abs_dev];
-            tableData(i-1,:) = arrayfun( @(i) sprintf(fmt{i},row(i)), 1:numel(fmt), 'Unif',false );
-            
-            if a(i).quality==0,
-                tableData{i-1,5}='';
-            end
+    for idxRow=1:numel(idxShow),  %row in displayed table
+        %FIXME: quality is not defined for all alignments (!)
+        i = idxShow(idxRow);  %field number
+        row = [a(i).dx a(i).dy a(i).theta 100*(a(i).sx-1) a(i).quality a(i).abs_dev];
+        tableData(idxRow,:) = arrayfun( @(x)sprintf(fmt{x},row(x)), 1:numel(fmt), 'Unif',false )';
+
+        if a(i).quality==0,
+            tableData{idxRow,5}='';
         end
     end
     
     set( handles.tblAlignment, 'Data',tableData(1:numel(a)-1,:) );
-    set( handles.tblAlignment, 'RowName',handles.params.chDesc(2:end) );
+    set( handles.tblAlignment, 'RowName',handles.params.chDesc(idxShow) );
     
     % If the alignment quality (confidence) is low, warn the user.
     % FIXME: 
@@ -503,12 +502,7 @@ percentOverlap = stkData.fractionOverlapped*100;
 
 set(  handles.txtOverlapStatus, 'String', ...
       sprintf('Molecules rejected: %0.0f%%', percentOverlap)  );
-
-if percentOverlap>30,
-    set( handles.txtOverlapStatus, 'ForegroundColor', [0.9 0 0] );
-else
-    set( handles.txtOverlapStatus, 'ForegroundColor', [0 0 0] );
-end
+set( handles.txtOverlapStatus, 'ForegroundColor', (percentOverlap>30)*[0.9 0 0] );
 
 
 % Determine the fractin of integration windows that overlap, as a measure of the
@@ -518,12 +512,7 @@ percentWinOverlap = mean(stkData.fractionWinOverlap*100);
 
 set(  handles.txtWindowOverlap, 'String', ...
       sprintf('Residual win. overlap: %0.1f%%', percentWinOverlap)  );
-
-if percentWinOverlap>10,
-    set( handles.txtWindowOverlap, 'ForegroundColor', [0.9 0 0] );
-else
-    set( handles.txtWindowOverlap, 'ForegroundColor', [0 0 0] );
-end
+set( handles.txtWindowOverlap, 'ForegroundColor', (percentWinOverlap>10)*[0.9 0 0] );
 
 
 % Get (approximate) average fraction of fluorescence collected within the
@@ -533,12 +522,7 @@ eff = 100*stkData.integrationEfficiency(:,handles.params.nPixelsToSum);
 eff = nanmean(eff);
 set(  handles.txtIntegrationStatus, 'String', ...
       sprintf('Intensity collected: %0.0f%% ', eff)  );
-
-if eff<70,
-    set( handles.txtIntegrationStatus, 'ForegroundColor', [0.9 0 0] );
-else
-    set( handles.txtIntegrationStatus, 'ForegroundColor', [0 0 0] );
-end
+set( handles.txtIntegrationStatus, 'ForegroundColor', (eff<70)*[0.9 0 0] );
 
 
 % Estimate the peak width from pixel intensity distribution.
@@ -550,14 +534,9 @@ for i=1:size(eff,1),
     decay(i) = find( eff(i,:)>=0.7, 1, 'first' );%default 3-color channel assignments.
 end
 
-set(  handles.txtPSFWidth, 'String', ...
-                         sprintf('PSF size: %0.1f px', mean(decay))  );
-                     
-if mean(decay) > handles.params.nPixelsToSum,
-    set( handles.txtPSFWidth, 'ForegroundColor', [0.9 0 0] );
-else
-    set( handles.txtPSFWidth, 'ForegroundColor', [0 0 0] );
-end
+set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',mean(decay)) );
+set( handles.txtPSFWidth, 'ForegroundColor', (mean(decay)>handles.params.nPixelsToSum)*[0.9 0 0] );
+
 
 
 %----- Graphically show peak centers
@@ -578,8 +557,7 @@ handles.num = numel(handles.total_x);
 set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
                                     numel(handles.rtotal_x)+handles.num) );
 
-set([handles.btnSave handles.mnuFileSave handles.mnuHidePeaks], ...
-    'Enable','on');
+set( [handles.btnSave handles.mnuFileSave handles.mnuHidePeaks], 'Enable','on');
 
 set(handles.figure1,'pointer','arrow');
 guidata(hObject,handles);
@@ -997,12 +975,11 @@ if f==0, return; end
 try
     input = load(alignFilename);
     
-    % If the alignment was made with version 2.8 or earlier, transformations are
-    % not about the center of the image (as they are in 2.9 and greater).
-    % This is a big difference. Old alignments will not work correctly.
-    if isfield(input.alignment(2).tform,'tdata'),
+    % Avoid transformations made before v2.9 (rotated on edge not center).
+    idx = find(  ~arrayfun(@(x)isempty(x.tform), input.alignment), 1 );  %first non-empty entry
+    if isfield(input.alignment(idx).tform,'tdata'),
         error('gettraces:oldAlignment','Alignment files from version 2.8 and earlier are not supported.');
-    elseif ~isa(input.alignment(2).tform,'affine2d'),
+    elseif ~isa(input.alignment(idx).tform,'affine2d'),
         error('gettraces:badAlignTform','Unrecognized tform class');
     end
     
@@ -1161,9 +1138,6 @@ function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % 
 
 sel = get(hObject,'Position');
-mnuMeth = findobj('Parent',handles.mnuAlign);
-set(mnuMeth, 'Checked','off');
-set(hObject, 'Checked','on');
 
 if sel==2
     % Load alignment from file.
@@ -1174,6 +1148,10 @@ else
     handles = getTraces_Callback(hObject, [], handles);
     guidata(hObject,handles);
 end
+
+mnuMeth = findobj('Parent',handles.mnuAlign);
+set(mnuMeth, 'Checked','off');
+set(hObject, 'Checked','on');
 
 % END FUNCTION cboAlignMethod_Callback
 
@@ -1287,9 +1265,3 @@ else
 end
 
 % END FUNCTION mnuFieldSettings_Callback
-
-
-
-
-
-
