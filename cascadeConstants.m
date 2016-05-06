@@ -1,16 +1,22 @@
-function constants = cascadeConstants()
-% Returns contant used throughput the processing pipeline
+function output = cascadeConstants()
+%cascadeConstants  Parameter values used throughout SPARTAN.
+%
+%   const = cascadeConstants() is a struct of parameters.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
-
-
-constants.version = '2.12.6';  %pipeline release version number
-constants.software = ['Cornell SPARTAN ' constants.version];  %software title
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% FIXME: this script is called many times and is getting large enough to add
-% time to some function calls. Consider using a static version of the return
-% parameters. Problem: result is not updated when the file is changed.
+% Cached for faster execution. Automatically reset if file is modified.
+persistent constants;
+if ~isempty(constants),
+    output = constants;
+    return;
+end
+
+% Version info displayed in title bars
+constants.version = '3.0';
+constants.software = ['Cornell SPARTAN ' constants.version];
+
 
 
 %% ======================  Global Algorithm Settings ====================== %%
@@ -133,10 +139,18 @@ p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
 p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
-% % For a few movies taken with old versions of Flash Gordon
-% p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5) REVERSED';
-% p.idxFields   = [2 1]; %R/L
-% profiles(end+1) = p;
+
+p.name        = 'sCMOS, Multi-Cam (Cy2/3/5, Bandpass)';
+p.geometry    = 3;
+p.idxFields   = [3 1 2]; % field order: LL, UL,UR.
+p.chNames     = {'factor','donor','acceptor'};
+p.chDesc      = {'Cy2','Cy3','Cy5'};
+p.wavelengths = [473 532 640];
+p.crosstalk   = zeros(4);
+% p.crosstalk(1,2) = 0.0;   %Cy2->Cy3 (FIXME)
+p.crosstalk(2,3) = 0.11;   %Cy3->Cy5 (FIXME)
+p.scaleAcceptor  = [1 1];  %Multiply Cy5 and Cy7 traces by this amount.
+profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7, NO bandpass)';
@@ -150,11 +164,6 @@ p.crosstalk(1,2) = 0.11;   %Cy3->Cy5 (same as 2-color; was 0.066 with bandpasses
 p.crosstalk(2,3) = 0.04;   %Cy5->Cy7 (0.015 with bandpasses in?)
 p.scaleAcceptor  = [1 1];  %Multiply Cy5 and Cy7 traces by this amount.
 profiles(end+1) = p;
-
-% % For a few movies taken with old versions of Flash Gordon
-% p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7) OLD ORDER';
-% p.idxFields   = [3 2 1]; % field order: LL, UR, UL
-% profiles(end+1) = p;
 
 
 
@@ -371,7 +380,4 @@ constants.nProcessors = feature('numCores');
 constants.enable_parfor = constants.nProcessors>1 & ~isdeployed;
 
 
-
-
-
-
+output = constants;
