@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 05-May-2016 14:14:00
+% Last Modified by GUIDE v2.5 06-May-2016 17:12:37
 
 
 % Begin initialization code - DO NOT EDIT
@@ -93,9 +93,8 @@ varargout{1} = handles.output;
 
 % --- Executes on button press in openstk.
 function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Get filename of input data from user. If multiple files are selected,
-% they are considered sections (groups of frames) from a larger movie.
-% This happens with very large (sCMOS) movies > 2GB in size.
+% Get filename of input data from user. 
+% Multi-select is for multi-part movies (ordinary TIFFs limited to 2GB).
 [datafile,datapath] = uigetfile( '*.stk;*.tif;*.tiff', 'Choose a movie file', ...
                                  'MultiSelect','on' );
 if ~iscell(datafile),
@@ -104,10 +103,9 @@ end
 handles.stkfile = strcat(datapath,datafile);
 
 % Load the movie
-handles = OpenStk( handles.stkfile, handles, hObject );
+OpenStk( handles.stkfile, handles, hObject );
 
-% Update GUI now that data has been loaded.
-guidata(hObject,handles);
+% END FUNCTION openstk_Callback
 
 
 
@@ -348,9 +346,7 @@ for i=1:nFiles
     
     % Save the traces to file
     mnuFileSave_Callback(hObject, [], handles);
-    
-    nTraces(i) = handles.num;    
-    guidata(hObject,handles);
+    nTraces(i) = handles.num;
 end
 
 
@@ -374,12 +370,7 @@ for i=1:nFiles
 end
 
 fclose(log_fid);
-
-
-
-% ----- Wrap up
 set(handles.txtProgress,'String','Batch processing: finished.');
-guidata(hObject,handles);
 
 % END FUNCTION batchmode_Callback
 
@@ -405,8 +396,6 @@ set(handles.figure1,'pointer','watch'); drawnow;
 
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
-% params = handles.params;
-% params.alignment = handles.alignment; %apply loaded alignment if any
 [stkData,peaks] = gettraces( stkData, handles.params );
 
 % The alignment may involve shifting (or distorting) the fields to get a
@@ -460,7 +449,6 @@ else
     set( handles.tblAlignment, 'RowName',handles.params.chDesc(idxShow) );
     
     % If the alignment quality (confidence) is low, warn the user.
-    % FIXME: 
     if isfield(a,'quality'),
         if any( [a.quality]<1.1 & [a.quality]>0 ),
             text = [text sprintf(' (low confidence!)')];
@@ -483,21 +471,14 @@ else
         set( handles.panAlignment, 'ForegroundColor', [0 0 0] );
     end
     
-    % Total misalignment (no corresponding peaks) can give a relatively low
-    % alignment since the algorithm can only search a 1px neighborhood. So
-    % when things get close to 1, we need a big warning. 
+    % Show a big warning for total misalignment (no corresponding peaks).
     if any( [a.abs_dev] >=0.7 ),
-        % Put up some big red text that's hard to ignore in the total
-        % fluorescence image. FIXME: the warning should be different if the
-        % software alignment was applied and the residual is low.
         set( handles.txtAlignWarning, 'Visible','on' );
     end
 end
 
 
-% Get locations also without overlap rejection to estimate the number of
-% molecules that are overlapping. This can be used to give the user a
-% warning if the density is too high (here by showing it in red).
+% Fraction of molecules close enough for PSFs to overlap (overcrowding).
 percentOverlap = stkData.fractionOverlapped*100;
 
 set(  handles.txtOverlapStatus, 'String', ...
@@ -505,8 +486,7 @@ set(  handles.txtOverlapStatus, 'String', ...
 set( handles.txtOverlapStatus, 'ForegroundColor', (percentOverlap>30)*[0.9 0 0] );
 
 
-% Determine the fractin of integration windows that overlap, as a measure of the
-% density of molecules on the surface.
+% Fraction of overlapping integration windows (also overcrowding).
 percentWinOverlap = mean(stkData.fractionWinOverlap*100);
 % percentTracesWinOverlap = 100*sum(stkData.fractionWinOverlap>0)/numel(stkData.fractionWinOverlap);
 
@@ -567,11 +547,7 @@ guidata(hObject,handles);
 
 
 function highlightPeaks(handles)
-% Draw circles around each selected fluorescence spot, defined in handles.x
-% and handles.y. FIXME: using line() to draw circles may be inefficient.
-% Try other methods. The big thing is EraseMode.
-%
-
+% Draw circles around each selected fluorescence spot.
     
 % Parameters for drawing circles around each detected molecule.
 style1 = {'LineStyle','none','marker','o','color','w'};
@@ -582,12 +558,10 @@ style2 = {'LineStyle','none','marker','o','color','y'};
 style1b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.4]};
 style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
 
-
 [nrow,ncol] = size(handles.stk_top);
 
 % Clear any existing selection markers from previous calls.
 delete(findobj(handles.figure1,'type','line'));
-
     
 if handles.params.geometry==2, %dual-channel
     % Assign each spot to the corresponding field image.
@@ -643,6 +617,12 @@ line( handles.rtotal_x, handles.rtotal_y, style2b{:}, 'Parent',handles.axTotal )
 % end function highlightPeaks
 
 
+% --- Executes on button press in btnHidePicks.
+function btnHidePicks_Callback(~, ~, handles)  %#ok<DEFNU>
+% Hide the circles drawn to indicate molecule locations.
+delete(findobj(handles.figure1,'type','line'));
+% END FUNCTION btnHidePicks_Callback
+
 
 
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
@@ -673,112 +653,20 @@ set(handles.figure1,'pointer','arrow'); drawnow;
 
 
 
-
-% --------------------- MISC. GUI CALLBACK FUNCTIONS --------------------- %
+%========================================================================
+%======================  VIEW/SETTINGS CALLBACKS  =======================
+%========================================================================
 
 % --- Executes on slider movement.
 function scaleSlider_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Update axes color limits from new slider value
 val = get(hObject,'value');
-minimum = get(hObject,'min');
-
-val = max(val,minimum+1); %prevent errors in GUI
-
-if handles.params.geometry==1, %Single-channel recordings
-    set( handles.axTotal,    'CLim',[minimum val] );
-    
-elseif handles.params.geometry==2, %Dual-channel recordings
-    set( handles.axDonor,    'CLim',[minimum val] );
-    set( handles.axAcceptor, 'CLim',[minimum val] );
-    set( handles.axTotal,    'CLim',[minimum*2 val*2] );
-elseif handles.params.geometry>2,
-    set( handles.axUL, 'CLim',[minimum val] );
-    set( handles.axUR, 'CLim',[minimum val] );
-    set( handles.axLL, 'CLim',[minimum val] );
-    set( handles.axLR, 'CLim',[minimum val] );
-    set( handles.axTotal, 'CLim',[minimum*2 val*2] );
-end
-
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
-
-guidata(hObject,handles);
-
-
-% --- Peak selection total intensity threshold specification
-function txtIntensityThreshold_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Update gettraces parameters using specified values
-text = get(hObject,'String');
-if ~isempty( text )
-    handles.params.don_thresh = str2double(text);
-elseif isfield(handles.params,'don_thresh');
-    handles.params = rmfield( handles.params,'don_thresh' );
-end
-
-% Re-pick molecules with new settings.
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
+txtMaxIntensity_Callback(handles.txtMaxIntensity, [], handles);
+% END FUNCTION scaleSlider_Callback
 
 
-% --- Overlap rejection threshold specification
-function txtOverlap_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Update gettraces parameters using specified values
-
-input = str2double(get(hObject,'String'));
-if isnan(input),
-    % If an invalid number is entered, reset the value to what it was.
-    set(hObject,'String',handles.params.overlap_thresh);
-    return;
-else
-    handles.params.overlap_thresh = input;
-end
-
-% Re-pick molecules with new settings.
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
-
-
-% --- Integration window size specification
-function txtIntegrationWindow_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Update gettraces parameters using specified values
-nPx = str2double(get(hObject,'String'));
-if isnan(nPx),
-    % If an invalid number is entered, reset the value to what it was.
-    set(hObject,'String',handles.params.nPixelsToSum);
-    return;
-else
-    handles.params.nPixelsToSum = floor(nPx);
-end
-
-% Re-pick molecules with new settings.
-% Updates the GUI status (% intensity collected).
-handles = getTraces_Callback( hObject, [], handles);
-guidata(hObject,handles);
-
-
-
-
-function txtSettings_Callback(hObject, ~, handles, paramName)  %#ok<DEFNU>
-% User changed one of the values int he "Analysis Settings" panel.
-% paramName is passed to identify which one and the matching parameter.
-% Only for buttons that have no side effects or special features.
-
-inputstr = get(hObject,'String');
-%if inputstr is empty, set the parameter to empty for automatic. TODO
-
-input = str2double( inputstr );
-if isnan(input),
-    % Reset field for invalid numbers, presumably to a valid value.
-    set( hObject, 'String', num2str(handles.params.(paramName)) );
-else
-    handles.params.(paramName) = input;
-    guidata(hObject,handles);
-end
-
-% END FUNCTION txtSettings_Callback
-
-
-
-function txtMaxIntensity_Callback(hObject, ~, handles)  %#ok<DEFNU>
+function txtMaxIntensity_Callback(hObject, ~, handles)
 % Update axes color limits from new slider value
 val = str2double( get(hObject,'String') );
 minimum = get(handles.scaleSlider,'min');
@@ -791,25 +679,22 @@ set( handles.scaleSlider, 'Value',val );
 set( handles.scaleSlider, 'max',maximum );
 
 if handles.params.geometry==1, %Single-channel recordings
-    set( handles.axTotal,    'CLim',[minimum val] );
+    set( handles.axTotal, 'CLim',[minimum val] );
     
 elseif handles.params.geometry==2, %Dual-channel recordings
-    set( handles.axDonor,    'CLim',[minimum val] );
-    set( handles.axAcceptor, 'CLim',[minimum val] );
-    set( handles.axTotal,    'CLim',[minimum*2 val*2] );
+    set( [handles.axDonor handles.axAcceptor], 'CLim',[minimum val] );
+    set( handles.axTotal, 'CLim',[minimum*2 val*2] );
     
 elseif handles.params.geometry>2,
-    set( handles.axUL, 'CLim',[minimum val] );
-    set( handles.axUR, 'CLim',[minimum val] );
-    set( handles.axLL, 'CLim',[minimum val] );
-    set( handles.axLR, 'CLim',[minimum val] );
+    set( [handles.axUL handles.axUR handles.axLL handles.axLR], ...
+                                                   'CLim',[minimum val] );
     set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 end
 
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
-
 guidata(hObject,handles);
 
+% END FUNCTION txtMaxIntensity_Callback
 
 
 function mnuProfiles_Callback(hObject, ~)
@@ -818,7 +703,7 @@ function mnuProfiles_Callback(hObject, ~)
 
 handles = guidata(hObject);
 set(findobj('Parent',get(hObject,'Parent')), 'Checked','off');
-set(hObject, 'Checked','on');  %FIXME?
+set(hObject, 'Checked','on');
 handles.profile = get(hObject,'Position');
 
 cboGeometry_Callback(hObject, [], handles);
@@ -849,21 +734,13 @@ handles.params = params;
 
 
 % Set all GUI to defaults of currently selected profile.
-% if ~isfield(params,'don_thresh') || params.don_thresh==0,
-%     set( handles.txtIntensityThreshold,'String','' );
-% else
-%     set( handles.txtIntensityThreshold,'String',num2str(params.don_thresh) );
-% end
-
-% set( handles.txtOverlap,           'String', num2str(params.overlap_thresh)   );
-% set( handles.txtIntegrationWindow, 'String', num2str(params.nPixelsToSum)     );
-% set( handles.txtPhotonConversion,  'String', num2str(params.photonConversion) );
 set( handles.mnuBatchRecursive,   'Checked', onoff(params.recursive)    );
 set( handles.mnuBatchOverwrite,   'Checked', onoff(params.skipExisting) );
 
 set( findobj('Parent',handles.mnuAlign), 'Checked','off' );
 set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
      'Checked','on' );
+set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 
 set( handles.edScaleAcceptor, 'String', num2str(params.scaleAcceptor) );
 set( handles.txtDACrosstalk,  'String', num2str(params.crosstalk) );
@@ -910,7 +787,6 @@ guidata(hObject,handles);
 % --- Executes on button press in btnMetadata.
 function btnMetadata_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Display a simple diaglog with the MetaMorph metadata for the first frame.
-% 
 
 stkData = getappdata(handles.figure1,'stkData');
 
@@ -950,73 +826,107 @@ for i=1:nFields, %for each field
     output{i} = sprintf( ['%' num2str(flen) 's:  %s'], fname, data );
 end
 
-
 % Display the dialog.
 msgbox( output, 'MetaMorph metadata' );
 
 
 
+% --------------------------------------------------------------------
+function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Context menu to alter field-specific settings (name, wavelength, etc).
+% FIXME: alter settingsDialog to make this work somehow?
 
+fieldID = get(gca,'UserData');
+if isempty(fieldID), return; end  %total intensity field
 
-% --- Executes on button press in btnLoadAlignment.
-function btnLoadAlignment_Callback(hObject, ~, handles)
-% Load software alignment settings previously saved to file. The file
-% the "align" structure defined in gettraces, including dx, dy, theta, etc.
-%
+% Prompt for new values and verify validity.
+prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Excitation wavelength (nm):'};
+currentopt = {handles.params.chNames{fieldID} handles.params.chDesc{fieldID} ...
+              num2str(handles.params.wavelengths(fieldID)) };
 
-% This should only be used in multi-color experiments.
-assert( handles.params.geometry>1 );
+answer = inputdlg(prompt, 'Change settings', 1, currentopt);
+if isempty(answer), return; end   %user hit cancel
 
-% Load an alignment file
-[f,p] = uigetfile('*.mat','Select an alignment settings file');
-alignFilename = [p f];
-if f==0, return; end
-
-try
-    input = load(alignFilename);
-    
-    % Avoid transformations made before v2.9 (rotated on edge not center).
-    idx = find(  ~arrayfun(@(x)isempty(x.tform), input.alignment), 1 );  %first non-empty entry
-    if isfield(input.alignment(idx).tform,'tdata'),
-        error('gettraces:oldAlignment','Alignment files from version 2.8 and earlier are not supported.');
-    elseif ~isa(input.alignment(idx).tform,'affine2d'),
-        error('gettraces:badAlignTform','Unrecognized tform class');
-    end
-    
-    % Overwrite alignment settings with those in the file.
-    handles.params.alignment = input.alignment;
-    handles.alignment = input.alignment; %???
-catch e,
-    % If the file is invalid, give a warning and reset the button so
-    % that is as if nothing happened.
-    warning('gettraces:invalidAlignFile', ['Invalid alignment file: ' e.message]);
+if ~ismember(answer{1}, properties(TracesFret4)),
+    errordlg( ['Invalid channel name ' answer{1}] );
     return;
 end
 
-% Update GUI (alignment was successfully loaded) and pick molecules again.
-handles.params.alignMethod = 2;
-
-handles = getTraces_Callback( hObject, [], handles);
+% Save the new parameters
+handles.params.chNames{fieldID}     = answer{1};
+handles.params.chDesc{fieldID}      = answer{2};
+handles.params.wavelengths(fieldID) = str2double(answer{3});
 guidata(hObject,handles);
 
-%end function btnLoadAlignment_Callback
+% Update the GUI. FIXME should call a function.
+axID = handles.params.idxFields(fieldID);
+chColor = Wavelength_to_RGB(handles.params.wavelengths(fieldID));
+
+h = title( handles.ax(axID), [answer{1} ' (' answer{2} ') #' num2str(axID)], ...
+           'BackgroundColor',chColor, 'FontSize',10 );
+       
+% White text for dark backgrounds.
+set(h,'Color',(sum(chColor)<1)*[1 1 1]); 
+
+% END FUNCTION mnuFieldSettings_Callback
 
 
 
 
-% --- Executes on button press in btnSaveAlignment.
+%========================================================================
+%=================  SOFTWARE ALIGNMENT MENU CALLBACKS  ==================
+%========================================================================
+
+function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
+% Change software alignment mode and re-pick molecules.
+% 1=off, 2=load from file, 3=Auto (ICP), 4=memorize (keep using).
+
+assert(handles.params.geometry>1);
+sel = get(hObject,'Position');  %position within the menu, 1=top.
+
+% Load alignment from file, if requested.
+if sel==2
+    % Ask user for a filename.
+    [f,p] = uigetfile('*.mat','Select an alignment settings file');
+    if f==0, return; end
+    input = load( fullfile(p,f) );
+
+    % Verify the alignment file is valid. FIXME: check for matching geometry!
+    idx = find(  ~arrayfun(@(x)isempty(x.tform), input.alignment), 1 );  %first non-empty entry
+    if isfield(input.alignment(idx).tform,'tdata'),
+        errordlg('Alignment files from version 2.8 and earlier are not supported', 'Gettraces', 'modal');
+        return;
+    elseif ~isa(input.alignment(idx).tform,'affine2d'),
+        errordlg('Invalid alignment: unrecognized tform class', 'Gettraces', 'modal');
+        return;
+    end
+
+    handles.alignment = input.alignment; %GUI state
+    handles.params.alignment = input.alignment; %gettraces() input
+    
+elseif sel==4
+    sel = 2; %basically the same thing
+    handles.params.alignment = rmfield( handles.alignment, {'quality'} );
+    %FIMXE: only run getTraces_Callback if molecules not picked yet.
+end
+
+% Re-pick molecules and update GUI with new mode.
+handles.params.alignMethod = sel;
+getTraces_Callback(hObject,[],handles);
+
+set(findobj('Parent',handles.mnuAlign), 'Checked','off');
+set(hObject, 'Checked','on');
+set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(sel>1));
+
+% END FUNCTION cboAlignMethod_Callback
+
+
+
 function btnSaveAlignment_Callback(~, ~, handles)  %#ok<DEFNU>
 % Save current software alignment settings (which may be set to do nothing
 % at all) to file so they can be reloaded later.
-%
 
 assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.params.geometry>1 );
-
-% Verify there is a valid software alignment 
-% if ~isfield(handles,'alignment') || isempty(handles.alignment),
-%     set(handles.btnSaveAlignment,'Enable','off');
-%     return;
-% end
 
 [p,f] = fileparts(handles.stkfile);
 alignfile = fullfile( p, [f '_align.mat'] );
@@ -1034,7 +944,10 @@ end
 
 
 
-% --- Executes on button press in btnCrosstalk.
+%========================================================================
+%===================  SPECTRAL CORRECTION CALLBACKS  ====================
+%========================================================================
+
 function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % When there are more than 2 channels, the crosstalk is more than just a
 % scalar and can't be represented in the text box easily, so this button
@@ -1085,7 +998,6 @@ guidata(hObject,handles);
 
 
 
-% --- Executes on button press in btnScaleAcceptor.
 function btnScaleAcceptor_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Set values for scaling the fluorescence intensity of acceptor channels so
 % that they all have the same apparent brightness (gamma=1). This button
@@ -1122,49 +1034,11 @@ guidata(hObject,handles);
 
 
 
-% --- Executes on selection change in cboZeroMehod.
-function cboZeroMehod_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Set method for detecting donor blinking and setting FRET to zero.
-menuItems = cellstr( get(hObject,'String') );
-handles.params.zeroMethod = menuItems{ get(hObject,'Value') };
-guidata(hObject,handles);
-
-%END FUNCTION cboZeroMehod_Callback
 
 
-
-% --- Executes on selection change in cboAlignMethod.
-function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% 
-
-sel = get(hObject,'Position');
-
-if sel==2
-    % Load alignment from file.
-    btnLoadAlignment_Callback(hObject, [], handles);
-else
-    % Re-pick molecules with new settings.
-    handles.params.alignMethod = sel;
-    handles = getTraces_Callback(hObject, [], handles);
-    guidata(hObject,handles);
-end
-
-mnuMeth = findobj('Parent',handles.mnuAlign);
-set(mnuMeth, 'Checked','off');
-set(hObject, 'Checked','on');
-
-% END FUNCTION cboAlignMethod_Callback
-
-
-
-% --- Executes on button press in btnHidePicks.
-function btnHidePicks_Callback(~, ~, handles)  %#ok<DEFNU>
-% Hide the circles drawn to indicate molecule locations so the field of
-% view image is more visible. They will show up again if the "Pick Peaks"
-% button is clicked.
-delete(findobj(handles.figure1,'type','line'));
-
-
+%========================================================================
+%======================  AUTO-DETECT NEW FILES  =========================
+%========================================================================
 
 % --- Executes on button press in chkAutoBatch.
 function chkAutoBatch_Callback(hObject, ~, handles)  %#ok<DEFNU>
@@ -1211,7 +1085,6 @@ function stopFileTimer(~,~,hObject)
 % Called on error during timer callback or when the timer is stopped.
 handles = guidata(hObject);
 set(handles.mnuBatchOverwrite,'Checked','off');
-
 % END FUNCTION stopFileTimer
 
 
@@ -1220,48 +1093,8 @@ function updateFileTimer(~,~,hObject,targetDir)
 % movies that may have appeared on the path.
 % disp('Timer fired');
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
-
 % END FUNCTION updateFileTimer
 
 
-% --------------------------------------------------------------------
-function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Context menu to alter field-specific settings (name, wavelength, etc).
-% FIXME: alter settingsDialog to make this work somehow?
 
-fieldID = get(gca,'UserData');
-if isempty(fieldID), return; end  %total intensity field
 
-% Prompt for new values and verify validity.
-prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Excitation wavelength (nm):'};
-currentopt = {handles.params.chNames{fieldID} handles.params.chDesc{fieldID} ...
-              num2str(handles.params.wavelengths(fieldID)) };
-
-answer = inputdlg(prompt, 'Change settings', 1, currentopt);
-if isempty(answer), return; end   %user hit cancel
-
-if ~ismember(answer{1}, properties(TracesFret4)),
-    errordlg( ['Invalid channel name ' answer{1}] );
-    return;
-end
-
-% Save the new parameters
-handles.params.chNames{fieldID}     = answer{1};
-handles.params.chDesc{fieldID}      = answer{2};
-handles.params.wavelengths(fieldID) = str2double(answer{3});
-guidata(hObject,handles);
-
-% Update the GUI. FIXME should call a function.
-axID = handles.params.idxFields(fieldID);
-chColor = Wavelength_to_RGB(handles.params.wavelengths(fieldID));
-
-h = title( handles.ax(axID), [answer{1} ' (' answer{2} ') #' num2str(axID)], ...
-           'BackgroundColor',chColor, 'FontSize',10 );
-
-if sum(chColor)<1,
-    set(h,'Color',[1 1 1]); %white text for dark backgrounds.
-else
-    set(h,'Color',[0 0 0]);
-end
-
-% END FUNCTION mnuFieldSettings_Callback
