@@ -652,24 +652,23 @@ clipboard('copy', sprintf('%f %f\n',histData) );
 
 
 % --- Executes on button press in chkAutoBatch.
-function chkAutoBatch_Callback(hObject, ~, ~)
+function chkAutoBatch_Callback(hObject, ~, handles)
 % Creates a timer to look for and automatically process .rawtraces files.
  
 % If another timer is running, stop it.
 fileTimer = timerfind('Name','autotrace_fileTimer');
+isRunning = strcmpi(get(handles.mnuAutoBatch,'Checked'), 'off');
 
 if ~isempty(fileTimer),
     stop(fileTimer);
     delete(fileTimer);
 end
 
-
 % Start a new timer if requested
-if get(hObject,'Value') == get(hObject,'Max'),
+if isRunning,
     % Ask the user for a directory location
     targetDir = uigetdir('','Choose directory:');
     if targetDir==0,  %user hit cancel
-        set( hObject, 'Value', get(hObject,'Min') );
         return;
     end
     disp(targetDir);
@@ -681,6 +680,9 @@ if get(hObject,'Value') == get(hObject,'Max'),
                       'StopFcn',{@stopFileTimer,hObject}, ...
                       'Period',2.0, 'BusyMode','drop');
     start(fileTimer);
+    set(handles.mnuAutoBatch,'Checked','on');
+else
+    set(handles.mnuAutoBatch,'Checked','off');
 end %if
 
 % END FUNCTION chkAutoBatch_Callback
@@ -691,7 +693,7 @@ function stopFileTimer(~,~,hObject)
 % This function is called when there is an error during the timer callback
 % or when the timer is stopped.
 handles = guidata(hObject);
-set(handles.mnuAutoBatch,'Value',0);
+set(handles.mnuAutoBatch,'Checked','off');
 
 % END FUNCTION stopFileTimer
 
@@ -705,7 +707,7 @@ handles = guidata(hObject);
 % Kill the timer if the directory is inaccessible
 if ~exist(targetDir,'dir'),
     disp('Autotrace: stopping batch mode: directory was moved or is inaccessible');
-    set(handles.mnuAutoBatch,'Value',0);
+    set(handles.mnuAutoBatch,'Checked','off');
     
     fileTimer = timerfind('Name','autotrace_fileTimer');
     stop(fileTimer);
