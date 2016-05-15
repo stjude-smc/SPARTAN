@@ -27,25 +27,24 @@ checktime = now + DELAY_SHORT;
 
 % Get current version number
 constants = cascadeConstants;
-current = cellfun( @(s)sscanf(s,'%f'), strsplit(constants.version,'.') );
+current = versionEncode(constants.version);
 
 
 %% Check online for the latest version.
 fprintf('Checking for updates to SPARTAN... ');
 try
-    input = urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1');
-    latest = cellfun( @(s)sscanf(s,'%d'), strsplit(input,'.') );
-    assert( isnumeric(latest) || numel(latest)==3, 'Invalid version number' );
+    latestVerString = urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1');
+    latest = versionEncode(latestVerString);
 catch
     fprintf('Failed. Check the address below instead:\n');
     disp('http://www.scottcblanchardlab.com/software');
     return;
 end
 
-needsupdate = latest(1)>current(1) || latest(2)>current(2) || latest(3)>current(3);
+needsupdate = latest>current;
 if nargout>0, output = needsupdate; end
 if ~needsupdate,
-    fprintf('Up to date.\n\n');
+    fprintf('Up to date. %s > %s\n\n',constants.version,latestVerString);
     return;
 else
     fprintf('New version available: %d.%d.%d\n\n',latest);
@@ -81,6 +80,24 @@ switch a
         checktime = now + DELAY_LONG;
 end
 
+
+end
+
+
+
+function output = versionEncode(string)
+% Convert version number string (x.y.z) to an integer for easy comparison.
+% 2.12.6 becomes 2012006.
+
+version = cellfun( @(s)sscanf(s,'%f'), strsplit(string,'.') );
+
+if numel(version)<3,
+    version = [version zeros(1,numel(version)-1)];
+elseif numel(version)>3
+    error( ['Invalid version number ' string] );
+end
+
+output = 1e6*version(1) + 1e3*version(2) + version(3);
 
 end
 

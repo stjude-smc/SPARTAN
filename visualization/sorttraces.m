@@ -227,15 +227,20 @@ end
 
 % Molecule location
 % FIXME: assumes donor is at the origin (upper left).
-axis(handles.axLocation,'square');
-if isfield(data.fileMetadata,'fieldSize')
-    szMovie = data.fileMetadata.movieSize;
-    axis(handles.axLocation, [0 szMovie(1) 0 szMovie(2)]);
+if isfield(data.traceMetadata,'donor_x'),
+    set(handles.axLocation, 'Visible','on');
+    axis(handles.axLocation,'square');  %FIXME
+    if isfield(data.fileMetadata,'fieldSize')
+        szMovie = data.fileMetadata.movieSize;
+        axis(handles.axLocation, [0 szMovie(1) 0 szMovie(2)]);
+    else
+        xlim(handles.axLocation, [0 max([data.traceMetadata.donor_x])] );
+        ylim(handles.axLocation, [0 max([data.traceMetadata.donor_y])] );
+    end
 else
-    xlim(handles.axLocation, [0 max([data.traceMetadata.donor_x])] );
-    ylim(handles.axLocation, [0 max([data.traceMetadata.donor_y])] );
+    cla(handles.axLocation);
+    set(handles.axLocation, 'Visible','off');
 end
-
 
 % Got to and plot first molecule.
 % The "GoTo" callback ends up calling guidata() to save handles.
@@ -925,10 +930,12 @@ if ishandle(handles.axFOV),
 end
 
 % Draw molecule location in small panel
-cla(handles.axLocation);
-loc = [data.traceMetadata.donor_x data.traceMetadata.donor_y];
-line( loc(1),loc(2), 'MarkerSize',4, 'LineStyle','none', 'Marker','o',...
-                     'Color','r', 'Parent',handles.axLocation );
+if strcmp( get(handles.axLocation, 'Visible'), 'on'),
+    cla(handles.axLocation);
+    loc = [data.traceMetadata.donor_x data.traceMetadata.donor_y];
+    line( loc(1),loc(2), 'MarkerSize',4, 'LineStyle','none', 'Marker','o',...
+                         'Color','r', 'Parent',handles.axLocation );
+end
 
 
 % Determine colors for plotting fluorescence.
@@ -1398,7 +1405,7 @@ function mnuZeroMethod_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Set method for detecting donor blinks (setting FRET to zero).
 
 zeroMethod = handles.data.fileMetadata.zeroMethod;
-current = find( strcmp(zeroMethod,TracesFret.zeroMethodNames) );
+current = find( strcmpi(zeroMethod,TracesFret.zeroMethodNames) );
 
 [sel,ok] = listdlg('PromptString','Method to detect donor blinking and set FRET to zero:', ...
                    'SelectionMode','single','ListSize',[300 120], ...

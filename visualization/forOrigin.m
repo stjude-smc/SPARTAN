@@ -52,10 +52,14 @@ end
 % Load idealization data (.DWT)
 % TODO: what if there are idealizations for multiple FRET traces?
 idl = zeros( nTraces,traceLen );
+dwells = {};
 
 if exist( dwtFilename, 'file' ),
     % Load idealization from file.
     [dwells,sampling,offsets,model] = loadDWT(dwtFilename);
+end
+
+if ~isempty(dwells)
     idl = dwtToIdl( dwells, offsets, traceLen, nTraces );
     
     fretValues = model(:,1);
