@@ -129,7 +129,7 @@ profiles(1)    = p;
 % profiles(end+1) = p;
 
 
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5)';
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, L/R)';
 p.geometry    = 2;
 p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
@@ -140,8 +140,19 @@ p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
 
-p.name        = 'sCMOS, Multi-Cam (Cy2/3/5, Bandpass)';
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, U/D)';
 p.geometry    = 3;
+p.idxFields   = [1 2]; %L/R
+p.chNames     = {'donor','acceptor'};
+p.chDesc      = {'Cy3','Cy5'};
+p.wavelengths = [532 640];
+p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
+p.scaleAcceptor = 1;
+profiles(end+1) = p;
+
+
+p.name        = 'sCMOS, Multi-Cam (Cy2/3/5, Bandpass)';
+p.geometry    = 4;
 p.idxFields   = [3 1 2]; % field order: LL, UL,UR.
 p.chNames     = {'factor','donor','acceptor'};
 p.chDesc      = {'Cy2','Cy3','Cy5'};
@@ -154,7 +165,7 @@ profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7, NO bandpass)';
-p.geometry    = 3;
+p.geometry    = 4;
 p.idxFields   = [1 2 4]; % field order: UL,UR,LR.
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
@@ -210,7 +221,7 @@ profiles(end+1) = p;
 
 p = emccdCommon;
 p.name        = 'Quad-View (Cy3/Cy5 only)';
-p.geometry    = 3;
+p.geometry    = 4;
 p.idxFields   = [3 1]; %field order: LL/UL
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
@@ -222,7 +233,7 @@ profiles(end+1) = p;
 
 p = emccdCommon;
 p.name        = 'Quad-View (Cy3/Cy5/Cy7)';
-p.geometry    = 3;
+p.geometry    = 4;
 p.idxFields   = [3 1 2]; % field order: LL/UL/LL
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
@@ -242,7 +253,7 @@ profiles(end+1) = p;
 
 p = emccdCommon;
 p.name        = 'Quad-View (Cy5/Cy7)';
-p.geometry    = 3;
+p.geometry    = 4;
 p.idxFields   = [1 2]; % field order: LL/UL/LL
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy5','Cy7'};

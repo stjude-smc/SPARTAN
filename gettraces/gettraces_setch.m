@@ -20,8 +20,13 @@ if isempty(input)
     if idxAcceptor>0, settings.scaleAcceptor(idxAcceptor)=[]; end
     % FIXME: acceptor2 may need to be renamed if acceptor1 is removed...
 
-    settings.crosstalk(idxCh,:) = [];
-    settings.crosstalk(:,idxCh) = [];
+    if numel(settings.crosstalk)==1,
+        settings.crosstalk = [];
+    else
+        settings.crosstalk(idxCh,:) = [];
+        settings.crosstalk(:,idxCh) = [];
+    end
+        
 
     fnames = {'idxFields','chNames','chDesc','wavelengths'};
     for i=1:numel(fnames)

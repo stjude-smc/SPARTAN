@@ -182,35 +182,17 @@ end
 % Rescale the image back to the actual size
 background=imresize(temp,[stkY stkX],'bicubic');
 
-% Also create a background image from the last few frames;
-% useful for defining a threshold.
-endBackground = movie.readFrames(nFrames-11:nFrames-1);
-
-if params.geometry==1,
-    % No combining needed for single-color imaging.
-    stkData.nChannels = 1;
-elseif params.geometry==2,
-    % Combine left and right side of field for two-color imaging.
-    endBackground = endBackground(:,1:stkX/2,:) + endBackground(:,(1+stkX/2):end,:);
-    stkData.nChannels = 2;
-elseif params.geometry>2,
-    % Combine fluorescence from the four quadrants.
-    endBackground = endBackground(1:stkY/2,1:stkX/2,:) + endBackground(1:stkY/2,(1+stkX/2):end,:) + ...
-                    endBackground((1+stkY/2):end,1:stkX/2,:) + endBackground((1+stkY/2):end,(1+stkX/2):end,:);
-    stkData.nChannels = 4;
-end
+% Background image from the last few frames, used for picking threshold.
+endBackground = double( movie.readFrames(nFrames-11:nFrames-1) );
+fields = subfield(endBackground,params.geometry);
+endBackground = sum( cat(4,fields{:}), 4 );
 
 % Combine the image stack data with the extras just calculated for later
 % processing and return them.
 % All of this could be combined into the Movie class! TODO
-stkData.movie = movie;
-stkData.stk_top = stk_top;
-stkData.background = background;
-stkData.endBackground = double(endBackground);
-stkData.time = time;
-stkData.stkY=stkY;
-stkData.stkX=stkX;
-stkData.nFrames=nFrames;
+stkData = struct('nChannels',numel(fields), 'movie',movie, 'stk_top',stk_top, ...
+                 'background',background,'endBackground',endBackground, ...
+                 'time',time, 'stkY',stkY,'stkX',stkX,'nFrames',nFrames);
 
 end %FUNCTION OpenStk
 
@@ -383,24 +365,8 @@ nCh = numel(channelNames);  %# of channels TO USE.
 
 
 % Define each channel's dimensions and sum fields together.
-[nrow,ncol] = size(image_t);  %full-chip size.
-
-if params.geometry==1,
-    allFields = image_t;
-
-elseif params.geometry==2,
-    left  = image_t( :, 1:ncol/2 );
-    right = image_t( :, (ncol/2+1):end );
-    allFields = cat( 3, left, right );
-
-elseif params.geometry>2,
-    upperLeft  = image_t( 1:nrow/2,       1:ncol/2       );
-    upperRight = image_t( 1:nrow/2,       (ncol/2)+1:end );
-    lowerLeft  = image_t( (nrow/2)+1:end, 1:ncol/2       );
-    lowerRight = image_t( (nrow/2)+1:end, (ncol/2)+1:end );
-    
-    allFields = cat( 3, upperLeft, upperRight, lowerLeft, lowerRight );
-end
+fields = subfield(image_t, params.geometry);
+allFields = cat(3, fields{:});
 
 % Sum fields to get a total intensity image for finding molecules.
 % For now, we assume everything is aligned. FIXME: if an alignment file is
@@ -513,11 +479,6 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         elseif params.alignMethod==3,
             % Iterative closest point algorithm.
             newAlign(i) = icpalign( donor_t, target_t, params );
-        
-        elseif params.alignMethod==4,
-            % Old, slow brute force method.
-            error('weberalign method no longer available');
-            %newAlign(i) = weberalign( donor_t, target_t, params );
         end
         
         % Register acceptor side so that it is lined up with the donor.
@@ -651,7 +612,7 @@ if ismember('acceptor2',dataNames),
 end
 
 % Create traces object, where the data will be stored.
-if params.geometry>2 && ismember('donor',dataNames)
+if params.geometry==4 && ismember('donor',dataNames)
     data = TracesFret4(nTraces,nFrames,dataNames);
 elseif ismember('donor',dataNames)
     data = TracesFret(nTraces,nFrames,dataNames);

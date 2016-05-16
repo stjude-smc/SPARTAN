@@ -68,6 +68,11 @@ for i=1:numel(profiles),
 end
 set(handles.mnuSettingsCustom,'Position',numel(profiles)+1);
 
+% Context menus for field-specific settings (names, wavelength, etc).
+hZoom = zoom(handles.figure1);
+set(hZoom, 'UIContextMenu', handles.mnuField);
+zoom(handles.figure1,'on');
+
 % Setup default values for parameter values -- 2-color FRET.
 handles.alignment = [];  %current alignment parameters (status)
 handles.profile = constants.gettraces_defaultProfile;
@@ -120,7 +125,6 @@ if ~iscell(filename), filename = {filename}; end
 [p,f,e] = fileparts( filename{1} );
 f = regexprep(f,'-file[0-9]*$','');
 
-
 % If a single file is selected, look for the others in multi-file TIFFs.
 % If the user selected multiple files, we assume that they got all of them.
 if numel(filename)==1,
@@ -147,117 +151,85 @@ set(handles.panAlignment, 'Title','Software Alignment', 'ForegroundColor',[0 0 0
 set(handles.tblAlignment, 'Data',{});
 
 
-set(handles.figure1,'pointer','watch'); drawnow;
-
-% Clear the original stack to save memory
+% Load movie data, clearing original to save memory
 if isappdata(handles.figure1,'stkData')
     rmappdata(handles.figure1,'stkData');
 end
+set(handles.figure1,'pointer','watch'); drawnow;
 
-% Load movie data
 [stkData] = gettraces( filename, handles.params );
 handles.stk_top = stkData.stk_top;
-
-% Since the image stack is very large, it is stored in ApplicationData
-% instead of GUIData for memory efficiency
 setappdata(handles.figure1,'stkData', stkData);
 
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 % low = min(min(handles.stk_top));
 sort_px = sort(handles.stk_top(:));
-low=0;
 val = sort_px( floor(0.98*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 
-set(handles.scaleSlider,'min',low);
-set(handles.scaleSlider,'max',high);
-set(handles.scaleSlider,'value', val);
+set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
-%
-image_t = handles.stk_top-stkData.background;
-[nrow,ncol] = size(image_t);
-fields = {};  ax = [];
+% Hide any old axes.
+if isfield(handles,'ax'),
+    for i=1:numel(handles.ax)
+        cla(handles.ax(i));
+        title(handles.ax(i), '');
+    end
+end
 
-%---- Show fields for Single-Channel (full-chip) recordings.
-if handles.params.geometry==1,
-    handles.total_t = image_t;
-    
-    % Show full field of view.
-    handles.axTotal = subplot( 1,1,1, 'Parent',handles.panView, 'Position',[0.2 0 0.6 0.95] );
-    
-    
-%---- Show fields for Dual-Channel (half-chip, L/R) recordings.
-elseif handles.params.geometry==2,    
-    fields{1} = image_t(:,1:ncol/2);  %left, donor
-    fields{2} = image_t(:,(ncol/2)+1:end);  %right, acceptor
-    handles.total_t = fields{1}+fields{2};
+% Create axes for sub-fields
+ax = [];
+fields = subfield(handles.stk_top-stkData.background, handles.params.geometry);
+spopt = {'Parent',handles.panView};
 
-    % Setup axes
-    handles.axDonor    = subplot( 1,3,1, 'Parent',handles.panView, 'Position',[0.025 0 0.3 0.95] );
-    handles.axAcceptor = subplot( 1,3,2, 'Parent',handles.panView, 'Position',[0.350 0 0.3 0.95] );
-    ax = [handles.axDonor,handles.axAcceptor];
-        
-    % Show total intensity image
-    handles.axTotal = subplot( 1,3,3, 'Parent',handles.panView, 'Position',[0.675 0 0.3 0.95] );
+switch handles.params.geometry
+case 1,  %---- Single-Channel (full-chip)
+    handles.axTotal = subplot( 1,1,1, spopt{:}, 'Position',[0.2 0 0.6 0.95] );
     
+case 2,  %---- Dual-Channel (L/R)
+    ax(1) = subplot( 1,3,1, spopt{:}, 'Position',[0.025 0 0.3 0.95] );
+    ax(2) = subplot( 1,3,2, spopt{:}, 'Position',[0.350 0 0.3 0.95] );
+    handles.axTotal = subplot( 1,3,3, spopt{:}, 'Position',[0.675 0 0.3 0.95] );
     
-%---- Show fields for Quad-Channel (quarter-chip, L/R/U/D) recordings.
-elseif handles.params.geometry>2,
-    % Split up channels and combine, assuming perfect alignment.
-    fields{1} = image_t( 1:nrow/2, 1:ncol/2 );              %upperLeft
-    fields{2} = image_t( 1:nrow/2, (ncol/2)+1:end );        %upperRight
-    fields{3} = image_t( (nrow/2)+1:end, 1:ncol/2 );        %lowerLeft
-    fields{4} = image_t( (nrow/2)+1:end, (ncol/2)+1:end );  %lowerRight
-    handles.total_t = fields{1} + fields{2} + fields{3} + fields{4};
+case 3,  %---- Dual-Channel (T/B)
+    ax(1) = subplot( 2,3,2, spopt{:}, 'Position',[0.05  0.5   0.45 0.45] );
+    ax(2) = subplot( 2,3,5, spopt{:}, 'Position',[0.05  0.025 0.45 0.45] );
+    handles.axTotal = subplot( 2,3,3, spopt{:}, 'Position',[0.55 0.25 0.45 0.45] );
     
-    % Setup axes
-    handles.axUL = subplot( 2,3,1, 'Parent',handles.panView, 'Position',[0.025 0.5   0.3 0.45] );
-    handles.axUR = subplot( 2,3,2, 'Parent',handles.panView, 'Position',[0.35  0.5   0.3 0.45] );
-    handles.axLL = subplot( 2,3,4, 'Parent',handles.panView, 'Position',[0.025 0.025 0.3 0.45] );
-    handles.axLR = subplot( 2,3,5, 'Parent',handles.panView, 'Position',[0.35  0.025 0.3 0.45] );
-    ax = [handles.axUL handles.axUR handles.axLL handles.axLR];
-
-    % Also plot the total intensity image.
-    handles.axTotal = subplot( 2,3,3, 'Parent',handles.panView, 'Position',[0.7 0.25 0.3 0.45] );
+case 4,  %---- Quad-Channel (TL/TR/BL/BR)
+    ax(1) = subplot( 2,3,1, spopt{:}, 'Position',[0.025 0.5   0.3 0.45] );
+    ax(2) = subplot( 2,3,2, spopt{:}, 'Position',[0.35  0.5   0.3 0.45] );
+    ax(4) = subplot( 2,3,5, spopt{:}, 'Position',[0.35  0.025 0.3 0.45] );
+    ax(3) = subplot( 2,3,4, spopt{:}, 'Position',[0.025 0.025 0.3 0.45] );
+    handles.axTotal = subplot( 2,3,3, spopt{:}, 'Position',[0.7 0.25 0.3 0.45] );
+otherwise
+    error('Invalid imaging geometry');
 end
 
 handles.ax = ax;
+guidata(hObject,handles);
 
 % Show fluorescence fields for all channels
-for i=1:numel(fields),
-    imshow( fields{i}, [low val], 'Parent',ax(i) );
-    colormap(ax(i),handles.colortable);
-    set(ax(i),'UserData',i);
-end
-
-% Axes titles with colors
-if handles.params.geometry>1
+if handles.params.geometry>1,
+    for i=1:numel(fields),
+        imshow( fields{i}, [0 val], 'Parent',ax(i) );
+        colormap(ax(i),handles.colortable);
+        set(ax(i),'UserData',i);
+    end
     setAxTitles(handles);
+    linkaxes( [ax handles.axTotal] );
 end
-
-% Link axes so zooming one zooms all.
-linkaxes( [ax handles.axTotal] );
-    
-% Context menus for field-specific settings (names, wavelength, etc).
-% FIXME: this also adds one to "total intensity"...
-zoom(handles.figure1,'off');
-hZoom = zoom(handles.figure1);
-set(hZoom, 'UIContextMenu', handles.mnuField);
-zoom(handles.figure1,'on');
 
 % Show total fluorescence channel
-imshow( handles.total_t, [low*2 val*2], 'Parent',handles.axTotal );
+total = sum( cat(3,fields{:}), 3);
+imshow( total, [0 val*2], 'Parent',handles.axTotal );
 colormap(handles.axTotal,handles.colortable);
-zoom(handles.axTotal,'on');
 title(handles.axTotal,'Total Intensity', 'FontSize',10);
 
-% Finish up
 set(handles.figure1,'pointer','arrow');
 set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
-
-guidata(hObject,handles);
 
 %end function OpenStk
 
@@ -549,7 +521,7 @@ style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
 % Clear any existing selection markers from previous calls.
 delete(findobj(handles.figure1,'type','line'));
     
-if handles.params.geometry==2, %dual-channel
+if handles.params.geometry==2, %dual-channel, L/R
     % Assign each spot to the corresponding field image.
     indL  = find( handles.x<=(ncol/2) );
     indR  = find( handles.x> (ncol/2) );
@@ -557,16 +529,19 @@ if handles.params.geometry==2, %dual-channel
     rindR = find( handles.rx> (ncol/2) );
     
     % Draw markers on selection points (donor side)
-    axes(handles.axDonor);
-    line( handles.x(indL),   handles.y(indL),   style1{:},  'Parent',handles.axDonor );
-    line( handles.rx(rindL), handles.ry(rindL), style1b{:}, 'Parent',handles.axDonor );
+    axes(handles.ax(1));
+    line( handles.x(indL),   handles.y(indL),   style1{:},  'Parent',handles.ax(1) );
+    line( handles.rx(rindL), handles.ry(rindL), style1b{:}, 'Parent',handles.ax(1) );
 
     % Draw markers on selection points (acceptor side)
-    axes(handles.axAcceptor);
-    line( handles.x(indR)-(ncol/2),   handles.y(indR),   style1{:},  'Parent',handles.axAcceptor );
-    line( handles.rx(rindR)-(ncol/2), handles.ry(rindR), style1b{:}, 'Parent',handles.axAcceptor );
+    axes(handles.ax(2));
+    line( handles.x(indR)-(ncol/2),   handles.y(indR),   style1{:},  'Parent',handles.ax(2) );
+    line( handles.rx(rindR)-(ncol/2), handles.ry(rindR), style1b{:}, 'Parent',handles.ax(2) );
     
-elseif handles.params.geometry>2, %quad-channel
+elseif handles.params.geometry==3, %dual-channel, T/B
+    error('STUB');
+    
+elseif handles.params.geometry==4, %quad-channel
     % Assign each spot to a quadrant. FIXME: can this be a loop?
     indUL = find( handles.x<=(ncol/2) & handles.y<=(nrow/2) );
     indLL = find( handles.x<=(ncol/2) & handles.y> (nrow/2) );
@@ -578,21 +553,21 @@ elseif handles.params.geometry>2, %quad-channel
     rindLR = find( handles.rx> (ncol/2) & handles.ry> (nrow/2) );
     rindUR = find( handles.rx> (ncol/2) & handles.ry<=(nrow/2) );
     
-    axes(handles.axUL);
-    line( handles.x(indUL),   handles.y(indUL),   style1{:},  'Parent',handles.axUL  );
-    line( handles.rx(rindUL), handles.ry(rindUL), style1b{:}, 'Parent',handles.axUL );
+    axes(handles.ax(1));
+    line( handles.x(indUL),   handles.y(indUL),   style1{:},  'Parent',handles.ax(1)  );
+    line( handles.rx(rindUL), handles.ry(rindUL), style1b{:}, 'Parent',handles.ax(1) );
     
-    axes(handles.axLL);
-    line( handles.x(indLL),   handles.y(indLL)-(nrow/2),   style1{:},  'Parent',handles.axLL  );
-    line( handles.rx(rindLL), handles.ry(rindLL)-(nrow/2), style1b{:}, 'Parent',handles.axLL );
+    axes(handles.ax(3));
+    line( handles.x(indLL),   handles.y(indLL)-(nrow/2),   style1{:},  'Parent',handles.ax(3)  );
+    line( handles.rx(rindLL), handles.ry(rindLL)-(nrow/2), style1b{:}, 'Parent',handles.ax(3) );
     
-    axes(handles.axLR);
-    line( handles.x(indLR)-(ncol/2),   handles.y(indLR)-(nrow/2),   style1{:},  'Parent',handles.axLR  );
-    line( handles.rx(rindLR)-(ncol/2), handles.ry(rindLR)-(nrow/2), style1b{:}, 'Parent',handles.axLR );
+    axes(handles.ax(4));
+    line( handles.x(indLR)-(ncol/2),   handles.y(indLR)-(nrow/2),   style1{:},  'Parent',handles.ax(4)  );
+    line( handles.rx(rindLR)-(ncol/2), handles.ry(rindLR)-(nrow/2), style1b{:}, 'Parent',handles.ax(4) );
     
-    axes(handles.axUR);
-    line( handles.x(indUR)-(ncol/2),   handles.y(indUR),   style1{:},  'Parent',handles.axUR  );
-    line( handles.rx(rindUR)-(ncol/2), handles.ry(rindUR), style1b{:}, 'Parent',handles.axUR );
+    axes(handles.ax(2));
+    line( handles.x(indUR)-(ncol/2),   handles.y(indUR),   style1{:},  'Parent',handles.ax(2)  );
+    line( handles.rx(rindUR)-(ncol/2), handles.ry(rindUR), style1b{:}, 'Parent',handles.ax(2) );
 end
 
 % Draw markers on selection points (total intensity composite image).
@@ -663,17 +638,11 @@ maximum = max(val,maximum);
 
 set( handles.scaleSlider, 'Value',val );
 set( handles.scaleSlider, 'max',maximum );
+set( handles.ax, 'CLim',[minimum val] );
 
 if handles.params.geometry==1, %Single-channel recordings
     set( handles.axTotal, 'CLim',[minimum val] );
-    
-elseif handles.params.geometry==2, %Dual-channel recordings
-    set( [handles.axDonor handles.axAcceptor], 'CLim',[minimum val] );
-    set( handles.axTotal, 'CLim',[minimum*2 val*2] );
-    
-elseif handles.params.geometry>2,
-    set( [handles.axUL handles.axUR handles.axLL handles.axLR], ...
-                                                   'CLim',[minimum val] );
+else
     set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 end
 
@@ -851,7 +820,6 @@ end
 input = struct( 'chNames',answer{1}, 'chDesc',answer{2}, ...
                 'wavelengths',str2double(answer{3}) );
 handles.params = gettraces_setch(handles.params, idxField, input);
-disp(handles.params);
 guidata(hObject,handles);
 setAxTitles(handles);
 
@@ -872,7 +840,6 @@ fieldID = find(handles.params.idxFields==idxField,1);  %index in parameter list
 if isempty(fieldID), return; end
 
 handles.params = gettraces_setch(handles.params, idxField, []);
-disp(handles.params);
 guidata(hObject,handles);
 setAxTitles(handles);
 
