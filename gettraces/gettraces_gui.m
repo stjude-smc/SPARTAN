@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 06-May-2016 17:12:37
+% Last Modified by GUIDE v2.5 15-May-2016 17:30:49
 
 
 % Begin initialization code - DO NOT EDIT
@@ -226,30 +226,15 @@ end
 handles.ax = ax;
 
 % Show fluorescence fields for all channels
-chColors = Wavelength_to_RGB(handles.params.wavelengths);
-chNames = handles.params.chNames;
-
 for i=1:numel(fields),
-    % i is the index of physical CCD chip locations.
-    % idxCh is the corresponding index into list of channels (there may be none).
-    idxCh = find( handles.params.idxFields==i ); 
-        
     imshow( fields{i}, [low val], 'Parent',ax(i) );
     colormap(ax(i),handles.colortable);
+    set(ax(i),'UserData',i);
+end
 
-    if ~isempty(idxCh) && ~isempty(chNames{idxCh}),
-        % Give each field a title with the background color matching the
-        % wavelength of that channel.        
-        h = title( ax(i), [chNames{idxCh} ' (' handles.params.chDesc{idxCh} ') #' num2str(i)], ...
-                   'BackgroundColor',chColors(idxCh,:), 'FontSize',10 );
-
-        % Use white text for very dark background colors.
-        if sum(chColors(idxCh,:)) < 1,
-            set(h,'Color',[1 1 1]);
-        end
-        
-        set(ax(i), 'UserData',idxCh);
-    end
+% Axes titles with colors
+if handles.params.geometry>1
+    setAxTitles(handles);
 end
 
 % Link axes so zooming one zooms all.
@@ -391,6 +376,7 @@ function handles = getTraces_Callback(hObject, ~, handles)
 if ~isfield(handles, 'stkfile')
     return;
 end
+set(handles.tblAlignment, 'Data',{}, 'RowName',{});
 
 set(handles.figure1,'pointer','watch'); drawnow;
 
@@ -415,7 +401,7 @@ title( handles.axTotal, 'Total Intensity' );
 set( handles.txtAlignWarning, 'Visible','off' );
 
 if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
-    set(handles.panAlignment, 'Title','Software Alignment');
+    set(handles.panAlignment, 'Title','Software Alignment', 'ForegroundColor', [0 0 0]);
     handles.alignment = [];
     
 % Display alignment status to inform user if realignment may be needed.
@@ -831,18 +817,27 @@ msgbox( output, 'MetaMorph metadata' );
 
 
 
-% --------------------------------------------------------------------
+%========================================================================
+%======================  FIELD SETTINGS CALLBACKS  ======================
+%========================================================================
+
 function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to alter field-specific settings (name, wavelength, etc).
 % FIXME: alter settingsDialog to make this work somehow?
+% FIXME: some redundant code here.
 
-fieldID = get(gca,'UserData');
-if isempty(fieldID), return; end  %total intensity field
+idxField = get(gca,'UserData');  %quadrant
+if isempty(idxField), return; end  %total intensity field
+fieldID = find(handles.params.idxFields==idxField);  %index in parameter list
 
 % Prompt for new values and verify validity.
 prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Excitation wavelength (nm):'};
-currentopt = {handles.params.chNames{fieldID} handles.params.chDesc{fieldID} ...
-              num2str(handles.params.wavelengths(fieldID)) };
+if ~isempty(fieldID)
+    currentopt = {handles.params.chNames{fieldID} handles.params.chDesc{fieldID} ...
+                  num2str(handles.params.wavelengths(fieldID)) };
+else
+    currentopt = {'','',''};
+end
 
 answer = inputdlg(prompt, 'Change settings', 1, currentopt);
 if isempty(answer), return; end   %user hit cancel
@@ -853,22 +848,66 @@ if ~ismember(answer{1}, properties(TracesFret4)),
 end
 
 % Save the new parameters
-handles.params.chNames{fieldID}     = answer{1};
-handles.params.chDesc{fieldID}      = answer{2};
-handles.params.wavelengths(fieldID) = str2double(answer{3});
+input = struct( 'chNames',answer{1}, 'chDesc',answer{2}, ...
+                'wavelengths',str2double(answer{3}) );
+handles.params = gettraces_setch(handles.params, idxField, input);
+disp(handles.params);
 guidata(hObject,handles);
+setAxTitles(handles);
 
-% Update the GUI. FIXME should call a function.
-axID = handles.params.idxFields(fieldID);
-chColor = Wavelength_to_RGB(handles.params.wavelengths(fieldID));
-
-h = title( handles.ax(axID), [answer{1} ' (' answer{2} ') #' num2str(axID)], ...
-           'BackgroundColor',chColor, 'FontSize',10 );
-       
-% White text for dark backgrounds.
-set(h,'Color',(sum(chColor)<1)*[1 1 1]); 
+% Reset picking
+if ~isempty( findobj(handles.figure1,'type','line') )
+    getTraces_Callback(hObject,[],handles);
+end
 
 % END FUNCTION mnuFieldSettings_Callback
+
+
+
+function mnuFieldRemove_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Context menu to remove a field from consideration.
+
+idxField = get(gca,'UserData');  %quadrant
+fieldID = find(handles.params.idxFields==idxField,1);  %index in parameter list
+if isempty(fieldID), return; end
+
+handles.params = gettraces_setch(handles.params, idxField, []);
+disp(handles.params);
+guidata(hObject,handles);
+setAxTitles(handles);
+
+% Reset picking
+if ~isempty( findobj(handles.figure1,'type','line') )
+    getTraces_Callback(hObject,[],handles);
+end
+
+% END FUNCTION mnuFieldRemove_Callback
+
+
+
+function setAxTitles(handles)
+% Set axes titles from imaging profile settings, including colors.
+
+% Clear any existing titles
+for i=1:numel(handles.ax),
+    title(handles.ax(i),'');
+end
+
+% Create new titles
+p = handles.params;
+fields = p.idxFields;
+
+for i=1:numel(fields)
+    chColor = Wavelength_to_RGB(p.wavelengths(i));
+
+    title(handles.ax(fields(i)), ...
+          sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},fields(i)), ...
+          'BackgroundColor',chColor, 'FontSize',10, ...
+          'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
+end
+
+% END FUNCTION setTitles
+
 
 
 
@@ -1094,7 +1133,4 @@ function updateFileTimer(~,~,hObject,targetDir)
 % disp('Timer fired');
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
-
-
-
 

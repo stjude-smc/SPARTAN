@@ -146,10 +146,10 @@ p.idxFields   = [3 1 2]; % field order: LL, UL,UR.
 p.chNames     = {'factor','donor','acceptor'};
 p.chDesc      = {'Cy2','Cy3','Cy5'};
 p.wavelengths = [473 532 640];
-p.crosstalk   = zeros(4);
+p.crosstalk   = zeros(3);
 % p.crosstalk(1,2) = 0.0;   %Cy2->Cy3 (FIXME)
 p.crosstalk(2,3) = 0.11;   %Cy3->Cy5 (FIXME)
-p.scaleAcceptor  = [1 1];  %Multiply Cy5 and Cy7 traces by this amount.
+p.scaleAcceptor  = 1;
 profiles(end+1) = p;
 
 
@@ -159,7 +159,7 @@ p.idxFields   = [1 2 4]; % field order: UL,UR,LR.
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
 p.wavelengths = [532 640 730];
-p.crosstalk   = zeros(4);
+p.crosstalk   = zeros(3);
 p.crosstalk(1,2) = 0.11;   %Cy3->Cy5 (same as 2-color; was 0.066 with bandpasses in?)
 p.crosstalk(2,3) = 0.04;   %Cy5->Cy7 (0.015 with bandpasses in?)
 p.scaleAcceptor  = [1 1];  %Multiply Cy5 and Cy7 traces by this amount.
