@@ -266,12 +266,7 @@ end
 
 % Adjust bottom axis, depending on the type of data.
 if ismember('fret',data.channelNames),
-    if isfield(data.fileMetadata,'fretGeometry') && strcmp(data.fileMetadata.fretGeometry,'acceptor/total');
-        ylabel(handles.axFret, 'Acceptor/Total');
-    else
-        % FIXME: should be more descriptive (tandem3 vs indep3)
-        ylabel(handles.axFret, 'FRET');
-    end
+    ylabel(handles.axFret, data.fretAxisLabel);
 else
     ylabel(handles.axFret, '');
     ylim(handles.axFret, 'auto');
@@ -366,6 +361,15 @@ if isnan(mol) || mol>handles.data.nTraces || mol<1,
 else
     handles.molecule_no = mol;
 end
+
+% Update molecule number display. FIXME: use two separate controls.
+[~,name,ext] = fileparts(handles.filename);
+data_fname = strrep([name ext],'_',' '); %avoid LaTeX interpretation
+if numel(data_fname)>35,
+    data_fname = ['...' data_fname(numel(data_fname)-34:end)];
+end
+titleTxt = sprintf('Molecule %d of %d in %s',mol, handles.data.nTraces, data_fname);
+title(handles.axFluor,titleTxt);
 
 % Make sure that the molecule selected actually exists.
 set(handles.btnNextBottom, 'Enable', onoff(mol+1<=handles.data.nTraces) );
@@ -962,10 +966,6 @@ end
 set( handles.edZoomCorr, 'String','' );
 
 
-[~,name,ext] = fileparts( handles.filename );
-data_fname = [name ext];
-
-
 % Plot fluorophore traces
 time = data.time;
 if time(1)~=1, %first time is 1 if in frame number (not ms)
@@ -980,15 +980,10 @@ for c=1:numel(fluorCh),
 end
 total = data.total; %Excludes 'factor' and misc channels
 
-titleTxt = [ 'Molecule ' num2str(m) ' of ' num2str(handles.data.nTraces) ...
-            ' in "' strrep(data_fname,'_',' ') '"'];
-title(handles.axFluor,titleTxt);
-
-
 % Plot total fluorescence
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
-axis([handles.axTotal handles.axFluor],'auto');
+axis([handles.axTotal handles.axFluor],'auto y');
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),

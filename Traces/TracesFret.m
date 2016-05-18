@@ -98,7 +98,11 @@ methods
     function idx = get.idxFret(this)
         idx = find(  cellfun( @(x) ~isempty(strfind(x,'fret')), this.channelNames )  );
     end
-
+    
+    function name = fretAxisLabel(~)
+        name = 'FRET';
+    end
+    
     % Calculate total fluorescence intensity of channels involved in FRET.
     % This excludes 'factor' or other miscellaneous channels.
     function T = total(this,varargin)

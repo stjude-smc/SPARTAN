@@ -731,7 +731,7 @@ prompt = {'Threshold (0 for auto):', 'Integration window size (px):', ...
           'Donor blink detection method:', 'Integration neighbhorhood (px):'};
 fields = {'don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
           'photonConversion', 'zeroMethod', 'nhoodSize'};
-types = {[],[],[],[],{'off','threshold','skm'}};
+types = {[],[],[],[],{'off','threshold','skm'},[]};
 handles.params = settingsDialog(handles.params,fields,prompt,types);
 guidata(hObject,handles);
 

@@ -124,6 +124,20 @@ methods
      end
      
      
+     function name = fretAxisLabel(this)
+     % Y-axis label of FRET data for display.
+     % FIXME: does not handle single-pair with factor channel correctly.
+        if ~isfield(this.fileMetadata,'fretGeometry') || numel(this.idxFret)<2,
+            name = fretAxisLabel@TracesFret(this);
+        elseif strcmpi(this.fileMetadata.fretGeometry,'acceptor/total')
+            name = 'Acceptor/Total';
+        else
+            name = [this.fileMetadata.fretGeometry(1:end-1) ' FRET'];
+            name(1) = upper(name(1));
+        end
+     end
+     
+     
     %% ================ DATA MANIPULATION ================ %%
     
     function this = recalculateFret( this, varargin )
