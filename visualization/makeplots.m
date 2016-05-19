@@ -237,7 +237,6 @@ set(handles.hFig,'pointer','watch'); drawnow;
 options = handles.options;
 dataFilenames = handles.dataFilenames;
 nFiles = numel(dataFilenames);
-titles = handles.titles;
 
 N = cellfun(@sizeTraces, dataFilenames);
 if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
@@ -275,7 +274,8 @@ end
 delete(findall(handles.hFig,'Tag','Nmol'))
 
 
-% Get target axes for plots. FIXME targetAxes is transposed!
+% Get target axes for plots.
+% FIXME this won't handle empty targetAxes elements correctly!
 if isfield(options,'targetAxes')
     cplotax = [options.targetAxes{:,1}];
     
@@ -313,26 +313,14 @@ for k=1:nFiles,
         a = questdlg('This data has multiple FRET channels. Which should be used?', ...
                      'Select FRET channel to use','fret','fret2','Cancel', 'fret');
         if strcmp(a,'Cancel'), return; end
-        fret = data.(a);
         options.fretField = a;
-    else
-        fret = data.fret;
-    end
-    
-    if isempty(fret),
-        disp('FRET Data missing, skipping.'); continue;
     end
     
     
     %% ============== POPULATION CONTOUR HISTOGRAMS ============== 
-    
-    % Display contour plots. cpdataAll is truncated and time-binned.
-    cplotdata = makecplot(fret, options);
-    cplotdataAll{k} = cplotdata;
-    cpdataAll{k} = cplot(cplotax(k), cplotdata, options.contour_bounds, options);
-    
-    % Formatting
-    title( titles{k}, 'Parent',cplotax(k) );
+    % Display contour plots. (cpdataAll is truncated and time-binned)
+    [cplotdataAll{k},cpdataAll{k}] = cplot(cplotax(k), data, options);
+    title( handles.titles{k}, 'Parent',cplotax(k) );
     
     if ~options.hideText,
         ap = get(cplotax(k),'Position');  %left bottom width height
@@ -345,10 +333,9 @@ for k=1:nFiles,
         ylabel(cplotax(k), '');
         xlabel(cplotax(k), '');
     end
-        
+    
     
     %% ================ STATE OCCUPANCY HISTOGRAMS ================ 
-   
     if has_dwt(k),
         [dwt,~,offsets] = loadDWT(dwtfnames{k});
         idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
@@ -358,6 +345,7 @@ for k=1:nFiles,
     
     %---- FRET histogram for if data was not idealized.
     if ~has_dwt(k) || options.no_statehist
+        cplotdata = cplotdataAll{k};
         fretaxis = cplotdata(2:end,1);      
         histdata = cplotdata(2:end,2:options.contour_length+1)*100;
         pophist = nansum(histdata,2)/options.contour_length;   %normalization
@@ -378,7 +366,6 @@ for k=1:nFiles,
     
         
     %% ========================= TD PLOTS ========================= 
-    
     if nrows<3 || tdax(k)==0, continue; end
     
     % Calculate TD plot
@@ -417,8 +404,8 @@ if any(cplotax~=0)
     linkaxes( cplotax, 'xy' );
     ylim( cplotax(1), options.fretRange );
     
-    ylabel(cplotax(1),'FRET');
-    xlabel(cplotax(1),'Time (frames)');
+    ylabel(cplotax(1),upper(options.fretField));
+    xlabel(cplotax(1),'Time (s)');  %fixme could be frames
     set(cplotax(2:end),'YTickLabel',[]);
     
     set(cplotax, 'YGrid','on', 'Box','on');
@@ -431,7 +418,7 @@ if any(histax~=0),
     xlim( histax(1), options.fretRange );
     
     ylabel( histax(1),'Counts (%)' );
-    xlabel( histax(1),'FRET' );
+    xlabel( histax(1),upper(options.fretField) );
     set(histax(2:end),'yticklabel',[]);
     
     set(histax, 'YGrid','on', 'Box','on');

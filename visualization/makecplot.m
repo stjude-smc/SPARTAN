@@ -1,56 +1,29 @@
 function hist2d = makecplot( input, options )
 % MAKECPLOT   Creates a contour plot of FRET values over time.
 %
-%   HIST = MAKECPLOT( FRET )
-%   Sums FRET values from FRET (traces in rows) into a histogram at each
-%   point in time (HIST).
-%
-%   HIST = MAKECPLOT( FILENAME )
-%   Sums FRET values from data loaded from FILENAME. The histogram data is
-%   also saved in a file with the extension "_normhist.txt".
-%
-%   [...] = MAKECPLOT( ..., options )
-%   A structure containing options can be given to specify how the
-%   histograms should be made. These are listed below in makeplots.m.
-%   FIXME: These actually need some work for consistency and setting all
-%   the defaults in cascadeConstants.m
+%   [HIST] = MAKECPLOT(INPUT, OPTIONS) creates a FRET-time contour
+%   histogram (HIST) from the INPUT Traces object or .traces filename.
+%   HIST: first row is time (seconds), first column is FRET value of each bin.
+%   OPTIONS is a struct array for additional options -- see cascadeConstants.m.
 %
 %   See also: makeplots, cplot.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Load data
-if ischar(input)
-    data_filename = input;
-    data = loadTraces( data_filename );
-    fret = data.fret;
-    
-    if size(data.donor,1)<1,
-        error('File is empty: %s',data_filename);
-    end
-elseif isa(input,'Traces') || isstruct(input)
-    fret = input.fret; %assuming traces data structure
-elseif isnumeric(input),
-    fret = input;
+% Load traces and select appropriate FRET field.
+if ischar(input),
+    data = loadTraces(input);
+elseif isa(input,'TracesFret') || isstruct(input)
+    data = input;
 else
-    error('Unknown input data parameter type');
+    error('Invalid trace data input');
 end
 
-% Load options
-if nargin<2,
-    constants = cascadeConstants;
-    options = constants.defaultMakeplotsOptions;
-end
-
-if ~isfield(options,'pophist_offset'),
-    options.pophist_offset = 0;
-end
-
-
-% Cut off first few frames to get rid of gain drift.
-fret = fret( :, 1+options.pophist_offset:end );
-[Nmol,len] = size(fret);
+% Select FRET data and remove initial frames if requested.
+fret = data.(options.fretField)(:,1+options.pophist_offset:end);
+% time_axis = data.time(1+options.pophist_offset:end);
+time_axis = data.time(1+options.pophist_offset:end)/1000;
 
 % Remove traces with NaN values
 bad = isnan( fret(:) );
@@ -59,13 +32,10 @@ if any(bad),
     warning('NaN values found in FRET data. Converting to zeros.');
 end
 
-% Axes for histogram includes all available data.
-time_axis = 1:len;
-fret_axis = options.fret_axis;
-
 % Initialize histogram array, setting the time step in the first row,
 % and the FRET bins in the first column. This is done for import into
 % Origin.
+fret_axis = options.fret_axis;
 hist2d = zeros( length(fret_axis)+1, length(time_axis)+1 );
 hist2d(1,2:end) = time_axis;
 hist2d(2:end,1) = fret_axis';
@@ -105,7 +75,7 @@ end
 if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
     hist2d(2:end,2:end) = hist2d(2:end,2:end)/options.cplot_normalize_to_max;
 else
-    hist2d(2:end,2:end) = hist2d(2:end,2:end)/Nmol;
+    hist2d(2:end,2:end) = hist2d(2:end,2:end)/size(fret,1);
 end
 
 

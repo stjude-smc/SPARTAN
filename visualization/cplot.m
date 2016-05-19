@@ -1,21 +1,28 @@
-function output = cplot( varargin )
-% CPLOT  Draw 2D FRET contour plot
+function varargout = cplot( varargin )
+%CPLOT  FRET-time contour plot
 %
-%   CPLOT( HIST, BOUNDS, OPTIONS )
-%   Draw a contour plot from the FRET histogram (HIST)
-%   BOUNDS(1,2) define X-axis limits; BOUNDS(3,4) define Y-axis limits.
+%   [HIST,DISPLAYHIST] = CPLOT(INPUT, OPTIONS) creates a FRET-time contour
+%   histogram (HIST) from the INPUT Traces object or .traces filename.
+%   HIST: first row is time (seconds), first column is FRET value of each bin.
+%   DISPLAYHIST is the contour plot as displayed (truncated, time binned).
 %   OPTIONS is a struct array for additional options -- see cascadeConstants.m.
 %   
-%   CPLOT( AX, ... ) plots into AX instead of the current axes (GCA).
+%   [...] = CPLOT( AX, ... ) plots into AX.
 %
-%   HIST = CPLOT(...) returns the histogram as plotted.
+%   OPTIONS includes the following fields: (see also cascadeConstants.m)
+%    - fretField:              name of channel to plot (fret)
+%    - contour_length:         number of frames to show (50)
+%    - pophist_offset:         skip first N frames
+%    - fretRange:              min and max FRET values in plot
+%    - fret_axis:              FRET histogram bin centers
+%    - cplot_scale_factor:     defines color scale range (maximum value)
+%    - cplot_remove_bleached:  remove FRET near zero and renormalize.
+%    - cplot_normalize_to_max: normalize to maximum number of traces in a
+%                                series (given as option value) for comparison.
 %
 %   See also: makeplots, makecplot.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
-
-
-if nargout>0, output = []; end
 
 
 
@@ -23,40 +30,24 @@ if nargout>0, output = []; end
 [cax,args] = axescheck(varargin{:});
 isNewAx = isempty(cax);
 
-% Load FRET data from input
-if numel(args)>=1,
-    if isnumeric(args{1}),
-        hist2d = args{1};
-    elseif isa(args{1},'Traces')
-        hist2d = makecplot(args{1});
-    elseif ischar(args{1})
-        hist2d = makecplot(loadTraces(args{1}));
-    else
-        error('Invalid input');
-    end
-    
-% No input data given; ask the user for a .traces file
-else
-    fname = getFile;
-    if isempty(fname), return; end
-    hist2d = makecplot(loadTraces(fname));
+if numel(args)<1 || isempty(args{1})
+    args{1} = getFile;
+    if isempty(args{1}), return; end
 end
 
-
 % Parse optional arguments
-if numel(args)>=3,
-    options = args{3};
+if numel(args)>=2,
+    options = args{2};
 else
     c = cascadeConstants();
     options = c.defaultMakeplotsOptions;
 end
 
-if numel(args)>=2
-    bounds = args{2};
-else
-    bounds = [1 options.contour_length options.fretRange];
-end
+bounds = [1 options.contour_length options.fretRange];
 
+% Create contour plot
+hist2d = makecplot(args{:});
+output = hist2d;
 
 
 %% Bin FRET data into 50 x-axis (time) bins.
@@ -91,7 +82,6 @@ if binFactor>1,
 end
 
 
-
 %% Construct histogram for plotting
 time_axis = hist2d(1,2:end);
 fret_axis = hist2d(2:end,1);
@@ -110,12 +100,15 @@ con = 0:(max_mol/nl):max_mol;      %contour levels
 
 % Truncate the plot to the display window.
 hist2d = hist2d(:,[1 lims+1]);
-if nargout>0, output = hist2d; end
 
 % If the top contour levels are not filled, the levels get distorted.
 % Add a permanent, very high peak in the corner to prevent this.
 hist2d(end,end) = max_mol*2;
 
+% Save output arguments.
+output = {output, hist2d};
+[varargout{1:nargout}] = output{:};
+if isempty(cax), return; end
 
 
 %% Draw the filled contour plot in current axis
@@ -124,6 +117,7 @@ cax = newplot(cax);
 colormap(cax, options.cmap);
 set(hand, 'LineColor', 'none');
 set(cax,'ytick', 0:0.2:bounds(4));
+bounds(1:2) = time_axis(lims([1 numel(lims)]));
 axis(cax, bounds);
 
 % Add all appearance details only if this is an independent plot.
