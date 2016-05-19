@@ -87,12 +87,6 @@ switch nargout,
 end
 
 
-% Give a warning if using some funky normalization.
-if isfield(defaults,'cplot_normalize_to_max') && defaults.cplot_normalize_to_max
-    disp('NOTE: these plots are normalized to the plot with the largest number of traces!!');
-end
-
-
 % =============== ADD GUI CONTROLS ================
 hMenu = findall(h1,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
@@ -236,18 +230,20 @@ end %FUNCTION mpdefault
 %% ===================== LOOP OVER EACH DATA FILE ====================== 
 
 function plotData(hObject,handles)
-% This is the function that actually loads the data, calculates the plots,
-% and displays them.
+% Load data, calculate plots, and display them.
 
 set(handles.hFig,'pointer','watch'); drawnow;
 
 options = handles.options;
 dataFilenames = handles.dataFilenames;
-baseFilenames = handles.baseFilenames;
-nFiles = numel(baseFilenames);
+nFiles = numel(dataFilenames);
 titles = handles.titles;
 
 N = cellfun(@sizeTraces, dataFilenames);
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+    options.cplot_normalize_to_max = max(N);
+    disp('NOTE: plots are normalized to largest number of traces!');
+end
 
 % Determine which files have dwell-time data so that TD plots should be
 % made. This determines the number of subplot rows ahead of time.
@@ -256,7 +252,7 @@ has_dwt = true(nFiles,1);
 
 for i=1:nFiles,
     if ~exist(dwtfnames{i},'file'),
-        dwtfnames{i} = [baseFilenames{i} '.dwt'];
+        dwtfnames{i} = [handles.baseFilenames{i} '.dwt'];
     end
     
     if ~exist(dwtfnames{i},'file'),
@@ -271,22 +267,38 @@ else
     nrows = 2;
 end
 
-[histmax,cplotax,histax,tdax] = deal( zeros(nFiles,1) );
-[cplotdataAll,cpdataAll,shistAll,tdpAll,idl] = deal( cell(nFiles,1) );
-
-% Load cached idealization data from previous calls if possible.
-% FIXME: not implemented because of memory requirements.
-% if isfield(handles,'idl'),
-%     idl = handles.idl;
-% end
+[idl,histmax,cplotax,histax,tdax] = deal( zeros(nFiles,1) );
+[cplotdataAll,cpdataAll,shistAll,tdpAll] = deal( cell(nFiles,1) );
 
 
 % Remove latent annotations, if any.
 delete(findall(handles.hFig,'Tag','Nmol'))
 
 
+% Get target axes for plots. FIXME targetAxes is transposed!
+if isfield(options,'targetAxes')
+    cplotax = [options.targetAxes{:,1}];
+    
+    if size(options.targetAxes,2) >= 2,
+        histax  = [options.targetAxes{:,2}];
+    end
+    if size(options.targetAxes,2) >= 3,
+        tdax    = [options.targetAxes{:,3}];
+    end
+    
+else
+    axopt = {'Parent',handles.hFig};
+    for k=1:nFiles,
+        cplotax(k) = subplot(nrows, nFiles, k, axopt{:});
+        histax(k)  = subplot(nrows, nFiles, nFiles+k, axopt{:});
+        if nrows>2 && has_dwt(k),
+            tdax(k) = subplot(nrows, nFiles, 2*nFiles+k, axopt{:});
+        end
+    end
+end
 
-%%
+
+% Calculate and display all plots for each file:
 for k=1:nFiles,
     
     % Load FRET data
@@ -312,176 +324,75 @@ for k=1:nFiles,
     end
     
     
-    %% ============== DRAW POPULATION CONTOUR HISTOGRAMS ============== 
+    %% ============== POPULATION CONTOUR HISTOGRAMS ============== 
     
-    %---- LOAD OR GENERATE FRET CONTOUR PLOT DATA
-    cplotdata = makecplot( fret, options );
-
-    if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-        cplotdata(2:end,2:end) = cplotdata(2:end,2:end).*(N(k)/max(N));
-    end
+    % Display contour plots. cpdataAll is truncated and time-binned.
+    cplotdata = makecplot(fret, options);
     cplotdataAll{k} = cplotdata;
-    
-    
-    %---- DRAW FRET CONTOUR PLOT ----
-    if ~isfield(options,'targetAxes')
-        ax = subplot( nrows, nFiles, k, 'Parent',handles.hFig );
-    else
-        ax = options.targetAxes{k,1};
-    end
-    cplotax(k) = ax;
-    
-    % Draw the contour plot (which may be time-binned)
-    % FIXME: we are passing the default options
-    cpdataAll{k} = cplot( ax, cplotdata, options.contour_bounds, options );
+    cpdataAll{k} = cplot(cplotax(k), cplotdata, options.contour_bounds, options);
     
     % Formatting
-    title( titles{k}, 'Parent',ax );
+    title( titles{k}, 'Parent',cplotax(k) );
     
     if ~options.hideText,
-        ap = get(ax,'Position');  %left bottom width height
+        ap = get(cplotax(k),'Position');  %left bottom width height
         annotation( handles.hFig, 'textbox', [ap(1)+0.925*ap(3) ap(2)+0.925*ap(4) 0.1*ap(3) 0.1*ap(4)], ...
                     'String',sprintf('N=%d', N(k)), 'HorizontalAlignment','right', ...
                     'LineStyle','none', 'tag','Nmol' );
     end
     
     if k>1,
-        ylabel(ax,'');
-        xlabel(ax,'');
+        ylabel(cplotax(k), '');
+        xlabel(cplotax(k), '');
     end
+        
     
-    
-    
-    %% ================ DRAW STATE OCCUPANCY HISTOGRAMS ================ 
+    %% ================ STATE OCCUPANCY HISTOGRAMS ================ 
    
-    if has_dwt(k) && isempty(idl{k}),
+    if has_dwt(k),
         [dwt,~,offsets] = loadDWT(dwtfnames{k});
-        idl{k} = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+        idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
     end
     
-    %---- GENERATE STATE OCCUPANCY HISTOGRAMS
-    if ~options.no_statehist && has_dwt(k),
-        shist = statehist( idl{k}, data, options );        
-        shistAll{k} = shist;
-    end
+    if histax(k)==0, continue; end
     
-    
-    if ~isfield(options,'targetAxes')
-        ax = subplot( nrows, nFiles, nFiles+k, 'Parent',handles.hFig );
-    elseif size(options.targetAxes,2)>1
-        ax = options.targetAxes{k,2};
-    else
-        continue;
-    end
-    histax(k) = ax;
-    cla(ax);  hold(ax,'on');
-    set(ax,'ColorOrder',options.colors);
-    
-    
-    %---- GENERATE STATE OCCUPANCY HISTOGRAMS
-    % ...if no dwell-time info is available.
-    if ~has_dwt(k) || options.no_statehist || isempty(shist)
+    %---- FRET histogram for if data was not idealized.
+    if ~has_dwt(k) || options.no_statehist
         fretaxis = cplotdata(2:end,1);      
         histdata = cplotdata(2:end,2:options.contour_length+1)*100;
         pophist = nansum(histdata,2)/options.contour_length;   %normalization
         
-        histmax(k) = max(max( pophist(fretaxis>0.05) ));
-        
-        bar( ax, fretaxis, pophist );
-        
-
-    %---- GENERATE STATE OCCUPANCY HISTOGRAMS
-    % ...if dwell-time info is available.
-    else
-        bins = shist(:,1);
-        histdata = shist(:,2:end)*100;
-        [~,nStates] = size(histdata);
-        
-        % Pad with empty bins for display
-        df = mean(diff(bins));
-        bins = [bins(1)-df; bins; bins(end)+df];  %#ok
-        histdata = [zeros(1,nStates); histdata; zeros(1,nStates)];  %#ok
-        
-        % If requested, remove 0-FRET peak and renormalize
-        if options.ignoreState0
-            nStates = nStates-1;
-            
-            histdata = histdata(:,2:end);
-            histdata = 100*histdata ./ sum(histdata(:));
-        end
-        
-        % If the option is set, rescale so that plots with only a few
-        % molecules show low occupancy in the statehist.
         if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-            histdata = histdata.*(N(k)/max(N));
-        end
-
-        % Draw translucent, filled area underneath curves
-        for j=1:nStates
-            patch( bins, histdata(:,j), options.colors(j,:), ...
-                    'EdgeColor','none','FaceAlpha',0.25, 'Parent',ax );
+            pophist = pophist *N(k)/max(N);
         end
         
-        % Draw occupancy histograms as solid lines
-        plot( ax, bins, histdata, 'LineWidth',1.5 );
+        histmax(k) = max(max( pophist(fretaxis>0.05) ));
+        bar(histax(k), fretaxis, pophist);
         
-        % Add a line with total occupancy.
-        totalHist = sum( histdata, 2 );
-        plot( ax, bins, totalHist, 'k-', 'LineWidth',1.5 );
-        
-        histmax(k) = max( totalHist(bins>0.05) );
+    %---- Statehist: FRET histogram for each idealized state.
+    else
+        [shistAll{k}, histmax(k)] = statehist(histax(k), idl, data, options);
     end
     
     drawnow;
     
+        
+    %% ========================= TD PLOTS ========================= 
     
+    if nrows<3 || tdax(k)==0, continue; end
     
-    %% ========================= DRAW TD PLOTS ========================= 
-    
-    if ~has_dwt(k) || options.no_tdp
-        continue;
-    end
-    
-    
-    %---- LOAD TDPLOT DATA ----
-    tdp = tdplot(idl{k}, data, options);
+    % Calculate TD plot
+    tdp = tdplot(idl, data, options);
     if tdp(1,1)==0,
         disp('Skipping invalid TDP');
         continue;
     end
-    
-    % If total time (normalization factor) is saved in TD plot, use it to
-    % get raw number of transitions
-    total_time = tdp(1,1);
-    t = sum(sum( tdp(2:end,2:end)*total_time ));
-    
-    % If the option is set, rescale so that plots with only a few
-    % molecules show low occupancy in the statehist.
-    if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-        tdp(2:end,2:end) = tdp(2:end,2:end) * N(k)/max(N);
-    end
-    
     tdpAll{k} = tdp;
     
-    
-    %---- DISPLAY TD PLOT ----
-    if ~isfield(options,'targetAxes')
-        tdax(k) = subplot( nrows, nFiles, 2*nFiles+k, 'Parent',handles.hFig );  
-    elseif size(options.targetAxes,2)>2
-        tdax(k) = options.targetAxes{k,3};
-    else
-        continue;
-    end
-    tplot( tdax(k), tdp, options );
-    
-    % Formatting
-    if ~options.hideText,
-        textOpt = {'HorizontalAlignment','center', 'Parent',tdax(k)};
-        text( 0.45,0.9, sprintf('N_t=%.0f',t),            textOpt{:} );
-        text( 0.45,0.0, sprintf('t/s=%.2f',t/total_time), textOpt{:} );
-    end
-    
+    % Show TD plot
+    tplot(tdax(k), tdp, options);
     drawnow;
+    
     
 end  %for each file.
 
@@ -496,13 +407,12 @@ handles.cplotdataAll = cplotdataAll;
 handles.cpdataAll = cpdataAll;
 handles.shistAll = shistAll;
 handles.tdpAll = tdpAll;
-% handles.idl = idl;
 
 guidata(hObject,handles);
 
 
 % Finish formatting all plots, including linking the axes
-if any(cplotax)
+if any(cplotax~=0)
     cplotax = cplotax(cplotax~=0);
     linkaxes( cplotax, 'xy' );
     ylim( cplotax(1), options.fretRange );
@@ -514,20 +424,20 @@ if any(cplotax)
     set(cplotax, 'YGrid','on', 'Box','on');
 end
 
-if any(histax),
+if any(histax~=0),
     histax = histax(histax~=0);
     linkaxes( histax, 'xy' );
     ylim( histax(1), [0 max(histmax)+0.5] );
     xlim( histax(1), options.fretRange );
     
-    ylabel( histax(1),'Occupancy (%)' );
+    ylabel( histax(1),'Counts (%)' );
     xlabel( histax(1),'FRET' );
     set(histax(2:end),'yticklabel',[]);
     
     set(histax, 'YGrid','on', 'Box','on');
 end
 
-if any(tdax),
+if any(tdax~=0),
     tdax = tdax(tdax~=0);
     linkaxes(tdax, 'xy');
     ylim(tdax(1), options.fretRange );

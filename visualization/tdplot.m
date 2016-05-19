@@ -167,7 +167,6 @@ for i=1:nTraces,
 end % for each segment in selection list
 
 
-
 % Normalize the plot
 tdpData = tdp(2:end,2:end);
 
@@ -187,13 +186,5 @@ else
     error('Invalid normalization setting');
 end
 
-
-% Save the normalized plot to disk.
-if nargout==0,
-    outfile=strrep(dwtfilename,'.dwt','_tdp.txt');
-    dlmwrite(outfile,tdp,' ');
-end
-
-% fprintf('t=%d  N=%d  t/n=%f\n', [nTrans nTraces nTrans/nTraces]);
 
 

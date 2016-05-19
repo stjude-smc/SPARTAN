@@ -1,4 +1,4 @@
-function shist=statehist(dwt_input, traces_input, options)
+function [shist,histmax] = statehist(varargin)
 % STATEHIST  state occupancy FRET histogram
 %
 %   S = STATEHIST( DWT, DATA, options )   where
@@ -6,6 +6,8 @@ function shist=statehist(dwt_input, traces_input, options)
 %   calculated from the DWT file.  The first col specifies the bins.
 %   DWT is the filename of the idealization file from QuB.
 %   DATA is the auto.txt filename containing raw Fluorescence/FRET data.
+%
+%   [...] = STATEHIST(AX, ...) plots the state FRET histograms in the axes AX.
 %
 %   OPTIONS (optional), can have any of the following fields:
 %    - pophist_sumlen:    number of frames to consider when summing
@@ -20,20 +22,24 @@ function shist=statehist(dwt_input, traces_input, options)
 
 
 %% Process input parameters, setting defaults if not provided.
-if nargin<3,
+
+[ax,args] = axescheck(varargin{:});
+
+if numel(args)<3,
     constants = cascadeConstants;
-    options = constants.defaultMakeplotsOptions;
+    args{3} = constants.defaultMakeplotsOptions;
 end
 
-
-%% Get filenames from user if not passed
-if nargin<2
-    dwt_input = getFile('*.dwt','Choose QuB dwt file:');
-    if isempty(dwt_input), return; end
+% Get filenames from user if not passed
+if numel(args)<2
+    args{1} = getFile('*.dwt','Choose QuB dwt file:');
+    if isempty(args{1}), return; end
     
-    traces_input = getFile('*.traces','Choose traces file:');
-    if isempty(traces_input), return; end
+    args{2} = getFile('*.traces','Choose traces file:');
+    if isempty(args{2}), return; end
 end
+
+[dwt_input,traces_input,options] = args{1:3};
 
 
 %% Load data
@@ -93,5 +99,58 @@ for j=1:nStates,
     newdata = hist( fret(idl==j), fret_axis ) /numel(fret);
     shist(:,j+1) = newdata;
 end
+
+% Normalize histogram height to plot with most molecules (see makeplots)
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+    shist(:,2:end) = shist(:,2:end) * nTraces/options.cplot_normalize_to_max;
+end
+
+
+%% Plot, if applicable
+if isempty(ax), return; end
+cla(ax);
+
+bins = shist(:,1);
+histdata = shist(:,2:end)*100;
+[~,nStates] = size(histdata);
+
+% Pad with empty bins for display
+df = mean(diff(bins));
+bins = [bins(1)-df; bins; bins(end)+df];
+histdata = [zeros(1,nStates); histdata; zeros(1,nStates)];
+
+% If requested, remove 0-FRET peak and renormalize
+if options.ignoreState0
+    nStates = nStates-1;
+    histdata = histdata(:,2:end);
+    histdata = 100*histdata ./ sum(histdata(:));
+end
+
+% If the option is set, rescale so that plots with only a few
+% molecules show low occupancy in the statehist.
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+    histdata = histdata * nTraces/options.cplot_normalize_to_max;
+end
+
+hold(ax,'on');
+set(ax,'ColorOrder',options.colors);
+
+% Draw translucent, filled area underneath curves
+for j=1:nStates
+    patch( bins, histdata(:,j), options.colors(j,:), ...
+            'EdgeColor','none','FaceAlpha',0.25, 'Parent',ax );
+end
+
+% Draw state FRET histograms as solid lines
+plot( ax, bins, histdata, 'LineWidth',1.5 );
+
+% Add a line with total occupancy.
+totalHist = sum( histdata, 2 );
+plot( ax, bins, totalHist, 'k-', 'LineWidth',1.5 );
+
+histmax = max( totalHist(bins>0.05) );
+
+
+end %FUNCTION statehist
 
 

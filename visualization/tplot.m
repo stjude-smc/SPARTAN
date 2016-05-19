@@ -16,22 +16,13 @@ function tplot(varargin)
 [cax,args] = axescheck(varargin{:});
 cax = newplot(cax);
 
-
 % Load TD Plot data
 if numel(args)<1,
-    [tdpfile, tdppath]=uigetfile('*_tdp.txt','Choose tdplot:');
-    if tdpfile==0
-        disp('No File Selected.')
-        return;
-    else
-        file=strcat(tdppath,tdpfile);
-        tdp=load(file);
-    end
-else
-    tdp = args{1};
-    assert( isnumeric(tdp) );
-    tdpfile='';
+    error('Not enough input arguments');
 end
+
+tdp = args{1};
+assert( isnumeric(tdp) );
 
 
 % Load optional arguments
@@ -51,23 +42,19 @@ elseif numel(args)>2,
 end
 
 
-
 f_axis=tdp(2:end,1);
 i_axis=tdp(1,2:end);
 
 % Setup contour levels
 top = options.tdp_max;
 con=0:(top/size(options.cmap,1)):top;
-tdp(end,end) = 10;  % hack to make colorscale fixed
+tdpfix = tdp;
+tdpfix(end,end) = 10;  % hack to make colorscale fixed
 
 % draw contour plot
-[~,hand]=contourf(cax,i_axis,f_axis,tdp(2:end,2:end),con);
+[~,hand]=contourf(cax,i_axis,f_axis,tdpfix(2:end,2:end),con);
 
 % Extra formatting
-if tdpfile~=0,
-    tdpfile = strrep(tdpfile,'_',' ');
-    title(tdpfile);
-end
 set(hand,'LineColor','none');
 colormap(cax,options.cmap);
 % xlabel(cax,'Initial FRET');
@@ -79,4 +66,16 @@ set(cax, 'PlotBoxAspectRatio', [1 1 1]);
 %     ylabel(cax,'Final FRET');
 % end
 
-zoom on;
+zoom(cax,'on');
+
+
+% Display number of transitions and transition rate.
+if ~options.hideText,
+    total_time = tdp(1,1);
+    t = sum(sum( tdp(2:end,2:end)*total_time ));
+
+    textOpt = {'HorizontalAlignment','center', 'Parent',cax};
+    text( 0.45,0.9, sprintf('N_t=%.0f',t),            textOpt{:} );
+    text( 0.45,0.0, sprintf('t/s=%.2f',t/total_time), textOpt{:} );
+end
+

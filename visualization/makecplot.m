@@ -87,11 +87,6 @@ for i=1:1000:nFrames,
 end
 
 
-% Normalize the histogram to the total number of traces. This way all plots
-% can use the same scale.
-hist2d(2:end,2:end) = hist2d(2:end,2:end)/Nmol;
-
-
 % Optional: remove traces as they photobleach (drop to zero-FRET). This way the
 % plot looks the same as traces bleach -- there are simply fewer of them
 % contributing.
@@ -106,12 +101,11 @@ if isfield(options,'cplot_remove_bleached') && options.cplot_remove_bleached,
 end
 
 
-% Save the histogram to file. Only do this if user doesn't request output
-% arguments. What else could they want?
-if nargout==0 && exist(data_filename,'var'),
-    [p,n] = fileparts(data_filename);
-    hist_fname = fullfile(p, [n '_hist.txt']);
-    dlmwrite(hist_fname,hist2d,' ');
+% Normalize. "to_max" option normalizes to max among several plots.
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+    hist2d(2:end,2:end) = hist2d(2:end,2:end)/options.cplot_normalize_to_max;
+else
+    hist2d(2:end,2:end) = hist2d(2:end,2:end)/Nmol;
 end
 
 
