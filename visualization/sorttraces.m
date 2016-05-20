@@ -946,7 +946,7 @@ end
 if isfield(data.fileMetadata,'wavelengths'),
     chColors = Wavelength_to_RGB( data.fileMetadata.wavelengths );
 else
-    chColors = jet(nCh);  %color in order from blue to red as an approximation
+    chColors = [0 1 0; 1 0 0; 0.5 0 0];
 end
 
 % Get trace properties and reset GUI values with these results.

@@ -196,7 +196,7 @@ methods
         
         % Determine where the donor is on/alive and not dark or quenched
         if ~isfield(this.fileMetadata,'zeroMethod')
-            this.fileMetadata.zeroMethod = 'threshold';
+            this.fileMetadata(1).zeroMethod = 'threshold';
         end
         
         switch lower(this.fileMetadata.zeroMethod)

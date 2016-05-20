@@ -17,7 +17,7 @@ function [shist,histmax] = statehist(varargin)
 %    - fret_axis:  specifies FRET histogram bin centers.
 %    - fretField:  name of the field in the Traces object to use.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
 

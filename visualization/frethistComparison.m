@@ -84,7 +84,7 @@ end
 
 
 % Calculate histograms
-[fretaxis,frethist,errors] = pophist(files,params);
+[fretaxis,frethist,errors,label] = pophist(files,params);
 % output = zeros( numel(fretaxis), size(frethist,2)*2+1 );
 % output(:,1) = fretaxis;
 % output(:,2:2:end) = frethist;
@@ -113,7 +113,7 @@ end
 % Decorate the plot with axes etc.
 hold(cax,'off');
 ylabel( cax, 'Counts (%)' );
-xlabel( cax, 'FRET' );
+xlabel( cax, label );
 xlim( cax, [0.1 1.0] );
 yl = ylim(cax);
 ylim( cax, [0 yl(2)] );
@@ -162,7 +162,7 @@ end
 
 %%==========================================================================%%
 %% Calculate 1D FRET histograms
-function [fretaxis,frethist,errors] = pophist(files,settings)
+function [fretaxis,frethist,errors,label] = pophist(files,settings)
 
 
 % Display settings:
@@ -195,12 +195,14 @@ end
 nFiles = numel(files);
 frethist = zeros(nbins,nFiles);
 errors = zeros(size(frethist));
+labels = cell(nFiles,1);
 
 for i=1:nFiles
     % Load FRET data
     data = loadTraces( files{i} );
     fret = data.fret( :, pophist_offset+(1:sumlen) );
     [nTraces,nFrames] = size(fret);
+    labels{i} = data.fretAxisLabel;
         
     % Idealize data to 2-state model to eliminate dark-state dwells
     if settings.removeBlinks,
@@ -236,6 +238,12 @@ for i=1:nFiles
     if settings.calcErrorBars
         errors(:,i) = std(pophist,[],2);
     end
+end
+
+if numel(unique(labels))==1,
+    label = labels{1};
+else
+    label = 'FRET (various)';
 end
 
 
