@@ -801,20 +801,14 @@ end
 % data.fileMetadata.chDesc = params.chDesc(chToKeep); %fixme: cells not supported!
 
 
-% -- Fields specific to each trace:
-% Save the locations of the picked peaks for later lookup.
-nTraces = size(data.donor,1);
+% -- Save the locations of the picked peaks for later lookup.
+tempx = num2cell(x);
+tempy = num2cell(y);
 
-if params.geometry==1
-    data.traceMetadata = struct( 'donor_x',num2cell(x), 'donor_y',num2cell(y) );
-
-elseif params.geometry>1,
-    % Add each fluorescence channel to the data structure.
-    for i=1:nCh,
-        ch = data.channelNames{i};
-        data.traceMetadata().([ch '_x']) = x(i:nCh:end);
-        data.traceMetadata().([ch '_y']) = y(i:nCh:end);
-    end
+for i=1:nCh,
+    ch = data.channelNames{i};
+    [data.traceMetadata.([ch '_x'])] = tempx{i:nCh:end};
+    [data.traceMetadata.([ch '_y'])] = tempy{i:nCh:end};
 end
 
 
@@ -822,15 +816,14 @@ end
 % This is just the full path to the movie plus a trace number. This can be
 % used to later find the corresponding original movie data for each
 % individual trace, even after many rounds of processing.
-for i=1:nTraces,
+for i=1:size(data.donor,1),
     data.traceMetadata(i).ids = sprintf( '%s#%d', stk_fname, i );
 end
 
 % ---- Save data to file.
 [p,name]=fileparts(stk_fname);
 save_fname = fullfile(p, [name '.rawtraces']);
-
-saveTraces( save_fname, 'traces', data );
+saveTraces(save_fname, data);
 
 if ~quiet,
     close(wbh);

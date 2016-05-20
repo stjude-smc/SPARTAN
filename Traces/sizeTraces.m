@@ -65,7 +65,7 @@ for i=1:numel(filenames)
     version   = fread( fid, 1, '*uint16' );    %format version number
 
     assert( strcmp(magic,'TRCS'), 'Invalid traces file' );
-    assert( version>=3 && version<=4, 'Traces format version not supported!' );
+    assert( version>=3 && version<=5, 'Traces format version not supported!' );
 
     fread( fid, 1, '*uint8' );  %data type/precision
     fread( fid, 1, '*uint8' );  %number of channels

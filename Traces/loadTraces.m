@@ -88,7 +88,7 @@ if nargin>=2,
 else
     indexes = 1:nTraces;
 end
-useAll = all(indexes==1:nTraces);
+useAll = isequal(indexes, 1:nTraces);
 
 
 % Create an empty Traces object.
@@ -139,14 +139,14 @@ if isfield(root,'fileMetadata'),
     data.fileMetadata = root.fileMetadata;
 end
 if isfield(root,'traceMetadata')
-    data.traceMetadata = root.traceMetadata;
+    data.traceMetadata = root.traceMetadata(indexes);
 end
 
 
 % Verify the metadata structures.
-if ~isstruct(data.fileMetadata)  || ~isscalar(data.fileMetadata) || ...
-   ~isvector(data.traceMetadata) || numel(data.traceMetadata)~=nTraces || ...
-   ~isstruct(data.traceMetadata),
+if ~isstruct(data.fileMetadata)  || ~isscalar(data.fileMetadata)  || ...
+   ~isvector(data.traceMetadata) || ~isstruct(data.traceMetadata) || ...
+   numel(data.traceMetadata)~=numel(indexes),
     warning('Invalid trace metadata');
 end
 
@@ -220,12 +220,13 @@ elseif strcmp(type,'struct'),
         
         elseif isnumeric(packed) || islogical(packed),
             % Unpack matrices concatinated along the last dimension.
-            packDim = ndims(packed);
-            assert( size(packed,packDim)==nMetadata );
-            sel = repmat({':'},[1 packDim-1]);
-            for j=1:size(packed,packDim),
-                metadata(j).(fname) = packed( sel{:}, j );
+            if sum(size(packed)>1) == 1,
+                temp = num2cell(packed);  %scalar values
+            else
+                temp = num2cell(packed, 1:ndims(packed)-1);  %matrix values
             end
+            [metadata.(fname)] = temp{:};
+        
         else
             error('Invalid packed datatype %s', class(packed));
         end
