@@ -14,7 +14,7 @@ if ~isempty(constants),
 end
 
 % Version info displayed in title bars
-constants.version = '3.0';
+constants.version = '3.0.0';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
 
@@ -80,7 +80,7 @@ cmosCommon = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
                        'scaleAcceptor',1,'biasCorrection',{} );
 
 % Gettraces GUI settings:
-cmosCommon(1).alignMethod = 1;  %disabled, assume aligned.
+cmosCommon(1).alignMethod = 3;  %auto/ICP.
 cmosCommon.skipExisting   = 1;  %batch mode: skip files already processed.
 cmosCommon.recursive      = 1;  %batch mode: search recursively.
 cmosCommon.quiet          = 0;  %don't output debug messages.
@@ -124,10 +124,6 @@ p.chDesc       = {'Cy3'};
 p.wavelengths  = 532;
 profiles(1)    = p;
 
-% p.name        = 'sCMOS, Twin-Cam (Cy3-only)';
-% p.geometry    = 2;
-% profiles(end+1) = p;
-
 
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, L/R)';
 p.geometry    = 2;
@@ -151,7 +147,7 @@ p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
 
-p.name        = 'sCMOS, Multi-Cam (Cy2/3/5, Bandpass)';
+p.name        = 'sCMOS, Multi-Cam (Cy2/3/5)';
 p.geometry    = 4;
 p.idxFields   = [3 1 2]; % field order: LL, UL,UR.
 p.chNames     = {'factor','donor','acceptor'};
@@ -164,7 +160,7 @@ p.scaleAcceptor  = 1;
 profiles(end+1) = p;
 
 
-p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7, NO bandpass)';
+p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
 p.geometry    = 4;
 p.idxFields   = [1 2 4]; % field order: UL,UR,LR.
 p.chNames     = {'donor','acceptor','acceptor2'};
