@@ -954,6 +954,26 @@ end
 %===================  SPECTRAL CORRECTION CALLBACKS  ====================
 %========================================================================
 
+function txtSettings_Callback(hObject, ~, handles, paramName)  %#ok<DEFNU>
+% User changed one of the values int he "Analysis Settings" panel.
+% paramName is passed to identify which one and the matching parameter.
+% Only for buttons that have no side effects or special features.
+
+inputstr = get(hObject,'String');
+%if inputstr is empty, set the parameter to empty for automatic. TODO
+
+input = str2double( inputstr );
+if isnan(input),
+    % Reset field for invalid numbers, presumably to a valid value.
+    set( hObject, 'String', num2str(handles.params.(paramName)) );
+else
+    handles.params.(paramName) = input;
+    guidata(hObject,handles);
+end
+
+% END FUNCTION txtSettings_Callback
+
+
 function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % When there are more than 2 channels, the crosstalk is more than just a
 % scalar and can't be represented in the text box easily, so this button

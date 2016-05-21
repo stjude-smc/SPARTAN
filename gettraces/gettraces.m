@@ -733,13 +733,19 @@ data = correctTraces(data);
 % Highly scaled (dim) channels can confuse the background subtraction method,
 % so this must be done after background subtraction.
 if isfield(params,'scaleAcceptor') && ~isempty(params.scaleAcceptor),
-    data.fileMetadata(1).scaleAcceptor = params.scaleAcceptor;
+    scaleFluor = ones(1, numel(data.idxFluor));
     
-    data.acceptor = data.acceptor*params.scaleAcceptor(1);
-    for i=2:numel(params.scaleAcceptor),
-        name = sprintf('acceptor%d',i);
+    for i=1:numel(params.scaleAcceptor),
+        if i==1,  name = 'acceptor';
+        else      name = sprintf('acceptor%d',i);
+        end
         data.(name) = data.(name)*params.scaleAcceptor(i);
+        
+        idxA = strcmpi(name,data.channelNames);
+        scaleFluor(idxA) = params.scaleAcceptor(i);
     end
+    
+    [data.traceMetadata.scaleFluor] = deal(scaleFluor);
 end
 data.recalculateFret();
 
@@ -755,11 +761,13 @@ end
 chToKeep = ~cellfun(@isempty,params.chNames);
 
 data.fileMetadata(1).wavelengths = params.wavelengths(chToKeep);
+data.fileMetadata.chDesc = params.chDesc(chToKeep);
 
-if numel(params.crosstalk)>1
-    data.fileMetadata.crosstalk = params.crosstalk(chToKeep,chToKeep);
+crosstalk = params.crosstalk;
+if numel(params.crosstalk)>1,
+    crosstalk = crosstalk(chToKeep,chToKeep);
 end
-% data.fileMetadata.chDesc = params.chDesc(chToKeep); %fixme: cells not supported!
+[data.traceMetadata.crosstalk] = deal(crosstalk);
 
 
 % -- Save the locations of the picked peaks for later lookup.

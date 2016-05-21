@@ -124,11 +124,6 @@ if isempty(data),
     return;
 end
 
-if ~isfield(data.fileMetadata,'zeroMethod'),
-    data.fileMetadata.zeroMethod = 'threshold';
-end
-useThresh = strcmpi(data.fileMetadata.zeroMethod,'threshold');
-
 
 % Make sure time axis is in seconds (not frames)
 if data.time(1)==1,
@@ -154,17 +149,12 @@ handles.filename = filename;
 handles.data = data;
 
 % Set default correction values, which correspond to no change.
-if useThresh,
-    handles.fretThreshold = NaN( data.nTraces, 1  );
-else
-    handles.fretThreshold = zeros( data.nTraces, 1  );
-end
-    
-
+% FIXME: reorder gamma/crosstalk logically throughout.
 nFluor = 3;  %numel(data.idxFluor);
-handles.background = zeros( data.nTraces, nFluor ); %not used (yet)
-handles.crosstalk  = zeros( data.nTraces, nFluor, nFluor );
-handles.gamma      = ones(  data.nTraces, nFluor );
+handles.fretThreshold = NaN(data.nTraces, 1);
+handles.background = zeros(data.nTraces, nFluor); %not used (yet)
+handles.crosstalk  = repmat( {zeros(nFluor)},  data.nTraces,1 );
+handles.gamma      = repmat( {ones(1,nFluor)}, data.nTraces,1 );
 
 
 % Trace indexes of binned molecules
@@ -250,9 +240,13 @@ editGoTo_Callback(handles.editGoTo, [], handles);
 
 
 % Add legends to the plotted traces.
-% We want to do this once here because legend() is slow.
 if numel(data.idxFluor)>1,
-    legend( handles.axFluor, data.channelNames{data.idxFluor} );
+    chNames = data.channelNames(data.idxFluor);
+    if isfield(data.fileMetadata,'chDesc')
+        chNames = cellfun( @(x,y)sprintf('%s (%s)',x,y), chNames, ...
+               data.fileMetadata.chDesc(data.idxFluor), 'UniformOutput',false );
+    end
+    legend( handles.axFluor, chNames );
 else
     legend( handles.axFluor, 'off' );
 end
@@ -297,13 +291,13 @@ if strcmp('.mat',ext),
     % Verify that the savedState.mat file is valid.
     requiredFields = {'bins','adjusted','crosstalk','gamma','background','fretThreshold'};
     if ~all( isfield(savedState,requiredFields) ),
-        warning('Invalid sorttraces saved state file. Ignoring.');
+        warndlg('Invalid sorttraces saved state file. Ignoring.');
         return;
     end
     
     nTraces = numel(savedState.adjusted);
     if nTraces~=handles.data.nTraces,
-        warning('Number of traces in saved state does not match loaded .traces file');
+        warndlg('Number of traces in saved state does not match loaded .traces file');
         return;
     end
     
@@ -329,7 +323,7 @@ elseif strcmp('.txt',ext),
         handles.bins{i} = sscanf( fgetl(fid), '%f' )';
     end
 else
-    warning('Invalid sorttraces saved state file. Ignoring.');
+    warndlg('Invalid sorttraces saved state file. Ignoring.');
     return;
 end
 
@@ -413,22 +407,30 @@ for i=1:numel(handles.bins),
 end
 
 % Set correction controls to saved values for this trace.
-from = [1 2 1];
-to   = [2 3 3];
+% The TOTAL corrections are displayed, including any previously applied.
+idxD  = find(strcmpi('donor',    handles.data.channelNames));
+idxA1 = find(strcmpi('acceptor', handles.data.channelNames));
+idxA2 = find(strcmpi('acceptor2',handles.data.channelNames));
+from = [idxD  idxA1 idxD ];
+to   = [idxA1 idxA2 idxA2];
+crosstalk = trace.traceMetadata.crosstalk + handles.crosstalk{mol};
 
-for i=1:numel(from),
-    crosstalk = handles.crosstalk(mol,from(i),to(i));
+for i=1:numel(to),
     name = sprintf('edCrosstalk%d',i);
-    set( handles.(name),  'String', sprintf('%.3f',crosstalk) );
+    set( handles.(name),  'String', sprintf('%.3f',crosstalk(from(i),to(i))) );
     name = sprintf('sldCrosstalk%d',i);
-    set( handles.(name), 'Value', crosstalk );
+    set( handles.(name), 'Value', crosstalk(from(i),to(i)) );
 end
 
-set( handles.edGamma1, 'String', sprintf('%.2f',handles.gamma(mol,2)) );
-set( handles.sldGamma1, 'Value', handles.gamma(mol,2) );
-
-set( handles.edGamma2, 'String', sprintf('%.2f',handles.gamma(mol,3)) );
-set( handles.sldGamma2,'Value',  handles.gamma(mol,3) );
+gamma = trace.traceMetadata.scaleFluor.*handles.gamma{mol};
+if ~isempty(idxA1),
+    set( handles.edGamma1, 'String', sprintf('%.2f',gamma(idxA1)) );
+    set( handles.sldGamma1, 'Value', gamma(idxA1) );
+end
+if ~isempty(idxA2),
+    set( handles.edGamma2, 'String', sprintf('%.2f',gamma(idxA2)) );
+    set( handles.sldGamma2,'Value',  gamma(idxA2) );
+end
 
 handles = plotter(handles);
 guidata(hObject,handles);
@@ -565,7 +567,15 @@ set(handles.figure1,'pointer','watch'); drawnow;
 
 % Select traces, apply all corrections, and save to file.
 indexes = sort(indexes);  %ensure traces are in original order
-saveTraces( filename, adjustTraces(handles,indexes) );
+output = adjustTraces(handles,indexes);
+
+for i=1:numel(indexes),
+    idx = indexes(i);  %index into the original file.
+    output.traceMetadata(i).crosstalk  = output.traceMetadata(i).crosstalk  +  handles.crosstalk{idx};
+    output.traceMetadata(i).scaleFluor = output.traceMetadata(i).scaleFluor .* handles.gamma{idx};
+end
+
+saveTraces(filename, output);
 
 % Save idealizations of selected traces, if available.
 if ~isempty(handles.idl),
@@ -682,16 +692,24 @@ function sldCrosstalk_Callback(hObject, ~, handles )
 tag = get(hObject,'Tag');
 ch = tag(end)-'0';
 
-from = [1 2 1];
-to   = [2 3 3];
+idxD  = find(strcmpi('donor',    handles.data.channelNames));
+idxA1 = find(strcmpi('acceptor', handles.data.channelNames));
+idxA2 = find(strcmpi('acceptor2',handles.data.channelNames));
+from = [idxD  idxA1 idxD ];
+to   = [idxA1 idxA2 idxA2];
+from = from(ch);
+to   = to(ch);
 
+% The total crosstalk is displayed, but the DELTA is stored.
+% This is because the total crosstalk includes corrections previously applied.
 mol = handles.molecule_no;
-crosstalk = get(hObject,'Value');
-handles.crosstalk(mol, from(ch), to(ch)) = crosstalk;
-                         
+value = get(hObject,'Value');
+delta = value - handles.data.traceMetadata(mol).crosstalk(from,to);
+handles.crosstalk{mol}(from,to) = delta;
+
 % Save and display the result
 name = sprintf('edCrosstalk%d',ch);
-set( handles.(name), 'String',sprintf('%.3f',crosstalk) );
+set( handles.(name), 'String',sprintf('%.3f',value) );
 
 updateTraceData( handles );
 
@@ -768,7 +786,16 @@ name = sprintf('edGamma%d',ch);  %slider control name
 
 mol = handles.molecule_no;
 newGamma = get(hObject,'Value');
-handles.gamma(mol,ch+1) = newGamma;
+
+if ch==1,
+    idxA = find(strcmpi('acceptor',handles.data.channelNames));
+else
+    idxA = find(strcmpi('acceptor2',handles.data.channelNames));
+end
+
+% The total scaling is displayed, but the delta relative to file is stored.
+delta = newGamma/handles.data.traceMetadata(mol).scaleFluor(idxA);
+handles.gamma{mol}(idxA) = delta;
 
 % Save and display the result
 set( handles.(name), 'String',sprintf('%.2f',newGamma) );
@@ -787,11 +814,13 @@ a = questdlg( 'This will reset corrections on ALL TRACES. Are you sure?', ...
 
 % Reset corrections variables to their defaults.
 if strcmp(a,'OK'),
+    nFluor = numel(handles.data.idxFluor);
+    
     handles.fretThreshold = NaN( size(handles.fretThreshold)  );
     handles.adjusted   = false( size(handles.adjusted)   );
     handles.background = zeros( size(handles.background) );
-    handles.crosstalk  = zeros( size(handles.crosstalk)  );
-    handles.gamma      = ones(  size(handles.gamma)      );
+    handles.crosstalk  = repmat( {zeros(nFluor)},   data.nTraces,1 );
+    handles.gamma      = repmat( {zeros(1,nFluor)}, data.nTraces,1 );
 end
 
 % Update GUI controls and redraw the trace.
@@ -837,14 +866,14 @@ if numel(idxAdjusted)==0, return; end
 
 
 % Make all adjustments to raw data
-crosstalk   = handles.crosstalk(indexes,:,:);
-gamma       = handles.gamma(indexes,:);
-thresholds  = handles.fretThreshold(indexes);
-
 chNames = output.channelNames(output.idxFluor);  %increasing wavelength order.
 nFlour = numel(output.idxFluor);
+thresholds  = handles.fretThreshold(indexes);
 
 for i=idxAdjusted,
+    crosstalk  = handles.crosstalk{ indexes(i) };
+    scaleFluor = handles.gamma{ indexes(i) };
+    
     % Subtract forward crosstalk (blue to red). The order matters.
     for src=1:nFlour,
         for dst=1:nFlour,
@@ -852,13 +881,13 @@ for i=idxAdjusted,
             
             ch1 = chNames{src};
             ch2 = chNames{dst};
-            output.(ch2)(i,:) = output.(ch2)(i,:) - crosstalk(i,src,dst)*output.(ch1)(i,:);
+            output.(ch2)(i,:) = output.(ch2)(i,:) - crosstalk(src,dst)*output.(ch1)(i,:);
         end
     end
     
-    % Scale channels so their relative brightness is the same.
+    % Scale fluorescence to correct unequal brightness/spectral response.
     for ch=1:nFlour,
-        output.(chNames{ch})(i,:) = output.(chNames{ch})(i,:)*gamma(i,ch);
+        output.(chNames{ch})(i,:) = output.(chNames{ch})(i,:) * scaleFluor(ch);
     end
 
 end %for each selected, adjusted trace
