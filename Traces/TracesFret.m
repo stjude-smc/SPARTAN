@@ -118,6 +118,53 @@ methods
     end
     
     
+    %% =================== DATA VALIDATION =================== %%
+    
+    function [valid,reason] = checkValid(this, varargin)
+    % Verify all fields are valid and set any undefined but required fields.
+    
+        [valid,reason] = checkValid@Traces(this, varargin{:});
+        nCh = numel(this.idxFluor);
+        
+        % Set defaults for all expected metadata parameters.
+        if ~isfield(this.fileMetadata, 'zeroMethod'),
+            this.fileMetadata.zeroMethod = 'threshold';
+        end
+        
+        if ~isfield(this.traceMetadata, 'crosstalk'),
+%             if isfield(this.fileMetadata,'crosstalk'),
+%                 crosstalk = this.fileMetadata.crosstalk;
+%                 if numel(crosstalk)==1,
+%                     crosstalk = zeros(nCh);
+%                     crosstalk(1,2) = this.fileMetadata.crosstalk;
+%                 else
+%                     crosstalk = reshape(crosstalk,nCh,nCh);
+%                 end
+%             else
+                crosstalk = zeros(nCh);
+%             end
+            [this.traceMetadata.crosstalk] = deal(crosstalk);
+        end
+        
+        if ~isfield(this.traceMetadata, 'scaleFluor'),
+%             if isfield(this.fileMetadata,'scaleAcceptor'),
+%                 scaleFluor = this.fileMetadata.scaleAcceptor;
+%                 .....
+%             else
+                scaleFluor = ones(1,nCh);
+%             end
+            [this.traceMetadata.scaleFluor] = deal(scaleFluor);
+        end
+        
+        % Handle non-standard settings from older files
+        
+        % Verify metadata settings.
+        %if ~all( arrayfun(@(x)numel(x.crosstalk),this.traceMetadata)
+    end %FUNCTION checkValid
+    
+    
+    
+    
     %% ================ DATA MANIPULATION ================ %%
     
     % Add trace data to the current object, modifying it in place.

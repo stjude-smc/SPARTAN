@@ -156,6 +156,12 @@ methods
         if nargin<2, errorIfNotValid=true; end
         reason = '';
         
+        % Verify metadata are valid structures
+        if ~isstruct(this.fileMetadata)  || ~isscalar(this.fileMetadata)  || ...
+           ~isvector(this.traceMetadata) || ~isstruct(this.traceMetadata),
+            reason = 'Invalid trace metadata';
+        end
+        
         % Verify channel names are all allowed and there are no duplicates.
         if ~isempty( setdiff(this.channelNames,properties(this)) )  ||  ...
                              numel(unique(this.channelNames))~=this.nChannels,

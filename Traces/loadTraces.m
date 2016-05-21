@@ -143,12 +143,8 @@ if isfield(root,'traceMetadata')
 end
 
 
-% Verify the metadata structures.
-if ~isstruct(data.fileMetadata)  || ~isscalar(data.fileMetadata)  || ...
-   ~isvector(data.traceMetadata) || ~isstruct(data.traceMetadata) || ...
-   numel(data.traceMetadata)~=numel(indexes),
-    warning('Invalid trace metadata');
-end
+% Verify all fields are internally consistent and valid.
+checkValid(data);
 
 
 end %function LoadTracesBinary
