@@ -20,7 +20,7 @@ function mean_gamma = gammacorrect(files,mean_gamma)
 % 
 % See also: scaleacceptor, crosstalkcorrect.
 
-%   Copyright 2014-2015 Cornell University All Rights Reserved.
+%   Copyright 2014-2016 Cornell University All Rights Reserved.
 
 
 % If no files given, obtain a list from the user.
@@ -58,12 +58,18 @@ for i=1:nFiles
     data = loadTraces( files{i} );
     
     if isChannel(data,'acceptor2'),
-        warning('This function may not work correctly with multi-color FRET');
+        disp('Warning: this function may not work correctly with multi-color FRET');
     end
   
     % Estimate the mean gamma value across all traces in the file
     if nargin<2 && ~isempty(mean_gamma),
         mean_gamma(i) = calc_gamma(data);
+    end
+    
+    % Keep track of adjustments in trace metadata.
+    idxA1 = strcmpi(data.channelNames,'acceptor');
+    for j=1:data.nTraces,
+        data.traceMetadata(j).scaleFluor(idxA1) = data.traceMetadata(j).scaleFluor(idxA1).*mean_gamma(i);
     end
     
     % Scale donor intensity by gamma estimate (so final gamma=1)

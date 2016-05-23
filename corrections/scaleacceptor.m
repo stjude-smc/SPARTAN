@@ -71,6 +71,12 @@ for i=1:numel(scale_factor),
         ch = sprintf('acceptor%d',i);
     end
     data.(ch) = scale_factor(i)*data.(ch);
+    
+    % Keep track of adjustments in trace metadata.
+    idxA = strcmpi(data.channelNames,ch);
+    for j=1:data.nTraces,
+        data.traceMetadata(j).scaleFluor(idxA) = data.traceMetadata(j).scaleFluor(idxA).*scale_factor(i);
+    end
 end
 
 % Recalculate FRET using the new acceptor fluorescence values.

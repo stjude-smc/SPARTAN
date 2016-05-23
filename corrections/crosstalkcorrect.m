@@ -26,7 +26,7 @@ function [mean_crosstalk] = crosstalkcorrect(files,mean_crosstalk)
 %
 % See also: scaleacceptor, gammacorrect.
 
-%   Copyright 2014-2015 Cornell University All Rights Reserved.
+%   Copyright 2014-2016 Cornell University All Rights Reserved.
 
 
 % If no files given, obtain a list from the user.
@@ -61,12 +61,20 @@ for i=1:nFiles
     data = loadTraces( files{i} );
     
     if isChannel(data,'acceptor2'),
-        warning('This function may not work correctly with multi-color FRET');
+        disp('Warning: this function may not work correctly with multi-color FRET');
     end
     
     % Estimate the crosstalk if not given by the user.
     if nargin<2 && ~isempty(mean_crosstalk),
         mean_crosstalk(i) = calc_crosstalk(data);
+    end
+    
+    % Keep track of adjustments in trace metadata.
+    idxD  = strcmpi(data.channelNames,'donor');
+    idxA1 = strcmpi(data.channelNames,'acceptor');
+    for j=1:data.nTraces,
+        data.traceMetadata(j).crosstalk(idxD,idxA1) = ...
+              data.traceMetadata(j).crosstalk(idxD,idxA1) + mean_crosstalk(i);
     end
     
     % Make the crosstalk correction and recalculate FRET
