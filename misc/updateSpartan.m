@@ -85,23 +85,4 @@ end
 
 
 
-function output = versionEncode(string)
-% Convert version number string (x.y.z) to an integer for easy comparison.
-% 2.12.6 becomes 2012006.
-
-version = cellfun( @(s)sscanf(s,'%f'), strsplit(string,'.') );
-
-if numel(version)<3,
-    version = [version zeros(1,numel(version)-1)];
-elseif numel(version)>3
-    error( ['Invalid version number ' string] );
-end
-
-output = 1e6*version(1) + 1e3*version(2) + version(3);
-
-end
-
-
-
-
 
