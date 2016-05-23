@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 05-May-2016 12:10:15
+% Last Modified by GUIDE v2.5 23-May-2016 09:54:18
 
 
 % Begin initialization code - DO NOT EDIT
@@ -240,22 +240,21 @@ editGoTo_Callback(handles.editGoTo, [], handles);
 
 
 % Add legends to the plotted traces.
-if numel(data.idxFluor)>1,
-    chNames = data.channelNames(data.idxFluor);
-    if isfield(data.fileMetadata,'chDesc')
-        chNames = cellfun( @(x,y)sprintf('%s (%s)',x,y), chNames, ...
-               data.fileMetadata.chDesc(data.idxFluor), 'UniformOutput',false );
-    end
-    legend( handles.axFluor, chNames );
-else
-    legend( handles.axFluor, 'off' );
-end
+state = strcmpi(get(handles.btnLegend,'State'),'on')+1;
+showhide = {'hide','show'};
 
-if numel(data.idxFret)>1,
-    legend( handles.axFret, data.channelNames{data.idxFret} );
-else
-    legend( handles.axFret, 'off' );
+chNames = data.channelNames(data.idxFluor);
+if isfield(data.fileMetadata,'chDesc')
+    chNames = cellfun( @(x,y)sprintf('%s (%s)',x,y), chNames, ...
+           data.fileMetadata.chDesc(data.idxFluor), 'UniformOutput',false );
 end
+legend( handles.axFluor, chNames );
+if numel(data.idxFluor)<2, state=1; end
+legend(handles.axFluor, showhide{state});
+
+legend( handles.axFret, data.channelNames{data.idxFret} );
+if numel(data.idxFret)<2, state=1; end
+legend(handles.axFret, showhide{state});
 
 
 % Adjust bottom axis, depending on the type of data.
@@ -1456,3 +1455,15 @@ if ok && sel~=current,
 end
 
 % END FUNCTION mnuZeroMethod_Callback
+
+
+% --------------------------------------------------------------------
+function btnLegend_ClickedCallback(~, ~, handles) %#ok<DEFNU>
+% Toolbar button to turn legends on or off.
+state = strcmpi(get(handles.btnLegend,'State'),'on')+1;
+showhide = {'hide','show'};
+
+legend(handles.axFluor, showhide{state});
+legend(handles.axFret,  showhide{state});
+
+% END FUNCTION btnLegend_ClickedCallback
