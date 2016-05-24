@@ -11,24 +11,18 @@ narginchk(3,3);
 nargoutchk(1,1);
 
 idxCh = find(idxNewField==settings.idxFields); %index into existing channel parameter list.
+fnames = {'idxFields','scaleFluor','chNames','chDesc','wavelengths'};
 
 
-
-%% Remove a channel
+% Remove channel
 if isempty(input)
-    [~,idxAcceptor] = ismember(settings.chNames, {'acceptor','acceptor2'});
-    if idxAcceptor>0, settings.scaleAcceptor(idxAcceptor)=[]; end
-    % FIXME: acceptor2 may need to be renamed if acceptor1 is removed...
-
-    if numel(settings.crosstalk)==1,
+    if size(settings.crosstalk,1)<=2,
         settings.crosstalk = [];
     else
         settings.crosstalk(idxCh,:) = [];
         settings.crosstalk(:,idxCh) = [];
     end
-        
-
-    fnames = {'idxFields','chNames','chDesc','wavelengths'};
+    
     for i=1:numel(fnames)
         settings.(fnames{i})(idxCh) = [];
     end
@@ -37,40 +31,33 @@ if isempty(input)
 end
 
 
-%% Alter a channel
-input.idxFields = idxNewField;
-fnames = {'idxFields','chNames','chDesc','wavelengths'};
-
-% Alter a channel in place
+% Alter channel (delete and re-insert to ensure proper order)
 if ~isempty(idxCh),
-    for i=1:numel(fnames)
-        f = fnames{i};
-        if iscell(settings.(f))
-            settings.(f){idxCh} = input.(f);
-        else
-            settings.(f)(idxCh) = input.(f);
-        end
-    end
-    % FIXME: alterations of wavelength should change the order?!
-    
-% Insert a channel
+    settings = gettraces_setch(settings,idxNewField,[]);
+    settings = gettraces_setch(settings,idxNewField,input);
+
+
+% Insert channel
 else
-    % Determine position in list to insert new field
-    idxCh = find(idxNewField<settings.idxFields, 1,'last');
-    if isempty(idxCh), idxCh=numel(settings.idxFields)+1; end
+    % Determine position in list to insert by wavelength order.
+    idxCh = find(input.wavelengths<settings.wavelengths, 1,'first');
+    if isempty(idxCh), idxCh=numel(settings.wavelengths)+1; end  %append
     
+    % Insert new value in each record.
+    input.idxFields = idxNewField;
     for i=1:numel(fnames)
         f = fnames{i};
         settings.(f) = [settings.(f)(1:idxCh-1) input.(f) settings.(f)(idxCh:end)];
     end
     
-    nc = size(settings.crosstalk);
-    settings.crosstalk = [settings.crosstalk(1:idxCh-1,:); zeros(1,nc(2));   settings.crosstalk(idxCh:end,:)];
-    settings.crosstalk = [settings.crosstalk(:,1:idxCh-1)  zeros(nc(1)+1,1)  settings.crosstalk(:,idxCh:end)];
-    
-    % FIXME: figure out how to add acceptor scaling here.
-%     [~,i] = ismember(settings.chNames, {'acceptor','acceptor2'});
-%     if i>0,  settings.scaleAcceptor(i) = [];  end
+    % FIXME: what if settings.crosstalk is scalar?
+    if isempty(settings.crosstalk),
+        settings.crosstalk = zeros(2);
+    else
+        nc = size(settings.crosstalk);
+        settings.crosstalk = [settings.crosstalk(1:idxCh-1,:); zeros(1,nc(2));   settings.crosstalk(idxCh:end,:)];
+        settings.crosstalk = [settings.crosstalk(:,1:idxCh-1)  zeros(nc(1)+1,1)  settings.crosstalk(:,idxCh:end)];
+    end
 end
 
 

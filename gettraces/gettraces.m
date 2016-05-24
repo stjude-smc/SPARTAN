@@ -732,21 +732,16 @@ data = correctTraces(data);
 % Scale acceptor channel to correct for unequal brightness (gamma is not 1).
 % Highly scaled (dim) channels can confuse the background subtraction method,
 % so this must be done after background subtraction.
-if isfield(params,'scaleAcceptor') && ~isempty(params.scaleAcceptor),
-    scaleFluor = ones(1, numel(data.idxFluor));
+if ~isfield(params,'scaleFluor') || isempty(params.scaleFluor),
+    params.scaleFluor = ones(1,nCh);
     
-    for i=1:numel(params.scaleAcceptor),
-        if i==1,  name = 'acceptor';
-        else      name = sprintf('acceptor%d',i);
-        end
-        data.(name) = data.(name)*params.scaleAcceptor(i);
-        
-        idxA = strcmpi(name,data.channelNames);
-        scaleFluor(idxA) = params.scaleAcceptor(i);
+else
+    for i=1:numel(params.chNames),
+        name = params.chNames{i};
+        data.(name) = data.(name)*params.scaleFluor(i);
     end
-    
-    [data.traceMetadata.scaleFluor] = deal(scaleFluor);
 end
+[data.traceMetadata.scaleFluor] = deal(params.scaleFluor);
 data.recalculateFret();
 
 
@@ -767,7 +762,9 @@ crosstalk = params.crosstalk;
 if numel(params.crosstalk)>1,
     crosstalk = crosstalk(chToKeep,chToKeep);
 end
-[data.traceMetadata.crosstalk] = deal(crosstalk);
+if ~isempty(crosstalk)
+    [data.traceMetadata.crosstalk] = deal(crosstalk);
+end
 
 
 % -- Save the locations of the picked peaks for later lookup.

@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 15-May-2016 17:30:49
+% Last Modified by GUIDE v2.5 24-May-2016 10:56:15
 
 
 % Begin initialization code - DO NOT EDIT
@@ -697,20 +697,9 @@ set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
      'Checked','on' );
 set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 
-set( handles.edScaleAcceptor, 'String', num2str(params.scaleAcceptor) );
-set( handles.txtDACrosstalk,  'String', num2str(params.crosstalk) );
-
 % Enable alignment, crosstalk, and scale controls only in multi-color.
-nCh = numel(handles.params.idxFields);
-set( [handles.mnuAlign handles.txtDACrosstalk ...
-      handles.btnCrosstalk handles.edScaleAcceptor  ...
-      handles.btnScaleAcceptor],  'Enable',onoff(nCh>1) );
-
-set(handles.txtDACrosstalk,   'Visible', onoff(numel(params.crosstalk)<2) );
-set(handles.btnCrosstalk,     'Visible', onoff(numel(params.crosstalk)>1)  );
-set(handles.edScaleAcceptor,  'Visible', onoff(numel(params.scaleAcceptor)<2) );
-set(handles.btnScaleAcceptor, 'Visible', onoff(numel(params.scaleAcceptor)>1)  );
-
+set( [handles.mnuAlign handles.btnCrosstalk handles.btnScaleAcceptor], ...
+                       'Enable',onoff(numel(handles.params.idxFields)>1) );
 
 % If a movie has already been loaded, reload movie with new setup.
 if isfield(handles,'stkfile'),
@@ -797,15 +786,17 @@ function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 
 idxField = get(gca,'UserData');  %quadrant
 if isempty(idxField), return; end  %total intensity field
-fieldID = find(handles.params.idxFields==idxField);  %index in parameter list
+chID = find(handles.params.idxFields==idxField);  %index in parameter list
 
 % Prompt for new values and verify validity.
-prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Excitation wavelength (nm):'};
-if ~isempty(fieldID)
-    currentopt = {handles.params.chNames{fieldID} handles.params.chDesc{fieldID} ...
-                  num2str(handles.params.wavelengths(fieldID)) };
+prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Wavelength (nm):', ...
+          'Scale intensity by:'};
+if ~isempty(chID)
+    currentopt = {handles.params.chNames{chID} handles.params.chDesc{chID} ...
+                  num2str(handles.params.wavelengths(chID)) ...
+                  num2str(handles.params.scaleFluor(chID)) };
 else
-    currentopt = {'','',''};
+    currentopt = {'','','','1'};
 end
 
 answer = inputdlg(prompt, 'Change settings', 1, currentopt);
@@ -814,11 +805,14 @@ if isempty(answer), return; end   %user hit cancel
 if ~ismember(answer{1}, properties(TracesFret4)),
     errordlg( ['Invalid channel name ' answer{1}] );
     return;
+elseif isnan(str2double(answer{3}))
+    errordlg('Invalid wavelength');
+    return;
 end
 
 % Save the new parameters
 input = struct( 'chNames',answer{1}, 'chDesc',answer{2}, ...
-                'wavelengths',str2double(answer{3}) );
+                'wavelengths',str2double(answer{3}), 'scaleFluor',str2double(answer{4}) );
 handles.params = gettraces_setch(handles.params, idxField, input);
 guidata(hObject,handles);
 setAxTitles(handles);
@@ -836,8 +830,15 @@ function mnuFieldRemove_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to remove a field from consideration.
 
 idxField = get(gca,'UserData');  %quadrant
+if isempty(idxField), return; end
+
 fieldID = find(handles.params.idxFields==idxField,1);  %index in parameter list
 if isempty(fieldID), return; end
+
+if numel(handles.params.chNames)<2,
+    warndlg('At least one channel must be defined');
+    return;
+end
 
 handles.params = gettraces_setch(handles.params, idxField, []);
 guidata(hObject,handles);
@@ -954,70 +955,47 @@ end
 %===================  SPECTRAL CORRECTION CALLBACKS  ====================
 %========================================================================
 
-function txtSettings_Callback(hObject, ~, handles, paramName)  %#ok<DEFNU>
-% User changed one of the values int he "Analysis Settings" panel.
-% paramName is passed to identify which one and the matching parameter.
-% Only for buttons that have no side effects or special features.
-
-inputstr = get(hObject,'String');
-%if inputstr is empty, set the parameter to empty for automatic. TODO
-
-input = str2double( inputstr );
-if isnan(input),
-    % Reset field for invalid numbers, presumably to a valid value.
-    set( hObject, 'String', num2str(handles.params.(paramName)) );
-else
-    handles.params.(paramName) = input;
-    guidata(hObject,handles);
-end
-
-% END FUNCTION txtSettings_Callback
-
-
 function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% When there are more than 2 channels, the crosstalk is more than just a
-% scalar and can't be represented in the text box easily, so this button
-% will launch a dialog to show all the possible parameter values and allow
-% the user to change them.
+% Callback for button to set crosstalk correction settings.
 
 params = handles.params;
-assert( params.geometry>1 && numel(params.crosstalk)>1 );
+nCh = numel(params.chNames);
+if nCh<2, return; end  %no crosstalk
 
+% Enumerate all possible crosstalk pairs
+[src,dst] = find( triu(true(nCh),1) );
 
-% Prompt the user crosstalk parameters for 3-color.
-% We assume channel names are in order of wavelength.
-src = [1 1 2]; %Cy3->Cy5, Cy3->Cy7, Cy5->Cy7
-dst = [2 3 3];
+% Handle two-color special case giving a single value.
+if numel(params.crosstalk)==1,
+    c = zeros(2);
+    c(1,2) = params.crosstalk;
+    params.crosstalk = c;
+end
 
-prompts  = cell( numel(src), 1 );
-defaults = cell( numel(src), 1 );
+% Prompt the user crosstalk parameters.
+% Channel names MUST be in order of wavelength!
+prompts  = cell(numel(src), 1);
+defaults = cell(numel(src), 1);
 
-for i=1:numel(src)
-    prompts{i} = sprintf('%s (%s) -> %s (%s)', ...
-                         params.chNames{src(i)}, params.chDesc{src(i)}, ...
-                         params.chNames{dst(i)}, params.chDesc{dst(i)} );
+for i=1:numel(src),
+    prompts{i} = sprintf('%s → %s', params.chDesc{src(i)}, params.chDesc{dst(i)} );
     defaults{i} = num2str( params.crosstalk(src(i),dst(i)) );
 end
 
-result = inputdlg( prompts, 'Enter crosstalk values', 1, defaults );
-if isempty(result), return; end
+result = inputdlg(prompts, 'gettraces', 1, defaults);
+if isempty(result), return; end  %user hit cancel
+result = cellfun(@str2double, result);
 
-
-% Process the new crosstalk values
-crosstalk = zeros( numel(params.chNames) );
-
-for i=1:numel(src),
-    c = str2double( result{i} );
-    
-    if isnan(c) || c>1 || c<0,
-        fprintf( 'Error: invalid crosstalk value %s)n', result{i} );
-        return;
-    end
-    
-    crosstalk( src(i), dst(i) ) = c;
+% Verify the inputs are valid and save them.
+if any( isnan(result) | result>1 | result<0 ),
+    warndlg('Invalid crosstalk values');
+    return;
 end
 
-handles.params.crosstalk = crosstalk;
+for i=1:numel(src),
+    handles.params.crosstalk(src(i), dst(i)) = result(i);
+end
+
 guidata(hObject,handles);
 
 %end function btnCrosstalk_Callback
@@ -1026,34 +1004,25 @@ guidata(hObject,handles);
 
 function btnScaleAcceptor_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Set values for scaling the fluorescence intensity of acceptor channels so
-% that they all have the same apparent brightness (gamma=1). This button
-% should only be visit for multi-color FRET where there are multiple
-% channels that should be scaled.
-% FIXME: should be extended to factor and donor2 channels??
-
-params = handles.params;
-
-idx = ~cellfun( @isempty, strfind(params.chNames, 'acceptor') );
-if ~isfield(params,'scaleAcceptor') || isempty(params.scaleAcceptor),
-    params.scaleAcceptor = ones(numel(idx), 1);
-end
+% that they all have the same apparent brightness (gamma=1).
 
 % Prompt the user for new multipliers for gamma correction.
-prompts = cellfun( @(a,b)sprintf('%s (%s):',a,b), params.chNames(idx), ...
-                                 params.chDesc(idx), 'UniformOutput',false );
-defaults = cellfun(@num2str, num2cell(params.scaleAcceptor), 'UniformOutput',false);
+params = handles.params;
+prompts = cellfun( @(a,b)sprintf('%s (%s):',a,b), params.chNames, ...
+                                       params.chDesc, 'UniformOutput',false );
+defaults = cellfun(@num2str, num2cell(params.scaleFluor), 'UniformOutput',false);
 
-result = inputdlg(prompts, 'Gettraces: scale acceptor', 1, defaults);
+result = inputdlg(prompts, 'gettraces', 1, defaults);
 if isempty(result), return; end
 
 % Verify the inputs are valid and save them.
 result = cellfun(@str2double, result);
 if any(isnan(result)),
-    disp('Gettraces: ignoring invalid scale acceptor values.');
+    warndlg('Invalid scaling values');
     return;
 end
 
-handles.params.scaleAcceptor = result;
+handles.params.scaleFluor = to_row(result);
 guidata(hObject,handles);
 
 %end function btnCrosstalk_Callback
@@ -1120,4 +1089,3 @@ function updateFileTimer(~,~,hObject,targetDir)
 % disp('Timer fired');
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
-

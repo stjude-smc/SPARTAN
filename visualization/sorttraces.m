@@ -451,7 +451,7 @@ for i=1:numel(to),
     set( handles.(name), 'Value', crosstalk(from(i),to(i)) );
 end
 
-gamma = trace.traceMetadata.scaleFluor .* handles.gamma(mol,:);
+gamma = to_row(trace.traceMetadata.scaleFluor) .* handles.gamma(mol,:);
 if ~isempty(idxA1),
     set( handles.edGamma1, 'String', sprintf('%.2f',gamma(idxA1)) );
     set( handles.sldGamma1, 'Value', gamma(idxA1) );
@@ -601,7 +601,7 @@ output = adjustTraces(handles,indexes);
 for i=1:numel(indexes),
     idx = indexes(i);  %index into the original file.
     output.traceMetadata(i).crosstalk  = output.traceMetadata(i).crosstalk  +  squeeze(handles.crosstalk(idx,:,:));
-    output.traceMetadata(i).scaleFluor = output.traceMetadata(i).scaleFluor .* handles.gamma(idx,:);
+    output.traceMetadata(i).scaleFluor = to_row(output.traceMetadata(i).scaleFluor) .* handles.gamma(idx,:);
 end
 
 saveTraces(filename, output);

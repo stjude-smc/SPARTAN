@@ -74,10 +74,9 @@ constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 %------------------------
 % Default settings are given here. Unless another value is given in the profile
 % definition, these values are used.
-
 cmosCommon = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
                        'chDesc',{}, 'wavelengths',[], 'crosstalk',[], ...
-                       'scaleAcceptor',1,'biasCorrection',{} );
+                       'scaleFluor',[],'biasCorrection',{} );
 
 % Gettraces GUI settings:
 cmosCommon(1).alignMethod = 3;  %auto/ICP.
@@ -111,7 +110,6 @@ emccdCommon.nhoodSize        = 1;        % 3x3 area
 %------------------------
 % Settings for particular setups are listed here. Each entry is concatinated
 % onto the end of the list (profiles).
-
 clear p; clear profiles
 
 %------  sCMOS cameras  -------
@@ -122,6 +120,7 @@ p.idxFields    = 1; %only one channel
 p.chNames      = {'donor'};
 p.chDesc       = {'Cy3'};
 p.wavelengths  = 532;
+p.scaleFluor   = 1;
 profiles(1)    = p;
 
 
@@ -132,18 +131,11 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
-p.scaleAcceptor = 1;
+p.scaleFluor  = [1 1];
 profiles(end+1) = p;
-
 
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, U/D)';
 p.geometry    = 3;
-p.idxFields   = [1 2]; %L/R
-p.chNames     = {'donor','acceptor'};
-p.chDesc      = {'Cy3','Cy5'};
-p.wavelengths = [532 640];
-p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
-p.scaleAcceptor = 1;
 profiles(end+1) = p;
 
 
@@ -156,7 +148,7 @@ p.wavelengths = [473 532 640];
 p.crosstalk   = zeros(3);
 % p.crosstalk(1,2) = 0.0;   %Cy2->Cy3 (FIXME)
 p.crosstalk(2,3) = 0.11;   %Cy3->Cy5 (FIXME)
-p.scaleAcceptor  = 1;
+p.scaleFluor  = [1 1 1];
 profiles(end+1) = p;
 
 
@@ -169,7 +161,7 @@ p.wavelengths = [532 640 730];
 p.crosstalk   = zeros(3);
 p.crosstalk(1,2) = 0.11;   %Cy3->Cy5 (same as 2-color; was 0.066 with bandpasses in?)
 p.crosstalk(2,3) = 0.04;   %Cy5->Cy7 (0.015 with bandpasses in?)
-p.scaleAcceptor  = [1 1];  %Multiply Cy5 and Cy7 traces by this amount.
+p.scaleFluor  = [1 1 7];  %Multiply Cy5 and Cy7 traces by this amount.
 profiles(end+1) = p;
 
 
@@ -182,6 +174,7 @@ p.idxFields   = 1; %only one channel
 p.chNames     = {'donor'};
 p.chDesc      = {'Cy3'};
 p.wavelengths = 532;
+p.scaleFluor  = 1;
 profiles(end+1) = p;
 
 
@@ -199,7 +192,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = 0.075;  %donor->acceptor
-p.scaleAcceptor = 1;
+p.scaleFluor  = [1 1];
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
 % at each point are scaled by the amount calculated by the function.
@@ -223,7 +216,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = 0.13;   %Cy3->Cy5
-p.scaleAcceptor = 1;
+p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
 
@@ -237,7 +230,7 @@ p.wavelengths = [532 640 730];
 p.crosstalk   = zeros(4);
 p.crosstalk(1,2) = 0.12;   %Cy3->Cy5
 p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
-p.scaleAcceptor = [1 1];
+p.scaleFluor  = [1 1 7];
 profiles(end+1) = p;
 
 
@@ -255,7 +248,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy5','Cy7'};
 p.wavelengths = [640 730];
 p.crosstalk   = 0.11;
-p.scaleAcceptor = 1;
+p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
 
