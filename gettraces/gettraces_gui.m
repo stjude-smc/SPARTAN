@@ -158,13 +158,12 @@ end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 [stkData] = gettraces( filename, handles.params );
-handles.stk_top = stkData.stk_top;
 setappdata(handles.figure1,'stkData', stkData);
 
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-% low = min(min(handles.stk_top));
-sort_px = sort(handles.stk_top(:));
+% low = min(min(stkData.stk_top));
+sort_px = sort(stkData.stk_top(:));
 val = sort_px( floor(0.98*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 
@@ -181,7 +180,7 @@ end
 
 % Create axes for sub-fields
 ax = [];
-fields = subfield(handles.stk_top-stkData.background, handles.params.geometry);
+fields = subfield(stkData.stk_top-stkData.background, handles.params.geometry);
 spopt = {'Parent',handles.panView};
 
 switch handles.params.geometry
@@ -230,6 +229,7 @@ title(handles.axTotal,'Total Intensity', 'FontSize',10);
 
 set(handles.figure1,'pointer','arrow');
 set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
+set([handles.btnSave handles.mnuFileSave],'Enable','off');
 
 %end function OpenStk
 
@@ -354,7 +354,9 @@ set(handles.figure1,'pointer','watch'); drawnow;
 
 % Locate single molecules
 stkData = getappdata(handles.figure1,'stkData');
-[stkData,peaks] = gettraces( stkData, handles.params );
+stkData = getPeaks(stkData, handles.params);
+stkData = getIntegrationWindows(stkData, handles.params);
+setappdata(handles.figure1,'stkData',stkData);
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -478,8 +480,8 @@ set( handles.txtPSFWidth, 'ForegroundColor', (mean(decay)>handles.params.nPixels
 
 
 %----- Graphically show peak centers
-handles.x = peaks(:,1);
-handles.y = peaks(:,2);
+handles.x = stkData.peaks(:,1);
+handles.y = stkData.peaks(:,2);
 handles.total_x = stkData.total_peaks(:,1);
 handles.total_y = stkData.total_peaks(:,2);
 
@@ -516,7 +518,8 @@ style2 = {'LineStyle','none','marker','o','color','y'};
 style1b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.4]};
 style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
 
-[nrow,ncol] = size(handles.stk_top);
+stkData = getappdata(handles.figure1,'stkData');
+[nrow,ncol] = size(stkData.stk_top);
 
 % Clear any existing selection markers from previous calls.
 delete(findobj(handles.figure1,'type','line'));
@@ -605,7 +608,11 @@ filename = regexprep(filename,'-file[0-9]*.[A-Za-z0-9]*$','');
 % Integrate fluorophore point-spread functions, generate fluorescence
 % traces, and save to file.
 stkData = getappdata(handles.figure1,'stkData');
-gettraces( stkData, handles.params, filename );
+if isfield(stkData,'peaks')
+    integrateAndSave(stkData, filename, handles.params);
+else
+    gettraces( stkData, handles.params, filename );
+end
 
 set(handles.figure1,'pointer','arrow'); drawnow;
 
