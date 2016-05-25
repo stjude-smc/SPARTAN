@@ -1,4 +1,4 @@
-function [regions, integrationEfficiency, fractionWinOverlap] = getIntegrationWindows( stk_top, peaks, params )
+function stkData = getIntegrationWindows(stkData, params)
 % For each molecule location in "peaks", find the most intense pixels in
 % its immediate neighborhood (defined by params.nPixelsToSum). These
 % regions are used by integrateAndSave() to sum most of the intensity for
@@ -15,6 +15,8 @@ function [regions, integrationEfficiency, fractionWinOverlap] = getIntegrationWi
 
 hw = params.nhoodSize;  % distance from peak to consider (eg, 1=3x3 area)
 squarewidth = 1+2*hw;   % width of neighborhood to examine.
+stk_top = stkData.stk_top-stkData.background;
+peaks = stkData.peaks;
 
 
 % Get x,y coordinates of picked peaks
@@ -71,5 +73,8 @@ for m=1:Npeaks,
     fractionWinOverlap(m) = sum(imgReused(idxs(:,m))-1) / params.nPixelsToSum;
 end
 
+stkData.regions = regions;
+stkData.integrationEfficiency = integrationEfficiency;
+stkData.fractionWinOverlap = fractionWinOverlap;
 
 end %function getIntegrationWindows
