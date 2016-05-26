@@ -56,6 +56,12 @@ for i=1:1000:nFrames,
     hist2d(2:end,1+t_range) = hist( padded, fret_axis  );
 end
 
+% Normalize. "to_max" option normalizes to max among several plots.
+if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+    hist2d(2:end,2:end) = hist2d(2:end,2:end)/options.cplot_normalize_to_max;
+else
+    hist2d(2:end,2:end) = hist2d(2:end,2:end)/size(fret,1);
+end
 
 % Optional: remove traces as they photobleach (drop to zero-FRET). This way the
 % plot looks the same as traces bleach -- there are simply fewer of them
@@ -65,17 +71,9 @@ if isfield(options,'cplot_remove_bleached') && options.cplot_remove_bleached,
     % FIXME: this threshold should be defined in cascadeConstants.
     h = hist2d(2:end,2:end);
     h( fret_axis<=0.15, : ) = 0;
-
+    
     % Renormalize so all columns sum to unity again.
     hist2d(2:end,2:end) = bsxfun( @rdivide, h, sum(h) );
-end
-
-
-% Normalize. "to_max" option normalizes to max among several plots.
-if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-    hist2d(2:end,2:end) = hist2d(2:end,2:end)/options.cplot_normalize_to_max;
-else
-    hist2d(2:end,2:end) = hist2d(2:end,2:end)/size(fret,1);
 end
 
 
