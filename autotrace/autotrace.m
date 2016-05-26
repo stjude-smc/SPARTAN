@@ -225,6 +225,9 @@ function btnBatchMode_Callback(hObject, ~, handles, datapath)
 % sub-directories, select traces according to the current criteria and save
 % a corresponding _auto.traces file.
 
+skipExisting = strcmpi( get(handles.mnuBatchOverwrite,'Checked'), 'on');
+recursive = strcmpi( get(handles.mnuBatchRecursive,'Checked'), 'on');
+
 % Select directory by user interface.
 % A path is given if called from the timer for automatic processing.
 if nargin>=4 && exist(datapath,'dir'),
@@ -238,7 +241,7 @@ end
 
 % Get a list of all raw traces files under the current directory.
 % FIXME: for now keeping this not recursive by default.
-trace_files = regexpdir(datapath,'^.*\.rawtraces$');
+trace_files = regexpdir(datapath,'^.*\.rawtraces$', recursive);
 
 if numel(trace_files)==0,
     return;
@@ -255,7 +258,7 @@ for i=1:numel(trace_files)
     
     % If running in the automatic mode, skip already-processed files.
     [p,f] = fileparts(trace_files{i});
-    if auto,
+    if skipExisting || auto,
         auto_name = fullfile(p,[f '_auto.traces']);
         if exist(auto_name,'file'), continue; end
     end
