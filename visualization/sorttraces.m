@@ -268,7 +268,8 @@ zoom reset;  %remember new axis limits when zooming out.
 % Enable buttons
 set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
-     handles.mnuCorrResetAll handles.btnSubBoth], 'Enable','on');
+     handles.mnuCorrResetAll handles.btnSubBoth handles.mnuSellAll2 ...
+     handles.mnuClearAll2], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 
@@ -980,6 +981,7 @@ if ishandle(handles.axFOV),
         end
         
         % Draw markers on selection points.
+        delete(findall(handles.axFOV,'type','Line'));
         viscircles( handles.axFOV, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
     else
         % Close if current molecule is not from the loaded movie.
@@ -1234,6 +1236,10 @@ function btnSelAll_Callback(hObject, ~, handles, index) %#ok<DEFNU>
 % This is dangerous because all existing selections in that bin could be
 % lost if this was accidental, so a warning dialog was added.
 
+if nargin<4,
+    index = get(hObject,'UserData');
+end
+
 result = questdlg('Are you sure? All existing selections in this bin will be lost', ...
                             'Select all traces','OK','Cancel','Cancel');
 if ~strcmp(result,'OK'),
@@ -1259,6 +1265,10 @@ function btnSelClear_Callback(hObject, ~, handles, index)   %#ok<DEFNU>
 % User clicked the "clear selections" button above one of the bins.
 % This is dangerous because all existing selections in that bin could be
 % lost if this was accidental, so a warning dialog was added.
+
+if nargin<4,
+    index = get(hObject,'UserData');
+end
 
 result = questdlg('This will clear ALL SELECTIONS in this bin. Are you sure?', ...
                             'Clear selections','OK','Cancel','Cancel');
