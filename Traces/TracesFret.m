@@ -38,6 +38,7 @@ end %end public properties
 properties (Dependent)
     idxFluor;  %indexes to fluorescence (not FRET) channels)
     idxFret;   %indexes to FRET channels
+    total;     %total fluorescence intensity of FRET-involved channels.
 end
 
 properties (Constant,Hidden=true)
@@ -103,29 +104,16 @@ methods
         name = 'FRET';
     end
     
+    function T = get.total(this)
     % Calculate total fluorescence intensity of channels involved in FRET.
     % This excludes 'factor' or other miscellaneous channels.
-    function T = total(this,varargin)
-        % Create struct for subsref, if the user requested a slice of the total
-        % intensity matrix, saving memory by not constructing the full matrix.
-        % The syntax is typically: T = data.total(1:10,:)
-        S(1).type = '.';
-        if nargin>1,
-            S(2).type = '()';
-            S(2).subs = varargin;
-        end
-        
-        % Sum intensity from all fluorescence channels.
+
         idxCh = ismember(this.channelNames,{'donor','donor2','acceptor','acceptor2'});
         ch = this.channelNames(idxCh);
         
+        T = 0;
         for c=1:numel(ch),
-            S(1).subs = ch{c};
-            if c==1,
-                T = subsref( this, S );
-            else
-                T = T + subsref( this, S );
-            end
+            T = T + this.(ch{c});
         end
     end
     
@@ -191,7 +179,8 @@ methods
         assert( isnumeric(idx) && isvector(idx), 'Invalid trace indexes' );
         
         % Realculate FRET efficiency, only in the selected traces.
-        this.fret(idx,:) = this.acceptor(idx,:)./this.total(idx,:);
+        total = this.total(idx,:);
+        this.fret(idx,:) = this.acceptor(idx,:)./total;
         this.fret( ~isfinite(this.fret) ) = 0;  %NaN can happen in low SNR traces.
         
         % Determine where the donor is on/alive and not dark or quenched
@@ -201,15 +190,15 @@ methods
         
         switch lower(this.fileMetadata.zeroMethod)
             case 'off'
-                alive = thresholdTotal( this.total(idx,:), zeros(this.nTraces,1) );
+                alive = thresholdTotal( total, zeros(this.nTraces,1) );
             case 'threshold'
-                alive = thresholdTotal( this.total(idx,:), varargin{:} );
+                alive = thresholdTotal( total, varargin{:} );
             case 'skm'
-                alive = skmTotal( this.total(idx,:), varargin{:} );
+                alive = skmTotal( total, varargin{:} );
             otherwise
                 warning('Unknown value for fileMetadata.zeroMethod. Defaulting to threshold method.');
                 this.fileMetadata.zeroMethod = 'threshold';
-                alive = thresholdTotal( this.total(idx,:) );
+                alive = thresholdTotal( total );
         end
         
         % Set FRET to zero when the donor is dark
