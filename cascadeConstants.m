@@ -4,7 +4,7 @@ function constants = cascadeConstants()
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-constants.version = '2.12.6';  %pipeline release version number
+constants.version = '2.12.7';  %pipeline release version number
 constants.software = ['Cornell SPARTAN ' constants.version];  %software title
 
 
