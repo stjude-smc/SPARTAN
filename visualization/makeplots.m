@@ -41,7 +41,7 @@ if nFiles==0, return; end
 [p,f] = cellfun(@fileparts, dataFilenames, 'UniformOutput',false);
 baseFilenames = fullfile(p,f);
 if nargin<2,
-    titles = trimtitles(f);
+    titles = trimtitles(dataFilenames);
 elseif ischar(titles),
     titles = {titles};
 end
