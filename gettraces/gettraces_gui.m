@@ -245,6 +245,8 @@ function batchmode_Callback(hObject, ~, handles,direct)
 % Get input parameter values
 skipExisting = strcmpi( get(handles.mnuBatchOverwrite,'Checked'), 'on');
 recursive = strcmpi( get(handles.mnuBatchRecursive,'Checked'), 'on');
+auto = strcmpi( get(handles.chkAutoBatch,'Checked'), 'on');
+skipExisting = auto || skipExisting;  %always skip if auto-detect new files.
 
 % Get location of files for gettraces to process
 if nargin>=4 && exist(direct,'dir'),
@@ -985,7 +987,7 @@ prompts  = cell(numel(src), 1);
 defaults = cell(numel(src), 1);
 
 for i=1:numel(src),
-    prompts{i} = sprintf('%s → %s', params.chDesc{src(i)}, params.chDesc{dst(i)} );
+    prompts{i} = sprintf('%s to %s', params.chDesc{src(i)}, params.chDesc{dst(i)} );
     defaults{i} = num2str( params.crosstalk(src(i),dst(i)) );
 end
 
@@ -1043,16 +1045,14 @@ guidata(hObject,handles);
 %========================================================================
 
 % --- Executes on button press in chkAutoBatch.
-function chkAutoBatch_Callback(hObject, ~, handles)  %#ok<DEFNU>
+function chkAutoBatch_Callback(hObject, ~, ~)  %#ok<DEFNU>
 % 
     
 % If another timer is running, stop it.
 fileTimer = timerfind('Name','gettraces_fileTimer');
-
 if ~isempty(fileTimer),
     stop(fileTimer);
     delete(fileTimer);
-    %disp('Timer deleted.');
 end
 
 % Start a new timer if requested
@@ -1062,12 +1062,8 @@ if strcmpi(get(hObject,'Checked'), 'off'),
     if targetDir==0, return; end
     disp(targetDir);
     
-    % Force "skip existing"; process only new movies in each iteration.
-    set(handles.mnuBatchOverwrite,'Checked','on');
-    
     % Start a thread that will periodically check for new movies every 5
     % seconds and process them automatically.
-    %disp('Timer started.');
     fileTimer = timer('ExecutionMode','fixedSpacing','StartDelay',1, ...
                               'Name','gettraces_fileTimer', 'TimerFcn', ...
                               {@updateFileTimer,hObject,targetDir}, ...
@@ -1075,7 +1071,6 @@ if strcmpi(get(hObject,'Checked'), 'off'),
                               'Period',2.0,'BusyMode','drop');
     start(fileTimer);
     set(hObject, 'Checked','on');
-    %FIXME: add an error/stop function to clear the checkbox.
 else
     set(hObject, 'Checked','off');
 end
@@ -1093,6 +1088,5 @@ set(handles.mnuBatchOverwrite,'Checked','off');
 function updateFileTimer(~,~,hObject,targetDir)
 % This function runs each time the timer is fired, looking for any new
 % movies that may have appeared on the path.
-% disp('Timer fired');
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer

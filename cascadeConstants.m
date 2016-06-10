@@ -130,7 +130,8 @@ p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
-p.crosstalk   = 0.115;  %donor->acceptor (no bandpass filters!)
+p.crosstalk   = zeros(2);
+p.crosstalk(1,2) = 0.115;  %donor->acceptor (no bandpass filters!)
 p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
@@ -191,7 +192,8 @@ p.idxFields   = [1 2]; %L/R
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
-p.crosstalk   = 0.075;  %donor->acceptor
+p.crosstalk   = zeros(2);
+p.crosstalk(1,2) = 0.075;  %donor->acceptor
 p.scaleFluor  = [1 1];
 % Qinsi's correction for uneven sensitivity of the equipment across the 
 % field of view in the acceptor (right) side. Fluorescence intensities are
@@ -215,7 +217,8 @@ p.idxFields   = [3 1]; %field order: LL/UL
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
-p.crosstalk   = 0.13;   %Cy3->Cy5
+p.crosstalk   = zeros(2);
+p.crosstalk(1,2) = 0.13;   %Cy3->Cy5
 p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
@@ -247,7 +250,8 @@ p.idxFields   = [1 2]; % field order: LL/UL/LL
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy5','Cy7'};
 p.wavelengths = [640 730];
-p.crosstalk   = 0.11;
+p.crosstalk   = zeros(2);
+p.crosstalk(1,2) = 0.11;
 p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
