@@ -13,49 +13,13 @@ function stkData = getIntegrationWindows(stkData, params)
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-hw = params.nhoodSize;  % distance from peak to consider (eg, 1=3x3 area)
-squarewidth = 1+2*hw;   % width of neighborhood to examine.
 stk_top = stkData.stk_top-stkData.background;
-peaks = stkData.peaks;
+Npeaks = size(stkData.peaks,1);
 
-
-% Get x,y coordinates of picked peaks
-Npeaks = size(peaks,1);
-x = peaks(:,1);
-y = peaks(:,2);
-
-
-% Define regions over which to integrate each peak --
-% Done separately for each channel!
-integrationEfficiency = zeros(Npeaks,squarewidth^2);
-regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
-
-imgReused = zeros( size(stk_top) );  %marks where pixels are re-used
-idxs = zeros( params.nPixelsToSum, Npeaks );
+% Define regions over which to integrate each peak
 fractionWinOverlap = zeros(Npeaks,1);
-
-for m=1:Npeaks
-    % Get a window of pixels around the intensity maximum (peak).
-    nhood = stk_top( y(m)-hw:y(m)+hw, x(m)-hw:x(m)+hw );
-    center = sort( nhood(:), 'descend' );
-    
-    % Find the most intense pixels, starting from the center and moving out.
-    % This reduces the chance of getting intensity from nearby molecules.
-    [A,B] = find( nhood>=center(params.nPixelsToSum), params.nPixelsToSum );
-
-    % Estimate the fraction of intensity in each pixel,
-    % relative to the total intensity in the full window region around the peak.
-    % This is just an estimate and depends on the window size.
-    % High molecule density can also distort this if there are overlapping PSFs.
-    integrationEfficiency(m,:) = cumsum( center/sum(center) )';
-    
-    % Convert to coordinates in the full FOV image and save.
-    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
-    
-    % Note where pixels are being reused for later calculation.
-    idxs(:,m) = sub2ind( size(stk_top), regions(:,1,m), regions(:,2,m) );
-    imgReused(idxs(:,m)) = imgReused(idxs(:,m)) +1;
-end
+[regions,integrationEfficiency,idxs,imgReused] = findRegions(stk_top, ...
+                        stkData.peaks, params.nPixelsToSum, params.nhoodSize);
     
 % If this entire neighborhood is empty, integrationEfficiency will be NaN.
 % Give a warning, but leave the NaN.
@@ -78,10 +42,27 @@ stkData.integrationEfficiency = integrationEfficiency;
 stkData.fractionWinOverlap = fractionWinOverlap;
 
 
-%% Also get are "used" by overlapping spots
-peaks = stkData.rejectedPicks;
-Npeaks = size(peaks,1);
-regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
+% Also get are "used" by overlapping spots
+[~,~,~,mask] = findRegions(stk_top, stkData.rejectedPicks, ...
+                         params.nPixelsToSum, params.nhoodSize);
+stkData.bgMask = imgReused+mask==0;
+
+
+end %function getIntegrationWindows
+
+
+
+function [regions,int,idxs,mask] = findRegions(stk_top, peaks,nPx, hw)
+% Get the action integration regions.
+
+squarewidth = 1+2*hw;   % width of neighborhood to examine.
+Npeaks  = size(peaks,1);
+
+regions = zeros(nPx, 2, Npeaks);  %pixel#, dimension(x,y), peak#
+int     = zeros(Npeaks,squarewidth^2);
+idxs    = zeros(nPx, Npeaks);
+mask    = zeros( size(stk_top) );  %marks where pixels are re-used
+
 x = peaks(:,1);
 y = peaks(:,2);
 
@@ -92,18 +73,21 @@ for m=1:Npeaks
     
     % Find the most intense pixels, starting from the center and moving out.
     % This reduces the chance of getting intensity from nearby molecules.
-    [A,B] = find( nhood>=center(params.nPixelsToSum), params.nPixelsToSum );
+    [A,B] = find( nhood>=center(nPx), nPx );
+
+    % Estimate the fraction of intensity in each pixel,
+    % relative to the total intensity in the full window region around the peak.
+    % This is just an estimate and depends on the window size.
+    % High molecule density can also distort this if there are overlapping PSFs.
+    int(m,:) = cumsum( center/sum(center) )';
     
     % Convert to coordinates in the full FOV image and save.
     regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
     
     % Note where pixels are being reused for later calculation.
     idxs(:,m) = sub2ind( size(stk_top), regions(:,1,m), regions(:,2,m) );
-    imgReused(idxs(:,m)) = imgReused(idxs(:,m)) +1;
+    mask(idxs(:,m)) = mask(idxs(:,m)) +1;
 end
 
-stkData.bgMask = ~imgReused;
-% figure;
-% imshow( stkData.bgMask )
+end
 
-end %function getIntegrationWindows

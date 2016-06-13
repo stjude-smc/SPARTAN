@@ -90,6 +90,7 @@ end
 % that do not photobleach during the movie.
 traces = zeros(Npeaks,nFrames,'single');
 
+params.bgMaskField = 'R';  %FIXME
 makeBgTrace = isfield(params,'bgMaskField') && ischar(params.bgMaskField);
 if makeBgTrace,
     bgTrace = zeros(nFrames,1,'single');
