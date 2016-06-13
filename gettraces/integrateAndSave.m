@@ -27,9 +27,6 @@ Npeaks = size(peaks,1);
 x = peaks(:,1);
 y = peaks(:,2);
 
-regions = stkData.regions;  % pixel#, dimension(x,y), peak#
-
-
 
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
@@ -91,14 +88,14 @@ end
 traces = zeros(Npeaks,nFrames,'single');
 
 params.bgMaskField = 'R';  %FIXME
-makeBgTrace = isfield(params,'bgMaskField') && ischar(params.bgMaskField);
-if makeBgTrace,
+doBgTrace = isfield(params,'bgMaskField') && ischar(params.bgMaskField);
+if doBgTrace,
     bgTrace = zeros(nFrames,1,'single');
     bgMask = stkData.bgMask & subfield_mask(stkData.bgMask,params.bgMaskField);
     bgMask = imerode(bgMask,ones(3));  %avoid PSF tails
 end
 
-idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
+idx = stkData.regionIdx;  %pixel, peak(chId:nCh:end).
 bg = single(stkData.background);
 nPx = params.nPixelsToSum;
 
@@ -113,7 +110,7 @@ parfor (k=1:nFrames, M)
         traces(:,k) = frame(idx);
     end
     
-    if makeBgTrace,
+    if doBgTrace,
         bgTrace(k) = mean( frame(bgMask) );
     end
     
@@ -127,7 +124,7 @@ if ~quiet,
     wbh.message = 'Correcting traces and calculating FRET...';
 end
 
-if makeBgTrace,
+if doBgTrace,
     data.fileMetadata.bgTrace = bgTrace;
 end
 
