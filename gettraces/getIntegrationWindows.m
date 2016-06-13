@@ -77,4 +77,33 @@ stkData.regions = regions;
 stkData.integrationEfficiency = integrationEfficiency;
 stkData.fractionWinOverlap = fractionWinOverlap;
 
+
+%% Also get are "used" by overlapping spots
+peaks = stkData.rejectedPicks;
+Npeaks = size(peaks,1);
+regions = zeros(params.nPixelsToSum,2,Npeaks);  %pixel#, dimension(x,y), peak#
+x = peaks(:,1);
+y = peaks(:,2);
+
+for m=1:Npeaks
+    % Get a window of pixels around the intensity maximum (peak).
+    nhood = stk_top( y(m)-hw:y(m)+hw, x(m)-hw:x(m)+hw );
+    center = sort( nhood(:), 'descend' );
+    
+    % Find the most intense pixels, starting from the center and moving out.
+    % This reduces the chance of getting intensity from nearby molecules.
+    [A,B] = find( nhood>=center(params.nPixelsToSum), params.nPixelsToSum );
+    
+    % Convert to coordinates in the full FOV image and save.
+    regions(:,:,m) = [ A+y(m)-hw-1, B+x(m)-hw-1  ];
+    
+    % Note where pixels are being reused for later calculation.
+    idxs(:,m) = sub2ind( size(stk_top), regions(:,1,m), regions(:,2,m) );
+    imgReused(idxs(:,m)) = imgReused(idxs(:,m)) +1;
+end
+
+stkData.bgMask = ~imgReused;
+% figure;
+% imshow( stkData.bgMask )
+
 end %function getIntegrationWindows

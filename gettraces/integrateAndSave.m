@@ -9,6 +9,8 @@ function integrateAndSave(stkData, stk_fname, params)
 % correction, and calculation of derived signals (FRET traces) is all done
 % here. Then the result is saved as a .rawtraces file with metadata.
 
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
+
 constants = cascadeConstants;
 movie = stkData.movie;
 nFrames = movie.nFrames;
@@ -88,6 +90,13 @@ end
 % that do not photobleach during the movie.
 traces = zeros(Npeaks,nFrames,'single');
 
+makeBgTrace = isfield(params,'bgMaskField') && ischar(params.bgMaskField);
+if makeBgTrace,
+    bgTrace = zeros(nFrames,1,'single');
+    bgMask = stkData.bgMask & subfield_mask(stkData.bgMask,params.bgMaskField);
+    bgMask = imerode(bgMask,ones(3));  %avoid PSF tails
+end
+
 idx = sub2ind( [movie.nY movie.nX], regions(:,1,:), regions(:,2,:) );
 bg = single(stkData.background);
 nPx = params.nPixelsToSum;
@@ -95,7 +104,7 @@ nPx = params.nPixelsToSum;
 parfor (k=1:nFrames, M)
     % NOTE: 25% faster by converting to int16, with no change to sCMOS data.
     % But EMCCD have slight differences due to 15-bit overflows?
-    frame = single(movie.readFrame(k)) - bg;
+    frame = single(movie.readFrame(k)) - bg; %#ok<PFBNS>
     
     if nPx>1,
         traces(:,k) = sum( frame(idx) );
@@ -103,16 +112,23 @@ parfor (k=1:nFrames, M)
         traces(:,k) = frame(idx);
     end
     
+    if makeBgTrace,
+        bgTrace(k) = mean( frame(bgMask) );
+    end
+    
     % Update waitbar. Using mod speeds up the loop, but isn't ideal because
     % indexes are executed somewhat randomly. Reasonably accurate despite this.
     if mod(k,10)==0 && ~quiet,
-        wbh.iterate(10);
+        wbh.iterate(10); %#ok<PFBNS>
     end
 end
 if ~quiet,
     wbh.message = 'Correcting traces and calculating FRET...';
 end
 
+if makeBgTrace,
+    data.fileMetadata.bgTrace = bgTrace;
+end
 
 % Convert fluorescence to arbitrary units to photon counts.
 if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
