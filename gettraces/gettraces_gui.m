@@ -726,10 +726,11 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 
 prompt = {'Threshold (0 for auto):', 'Integration window size (px):', ...
           'Minimum separation (px):', 'ADU/photon conversion:', ...
-          'Donor blink detection method:', 'Integration neighbhorhood (px):'};
+          'Donor blink detection method:', 'Integration neighbhorhood (px):', ...
+          'Background trace field'};
 fields = {'don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
-          'photonConversion', 'zeroMethod', 'nhoodSize'};
-types = {[],[],[],[],{'off','threshold','skm'},[]};
+          'photonConversion', 'zeroMethod', 'nhoodSize','bgTraceField'};
+types = {[],[],[],[],{'off','threshold','skm'},[],[]};
 handles.params = settingsDialog(handles.params,fields,prompt,types);
 guidata(hObject,handles);
 

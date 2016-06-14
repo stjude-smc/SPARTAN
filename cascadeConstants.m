@@ -84,6 +84,7 @@ cmosCommon.skipExisting   = 1;  %batch mode: skip files already processed.
 cmosCommon.recursive      = 1;  %batch mode: search recursively.
 cmosCommon.quiet          = 0;  %don't output debug messages.
 cmosCommon.zeroMethod     = 'threshold';  %method for detecting donor blinks
+cmosCommon.bgTraceField   = ''; %get a background intensity trace for this field (L,R,TR,etc)
 
 % Conversion from camera units (ADU) to photons (photoelectrons).
 % See camera calibration datasheet. May depend on which digitizer is selected!

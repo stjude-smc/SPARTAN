@@ -15,6 +15,8 @@ Npeaks = size(stkData.peaks,1);
 % Define regions over which to integrate each peak
 [idxs,eff] = findRegions(stk_top, stkData.peaks, params.nPixelsToSum, ...
                                                  params.nhoodSize);
+stkData.regionIdx = idxs;
+stkData.integrationEfficiency = eff;
 
 % Give a warning for any empty neighborhoods (eff is NaN)
 if any(isnan(eff(:))),
@@ -23,11 +25,7 @@ end
     
 % For each peak, get the fraction of re-used pixels.
 nUsed = diff( find([true;diff(sort(idxs(:)))~=0;true]) );
-fractionWinOverlap = sum(nUsed>1) /Npeaks /params.nPixelsToSum;
-
-stkData.regionIdx = idxs;
-stkData.integrationEfficiency = eff;
-stkData.fractionWinOverlap = fractionWinOverlap;
+stkData.fractionWinOverlap = sum(nUsed>1) /Npeaks /params.nPixelsToSum;
 
 % Create a mask of background areas (no PSF intensity)
 stkData.bgMask = true( size(stk_top) );

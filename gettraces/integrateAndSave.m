@@ -87,12 +87,13 @@ end
 % that do not photobleach during the movie.
 traces = zeros(Npeaks,nFrames,'single');
 
-params.bgMaskField = 'R';  %FIXME
-doBgTrace = isfield(params,'bgMaskField') && ischar(params.bgMaskField);
+doBgTrace = isfield(params,'bgTraceField') && ~isempty(params.bgTraceField);
 if doBgTrace,
     bgTrace = zeros(nFrames,1,'single');
-    bgMask = stkData.bgMask & subfield_mask(stkData.bgMask,params.bgMaskField);
-    bgMask = imerode(bgMask,ones(3));  %avoid PSF tails
+    bgMask = imerode(stkData.bgMask, ones(3));  %avoid PSF tails
+    bgMask = bgMask & subfield_mask(bgMask, params.bgTraceField);
+else
+    bgMask = [];
 end
 
 idx = stkData.regionIdx;  %pixel, peak(chId:nCh:end).
