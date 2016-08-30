@@ -221,7 +221,7 @@ elseif strcmp(type,'struct'),
             else
                 temp = num2cell(packed, 1:ndims(packed)-1);  %matrix values
             end
-            [metadata.(fname)] = temp{:};
+            [metadata(1:nMetadata).(fname)] = temp{:};
         
         else
             error('Invalid packed datatype %s', class(packed));
