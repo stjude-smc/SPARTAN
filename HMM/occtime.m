@@ -17,7 +17,7 @@ function varargout = occtime(varargin)
 
 
 params.nFrames = 300;  %number of frames to show
-% params.hideZeroState = false;
+params.hideZeroState = true;
 
 
 
@@ -91,6 +91,11 @@ for f=1:nFiles,
     for s=1:nStates,
         occ(:,s) = sum(idl==s)';
     end
+    
+    if params.hideZeroState
+        occ = occ(:,2:end);
+    end
+    
     occupancy{f} = 100*bsxfun(@rdivide,occ,sum(occ,2));
 end
 
@@ -117,6 +122,9 @@ ymax = 1.1*max(h(:));
 lgtxt = cell(nStates,1);
 for s=1:nStates,
     lgtxt{s} = sprintf('%d (%.2f)\t',s,fret(s));
+end
+if params.hideZeroState
+    lgtxt = lgtxt(2:end);
 end
 
 for i=1:nFiles,

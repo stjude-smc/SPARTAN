@@ -34,7 +34,7 @@ function varargout = dwellhist(dwtfilename, inputParams)
 %% ---- USER TUNABLE PARAMETERS ----
 
 params.logX = true;
-params.dx = 0.2;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
+params.dx = 0.25;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
 params.removeBlinks = true;
 params.normalize = 'state';
 

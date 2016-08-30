@@ -19,7 +19,7 @@ function varargout = transitionsPerSecond(varargin)
 
 
 % Default parameter values
-% params.truncateLength = Inf;
+params.truncateLength = Inf;
 params.removeZeroState = true;
 
 
@@ -77,6 +77,7 @@ for i=1:nFiles,
             % an idealization and then back to a dwell-time sequence.
             if ~isempty(times),
                 idl = dwtToIdl( [states times] );
+                idl = idl( 1:min(params.truncateLength,length(idl)) );
                 newDwt = RLEncode(idl);
                 times  = newDwt(:,2);
             end
@@ -142,6 +143,8 @@ set(hMenu, 'Callback', @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params) 
 
 hEditMenu = findall(hFig, 'tag','figMenuEdit');
 delete(allchild(hEditMenu));
+cb = @(~,~) settingsDialog(params,@transitionsPerSecond,{cax,dwtFilenames});
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
 
 uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,[meanTPS stdTPS]});
 

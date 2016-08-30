@@ -994,8 +994,10 @@ end
 if strcmp( get(handles.axLocation, 'Visible'), 'on'),
     cla(handles.axLocation);
     loc = [data.traceMetadata.donor_x data.traceMetadata.donor_y];
-    line( loc(1),loc(2), 'MarkerSize',4, 'LineStyle','none', 'Marker','o',...
-                         'Color','r', 'Parent',handles.axLocation );
+    if ~isempty(loc)
+        line( loc(1),loc(2), 'MarkerSize',4, 'LineStyle','none', 'Marker','o',...
+                             'Color','r', 'Parent',handles.axLocation );
+    end
 end
 
 
