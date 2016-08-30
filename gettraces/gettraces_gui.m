@@ -245,7 +245,7 @@ function batchmode_Callback(hObject, ~, handles,direct)
 % Get input parameter values
 skipExisting = strcmpi( get(handles.mnuBatchOverwrite,'Checked'), 'on');
 recursive = strcmpi( get(handles.mnuBatchRecursive,'Checked'), 'on');
-auto = strcmpi( get(handles.chkAutoBatch,'Checked'), 'on');
+auto = strcmpi( get(handles.mnuBatchAuto,'Checked'), 'on');
 skipExisting = auto || skipExisting;  %always skip if auto-detect new files.
 
 % Get location of files for gettraces to process
