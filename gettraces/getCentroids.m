@@ -19,13 +19,11 @@ for i=1:nMol,
     x_window = picks(i,1) + (-nhood:+nhood);
     y_window = picks(i,2) + (-nhood:+nhood);
     block = image_t( y_window, x_window );
+    block = block./sum(block(:));
     
     % Calculate an intensity-weighted average position of molecule w/i window.
-    tot = sum(block(:));
-    x = sum( x_window .* sum(block,1)/tot );
-    y = sum( y_window .* sum(block,2)'/tot  );
-    
-    centroids(i,:) = [x y];
+    centroids(i,1) = sum( x_window .* sum(block,1)  );
+    centroids(i,2) = sum( y_window .* sum(block,2)' );
 end
 
 % NaN values may appear for regions that are entirely black (zero) due to

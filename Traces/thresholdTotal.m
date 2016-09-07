@@ -41,7 +41,7 @@ for i=1:nTraces,
     range = s:min(s+const.NBK, nFrames);
     if numel(range)>=10,
         if nargin<2, 
-            thresholds(i) = const.blink_nstd*std(total(i,range));
+            thresholds(i) = const.blink_nstd*std1(total(i,range));
         end
         darkRange = total( i, 1:lt(i) ) <= thresholds(i);
         alive(i,darkRange) = false;

@@ -63,7 +63,8 @@ for m=1:Npeaks
     [A,B] = find( nhood>=center(nPx), nPx );
     
     % Convert to coordinates in the full FOV image and save linear indices.
-    idxs(:,m) = sub2ind( size(stk_top), A+y-hw-1, B+x-hw-1 );
+    %idxs(:,m) = sub2ind( size(stk_top), A+y-hw-1, B+x-hw-1 );
+    idxs(:,m) = (A+y-hw-1) + ((B+x-hw-1)-1).*size(stk_top,1);
 end
 
 end %FUNCTION findRegions
