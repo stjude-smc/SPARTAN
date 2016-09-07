@@ -210,8 +210,6 @@ parfor (i=1:Ntraces, M)
     fret     = fretAll(i,:);
     total    = donor+acceptor;
     
-    fret2 = fret2All(i,:);
-    
     if isThreeColor,
         total = total + acceptor2All(i,:);
     end
@@ -224,7 +222,7 @@ parfor (i=1:Ntraces, M)
     % with very low intensity data?
     filt_total  = medianfilter(total,constants.TAU);
     dfilt_total = gradient(filt_total);
-    mean_dfilt_total = mean( dfilt_total );
+    mean_dfilt_total = sum( dfilt_total )/len;
     std_dfilt_total  = std( dfilt_total );
     
     % Exclude "outliers" from std (including bleaching steps). The std is meant
@@ -280,6 +278,11 @@ parfor (i=1:Ntraces, M)
     bg_range = s:min(s+constants.NBK,len);
     stdbg = std( total(bg_range) );
 
+    % Calculate background noise over the entire end of the trace.
+    if lt+10 < len
+        retval(i).bg = std(donor(s:end))+std(acceptor(s:end));
+    end
+    
     % Calculate number of Cy3 PB threshold crossings per frame    
     if lt<8
         donorRange = false(1,lt);
@@ -300,47 +303,36 @@ parfor (i=1:Ntraces, M)
         % Remove falling edges of the Cy3 blinks
         donorRange = donorRange & [donorRange(2:end) 1] & [1 donorRange(1:end-1)];
     end
-
-
-    %---- 
-    if sum(donorRange) > 2
+    nDonor = sum(donorRange);
+    
+    
+    if nDonor > 2,
+        % Truncate to regions with donor alive
+        donor    = donor(donorRange);
+        acceptor = acceptor(donorRange);
     
         % Calculate average amplitudes
-        retval(i).d = mean( donor(donorRange) );
-        retval(i).a = mean( acceptor(donorRange) );
+        retval(i).d = sum( donor    )/nDonor;
+        retval(i).a = sum( acceptor )/nDonor;
         retval(i).t = retval(i).d + retval(i).a;
         
-    end
-    
-    
-
-    % Calculate Signal-to-noise ratio and background noise    
-    % should be using bg_range for this...
-    if lt+10 < len
-        retval(i).snr = retval(i).t/stdbg;  % assuming background corrected
+        % Calculate Signal-to-noise ratio and background noise    
+        % should be using bg_range for this...
+        if lt+10 < len
+            retval(i).snr = retval(i).t/stdbg;  % assuming background corrected
+        end
         
-        retval(i).bg = std(donor(s:end))+std(acceptor(s:end));
-    end
-    
-    
-    if sum(donorRange) > 2
-        % Calculate gradients (derivatives) for correlation.
-        del_donor    = gradient( donor(donorRange) );
-        del_acceptor = gradient( acceptor(donorRange) );
-    
         % Calculate correlation of derivitive of donor/acceptor signals.
         % This is the method used by {Fei & Gonzalez, 2008}
-        ccd = corrcoef( del_donor, del_acceptor );
+        ccd = corrcoef( gradient(donor), gradient(acceptor) );
         retval(i).corrd = ccd(1,2);
         
-        % Calcualte correlation coefficient
-        cc = corrcoef( donor(donorRange), acceptor(donorRange) );
+        % Calculate correlation coefficient
+        cc = corrcoef( donor, acceptor );
         retval(i).corr = cc(1,2);
         
-        total_noise = std( donor(donorRange)+acceptor(donorRange) );
-        
+        total_noise = std( donor+acceptor );
         retval(i).snr_s = retval(i).t ./ total_noise;
-                      
         retval(i).nnr = total_noise ./ stdbg;
     end
     
@@ -353,15 +345,17 @@ parfor (i=1:Ntraces, M)
         % Filter the regions so that they must consist of more than 5
         % consecutive points above the threshold
         fretRange = rleFilter( fretRange, constants.rle_min );
+        nFret = sum(fretRange);
 
-        retval(i).acclife = sum(fretRange);
+        retval(i).acclife = nFret;
         
-        if sum(fretRange)>1
-            retval(i).avgFret = mean( fret(fretRange) );
+        if nFret>1,
+            retval(i).avgFret = sum(fret(fretRange))/nFret;
         end
         
         % Similar calculations when there is a second acceptor (3/4-color).
         if isThreeColor,
+            fret2 = fret2All(i,:);
             fretRange = fret2(1:lt) >= constants.min_fret;
             fretRange = rleFilter( fretRange, constants.rle_min );
 
@@ -372,18 +366,16 @@ parfor (i=1:Ntraces, M)
             end
             retval(i).maxFret2 = max(fret2);
         end
+    
+        % Number of events crossing an arbitrary threshold
+        % TODO?: additional filtering to detect only anticorrelated events?
+        [result] = RLEncode( fret(1:lt) > constants.fretEventTreshold );
+        retval(i).fretEvents = sum( result(:,1)==1 );
     end
     
     % Statistics based on FRET distribution
     retval(i).firstFret = fret(1);
     retval(i).maxFret = max(fret);
-    
-    
-    % Number of events crossing an arbitrary threshold
-    % TODO?: additional filtering to detect only anticorrelated events?
-    [result] = RLEncode( fret > constants.fretEventTreshold );
-    retval(i).fretEvents = sum( result(:,1)==1 );
-    
     
     % Update waitbar, once every 10 traces to reduce overhead.
     if mod(i,10)==0 && ~isempty(wbh),
