@@ -221,14 +221,14 @@ parfor (i=1:Ntraces, M)
     % with our data (~300 photons/frame), but another value may be needed
     % with very low intensity data?
     filt_total  = medianfilter(total,constants.TAU);
-    dfilt_total = gradient(filt_total);
+    dfilt_total = gradient1(filt_total);
     mean_dfilt_total = sum( dfilt_total )/len;
-    std_dfilt_total  = std( dfilt_total );
+    std_dfilt_total  = std1( dfilt_total );
     
     % Exclude "outliers" from std (including bleaching steps). The std is meant
     % to measure noise, not also signal.
     outliers = abs(dfilt_total) > mean_dfilt_total + 6*std_dfilt_total;    
-    thresh = mean_dfilt_total - constants.NSTD*std( dfilt_total(~outliers) );  %this slows things down a bit...
+    thresh = mean_dfilt_total - constants.NSTD*std1( dfilt_total(~outliers) );  %this slows things down a bit...
     
     lt = find( dfilt_total<=thresh, 1,'last' );
 
@@ -276,11 +276,11 @@ parfor (i=1:Ntraces, M)
     %---- Ignore regions where Cy3 is blinking
     s = lt+5;
     bg_range = s:min(s+constants.NBK,len);
-    stdbg = std( total(bg_range) );
+    stdbg = std1( total(bg_range) );
 
     % Calculate background noise over the entire end of the trace.
     if lt+10 < len
-        retval(i).bg = std(donor(s:end))+std(acceptor(s:end));
+        retval(i).bg = std1(donor(s:end))+std1(acceptor(s:end));
     end
     
     % Calculate number of Cy3 PB threshold crossings per frame    
@@ -324,14 +324,14 @@ parfor (i=1:Ntraces, M)
         
         % Calculate correlation of derivitive of donor/acceptor signals.
         % This is the method used by {Fei & Gonzalez, 2008}
-        ccd = corrcoef( gradient(donor), gradient(acceptor) );
+        ccd = corrcoef( gradient1(donor), gradient1(acceptor) );
         retval(i).corrd = ccd(1,2);
         
         % Calculate correlation coefficient
         cc = corrcoef( donor, acceptor );
         retval(i).corr = cc(1,2);
         
-        total_noise = std( donor+acceptor );
+        total_noise = std1( donor+acceptor );
         retval(i).snr_s = retval(i).t ./ total_noise;
         retval(i).nnr = total_noise ./ stdbg;
     end
