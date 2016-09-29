@@ -36,7 +36,7 @@ if ~iscell(files),
 end
 
 nFiles = numel(files);
-
+if nFiles==0, return; end
 
 
 if nargin>1 && isscalar(mean_gamma) && nFiles>1,
@@ -45,7 +45,7 @@ if nargin>1 && isscalar(mean_gamma) && nFiles>1,
 elseif nargin>1,
     assert( numel(mean_gamma)==nFiles );
 else
-    % If not value is given, it will be calculated. Allocate space only.
+    % If no value is given, it will be calculated. Allocate space only.
     mean_gamma = ones( nFiles,1 );
 end
 
@@ -68,12 +68,11 @@ for i=1:nFiles
     
     % Keep track of adjustments in trace metadata.
     idxA1 = strcmpi(data.channelNames,'acceptor');
-    for j=1:data.nTraces,
-        data.traceMetadata(j).scaleFluor(idxA1) = data.traceMetadata(j).scaleFluor(idxA1).*mean_gamma(i);
-    end
+    [data.traceMetadata.scaleFluor] = to_col(data.traceMetadata.scaleFluor);
+    scaleFluor = cat(2,data.traceMetadata.scaleFluor);
+    scaleFluor(idxA1,:) = scaleFluor(idxA1,:)*mean_gamma(i);
     
-    % Scale donor intensity by gamma estimate (so final gamma=1)
-    data.acceptor = data.acceptor*mean_gamma(i);
+    data = correctTraces(data,[],scaleFluor);
     data.recalculateFret();
      
     % Save resulting data

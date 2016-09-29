@@ -1,78 +1,112 @@
-function data = correctTraces( data, constants )
-% CORRECTTRACES  Makes simple adjustments to traces
+function data = correctTraces(data, crosstalk, scaleFluor, indexes)
+% CORRECT applies crosstalk and scaling corrections to fluorescence traces.
 %
-%   [D,A,F] = CORRECTTRACES( DATA )
-%   Subtracts background fluorscence from both channels, using 100
-%   frames after donor photobleaching.  Also calculates FRET
-%   efficiency, with E=0 where donor is blinking or photobleached.
+%    DATA = CORRECT(DATA, CROSSTALK, SCALING) modifies the Traces object DATA
+%    in place (left hand argument is optional), applying the given CROSSTALK
+%    and channel SCALING corrections in that order. Use data.recalculateFret
+%    to update FRET values from corrected fluorescence traces.
+%      CROSSTALK(source channel number, destination channel number, trace ID)
+%      SCALING(channel number, trace ID)
+%
+%    ... = CORRECT(..., INDEXES) only adjustes the traces listed in the
+%    vector INDEXES. CROSSTALK and SCALING include values for all traces.
+%
+%    If the final dimension of either CROSSTALK or SCALING is unity, the
+%    value will be applied to all traces.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% TODO: gamma correction (whole pipeline), background drift correction?
-% Consider splitting this into several functions for different types of data,
-% doing background subtraction for all channels, but calculating FRET only where
-% it makes sense.
+narginchk(2,4);
+nargoutchk(1,1);
 
 
-if nargin<2,
-    constants = cascadeConstants;
+% If no values given, use current (no change)
+if isempty(crosstalk),
+    crosstalk = cat(3,data.traceMetadata.crosstalk);
+end
+if nargin<3 || isempty(scaleFluor),
+    % Convert vectors to the same, correct, orientation.
+    [data.traceMetadata.scaleFluor] = to_col(data.traceMetadata.scaleFluor);
+    scaleFluor = cat(2,data.traceMetadata.scaleFluor);
+end
+
+%FIXME handle default values listed in fileMetadata from old versions.
+
+% If a single value is supplied, apply it to all traces.
+if size(crosstalk,3)==1,
+    crosstalk = repmat(crosstalk, [1 1 data.nTraces]);
+end
+if size(scaleFluor,2)==1,
+    scaleFluor = repmat(scaleFluor, [1 data.nTraces]);
 end
 
 
-% Determine the type of experiment so we know how to process the data, and
-% insure that the fields make sense.
-assert( data.isChannel('donor'), 'Unregonized trace data (no donor channel)' );
-
-if data.isChannel('acceptor2') && ~data.isChannel('acceptor'),
-    error('Found acceptor2 but not acceptor1');
+% Verify input argument sizes match
+if nargin<4,
+    indexes = 1:data.nTraces;
 end
+if islogical(indexes), indexes=find(indexes); end
 
-isFret       = data.isChannel('acceptor');
-isThreeColor = data.isChannel('acceptor2');
-
-if data.isChannel('donor2'),
-    warning('correctTraces:multiDonor','This function is not designed for multiple donors');
-end
-
-if data.isChannel('factor'),
-    disp('Warning: handling of factor signals is in an early stage and may be incomplete.');
+if size(crosstalk,3)~=numel(indexes) || size(scaleFluor,2)~=numel(indexes),
+    error('Input argument size mismatch');
 end
 
 
 
-% Calculate donor lifetime
-lt = calcLifetime(data.total,constants.TAU,constants.NSTD);
+%% Undo previous corrections, reverting to state as aquired.
+chNames = data.channelNames(data.idxFluor);  %increasing wavelength order.
+nFluor = numel(data.idxFluor);
 
-
-
-% Subtract fluorescence intensity so the baseline after photobleaching in
-% zero. For traces that do not photobleach, no correction is made, but the
-% baseline will be close because an estimated background image is
-% subtracted from each frame in gettraces.
-% FIXME: consider making this a method in Traces class
-[nTraces,len] = size(data.donor);
-
-for m=1:nTraces,
-
-    s = lt(m)+5;  %ignore the frames around the photobleaching event
-    range = s:min(s+constants.NBK,len);
-    nRange = numel(range);
+for i=1:numel(indexes)
     
-    if nRange<10,
-        continue; %not enough baseline to calculate background. skip trace.
-    end
-
-    % Make background correction
-    data.donor(m,:) = data.donor(m,:)- sum( data.donor(m,range) )/nRange;
-    
-    if isFret,
-        data.acceptor(m,:) = data.acceptor(m,:) - sum( data.acceptor(m,range) )/nRange;
+    % Undo any previous scaling.
+    for ch=1:nFluor,
+        data.(chNames{ch})(i,:) = data.(chNames{ch})(i,:) / ...
+                                       data.traceMetadata(i).scaleFluor(ch); 
     end
     
-    if isThreeColor,
-        data.acceptor2(m,:) = data.acceptor2(m,:) - sum( data.acceptor2(m,range) )/nRange;
+    % Undo crosstalk subtraction in reverse order (red to blue).
+    for src=nFluor:-1:1,
+        for dst=nFluor:-1:1,
+            if src>=dst, continue; end  %only consider forward crosstalk
+            
+            ch1 = chNames{src};
+            ch2 = chNames{dst};
+            ct = data.traceMetadata(i).crosstalk(src,dst);
+            data.(ch2)(i,:) = data.(ch2)(i,:) + ct*data.(ch1)(i,:);
+        end
     end
-end
 
+end %for each trace
+
+
+%% Apply new corrections
+for i=to_row(indexes),
+    
+    % Apply crosstalk subtraction in wavelength order (blue to red).
+    for src=1:nFluor,
+        for dst=1:nFluor,
+            if src>=dst, continue; end  %only consider forward crosstalk
+            
+            ch1 = chNames{src};
+            ch2 = chNames{dst};
+            data.(ch2)(i,:) = data.(ch2)(i,:) - crosstalk(src,dst,i) * ...
+                                                            data.(ch1)(i,:);
+        end
+    end
+    
+    % Scale fluorescence to correct for unequal brightness/sensitivity
+    for ch=1:nFluor,
+        data.(chNames{ch})(i,:) = data.(chNames{ch})(i,:) * scaleFluor(ch,i); 
+    end
+    
+    % Save new correction parameters in metadata
+    data.traceMetadata(i).crosstalk  = crosstalk(:,:,i);
+    data.traceMetadata(i).scaleFluor = scaleFluor(:,i);
+
+end %for each trace
+
+
+end %function correctTraces
 
 

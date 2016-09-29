@@ -69,16 +69,14 @@ for i=1:nFiles
         mean_crosstalk(i) = calc_crosstalk(data);
     end
     
-    % Keep track of adjustments in trace metadata.
+    % Add values to existing crosstalk matrix
     idxD  = strcmpi(data.channelNames,'donor');
     idxA1 = strcmpi(data.channelNames,'acceptor');
-    for j=1:data.nTraces,
-        data.traceMetadata(j).crosstalk(idxD,idxA1) = ...
-              data.traceMetadata(j).crosstalk(idxD,idxA1) + mean_crosstalk(i);
-    end
+    crosstalk = cat(3, data.traceMetadata.crosstalk);
+    crosstalk(idxD,idxA1,:) = crosstalk(idxD,idxA1,:) + mean_crosstalk(i);
     
     % Make the crosstalk correction and recalculate FRET
-    data.acceptor = data.acceptor - mean_crosstalk(i) * data.donor;
+    data = correctTraces(data, crosstalk);
     data.recalculateFret();
      
     % Save resulting data

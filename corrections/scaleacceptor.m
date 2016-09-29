@@ -1,19 +1,16 @@
 function varargout = scaleacceptor( varargin )
 % scaleacceptor Scale acceptor fluorescence so that gamma is ~1.
 %
-%    The FRET-distance relationship is generally defined assuming that the donor
-%    and acceptor intensities have roughly the same apparent brightness
-%    (gamma=1). If this is not the case, a correction is needed. This script
-%    scales the acceptor fluorescence intensity by a constant factor
-%
-%    To scale acceptor intensity of all traces in a file:
+%    Multiplies fluorescence channels by a user-specified factor to correct
+%    for unequal brightness/detection efficiency. This correction is
+%    cumulative to any previous corrections made:
 %    
 %       data = SCALEACCEPTOR( filename, scale_factor, output_filename );
 %
 %    If any of these parameters are not specified, you will be prompted for
 %    them.
 %
-%    See also gammacorrect.
+%    See also gammacorrect, correctTraces.
 
 %   Copyright 2014-2016 Cornell University All Rights Reserved.
 
@@ -45,13 +42,15 @@ end
 if nargin>=2,
     scale_factor = varargin{2};
 else
-    ch = ~cellfun( @isempty, strfind(data.channelNames,'acceptor') );
-    nCh = sum(ch);
-    prompts = cellfun( @(x)sprintf('Scale %s by:',x), data.channelNames(ch), ...
-                       'UniformOutput',false );
+    % Get current value for reference
+    scale_factor = mean( cat(2, to_col(data.traceMetadata.scaleFluor)), 2 );
+    defaults = cellfun( @num2str, num2cell(scale_factor), 'Uniform',false );
     
-    answer = inputdlg( prompts, 'Enter factor to scale acceptor intensity', 1, ...
-                                                       repmat({'1'},[nCh 1]) );
+    prompts = cellfun( @(x)sprintf('Scale %s by:',x), ...
+                   data.channelNames(data.idxFluor), 'Uniform',false );
+    
+    answer = inputdlg( prompts, 'Enter factor to scale intensities', ...
+                                                               1, defaults);
     if isempty(answer) || isempty(answer{1}),
         return;  %user hit cancel.
     end
@@ -62,26 +61,10 @@ end
 
 
 %% Scale acceptor channel and recalculate fret
-
-% Scale each acceptor channel by the gamma factor from the user.
-for i=1:numel(scale_factor),
-    if i==1,
-        ch = 'acceptor';
-    else
-        ch = sprintf('acceptor%d',i);
-    end
-    data.(ch) = scale_factor(i)*data.(ch);
-    
-    % Keep track of adjustments in trace metadata.
-    idxA = strcmpi(data.channelNames,ch);
-    for j=1:data.nTraces,
-        data.traceMetadata(j).scaleFluor(idxA) = data.traceMetadata(j).scaleFluor(idxA).*scale_factor(i);
-    end
-end
-
-% Recalculate FRET using the new acceptor fluorescence values.
+data = correctTraces(data, [], scale_factor);
 data.recalculateFret();
 
+% FIXME: if return requested and no filename, should just return data.
 if nargout>=1,
     varargout{1} = data;
 end
