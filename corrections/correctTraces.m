@@ -47,7 +47,8 @@ if nargin<4,
 end
 if islogical(indexes), indexes=find(indexes); end
 
-if size(crosstalk,3)~=numel(indexes) || size(scaleFluor,2)~=numel(indexes),
+if ~(max(indexes)<=data.nTraces && size(crosstalk,3)==size(scaleFluor,2) && ...
+   max(indexes)<=size(crosstalk,3)),
     error('Input argument size mismatch');
 end
 

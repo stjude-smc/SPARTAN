@@ -23,7 +23,7 @@ isFret       = data.isChannel('acceptor');
 isThreeColor = data.isChannel('acceptor2');
 
 if data.isChannel('donor2'),
-    warning('correctTraces:multiDonor','This function is not designed for multiple donors');
+    warning([mfilename ':multiDonor'],'This function is not designed for multiple donors');
 end
 
 if data.isChannel('factor'),

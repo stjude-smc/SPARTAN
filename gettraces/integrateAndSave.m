@@ -176,7 +176,8 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
 end
 
 % Subtract background
-data = correctTraces(data);
+data = bgsub(data);
+% data = correctTraces(data,crosstalk,scaling);  %FIXME: should use this
 
 % Scale acceptor channel to correct for unequal brightness (gamma is not 1).
 % Highly scaled (dim) channels can confuse the background subtraction method,

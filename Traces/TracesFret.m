@@ -223,7 +223,7 @@ methods
             idx = 1:this.nTraces;
         end
         if isempty(idx), return; end
-        assert( isnumeric(idx) && isvector(idx), 'Invalid trace indexes' );
+        assert( (islogical(idx)||isnumeric(idx)) && isvector(idx), 'Invalid trace indexes' );
         
         % Realculate FRET efficiency, only in the selected traces.
         total = this.total(idx,:);
