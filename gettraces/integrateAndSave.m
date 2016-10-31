@@ -142,22 +142,6 @@ end
 for i=1:nCh,
     data.(chNames{i}) = traces(i:nCh:end,:);
 end
-    
-% Spectral crosstalk correction.
-if nCh>1 && numel(params.crosstalk)==1,
-    data.acceptor = data.acceptor - params.crosstalk*data.donor;
-elseif nCh>1 && numel(params.crosstalk)>1
-    % The order of operations matters here.
-    for src=1:nCh,
-        for dst=1:nCh,
-            if src>=dst, continue; end  %only consider forward crosstalk
-            ch1 = chNames{src};
-            ch2 = chNames{dst};
-            crosstalk = params.crosstalk(src,dst);
-            data.(ch2) = data.(ch2) - crosstalk*data.(ch1);
-        end
-    end
-end
 
 
 % Correct for non-uniform sensitivity across the field-of-view in the donor
@@ -175,23 +159,9 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     end
 end
 
-% Subtract background
+% Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = bgsub(data);
-% data = correctTraces(data,crosstalk,scaling);  %FIXME: should use this
-
-% Scale acceptor channel to correct for unequal brightness (gamma is not 1).
-% Highly scaled (dim) channels can confuse the background subtraction method,
-% so this must be done after background subtraction.
-if ~isfield(params,'scaleFluor') || isempty(params.scaleFluor),
-    params.scaleFluor = ones(1,nCh);
-    
-else
-    for i=1:numel(params.chNames),
-        name = params.chNames{i};
-        data.(name) = data.(name)*params.scaleFluor(i);
-    end
-end
-[data.traceMetadata.scaleFluor] = deal(params.scaleFluor);
+data = correctTraces(data, params.crosstalk, params.scaleFluor);
 data.recalculateFret();
 
 
@@ -201,20 +171,8 @@ if ~quiet,
     wbh.message = 'Saving traces...';
 end
 
-% Keep only parameters for channels that are being analyzed, not all
-% possible channels in the configuration.
-chToKeep = ~cellfun(@isempty,params.chNames);
-
-data.fileMetadata(1).wavelengths = params.wavelengths(chToKeep);
-data.fileMetadata.chDesc = params.chDesc(chToKeep);
-
-crosstalk = params.crosstalk;
-if numel(params.crosstalk)>1,
-    crosstalk = crosstalk(chToKeep,chToKeep);
-end
-if ~isempty(crosstalk)
-    [data.traceMetadata.crosstalk] = deal(crosstalk);
-end
+data.fileMetadata.wavelengths = params.wavelengths;
+data.fileMetadata.chDesc = params.chDesc;
 
 
 % -- Save the locations of the picked peaks for later lookup.

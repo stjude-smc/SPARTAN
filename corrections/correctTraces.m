@@ -19,8 +19,21 @@ function data = correctTraces(data, crosstalk, scaleFluor, indexes)
 narginchk(2,4);
 nargoutchk(1,1);
 
+nFluor = numel(data.idxFluor);
 
-% If no values given, use current (no change)
+
+% If no traceMetadata (called from gettraces), use defaults.
+% FIXME handle default values listed in fileMetadata from old versions.
+if ~isfield(data.traceMetadata,'crosstalk'),
+    [data.traceMetadata.crosstalk]  = deal( zeros(nFluor,nFluor) );
+end
+
+if ~isfield(data.traceMetadata,'scaleFluor'),
+    [data.traceMetadata.scaleFluor] = deal( ones(nFluor,1) );
+end
+
+
+% If no updated crosstalk/scaling values given, use current value (no change).
 if isempty(crosstalk),
     crosstalk = cat(3,data.traceMetadata.crosstalk);
 end
@@ -30,9 +43,9 @@ if nargin<3 || isempty(scaleFluor),
     scaleFluor = cat(2,data.traceMetadata.scaleFluor);
 end
 
-%FIXME handle default values listed in fileMetadata from old versions.
 
 % If a single value is supplied, apply it to all traces.
+scaleFluor = to_col(scaleFluor);
 if size(crosstalk,3)==1,
     crosstalk = repmat(crosstalk, [1 1 data.nTraces]);
 end
@@ -54,9 +67,9 @@ end
 
 
 
-%% Undo previous corrections, reverting to state as aquired.
+%% Undo previous corrections, reverting to state as acquired.
 chNames = data.channelNames(data.idxFluor);  %increasing wavelength order.
-nFluor = numel(data.idxFluor);
+% nFluor = numel(data.idxFluor);
 
 for i=1:numel(indexes)
     
