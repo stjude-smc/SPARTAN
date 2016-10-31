@@ -223,7 +223,7 @@ data.traceMetadata = struct('ids',ids);
 clear donor;  clear acceptor;  clear ids;
 
 % Subtract background and calculate FRET
-data = correctTraces(data);
+data = bgsub(data);
 data.recalculateFret();
 
 
