@@ -14,7 +14,7 @@ if ~isempty(constants),
 end
 
 % Version info displayed in title bars
-constants.version = '3.1.0';
+constants.version = '3.2.0';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
 
