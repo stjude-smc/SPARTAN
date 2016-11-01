@@ -1,4 +1,4 @@
-function varargout = makeplots(dataFilenames, titles, varargin)
+function varargout = makeplots(varargin)
 %MAKEPLOTS  Creates an array of contour, pop hist, and TD plots
 % 
 %   MAKEPLOTS(FILES, TITLES, OPTIONS)
@@ -7,13 +7,15 @@ function varargout = makeplots(dataFilenames, titles, varargin)
 %   specifies the titles to plot above each dataset (optional).
 %   If no FILES are specified, user will be asked to select them.
 %   
+%   MAKEPLOTS(H,...) draws the plot in the figure H.
+%   
 %   OPTIONS is a structure with settings for how to display the data and
 %   how to calculate histograms, etc. See cascadeConstants.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-narginchk(0,3);
+narginchk(0,4);
 nargoutchk(0,2);
 
 updateSpartan; %check for updates
@@ -24,8 +26,23 @@ defaults = mpdefault();
 
 %% Process input data and parameters
 
+% First argument may be a target figure handle to draw in.
+if nargin>=1 && isgraphics(varargin{1}(1)),
+    if strcmpi(get(varargin{1},'Type'),'figure'),
+        h1 = varargin{1};
+        varargin(1) = [];
+    else
+        error('Invalid figure target');
+    end
+else
+    h1 = [];
+end
+% dataFilenames, titles, varargin
+
 % If no files are given, prompt the user.
-if nargin<1,
+if numel(varargin)>=1,
+    dataFilenames = varargin{1};
+else
     dataFilenames = getFiles('*.traces','Choose a traces file:');
 end
 
@@ -40,16 +57,19 @@ if nFiles==0, return; end
 % Generate plot titles and base filenames if none given.
 [p,f] = cellfun(@fileparts, dataFilenames, 'UniformOutput',false);
 baseFilenames = fullfile(p,f);
-if nargin<2,
+if numel(varargin)>=2,
+    titles = varargin{1};
+    if ischar(titles),
+        titles = {titles};
+    end
+else
     titles = trimtitles(dataFilenames);
-elseif ischar(titles),
-    titles = {titles};
 end
 
 
 % Other options (passed as a structure)
-if nargin>=3,
-    defaults = catstruct( defaults, varargin{1}, 'sorted' );
+if numel(varargin)>=3,
+    defaults = catstruct( defaults, varargin{3}, 'sorted' );
 end
 
 defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
@@ -58,11 +78,15 @@ defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
 
 %% Display all plots
 
-if ~isfield(defaults,'targetAxes')
-    c = cascadeConstants();
-    h1 = figure('Name', [mfilename ' - ' c.software]);
+if isempty(h1),
+    if ~isfield(defaults,'targetAxes')
+        c = cascadeConstants();
+        h1 = figure('Name', [mfilename ' - ' c.software]);
+    else
+        h1 = get(defaults.targetAxes{1,1},'parent');
+    end
 else
-    h1 = get(defaults.targetAxes{1,1},'parent');
+    clf(h1);
 end
 
 % Force the cursor to be normal arrow. When loading from .fig files, it is
@@ -79,12 +103,8 @@ plotData(h1,newHandles);
 
 
 % Set outputs, if requested.
-switch nargout,
-    case 1
-        varargout = {h1};
-    case 2
-        varargout = {h1,dataFilenames};
-end
+output = {h1,dataFilenames};
+[varargout{1:nargout}] = output{1:nargout};
 
 
 % =============== ADD GUI CONTROLS ================
@@ -92,8 +112,13 @@ hMenu = findall(h1,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)makeplots() );
 
-% hMenu = findall(h1,'tag','figMenuOpen');
-% set(hMenu, 'Callback', @(~,~)makeplots(h1,getFiles(),titles,defaults) );
+hMenu = findall(h1,'tag','figMenuOpen');
+set(hMenu, 'Callback', @(~,~)makeplots(h1) );
+
+hMenu = findall(h1,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)makeplots(h1) );
+hMenu = findall(h1,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)makeplots() );
 
 hMenu = findall(h1,'tag','figMenuGenerateCode');
 set(hMenu, 'Label','Export .txt files', 'Callback',@(x,y)saveFiles2(x,y));

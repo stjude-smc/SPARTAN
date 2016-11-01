@@ -23,17 +23,19 @@ sel = questdlg( 'How should files be ordered?','Makeplots order', ...
                 choices{:}, choices{1} );
 mode = find( strcmp(sel,choices) );
 
+hfig = figure('Name',[mfilename ' - waiting for data...']);
+
 % Create a timer to periodically look for new files and update the figure.
 timer_handle = timer( 'ExecutionMode','fixedSpacing', 'Period',2.0, ...
                       'BusyMode','drop', 'Name',mfilename, ...
                       'TimerFcn',@tupdate, ...% 'StopFcn',@tstop, ...
-                      'UserData',{[],direct,mode,{}} );
+                      'UserData',{hfig,direct,mode,{}} );
 start(timer_handle);
 
 % Add a callback to stop the timer if the window is closed?
 
 
-end %FUNCTION MAKEPLOTSDIR
+end %FUNCTION AUTOPLOTS
 
 
 
@@ -82,22 +84,14 @@ files = filelist(direct,mode);
 % If there are any new files, re-create the plot with the new files.
 % The new plot is positioned in roughly the same location.
 if ~isequal(files,oldFiles) || isempty(hfig),
-    if ~isempty(hfig),
-        pos = get(hfig,'Position');
-        close(hfig);
-    else
-        pos = [];
-    end
     
     if numel(files)>0,
-        hfig = makeplots( {files.name} );
+        hfig = makeplots( hfig, {files.name} );
+        c = cascadeConstants();
+        set(hfig,'Name', [mfilename ' - ' c.software]);
     else
-        % If no files available, make an empty window as a placeholder.
-        hfig = figure('Name','Autoplots - waiting for data...');
-    end
-    
-    if ~isempty(pos),
-        set(hfig,'Position',pos);
+        clf(hfig);
+        set(hfig,'Name', [mfilename ' - waiting for data...']);
     end
     
     set(timer_handle, 'UserData', {hfig,direct,mode,files});
