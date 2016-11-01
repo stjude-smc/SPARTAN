@@ -53,15 +53,13 @@ end
 
 nFiles = numel(dwtfilename);
 if nFiles==0, return; end
+names = trimtitles(dwtfilename);
 
 
 
 %% Load dwell-times and calculate survival plots
-[meanTimes,survival,names] = dwellhist(dwtfilename, params);
-
-dwellaxis = survival(:,1);
-survival = survival(:,2:end);
-nStates = size(survival,2)/nFiles;
+[dwellaxis,survival,meanTimes] = dwellhist(dwtfilename, params);
+nStates = size(survival,2);
 
 
 
@@ -73,10 +71,10 @@ fits = cell(nFiles,nStates);    % fit structures for plotting
 for file=1:nFiles,
     for state=1:nStates,
         % Truncate the survival plot to de-emphasize the tail for fitting.
-        idxCol = nFiles*(state-1)+file;
-        plen = find( survival(:,idxCol)>0.01, 1,'last' );
-        x = dwellaxis(1:plen);
-        y = survival(1:plen,idxCol);
+        y = survival{file,state};
+        plen = find(y>0.01,1,'last');
+        x = dwellaxis(1:plen)';
+        y = y(1:plen);
         
         % Fit the survival plot to an exponetial
         if params.fitSingle,
@@ -109,7 +107,8 @@ if ~params.plotFits, return; end
 % Save the histogram data in the figure and add a button so the data
 % can be saved to file by the user.
 hFig = figure;
-setappdata(hFig,'survival',[dwellaxis survival]);
+output = [to_col(dwellaxis) horzcat(survival{:})];
+setappdata(hFig,'survival',output);
 setappdata(hFig,'names',names);
 
 nrows = nStates;
@@ -123,8 +122,9 @@ for i=1:nFiles+1,
         
         % Plot survival plot fits.
         if i<=nFiles,
-            idxCol = nFiles*(j-1)+i;
-            y = survival(:,idxCol);
+            %idxCol = nFiles*(j-1)+i;
+            %y = survival(:,idxCol);
+            y = survival{i,j};
 
             % Plot data and fit
             ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i, 'Parent',hFig );
@@ -139,8 +139,9 @@ for i=1:nFiles+1,
         
         % Overlay all survival plots for direct comparison
         else
-            idxCol = nFiles*(j-1)+(1:nFiles);
-            y = survival(:,idxCol);
+            %idxCol = nFiles*(j-1)+(1:nFiles);
+            %y = survival(:,idxCol);
+            y = [survival{:,j}];
 
             % Plot data and fit
             ax(i,j) = subplot( nrows,ncols, (ncols*(j-1))+i, 'Parent',hFig );
@@ -198,7 +199,7 @@ nStates = (size(dwellhist,2)-1)/nFiles;
 
 
 % Ask the user for an output filename.
-[f,p] = uiputfile('*.txt','Select output filename','dwellhist.txt');
+[f,p] = uiputfile('*.txt','Select output filename',[mfilename '.txt']);
 if f==0, return; end
 outFilename = fullfile(p,f);
 

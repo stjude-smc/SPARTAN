@@ -101,12 +101,15 @@ nStates = max(nStates);
 % Get dwell time limits for setting axes limits later.
 maxTime = 0;  %longest dwell in seconds
 totalTime = zeros(nFiles,nStates);
+meanTime  = zeros(nFiles,nStates);  %mean dwell-time per state/file.
 
 for i=1:nFiles,
     dwellc = dwells{i};
     maxTime = max( maxTime, max(vertcat(dwellc{:})) );
     totalTime(i,:) = cellfun(@sum, dwellc)';
+    meanTime(i,:)  = cellfun(@mean, dwellc)';
 end
+
 
 
 
@@ -176,7 +179,7 @@ if params.logX,
     dwellaxis = 10.^dwellaxis;
 end
 
-output = {dwellaxis,histograms};
+output = {dwellaxis,histograms,meanTime};
 [varargout{1:nargout}] = output{1:nargout};
 
 
