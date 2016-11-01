@@ -99,8 +99,10 @@ hMenu = findall(h1,'tag','figMenuGenerateCode');
 set(hMenu, 'Label','Export .txt files', 'Callback',@(x,y)saveFiles2(x,y));
        
 hEditMenu = findall(h1, 'tag','figMenuEdit');
-delete(allchild(hEditMenu));
-uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',@(x,y)changeDisplaySettings2(x,y));
+hCopyFig = findall(hEditMenu, 'tag','figMenuEditCopyFigure');
+items = allchild(hEditMenu);
+delete( items(items~=hCopyFig) );
+uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',@(x,y)changeDisplaySettings2(x,y),'Separator','on');
 uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',@(x,y)resetSettings2(x,y));
 
 
