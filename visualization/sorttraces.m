@@ -324,7 +324,6 @@ if strcmp('.mat',ext),
         end
         savedState.crosstalk = crosstalk;
     end
-    assert( size(savedState.crosstalk,2) == nFluor );
 
     % Prior versions assumed channels are D,A1,A2 for gamma.
     if fileVer < versionEncode(3),
@@ -338,7 +337,13 @@ if strcmp('.mat',ext),
         end
         savedState.gamma = gamma;
     end
-    assert( size(savedState.gamma,2) == nFluor );
+    
+    % Permute matrix dimensions to match the form used by correctTraces.
+    savedState.crosstalk = permute(savedState.crosstalk, [2 3 1]);
+    savedState.gamma     = permute(savedState.gamma, [2 1]);
+    
+    assert( size(savedState.crosstalk,1)==nFluor );
+    assert( size(savedState.gamma,1)==nFluor );
     
     % Load file settings into handles structure.
     for i=1:numel(requiredFields),
@@ -624,6 +629,10 @@ fields = {'binNames','bins','adjusted','crosstalk','gamma','background','fretThr
 for i=1:numel(fields),
     savedState.(fields{i}) = handles.(fields{i});
 end
+
+% Adjust dimensions to match file format.
+savedState.crosstalk = permute(savedState.crosstalk, [3 1 2]);
+savedState.gamma = permute(savedState.gamma, [2 1]);
 
 [p,f] = fileparts(handles.filename);
 filename = fullfile(p,[f '_savedState.mat']);
