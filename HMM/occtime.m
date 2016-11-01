@@ -162,9 +162,13 @@ set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,txtout});
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)occtime(getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)occtime(getFiles('*.dwt'),params) );
 
 hMenu = findall(hFig,'tag','figMenuOpen');
 set(hMenu, 'Callback', @(~,~)occtime(ax,getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)occtime(ax,getFiles('*.dwt'),params) );
 
 
 hEditMenu = findall(hFig, 'tag','figMenuEdit');

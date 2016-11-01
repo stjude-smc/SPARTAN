@@ -140,9 +140,13 @@ set(hFig, 'pointer','arrow');  drawnow;
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)percentTime(getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)percentTime(getFiles('*.dwt'),params) );
 
 hMenu = findall(hFig,'tag','figMenuOpen');
 set(hMenu, 'Callback', @(~,~)percentTime(cax,getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)percentTime(cax,getFiles('*.dwt'),params) );
 
 
 hEditMenu = findall(hFig, 'tag','figMenuEdit');

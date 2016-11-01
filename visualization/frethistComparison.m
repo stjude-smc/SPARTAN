@@ -137,9 +137,13 @@ set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,output});
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)frethistComparison(getFiles(),params) );
+hMenu = findall(hFig,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)frethistComparison(getFiles(),params) );
 
 hMenu = findall(hFig,'tag','figMenuOpen');
 set(hMenu, 'Callback', @(~,~)frethistComparison(cax,getFiles(),params) );
+hMenu = findall(hFig,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)frethistComparison(cax,getFiles(),params) );
 
 
 hEditMenu = findall(hFig, 'tag', 'figMenuEdit');

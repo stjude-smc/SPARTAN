@@ -104,9 +104,13 @@ set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,output});
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)avgFretTime(getFiles(),params) );
+hMenu = findall(hFig,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)avgFretTime(getFiles(),params) );
 
 hMenu = findall(hFig,'tag','figMenuOpen');
 set(hMenu, 'Callback', @(~,~)avgFretTime(cax,getFiles(),params) );
+hMenu = findall(hFig,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)avgFretTime(cax,getFiles(),params) );
 
 
 hEditMenu = findall(hFig, 'tag', 'figMenuEdit');

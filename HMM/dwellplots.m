@@ -102,9 +102,13 @@ set(hTxtMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,dwtfilename,outpu
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)dwellplots(getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)dwellplots(getFiles('*.dwt'),params) );
 
 hMenu = findall(hFig,'tag','figMenuOpen');
 set(hMenu, 'Callback', @(~,~)dwellplots(hFig,getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)dwellplots(hFig,getFiles('*.dwt'),params) );
 
 
 prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};

@@ -136,9 +136,13 @@ end
 hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
 delete(allchild(hMenu));
 set(hMenu, 'Callback', @(~,~)transitionsPerSecond(getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.NewFigure');
+set(hMenu, 'ClickedCallback', @(~,~)transitionsPerSecond(getFiles('*.dwt'),params) );
 
 hMenu = findall(hFig,'tag','figMenuOpen');
 set(hMenu, 'Callback', @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params) );
+hMenu = findall(hFig,'tag','Standard.FileOpen');
+set(hMenu, 'ClickedCallback', @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params) );
 
 
 hEditMenu = findall(hFig, 'tag','figMenuEdit');
