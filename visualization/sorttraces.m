@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 23-May-2016 09:54:18
+% Last Modified by GUIDE v2.5 02-Nov-2016 16:33:53
 
 
 % Begin initialization code - DO NOT EDIT
@@ -269,7 +269,7 @@ zoom reset;  %remember new axis limits when zooming out.
 set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
      handles.mnuCorrResetAll handles.btnSubBoth handles.mnuSellAll2 ...
-     handles.mnuClearAll2], 'Enable','on');
+     handles.mnuClearAll2 handles.mnuBinNext handles.mnuBinPrev], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 
@@ -488,6 +488,46 @@ function btnNextTop_Callback(~, ~, handles)
 % User clicked "next molecule" button.
 set( handles.editGoTo,'String',num2str(handles.molecule_no+1) );
 editGoTo_Callback( handles.editGoTo, [], handles );
+
+
+
+% --------------------------------------------------------------------
+function mnuBinNext_Callback(hObject, ~, handles) %#ok<DEFNU>
+% User clicked "Next in Bin" context menu
+
+% Get index of the next selected molecule in the current bin
+binID = get(hObject,'UserData');
+bin   = sort( handles.bins{binID} );
+next  = bin( find(bin>handles.molecule_no,1,'first') );
+
+% Update GUI elements to display the selected molecule.
+if ~isempty(next),
+    set( handles.editGoTo,'String',num2str(next) );
+    editGoTo_Callback( handles.editGoTo, [], handles );
+end
+
+% END FUNCTION mnuBinNext_Callback
+
+
+% --------------------------------------------------------------------
+function mnuBinPrev_Callback(hObject, ~, handles) %#ok<DEFNU>
+% User clicked "Previous in Bin" context menu.
+% FIXME: could be combined with the above with an optional argument.
+
+% Get index of the next selected molecule in the current bin
+binID = get(hObject,'UserData');
+bin   = sort( handles.bins{binID} );
+prev  = bin( find(bin<handles.molecule_no,1,'last') );
+
+% Update GUI elements to display the selected molecule.
+if ~isempty(prev)
+    set( handles.editGoTo,'String',num2str(prev) );
+    editGoTo_Callback( handles.editGoTo, [], handles );
+end
+
+% END FUNCTION mnuBinPrev_Callback
+
+
 
 
 
