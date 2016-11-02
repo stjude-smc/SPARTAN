@@ -161,7 +161,7 @@ end
 
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = bgsub(data);
-data = correctTraces(data, params.crosstalk, params.scaleFluor);
+data = correctTraces(data, params.crosstalk, to_col(params.scaleFluor));
 data.recalculateFret();
 
 

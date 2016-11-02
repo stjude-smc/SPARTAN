@@ -45,7 +45,6 @@ end
 
 
 % If a single value is supplied, apply it to all traces.
-scaleFluor = to_col(scaleFluor);
 if size(crosstalk,3)==1,
     crosstalk = repmat(crosstalk, [1 1 data.nTraces]);
 end
