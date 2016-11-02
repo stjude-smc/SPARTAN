@@ -127,13 +127,16 @@ f = regexprep(f,'-file[0-9]*$','');
 
 % If a single file is selected, look for the others in multi-file TIFFs.
 % If the user selected multiple files, we assume that they got all of them.
-if numel(filename)==1,
-    d = dir( [f '*.tif*'] );
-    if numel(d)>1,
-        d = regexpi( {d.name}, [f '(-file[0-9]*)?\.tiff?$'], 'match' );
-        filename = [d{:}];
-    end
-end
+% FIXME: not used anymore and will fail if the filename has any special
+% characters in it (e.g., plus sign). Uncomment with caution.
+% This essentially forces the user to select all files in a multi-part TIFF.
+% if numel(filename)==1,
+%     d = dir( [f '*.tif*'] );
+%     if numel(d)>1,
+%         d = regexpi( {d.name}, [f '(-file[0-9]*)?\.tiff?$'], 'match' );
+%         filename = [d{:}];
+%     end
+% end
 
 % Trancate name if too long ot fit into window without wrapping.
 fnameText = fullfile(p, [f e]);

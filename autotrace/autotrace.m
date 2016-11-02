@@ -542,9 +542,7 @@ assert( exist(outfile,'file')~=0 );
 
 % Run makeplots to display FRET contour plot
 if ~isempty(outfile),
-    [~,title] = fileparts(outfile);
-    title = strrep( title,'_',' ' );
-    makeplots( outfile, title );
+    makeplots(outfile);
 end
 
 % END FUNCTION MakeContourPlot_Callback

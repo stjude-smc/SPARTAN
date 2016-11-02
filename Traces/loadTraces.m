@@ -183,7 +183,7 @@ type = dataTypes{dataType};
 
 % Read metadata contents
 if strcmp(type,'cell'),
-    metadata = cell(szMetadata);
+    metadata = cell( double(szMetadata) );
     for i=1:nMetadata,
         metadata{i} = readMetadata(fid);
     end
