@@ -142,6 +142,9 @@ methods
         for i=1:numel(this.channelNames),
             this.( this.channelNames{i} ) = zeros(nTraces,nFrames);
         end
+        
+        constants = cascadeConstants;
+        this.fileMetadata(1).software = constants.software;
     end
     
     
