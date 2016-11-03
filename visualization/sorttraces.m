@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 02-Nov-2016 16:33:53
+% Last Modified by GUIDE v2.5 03-Nov-2016 14:56:15
 
 
 % Begin initialization code - DO NOT EDIT
@@ -349,6 +349,10 @@ if strcmp('.mat',ext),
     for i=1:numel(requiredFields),
         handles.(requiredFields{i}) = savedState.(requiredFields{i});
     end
+    
+    if isfield(savedState,'binNames')
+        handles.('binNames') = savedState.('binNames');
+    end
 
 elseif strcmp('.txt',ext),
     % Load legacy saved state that only includes molecule selections.
@@ -572,6 +576,31 @@ set( handles.(chkName), 'Value', val );
 % Handle what normally happens after the box is checked.
 addToBin_Callback(handles.(chkName),[],handles,index);
 
+
+% --------------------------------------------------------------------
+function mnuRenameBin_Callback(hObject, ~, handles) %#ok<DEFNU>
+% User selected "Rename Bin" context menu item
+binID = get(hObject,'UserData');
+
+% Prompt user for a new name
+a = inputdlg( {'New bin name:'},mfilename,1,handles.binNames(binID) );
+if isempty(a), return; end  %user hit cancel.
+a = a{1};
+
+% Verify if the name is valid
+if ~all( ismember(upper(a),'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-+= ') ),
+    errordlg('Invalid bin name. Special characters are not allowed.');
+    return;
+end
+
+% Update GUI, allow saving.
+set( handles.(sprintf('chkBin%d',binID)), 'String',a );
+set([handles.tbSave handles.mnuSave], 'Enable','on');
+
+handles.binNames{binID} = a;
+guidata(hObject,handles);
+
+% END FUNCTION mnuRenameBin_Callback
 
 
 
