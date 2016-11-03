@@ -13,6 +13,9 @@ if ~isempty(constants),
     return;
 end
 
+% Random number will change whenever the file is updated
+constants.tstamp = now();
+
 % Version info displayed in title bars
 constants.version = '3.2.0';
 constants.software = ['Cornell SPARTAN ' constants.version];

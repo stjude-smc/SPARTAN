@@ -237,9 +237,12 @@ persistent mpd;
 
 if nargin>0, mpd=input; end
 
-if isempty(mpd),
-    const = cascadeConstants();
+% Reload defaults if persistent variable is not set, or
+% cascadeCosntants.m has been modified (timestamp has changed).
+const = cascadeConstants();
+if isempty(mpd) || mpd.tstamp~=const.tstamp,  
     mpd = const.defaultMakeplotsOptions;
+    mpd.tstamp = const.tstamp;
     mpd.contour_bounds = [1 mpd.contour_length mpd.fretRange];
 end
 
