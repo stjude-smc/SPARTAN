@@ -137,16 +137,16 @@ set(ax,'ColorOrder',options.colors);
 
 % Draw translucent, filled area underneath curves
 for j=1:nStates
-    patch( bins, histdata(:,j), options.colors(j,:), ...
+    patch( histdata(:,j), bins, options.colors(j,:), ...
             'EdgeColor','none','FaceAlpha',0.25, 'Parent',ax );
 end
 
 % Draw state FRET histograms as solid lines
-plot( ax, bins, histdata, 'LineWidth',1.5 );
+plot( ax, histdata, bins, 'LineWidth',1.5 );
 
 % Add a line with total occupancy.
 totalHist = sum( histdata, 2 );
-plot( ax, bins, totalHist, 'k-', 'LineWidth',1.5 );
+plot( ax, totalHist, bins, 'k-', 'LineWidth',1.5 );
 
 histmax = max( totalHist(bins>0.05) );
 

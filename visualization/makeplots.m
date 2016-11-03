@@ -382,13 +382,14 @@ for k=1:nFiles,
         end
         
         histmax(k) = max(max( pophist(fretaxis>0.05) ));
-        bar(histax(k), fretaxis, pophist);
+        barh(histax(k), fretaxis, pophist);
         
     %---- Statehist: FRET histogram for each idealized state.
     else
         [shistAll{k}, histmax(k)] = statehist(histax(k), idl, data, options);
     end
     
+    set(histax(k),'ytick', 0:0.2:1);
     drawnow;
     
         
@@ -441,11 +442,11 @@ end
 if any(histax~=0),
     histax = histax(histax~=0);
     linkaxes( histax, 'xy' );
-    ylim( histax(1), [0 max(histmax)+0.5] );
-    xlim( histax(1), options.fretRange );
+    xlim( histax(1), [0 max(histmax)+0.5] );
+    ylim( histax(1), options.fretRange );
     
-    ylabel( histax(1),'Counts (%)' );
-    xlabel( histax(1),upper(options.fretField) );
+    xlabel( histax(1),'Counts (%)' );
+    ylabel( histax(1),upper(options.fretField) );
     set(histax(2:end),'yticklabel',[]);
     
     set(histax, 'YGrid','on', 'Box','on');
