@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 24-May-2016 10:56:15
+% Last Modified by GUIDE v2.5 03-Nov-2016 16:06:28
 
 
 % Begin initialization code - DO NOT EDIT
@@ -216,7 +216,8 @@ guidata(hObject,handles);
 % Show fluorescence fields for all channels
 if handles.params.geometry>1,
     for i=1:numel(fields),
-        imshow( fields{i}, [0 val], 'Parent',ax(i) );
+        h = imshow( fields{i}, [0 val], 'Parent',ax(i) );
+        set(h,'UIContextMenu',handles.mnuImage);
         colormap(ax(i),handles.colortable);
         set(ax(i),'UserData',i);
     end
@@ -226,7 +227,8 @@ end
 
 % Show total fluorescence channel
 total = sum( cat(3,fields{:}), 3);
-imshow( total, [0 val*2], 'Parent',handles.axTotal );
+h = imshow( total, [0 val*2], 'Parent',handles.axTotal );
+set(h,'UIContextMenu',handles.mnuImage);
 colormap(handles.axTotal,handles.colortable);
 title(handles.axTotal,'Total Intensity', 'FontSize',10);
 
@@ -1094,3 +1096,6 @@ function updateFileTimer(~,~,hObject,targetDir)
 % movies that may have appeared on the path.
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
+
+
+
