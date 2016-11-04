@@ -142,7 +142,7 @@ fname = fullfile(p,fname);
 % The model's properties are automatically updated whenever the model is
 % modified in the GUI.
 handles.model = QubModel(fname);
-handles.model.showModel( handles.axModel );
+handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
 title(handles.axModel, ['...' fname(max(1,end-40):end)], 'interpreter','none');
 
 % Enable relevant GUI controls
