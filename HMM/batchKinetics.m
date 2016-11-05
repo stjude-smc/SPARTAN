@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 02-May-2016 14:11:14
+% Last Modified by GUIDE v2.5 04-Nov-2016 17:57:50
 
 
 %% GUI Callbacks
@@ -361,3 +361,49 @@ handles.options = settingsDialog(handles.options, fields, prompt);
 guidata(hObject,handles);
 
 % END FUNCTION mnuIdlSettings_Callback
+
+
+
+% --------------------------------------------------------------------
+function sldTraces_Callback(hObject, ~, handles)
+% User adjusted the trace view slider -- show a different subset of traces.
+
+showTraces(handles);
+
+% END FUNCTION sldTraces_Callback
+
+
+
+% --------------------------------------------------------------------
+function lbFiles_Callback(hObject, ~, handles)
+% User selected a file. Show traces in the trace viewer panel
+
+idxFile   = get(hObject,'Value');
+handles.data = loadTraces( handles.dataFilenames{idxFile} );
+guidata(hObject,handles);
+
+set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10);
+set(handles.sldTraces,'SliderStep',[0.01 0.1]);
+showTraces(handles);
+
+% END FUNCTION lbFiles_Callback
+
+
+function showTraces(handles)
+% Update trace viewer panel
+
+ylim(handles.axTraces,[0 10]);
+% xlim(handles.axTraces,[0 xx]);
+
+cla(handles.axTraces);
+hold(handles.axTraces,'on');
+
+for i=1:10,
+    idx = i+ floor(get(handles.sldTraces,'Value'));
+    plot( handles.data.time, (i-1)+handles.data.fret(idx,:), 'b-' );
+    plot( handles.data.time([1 end]), (i-1)+[0 0], 'k' ); %baseline marker
+    
+    % TODO: draw trace number.
+end
+
+% END FUNCTION function
