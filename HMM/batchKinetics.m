@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 04-Nov-2016 17:57:50
+% Last Modified by GUIDE v2.5 08-Nov-2016 15:21:07
 
 
 %% GUI Callbacks
@@ -61,6 +61,7 @@ handles.modelFilename = [];
 handles.model = [];
 handles.dataFilenames = {};
 handles.dwtFilenames  = {};
+handles.idl = [];
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -82,6 +83,14 @@ cboKineticsMethod_Callback(handles.cboKineticsMethod,[],handles);
 constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
+% Trace viewer pane callbacks
+addlistener( [handles.sldTraces handles.sldTracesX], 'Value', ...
+             'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
+
+ylim(handles.axTraces,[0 12]);
+% xlim(handles.axTraces,[0 xx]);
+hold(handles.axTraces,'on');
+
 % END FUNCTION batchKinetics_OpeningFcn
 
 
@@ -90,6 +99,8 @@ set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 function varargout = batchKinetics_OutputFcn(~, ~, handles) 
 % Get default command line output from handles structure
 varargout{1} = handles.output;
+% END FUNCTION batchKinetics_OutputFcn
+
 
 
 
@@ -121,6 +132,7 @@ try
 catch
 end
 guidata(hObject, handles);
+cla(handles.axTraces);
 
 % END FUNCTION btnLoadData_Callback
 
@@ -207,6 +219,8 @@ disp('Finished!');
 
 % Update handles structure
 guidata(hObject, handles);
+
+lbFiles_Callback(handles.lblFiles, [], handles);
 
 % END FUNCTION btnExecute_Callback
 
@@ -365,13 +379,10 @@ guidata(hObject,handles);
 
 
 % --------------------------------------------------------------------
-function sldTraces_Callback(hObject, ~, handles)
+function sldTraces_Callback(~, ~, handles) %#ok<DEFNU>
 % User adjusted the trace view slider -- show a different subset of traces.
-
 showTraces(handles);
-
 % END FUNCTION sldTraces_Callback
-
 
 
 % --------------------------------------------------------------------
@@ -379,11 +390,29 @@ function lbFiles_Callback(hObject, ~, handles)
 % User selected a file. Show traces in the trace viewer panel
 
 idxFile   = get(hObject,'Value');
-handles.data = loadTraces( handles.dataFilenames{idxFile} );
-guidata(hObject,handles);
+data = loadTraces( handles.dataFilenames{idxFile} );
+handles.data = data;
 
-set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10);
-set(handles.sldTraces,'SliderStep',[0.01 0.1]);
+if ~isempty(handles.dwtFilenames{idxFile})
+    [dwt,~,offsets,model] = loadDWT( handles.dwtFilenames{idxFile} );
+    handles.idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+    
+%     for i=1:data.nTraces,
+%         fretValues = [NaN; model(:,1)];
+%         handles.idl(i,:) = fretValues( handles.idl(i,:)+1 );
+%     end
+    assert( size(model,2)==2 );
+    fretValues = [NaN; model(:,1)];
+    handles.idl = fretValues( handles.idl+1 );
+else
+    handles.idl = [];
+end
+
+set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10,'Value',0);
+set(handles.sldTracesX, 'Min',10, 'Max',handles.data.nFrames, 'Value',handles.data.nFrames);
+set([handles.sldTraces handles.sldTracesX],'SliderStep',[0.01 0.1]); %move to GUIDE?
+
+guidata(hObject,handles);
 showTraces(handles);
 
 % END FUNCTION lbFiles_Callback
@@ -392,18 +421,45 @@ showTraces(handles);
 function showTraces(handles)
 % Update trace viewer panel
 
-ylim(handles.axTraces,[0 10]);
-% xlim(handles.axTraces,[0 xx]);
-
 cla(handles.axTraces);
-hold(handles.axTraces,'on');
+
+idxTraceStart = floor(get(handles.sldTraces,'Value'));
+xlimit = floor(get(handles.sldTracesX,'Value'));
+time = handles.data.time(1:xlimit);
 
 for i=1:10,
-    idx = i+ floor(get(handles.sldTraces,'Value'));
-    plot( handles.data.time, (i-1)+handles.data.fret(idx,:), 'b-' );
-    plot( handles.data.time([1 end]), (i-1)+[0 0], 'k' ); %baseline marker
+    idx = i+idxTraceStart;
+    y_offset = 1.18*(i-1) +0.2;
+    plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' ); %baseline marker
+    plot( handles.axTraces, time, y_offset+handles.data.fret(idx,1:xlimit), 'b-' );
+    
+    if ~isempty(handles.idl)
+        plot( handles.axTraces, time, y_offset+handles.idl(idx,1:xlimit), 'r-' );
+    end
     
     % TODO: draw trace number.
 end
 
+xlim(handles.axTraces, [0 time(xlimit)]); %FIXME: slow and only required when X slider is changed.
+
 % END FUNCTION function
+
+
+
+function wheelScroll_callback(~, eventData, handles) %#ok<DEFNU>
+% Mouse wheel scrolling moves the trace viewer pane up and down.
+% The event is triggered at the figure level.
+
+% disp(get(gcbo,'type'));
+% if ~strcmp(get(gcbo,'type'),'axes'), return; end %&& gco==handles.axTraces
+
+% Update scroll bar position when scrolling with the mouse wheel.
+loc = get(handles.sldTraces, 'Value')-2*eventData.VerticalScrollCount;
+loc = min( loc, get(handles.sldTraces,'Max') );
+loc = max( loc, get(handles.sldTraces,'Min') );
+set(handles.sldTraces, 'Value', loc);
+
+% The trace viewer is automatically updated by the Value property listener.
+
+% END FUNCTION wheelScroll_callback
+
