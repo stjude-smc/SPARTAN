@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 08-Nov-2016 15:21:07
+% Last Modified by GUIDE v2.5 09-Nov-2016 15:30:05
 
 
 %% GUI Callbacks
@@ -88,7 +88,6 @@ addlistener( [handles.sldTraces handles.sldTracesX], 'Value', ...
              'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
 
 ylim(handles.axTraces,[0 12]);
-% xlim(handles.axTraces,[0 xx]);
 hold(handles.axTraces,'on');
 
 % END FUNCTION batchKinetics_OpeningFcn
@@ -220,7 +219,7 @@ disp('Finished!');
 % Update handles structure
 guidata(hObject, handles);
 
-lbFiles_Callback(handles.lblFiles, [], handles);
+lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION btnExecute_Callback
 
@@ -389,7 +388,7 @@ showTraces(handles);
 function lbFiles_Callback(hObject, ~, handles)
 % User selected a file. Show traces in the trace viewer panel
 
-idxFile   = get(hObject,'Value');
+idxFile = get(hObject,'Value');
 data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
 
@@ -397,23 +396,19 @@ if ~isempty(handles.dwtFilenames{idxFile})
     [dwt,~,offsets,model] = loadDWT( handles.dwtFilenames{idxFile} );
     handles.idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
     
-%     for i=1:data.nTraces,
-%         fretValues = [NaN; model(:,1)];
-%         handles.idl(i,:) = fretValues( handles.idl(i,:)+1 );
-%     end
     assert( size(model,2)==2 );
     fretValues = [NaN; model(:,1)];
     handles.idl = fretValues( handles.idl+1 );
 else
     handles.idl = [];
 end
+guidata(hObject,handles);
 
-set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10,'Value',0);
+set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10,'Value',handles.data.nTraces-10);
 set(handles.sldTracesX, 'Min',10, 'Max',handles.data.nFrames, 'Value',handles.data.nFrames);
 set([handles.sldTraces handles.sldTracesX],'SliderStep',[0.01 0.1]); %move to GUIDE?
 
-guidata(hObject,handles);
-showTraces(handles);
+showTraces(handles); %the above will not necessarily trigger listener
 
 % END FUNCTION lbFiles_Callback
 
@@ -423,13 +418,13 @@ function showTraces(handles)
 
 cla(handles.axTraces);
 
-idxTraceStart = floor(get(handles.sldTraces,'Value'));
+idxTraceStart = get(handles.sldTraces,'Max') - floor(get(handles.sldTraces,'Value'));
 xlimit = floor(get(handles.sldTracesX,'Value'));
 time = handles.data.time(1:xlimit);
 
 for i=1:10,
     idx = i+idxTraceStart;
-    y_offset = 1.18*(i-1) +0.2;
+    y_offset = 1.18*(10-i) +0.2;
     plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' ); %baseline marker
     plot( handles.axTraces, time, y_offset+handles.data.fret(idx,1:xlimit), 'b-' );
     
@@ -437,7 +432,9 @@ for i=1:10,
         plot( handles.axTraces, time, y_offset+handles.idl(idx,1:xlimit), 'r-' );
     end
     
-    % TODO: draw trace number.
+    % Show trace number
+    text( 0.95, 0.04+((10-i)/10), sprintf('%d',idx), 'HorizontalAlignment','right', ...
+          'Parent',handles.axTraces, 'BackgroundColor','w', 'Units','normalized' );
 end
 
 xlim(handles.axTraces, [0 time(xlimit)]); %FIXME: slow and only required when X slider is changed.
@@ -450,10 +447,6 @@ function wheelScroll_callback(~, eventData, handles) %#ok<DEFNU>
 % Mouse wheel scrolling moves the trace viewer pane up and down.
 % The event is triggered at the figure level.
 
-% disp(get(gcbo,'type'));
-% if ~strcmp(get(gcbo,'type'),'axes'), return; end %&& gco==handles.axTraces
-
-% Update scroll bar position when scrolling with the mouse wheel.
 loc = get(handles.sldTraces, 'Value')-2*eventData.VerticalScrollCount;
 loc = min( loc, get(handles.sldTraces,'Max') );
 loc = max( loc, get(handles.sldTraces,'Min') );
@@ -462,4 +455,3 @@ set(handles.sldTraces, 'Value', loc);
 % The trace viewer is automatically updated by the Value property listener.
 
 % END FUNCTION wheelScroll_callback
-
