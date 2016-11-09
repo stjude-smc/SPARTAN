@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Nov-2016 15:30:05
+% Last Modified by GUIDE v2.5 09-Nov-2016 17:12:24
 
 
 %% GUI Callbacks
@@ -68,27 +68,27 @@ options.bootstrapN = 1;
 options.deadTime = 0.5;
 options.seperately = 1; %SKM: analyze each trace individually
 options.maxItr = 100;
-
 handles.options = options;
-guidata(hObject, handles);
 
 % Update GUI to reflect these default settings.
 set( handles.cboIdealizationMethod, 'Value',2 );  %SKM
-cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
+handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
-handles = guidata(hObject);
 set( handles.cboKineticsMethod, 'Value',1 );  %Do nothing
-cboKineticsMethod_Callback(handles.cboKineticsMethod,[],handles);
+handles = cboKineticsMethod_Callback(handles.cboKineticsMethod,[],handles);
 
 constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
 % Trace viewer pane callbacks
-addlistener( [handles.sldTraces handles.sldTracesX], 'Value', ...
-             'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
+handles.sldTracesListener = addlistener( [handles.sldTraces handles.sldTracesX], ...
+              'Value', 'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
+guidata(hObject,handles);
 
 ylim(handles.axTraces,[0 12]);
 hold(handles.axTraces,'on');
+set([handles.sldTraces handles.sldTracesX],'SliderStep',[0.01 0.1]); %move to GUIDE?
+
 
 % END FUNCTION batchKinetics_OpeningFcn
 
@@ -119,7 +119,7 @@ end
 set([handles.btnMakeplots handles.mnuViewMakeplots], 'Enable','on');
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
-set(handles.lbFiles, 'Value',[], 'String',names);
+set(handles.lbFiles, 'Value',1, 'String',names);
 
 % Look for .dwt files if data were already analyzed.
 try
@@ -131,7 +131,10 @@ try
 catch
 end
 guidata(hObject, handles);
-cla(handles.axTraces);
+% cla(handles.axTraces);
+
+% Show the first file.
+lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION btnLoadData_Callback
 
@@ -172,7 +175,7 @@ guidata(hObject, handles);
 % END FUNCTION btnLoadModel_Callback
 
 
-function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
+function btnExecute_Callback(~, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
@@ -216,9 +219,9 @@ set( [handles.btnExecute handles.btnDwellhist handles.btnMakeplots ...
       handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime], 'Enable','on');
 disp('Finished!');
 
-% Update handles structure
-guidata(hObject, handles);
-
+% Reload and draw idealization.
+% FIXME: really should be its own function...
+% (In particular, we need to keep the trace view unchanged)
 lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION btnExecute_Callback
@@ -239,7 +242,7 @@ set(handles.btnExecute,'Enable','on');
 %  ========================================================================
 
 % --- Executes on selection change in cboIdealizationMethod.
-function cboIdealizationMethod_Callback(hObject, ~, handles)
+function handles = cboIdealizationMethod_Callback(hObject, ~, handles)
 % Idealization options: idealization method combo box
 
 % Update method to use for idealization
@@ -255,7 +258,7 @@ set(handles.mnuIdlSettings, 'Enable',enable);
     
     
 % --- Executes on selection change in cboKineticsMethod.
-function cboKineticsMethod_Callback(hObject, ~, handles)
+function handles = cboKineticsMethod_Callback(hObject, ~, handles)
 % Idealization options: idealization method combo box
 
 % Update method to use for kinetic parameter estimation.
@@ -404,11 +407,12 @@ else
 end
 guidata(hObject,handles);
 
+[handles.sldTracesListener.Enabled] = deal(false);
 set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10,'Value',handles.data.nTraces-10);
 set(handles.sldTracesX, 'Min',10, 'Max',handles.data.nFrames, 'Value',handles.data.nFrames);
-set([handles.sldTraces handles.sldTracesX],'SliderStep',[0.01 0.1]); %move to GUIDE?
+[handles.sldTracesListener.Enabled] = deal(true);
 
-showTraces(handles); %the above will not necessarily trigger listener
+showTraces(handles);
 
 % END FUNCTION lbFiles_Callback
 
@@ -433,7 +437,7 @@ for i=1:10,
     end
     
     % Show trace number
-    text( 0.95, 0.04+((10-i)/10), sprintf('%d',idx), 'HorizontalAlignment','right', ...
+    text( 0.98, 0.04+((10-i)/10), sprintf('%d',idx), 'HorizontalAlignment','right', ...
           'Parent',handles.axTraces, 'BackgroundColor','w', 'Units','normalized' );
 end
 
@@ -447,7 +451,7 @@ function wheelScroll_callback(~, eventData, handles) %#ok<DEFNU>
 % Mouse wheel scrolling moves the trace viewer pane up and down.
 % The event is triggered at the figure level.
 
-loc = get(handles.sldTraces, 'Value')-2*eventData.VerticalScrollCount;
+loc = get(handles.sldTraces, 'Value')-3*eventData.VerticalScrollCount;
 loc = min( loc, get(handles.sldTraces,'Max') );
 loc = max( loc, get(handles.sldTraces,'Min') );
 set(handles.sldTraces, 'Value', loc);
