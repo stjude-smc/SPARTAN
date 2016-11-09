@@ -175,7 +175,7 @@ guidata(hObject, handles);
 % END FUNCTION btnLoadModel_Callback
 
 
-function btnExecute_Callback(~, ~, handles) %#ok<DEFNU>
+function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
@@ -205,6 +205,7 @@ end
 % set(handles.btnStop,'Enable','on');
 
 % Run the analysis algorithms...
+% FIXME: ideally we want idl (or dwt) returned directly for speed.
 [resultTree,handles.dwtFilenames] = runParamOptimizer(model,handles.dataFilenames,options); %#ok<ASGLU>
 
 % Save results to file for later processing by the user.
@@ -220,12 +221,30 @@ set( [handles.btnExecute handles.btnDwellhist handles.btnMakeplots ...
 disp('Finished!');
 
 % Reload and draw idealization.
-% FIXME: really should be its own function...
-% (In particular, we need to keep the trace view unchanged)
-lbFiles_Callback(handles.lbFiles, [], handles);
+handles.idl = loadIdl(handles);
+guidata(hObject,handles);
+showTraces(handles);
 
 % END FUNCTION btnExecute_Callback
 
+
+function idl = loadIdl(handles)
+% Returns the idealization for the currently selected file
+
+dwtfname = handles.dwtFilenames{ get(handles.lbFiles,'Value') };
+
+if ~isempty(dwtfname)
+    [dwt,~,offsets,model] = loadDWT(dwtfname);
+    idl = dwtToIdl(dwt, offsets, handles.data.nFrames, handles.data.nTraces);
+    
+    assert( size(model,2)==2 );
+    fretValues = [NaN; model(:,1)];
+    idl = fretValues( idl+1 );
+else
+    idl = [];
+end
+
+% END FUNCTION loadIdl
 
 
 function btnStop_Callback(~, ~, handles) %#ok<DEFNU>
@@ -394,22 +413,12 @@ function lbFiles_Callback(hObject, ~, handles)
 idxFile = get(hObject,'Value');
 data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
-
-if ~isempty(handles.dwtFilenames{idxFile})
-    [dwt,~,offsets,model] = loadDWT( handles.dwtFilenames{idxFile} );
-    handles.idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
-    
-    assert( size(model,2)==2 );
-    fretValues = [NaN; model(:,1)];
-    handles.idl = fretValues( handles.idl+1 );
-else
-    handles.idl = [];
-end
+handles.idl = loadIdl(handles);
 guidata(hObject,handles);
 
 [handles.sldTracesListener.Enabled] = deal(false);
-set(handles.sldTraces,'Min',0,'Max',handles.data.nTraces-10,'Value',handles.data.nTraces-10);
-set(handles.sldTracesX, 'Min',10, 'Max',handles.data.nFrames, 'Value',handles.data.nFrames);
+set(handles.sldTraces,  'Min',0,  'Max',data.nTraces-10, 'Value',data.nTraces-10);
+set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames,    'Value',data.nFrames);
 [handles.sldTracesListener.Enabled] = deal(true);
 
 showTraces(handles);
