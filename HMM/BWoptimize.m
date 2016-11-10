@@ -65,9 +65,9 @@ nTraces = size(observations,1);
 % end
 
 % Convert rate matrix (Q) to transition probability matrix (A)
-A = model.rates*(sampling/1000);
-A( logical(eye(nStates)) ) = 1-sum(A,2);
-model.A = A;
+% A = model.rates*(sampling/1000);
+% A( logical(eye(nStates)) ) = 1-sum(A,2);
+% model.A = A;
 
 % 
 if nargin < 3,
@@ -143,7 +143,7 @@ params.sigmaMask = 1-params.fixSigma;
 
 % Obtain parameter estimates for complete sample.
 % If bootstraping is disabled, this is all we do.
-initialValues = {model.A model.mu model.sigma model.p0};
+initialValues = {model.calcA(sampling/1000) to_row(model.mu) to_row(model.sigma) to_row(model.p0)};
 
 results = BWrun( observations, initialValues, params );
 
@@ -220,14 +220,14 @@ function results = BWrun( observations, initialValues, params )
 
 LL = zeros(0,1);
 
-[A_start mu_start sigma_start p0_start] = initialValues{:};
-[A mu sigma p0] = initialValues{:};
+[~,mu_start,sigma_start,~] = initialValues{:};
+[A,mu,sigma,p0] = initialValues{:};
 
 
 % Run Baum-Welch optimization iterations until convergence
 for n = 1:params.maxItr
 
-    [LL(n) A mu sigma p0 ps] = BWiterate2(observations,A,mu,sigma,p0);
+    [LL(n),A,mu,sigma,p0,ps] = BWiterate2(observations,A,mu,sigma,p0);
    
     if any(isnan(A(:))) || any(isnan(mu)) || any(isnan(sigma)) || ...
         any(isnan(p0))  || any(isnan(ps))
@@ -283,9 +283,6 @@ function [LLtot,eA,eMU,eSIG,p0s,ps] = BWiterate2( observations, A, mus, sigmas, 
 % and re-estimated model parameters [A,mus,sigmas,p0s] as well as overall fractional
 % occupancy of each state ps (which is not a model term but we get for
 % free)
-%
-% DAB 2008.3.30
-% DST 2008.6.29  Modified
 
 assert( all(A(:)>=0), 'Invalid A matrix' );
 assert( all(p0s(:)>=0), 'Invalid p0 vector' );
@@ -329,10 +326,10 @@ for n = 1:nTraces  %for each trace **with at least 5 datapoints**
 
   % Calculate 
   % LLc1 is the final backward LL.
-  [E alphas LLc1] = BWtransition(obs,A,mus,sigmas,p0s);
+  [E,alphas,LLc1] = BWtransition(obs,A,mus,sigmas,p0s);
   
   if any( isnan(LLc1) )
-      disp( sprintf('BW:NaN: NaN found at %d',n) );
+      fprintf('BW:NaN: NaN found at %d\n',n);
       break;
   end
   
@@ -392,7 +389,7 @@ for n = 1:Nstates
   eSIG(n) = sqrt( (Osave-eMU(n)).^2 * gamma );   % 1xN * Nx1 = 1x1
   
   if isnan(eSIG(n)) || isnan(eMU(n)),
-    disp( sprintf('BW:NaN: NaN found at %d',n) );
+    fprintf('BW:NaN: NaN found at %d\n',n);
     break;
   end
 end
@@ -411,9 +408,6 @@ LLtot = LLtot/nTraces;  % return LL per trial -- though not necessary...
 
 % disp( [ps' eMU' eSIG'] );
 % disp('\n');
-
-
-
 
 
 assert( all(eA(:)>=0), 'Invalid estimated A matrix' );
