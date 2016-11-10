@@ -207,7 +207,7 @@ xlim( handles.axFret, [time(1) time(end)] );
 
 % Look for an corresponding idealization file and load it if found.
 try
-    dwt_fname = findDwt({filename});
+    dwt_fname = findDwt({filename},'raiseError');
     handles = loadDWT_ex( handles, dwt_fname{1} );
 catch
     handles.idl = [];

@@ -40,7 +40,7 @@ data = loadTraces(filename);
 % Get idealization filename if not provided.
 if nargin<2,
     try
-        dwtFilename = findDwt({filename});
+        dwtFilename = findDwt({filename},'raiseError');
         dwtFilename = dwtFilename{1};
     catch
         [p,f] = fileparts(filename);

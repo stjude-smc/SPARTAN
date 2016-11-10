@@ -57,12 +57,9 @@ updateSpartan; %check for updates
 handles.output = hObject;
 
 % Set initial internal state of the program
-handles.modelFilename = [];
-handles.model = [];
-handles.dataFilenames = {};
-handles.dwtFilenames  = {};
-handles.idl = [];
-handles.nTracesToShow = 30;  %number displayed in trace display panel
+[handles.modelFilename,handles.model,handles.idl] = deal([]);
+[handles.dataFilenames,handles.dwtFilenames] = deal({});
+handles.nTracesToShow = 10;  %number displayed in trace display panel
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -88,7 +85,6 @@ handles.sldTracesListener(1) = addlistener( handles.sldTraces, 'Value', ...
 handles.sldTracesListener(2) = addlistener( handles.sldTracesX, 'Value', ...
           'PostSet',@(h,e)sldTracesX_Callback(h,e,guidata(e.AffectedObject))  );
 
-ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
 hold(handles.axTraces,'on');
 guidata(hObject,handles);
 
@@ -107,11 +103,12 @@ varargout{1} = handles.output;
 
 %% =======================  CALLBACK FUNCTIONS  ======================= %%
 
-function btnLoadData_Callback(hObject, ~, handles) %#ok<DEFNU>
+function btnLoadData_Callback(~, ~, handles) %#ok<DEFNU>
 % Executes on button press in btnLoadData.
 
 % Prompt use for location to save file in...
 handles.dataFilenames = getFiles([],'Select traces files to analyze');
+if isempty(handles.dataFilenames), return; end  %user hit cancel.
 handles.dataPath = pwd;
 
 % If a model is loaded, enable the Execute button & update GUI
@@ -124,15 +121,13 @@ set([handles.btnMakeplots handles.mnuViewMakeplots], 'Enable','on');
 set(handles.lbFiles, 'Value',1, 'String',names);
 
 % Look for .dwt files if data were already analyzed.
-try
-    handles.dwtFilenames = findDwt(handles.dataFilenames);
-  
+handles.dwtFilenames = findDwt(handles.dataFilenames);
+
+if ~any( cellfun(@isempty,handles.dwtFilenames) )
     set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
           handles.mnuViewPercentTime handles.mnuViewTPS ...
           handles.btnOccTime handles.mnuViewOccTime], 'Enable','on');
-catch
 end
-guidata(hObject, handles);
 
 % Show the first file.
 lbFiles_Callback(handles.lbFiles, [], handles);
@@ -252,7 +247,7 @@ function btnStop_Callback(~, ~, handles) %#ok<DEFNU>
 % Executes on button press in btnStop.
 % FIXME: this should stop any task mid-execution.
 set(handles.btnExecute,'Enable','on');
-
+% END FUNCTION btnStop_Callback
 
 
 
@@ -400,6 +395,8 @@ guidata(hObject,handles);
 
 
 
+% ========================  TRACE VIEWER PANEL  ======================== %
+
 % --------------------------------------------------------------------
 function sldTraces_Callback(~, ~, handles) %#ok<DEFNU>
 % User adjusted the trace view slider -- show a different subset of traces.
@@ -447,25 +444,28 @@ xlim( handles.axTraces, [0 time(end)] );
 
 for i=1:handles.nTracesToShow,
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
-               'Parent',handles.axTraces, 'BackgroundColor','w', ...
-               'HorizontalAlignment','right', 'VerticalAlignment','bottom' );
            
     plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' );  %baseline marker
     
     handles.hFretLine(i) = plot( handles.axTraces, time, ...
                               y_offset+zeros(1,xlimit), 'b-' );
 
-    handles.hIdlLine(i) = plot( handles.axTraces, time, ...
+    handles.hIdlLine(i)  = plot( handles.axTraces, time, ...
                               y_offset+zeros(1,xlimit), 'r-' );
+    
+    handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
+               'Parent',handles.axTraces, 'BackgroundColor','w', ...
+               'HorizontalAlignment','right', 'VerticalAlignment','bottom' );
 end
 
 set(handles.hIdlLine, 'Visible',onoff(~isempty(handles.idl)) );
+ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
 
 guidata(hObject,handles);
 showTraces(handles);
 
 % END FUNCTION lbFiles_Callback
+
 
 
 function showTraces(handles)
@@ -502,3 +502,5 @@ set(handles.sldTraces, 'Value', loc);
 % The trace viewer is automatically updated by the Value property listener.
 
 % END FUNCTION wheelScroll_callback
+
+

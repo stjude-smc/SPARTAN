@@ -58,7 +58,7 @@ if nargin<1,
     dwtfilename = getFiles('*.dwt','Choose dwell-time files');
 end
 if ischar(dwtfilename), dwtfilename={dwtfilename}; end
-dwtfilename = findDwt(dwtfilename);
+dwtfilename = findDwt(dwtfilename,'raiseError');
 if numel(dwtfilename)==0, return; end
 
 

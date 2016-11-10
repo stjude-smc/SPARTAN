@@ -46,7 +46,7 @@ nFiles = numel(dwtFilenames);
 if nFiles==0, return; end
 
 % If .traces files are given, silently look for associated .dwt file.
-dwtFilenames = findDwt(dwtFilenames);
+dwtFilenames = findDwt(dwtFilenames,'raiseError');
 
 
 

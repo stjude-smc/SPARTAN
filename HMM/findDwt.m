@@ -1,10 +1,23 @@
-function filenames = findDwt( filenames )
+function output = findDwt( filenames, raiseErrorStr )
 % FINDDWT  Look for .dwt files associated with .traces files
 
-% Process input arguments
+
+
+%% Process input arguments
+narginchk(1,2);
+
 if ischar(filenames),
     filenames={filenames};
 end
+
+raiseError = false;
+if nargin>1 && strcmpi(raiseErrorStr,'raiseError')
+    raiseError = true;
+end
+
+
+%%
+output = cell(size(filenames));
 
 for i=1:numel(filenames),
     [p,f,e] = fileparts( filenames{i} );
@@ -16,11 +29,14 @@ for i=1:numel(filenames),
             dwtfname = fullfile(p, [f '.dwt']);
         end
         
-        if ~exist(dwtfname,'file'),
+        if exist(dwtfname,'file'),
+            output{i} = dwtfname;
+        elseif raiseError
             error('No associated .dwt file found: %s', filenames{i});
         end
         
-        filenames{i} = dwtfname;
+    elseif strcmpi(e,'.dwt'),
+        output{i} = filenames{i};
     end
 end
 

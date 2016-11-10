@@ -45,7 +45,7 @@ switch numel(args)
 end
 cellinput = iscell(files);
 if ~iscell(files), files={files}; end
-files = findDwt(files);
+files = findDwt(files,'raiseError');
 
 nFiles = numel(files);
 if nFiles==0,  return;  end
