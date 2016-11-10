@@ -62,6 +62,7 @@ handles.model = [];
 handles.dataFilenames = {};
 handles.dwtFilenames  = {};
 handles.idl = [];
+handles.nTracesToShow = 30;  %number displayed in trace display panel
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -81,14 +82,15 @@ constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
 % Trace viewer pane callbacks
-handles.sldTracesListener = addlistener( [handles.sldTraces handles.sldTracesX], ...
-              'Value', 'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
-guidata(hObject,handles);
+handles.sldTracesListener(1) = addlistener( handles.sldTraces, 'Value', ...
+          'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
 
-ylim(handles.axTraces,[0 12]);
+handles.sldTracesListener(2) = addlistener( handles.sldTracesX, 'Value', ...
+          'PostSet',@(h,e)sldTracesX_Callback(h,e,guidata(e.AffectedObject))  );
+
+ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
 hold(handles.axTraces,'on');
-set([handles.sldTraces handles.sldTracesX],'SliderStep',[0.01 0.1]); %move to GUIDE?
-
+guidata(hObject,handles);
 
 % END FUNCTION batchKinetics_OpeningFcn
 
@@ -131,7 +133,6 @@ try
 catch
 end
 guidata(hObject, handles);
-% cla(handles.axTraces);
 
 % Show the first file.
 lbFiles_Callback(handles.lbFiles, [], handles);
@@ -405,52 +406,85 @@ function sldTraces_Callback(~, ~, handles) %#ok<DEFNU>
 showTraces(handles);
 % END FUNCTION sldTraces_Callback
 
+function sldTracesX_Callback(~, ~, handles)
+% User adjusted the trace view slider -- show a different subset of traces.
+
+xlimit = floor(get(handles.sldTracesX,'Value'));
+set( handles.axTraces, 'XLim',[0 handles.data.time(xlimit)] );
+
+for i=1:handles.nTracesToShow,
+    p = get(handles.hTraceLabel(i), 'Position');
+    p(1) = 0.98*handles.data.time(xlimit);
+    set( handles.hTraceLabel(i), 'Position',p );
+end
+
+% END FUNCTION sldTraces_Callback
+
 
 % --------------------------------------------------------------------
 function lbFiles_Callback(hObject, ~, handles)
-% User selected a file. Show traces in the trace viewer panel
+% User selected a file. Show traces in the trace viewer panel.
+% FIXME: could be somewhat faster if plotting one long trace rather than
+% many line objects...
 
 idxFile = get(hObject,'Value');
 data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
 handles.idl = loadIdl(handles);
-guidata(hObject,handles);
 
 [handles.sldTracesListener.Enabled] = deal(false);
-set(handles.sldTraces,  'Min',0,  'Max',data.nTraces-10, 'Value',data.nTraces-10);
+set(handles.sldTraces,  'Min',0,  'Max',data.nTraces-handles.nTracesToShow, 'Value',data.nTraces-handles.nTracesToShow);
 set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames,    'Value',data.nFrames);
 [handles.sldTracesListener.Enabled] = deal(true);
 
+% Setup axes for plotting traces.
+% Some code duplication with showTraces().
+cla(handles.axTraces);
+
+xlimit = floor(get(handles.sldTracesX,'Value'));
+time = handles.data.time(1:xlimit);
+xlim( handles.axTraces, [0 time(end)] );
+
+for i=1:handles.nTracesToShow,
+    y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
+    handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
+               'Parent',handles.axTraces, 'BackgroundColor','w', ...
+               'HorizontalAlignment','right', 'VerticalAlignment','bottom' );
+           
+    plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' );  %baseline marker
+    
+    handles.hFretLine(i) = plot( handles.axTraces, time, ...
+                              y_offset+zeros(1,xlimit), 'b-' );
+
+    handles.hIdlLine(i) = plot( handles.axTraces, time, ...
+                              y_offset+zeros(1,xlimit), 'r-' );
+end
+
+set(handles.hIdlLine, 'Visible',onoff(~isempty(handles.idl)) );
+
+guidata(hObject,handles);
 showTraces(handles);
 
 % END FUNCTION lbFiles_Callback
 
 
 function showTraces(handles)
-% Update trace viewer panel
+% Update axTraces to show the current subset -- called by sldTraces.
+% FIXME: this will crash if there are less than N traces in the file!
 
-cla(handles.axTraces);
+idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 
-idxTraceStart = get(handles.sldTraces,'Max') - floor(get(handles.sldTraces,'Value'));
-xlimit = floor(get(handles.sldTracesX,'Value'));
-time = handles.data.time(1:xlimit);
-
-for i=1:10,
-    idx = i+idxTraceStart;
-    y_offset = 1.18*(10-i) +0.2;
-    plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' ); %baseline marker
-    plot( handles.axTraces, time, y_offset+handles.data.fret(idx,1:xlimit), 'b-' );
+for i=1:handles.nTracesToShow,
+    idx = i+idxStart;
+    y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
+    set( handles.hFretLine(i), 'YData',y_offset+handles.data.fret(idx,:) );
     
     if ~isempty(handles.idl)
-        plot( handles.axTraces, time, y_offset+handles.idl(idx,1:xlimit), 'r-' );
+        set( handles.hIdlLine(i), 'YData', y_offset+handles.idl(idx,:) );
     end
     
-    % Show trace number
-    text( 0.98, 0.04+((10-i)/10), sprintf('%d',idx), 'HorizontalAlignment','right', ...
-          'Parent',handles.axTraces, 'BackgroundColor','w', 'Units','normalized' );
+    set( handles.hTraceLabel(i), 'String',sprintf('%d',idx) );
 end
-
-xlim(handles.axTraces, [0 time(xlimit)]); %FIXME: slow and only required when X slider is changed.
 
 % END FUNCTION function
 
