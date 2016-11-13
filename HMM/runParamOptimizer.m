@@ -47,12 +47,12 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         sampling = d.sampling;
 
         % Idealize data using user-specified algorithm...
-        if strcmp(options.idealizeMethod,'Segmental k-means'),
+        if strcmpi(options.idealizeMethod,'Segmental k-means'),
             
             [dwt,optModel,LL,offsets] = skm( data, sampling, model, skmOptions );
             skmLL(i) = LL(end);
             
-        elseif strcmp(options.idealizeMethod,'Baum-Welch'),
+        elseif strcmpi(options.idealizeMethod,'Baum-Welch'),
             
             result = BWoptimize( data, sampling, model, bwOptions );
             fretModel = [to_col(model.mu) to_col(model.sigma)];
@@ -63,12 +63,21 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
                     data, fretModel, result.p0, result.A );
             skmLL(i) = mean(LL);
             
-        elseif  strcmp(options.idealizeMethod,'Thresholding'),
+        elseif strcmpi(options.idealizeMethod,'vbFRET'),
+            
+            [idl,bestModel] = runVbFret(data);
+            [dwt,offsets] = idlToDwt(idl);
+            optModel.mu = to_col(bestModel{1}.m);
+            optModel.sigma = repmat(0.01,size(optModel.mu));
+            LL = 0;
+            
+        elseif strcmpi(options.idealizeMethod,'Thresholding'),
             
             [dwt,offsets] = tIdealize( data, model, thresholdOptions );
             optModel = model;
-            skmLL(i) = 0;
             
+        else
+            error('Analysis method "%s" not recognized',options.idealizeMethod);
         end
         
         % Remove final zero-state dwell, if it exists.

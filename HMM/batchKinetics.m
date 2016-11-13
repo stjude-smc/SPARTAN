@@ -66,9 +66,14 @@ options.bootstrapN = 1;
 options.deadTime = 0.5;
 options.seperately = 1; %SKM: analyze each trace individually
 options.maxItr = 100;
+options.minStates = 1;
+options.maxStates = 5;
+options.maxRestarts = 10;
+options.threshold = 1e-5;
 handles.options = options;
 
 % Update GUI to reflect these default settings.
+set( handles.cboIdealizationMethod, 'String',{'Do Nothing','Segmental k-Means','Baum-Welch','vbFRET','Thresholding'});
 set( handles.cboIdealizationMethod, 'Value',2 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -174,6 +179,8 @@ guidata(hObject, handles);
 function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
+        
+
 % Verify data and model have been specified by user in GUI.
 if isempty(handles.model) || isempty(handles.dataFilenames),
     set(handles.btnExecute,'Enable','off');
@@ -194,6 +201,14 @@ if isfield(options,'fixStdev'),
     assert( all(options.fixStdev<=model.nStates) );
     model.fixSigma = zeros(model.nStates,1);
     model.fixSigma( options.fixStdev ) = 1;
+end
+
+
+% Verify external modules installed
+if strcmp(options.idealizeMethod,'vbFRET') && ~exist('vbFRET_VBEM','file')
+    errordlg('vbFRET not found. Check your path.',mfilename);
+    disp('Go to http://vbfret.sourceforge.net/ to download vbFRET and with subfolders to the MATLAB path.');
+    return;
 end
 
 % Update GUI for "Running" status.
@@ -373,10 +388,21 @@ end
 % =========================  SETTINGS DIALOGS  ========================= %
 
 function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Change idealization (SKM) settings
+% Change idealization settings
 
-prompt = {'Idealize traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
-fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
+switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
+    case {'SE','BA'}  %SKM, Baum-Welch
+        prompt = {'Analyze traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
+        fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
+    
+    case {'VB','EB'}  %vb/ebFRET
+        prompt = {'Min states','Max states','Max restarts:','Max iterations:','Convergence'};
+        fields = {'minStates', 'maxStates', 'maxRestarts',  'maxItr',         'threshold'};
+        
+    otherwise
+        return;
+end
+
 handles.options = settingsDialog(handles.options, fields, prompt);
 guidata(hObject,handles);
 
