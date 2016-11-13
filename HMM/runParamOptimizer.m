@@ -53,7 +53,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
             skmLL(i) = LL(end);
             
         elseif strcmpi(options.idealizeMethod,'Baum-Welch'),
-            
+            % FIXME: this doesn't seem to actually read the result!!!
             result = BWoptimize( data, sampling, model, bwOptions );
             fretModel = [to_col(model.mu) to_col(model.sigma)];
             optModel = model;
@@ -63,12 +63,15 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
                     data, fretModel, result.p0, result.A );
             skmLL(i) = mean(LL);
             
-        elseif strcmpi(options.idealizeMethod,'vbFRET'),
+        elseif strcmpi(options.idealizeMethod,'ebFRET'),
+            % Verify ebFRET installed.
+            if ~exist('ebfret','file')
+                errormsg('ebFRET package not found. Download and add to MATLAB path.');
+                return;
+            end
             
-            [idl,bestModel] = runVbFret(data);
+            [idl,optModel] = runEbFret(data, model);            
             [dwt,offsets] = idlToDwt(idl);
-            optModel.mu = to_col(bestModel{1}.m);
-            optModel.sigma = repmat(0.01,size(optModel.mu));
             LL = 0;
             
         elseif strcmpi(options.idealizeMethod,'Thresholding'),
@@ -87,25 +90,25 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
             states = dwt{j}(:,1);
             times  = dwt{j}(:,2);
             
-            % Remove last dwell if in dark state. These dwells result from the
-            % photobleached state, which is not considered in kinetic analysis.
-            if numel(states)>0 && states(end)==1,
-                states = states(1:end-1);
-                times  = times(1:end-1);
-            end
-            
-            % Remove last dwell, which is cut short due to photobleaching.
-            % This prevents bias in kinetic parameter estimation because
-            % the last dwell is frequently an artificial "step" from
-            % high FRET to the dark state.
-            if numel(states)<1,
-                keep(j) = 0;
-            else
-                if times(end)<=1
-                    states = states(1:end-1);
-                    times  = times(1:end-1);
-                end
-            end
+%             % Remove last dwell if in dark state. These dwells result from the
+%             % photobleached state, which is not considered in kinetic analysis.
+%             if numel(states)>0 && states(end)==1,
+%                 states = states(1:end-1);
+%                 times  = times(1:end-1);
+%             end
+%             
+%             % Remove last dwell, which is cut short due to photobleaching.
+%             % This prevents bias in kinetic parameter estimation because
+%             % the last dwell is frequently an artificial "step" from
+%             % high FRET to the dark state.
+%             if numel(states)<1,
+%                 keep(j) = 0;
+%             else
+%                 if times(end)<=1
+%                     states = states(1:end-1);
+%                     times  = times(1:end-1);
+%                 end
+%             end
             
             % Save changes, marking empty traces for removal (keep=0)
             if numel(states)==0,
@@ -120,6 +123,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         % Save results.
         % NOTE: there is no one result when each trace is optimized seperately.
         % An "average" model is extracted instead.
+        % FIXME: always average as "seperately" setting not always valid.
         if skmOptions.seperately,
             skmModels(i).mu    = mean( [optModel.mu], 2 );
             skmModels(i).sigma = mean( [optModel.sigma], 2 );

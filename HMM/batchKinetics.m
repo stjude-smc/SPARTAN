@@ -59,7 +59,7 @@ handles.output = hObject;
 % Set initial internal state of the program
 [handles.modelFilename,handles.model,handles.idl] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
-handles.nTracesToShow = 10;  %number displayed in trace display panel
+handles.nTracesToShow = 5;  %number displayed in trace display panel
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -73,7 +73,7 @@ options.threshold = 1e-5;
 handles.options = options;
 
 % Update GUI to reflect these default settings.
-set( handles.cboIdealizationMethod, 'String',{'Do Nothing','Segmental k-Means','Baum-Welch','vbFRET','Thresholding'});
+set( handles.cboIdealizationMethod, 'String',{'Do Nothing','Segmental k-Means','Baum-Welch','ebFRET','Thresholding'});
 set( handles.cboIdealizationMethod, 'Value',2 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -179,14 +179,16 @@ guidata(hObject, handles);
 function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
-        
-
 % Verify data and model have been specified by user in GUI.
 if isempty(handles.model) || isempty(handles.dataFilenames),
     set(handles.btnExecute,'Enable','off');
     warning('Missing model or data');
     return;
 end
+
+% Clear current idealization
+handles.idl = [];
+set(handles.hIdlLine,'Visible','off');
 
 % Process analysis parameters from GUI
 options  = handles.options;
@@ -205,9 +207,9 @@ end
 
 
 % Verify external modules installed
-if strcmp(options.idealizeMethod,'vbFRET') && ~exist('vbFRET_VBEM','file')
-    errordlg('vbFRET not found. Check your path.',mfilename);
-    disp('Go to http://vbfret.sourceforge.net/ to download vbFRET and with subfolders to the MATLAB path.');
+if strcmp(options.idealizeMethod,'vbFRET') && ~exist('ebfret','file')
+    errordlg('ebFRET not found. Check your path.',mfilename);
+    disp('Go to https://ebfret.github.io/ to download ebFRET, then add to the MATLAB path.');
     return;
 end
 
@@ -484,7 +486,6 @@ for i=1:handles.nTracesToShow,
                'HorizontalAlignment','right', 'VerticalAlignment','bottom' );
 end
 
-set(handles.hIdlLine, 'Visible',onoff(~isempty(handles.idl)) );
 ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
 
 guidata(hObject,handles);
@@ -511,6 +512,8 @@ for i=1:handles.nTracesToShow,
     
     set( handles.hTraceLabel(i), 'String',sprintf('%d',idx) );
 end
+
+set(handles.hIdlLine, 'Visible',onoff(~isempty(handles.idl)) );
 
 % END FUNCTION function
 
