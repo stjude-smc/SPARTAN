@@ -70,7 +70,7 @@ end
 chNames = data.channelNames(data.idxFluor);  %increasing wavelength order.
 % nFluor = numel(data.idxFluor);
 
-for i=1:numel(indexes)
+for i=to_row(indexes),
     
     % Undo any previous scaling.
     for ch=1:nFluor,
