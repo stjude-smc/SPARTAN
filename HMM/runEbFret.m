@@ -38,20 +38,24 @@ narginchk(2,Inf);
     if ~isnumeric(data), error('Invalid FRET data input'); end
     
     model = copy(model); %we don't want to modify in place.
-    
     nStates = model.nStates; %2:3;
+    nTraces = size(data,1);
 
     % Remove outlier values
-    data = max( min(data,-0.2), 1.2);
+    data = min( max(data,-0.2), 1.2);
     
-    % Truncate traces for fitting
-    nTraces = size(data,1);
-    xall = cell(1,nTraces);
+    % Truncate traces when donor blinks or bleaches.
+    % Stretches of zeros (donor blinking) tend to cause vbayes to crash.
+    % FIXME: run viterbi outside run_vbayes to fix this.
+    xall = cell(nTraces,1);
+    exclude = false(nTraces,1);
     
     for i=1:nTraces,
+%         lt = find(data(i,:)==0,1,'first')-1;
         lt = find(data(i,:)~=0,1,'last');
         xall{i} = double( data(i,1:lt)' );
     end
+    nFrames = cellfun(@numel,xall);
     
     % settings
     threshold = 1e-5;
@@ -73,8 +77,13 @@ narginchk(2,Inf);
                 'threshold', threshold, ...
                 'max_iter',  max_iter);
             
-            L(it) = sum(selfanalysis(a).lowerbound);
+            % Exclude any problematic traces from further analysis.
+            % These prevent convergence of ensemble parameters.
+            exclude = selfanalysis(a).lowerbound./nFrames>2;
             
+            % FIXME: this should be normalized to total number of frames.
+            lb = selfanalysis(a).lowerbound(~exclude) ./ nFrames(~exclude) / sum(~exclude);
+            L(it) = sum(lb);
             if it == 1
                 fprintf('it %02d   L %.5e\n', it, L(it));
             else
@@ -92,8 +101,8 @@ narginchk(2,Inf);
             % run iterative empirical bayes update
             % (assuming constant posterior statistics)
             u = selfanalysis(a).prior;
-            w = selfanalysis(a).posterior;
-            E = selfanalysis(a).expect;
+            w = selfanalysis(a).posterior(~exclude);
+            E = selfanalysis(a).expect(~exclude);
             selfanalysis(a).prior = ebfret.analysis.hmm.h_step(w, u, 'expect', E);
 
             % increment iteration counter
@@ -101,11 +110,18 @@ narginchk(2,Inf);
         end
     end
     
+    if any(exclude),
+        fprintf('Excluded %d traces (%.0f%%) from analysis:\n', sum(exclude), ...
+                100*sum(exclude)/nTraces );
+        disp( to_row(find(exclude)) );
+    end
+    
+    
     % Construct outputs for batchKinetics
     idl = zeros(size(data));  %state sequences
     optModels = repmat(model, [nTraces,1]);
     
-    a = selfanalysis(model.nStates);
+    a = selfanalysis(nStates);
     allStates = mean( [a.posterior.mu], 2 );  %ensemble average emission model (median?)
     
     for i=1:nTraces,

@@ -66,7 +66,7 @@ if ~strcmp(options.idealizeMethod,'Do Nothing'),
         elseif strcmpi(options.idealizeMethod,'ebFRET'),
             % Verify ebFRET installed.
             if ~exist('ebfret','file')
-                errormsg('ebFRET package not found. Download and add to MATLAB path.');
+                errordlg('ebFRET package not found. Download and add to MATLAB path.');
                 return;
             end
             
