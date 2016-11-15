@@ -252,31 +252,32 @@ methods
 
     function editState_callback(this, ~,~, stateID)
     % Called whenever one of state boxes is clicked.
+        if nargin<4,  stateID = get(gco,'UserData');  end
 
-    if nargin<4,  stateID = get(gco,'UserData');  end
+        prompt = {'Start probability:','Class number:'};
+        initVal = { this.model.p0(stateID), this.model.class(stateID) };
+        defaults = cellfun( @num2str, initVal, 'UniformOutput',false );
+        a = inputdlg( prompt, sprintf('Edit state %d',stateID), 1, defaults );
+        if isempty(a), return; end
 
-    prompt = {'Start probability:','Class number:'};
-    initVal = { this.model.p0(stateID), this.model.class(stateID) };
-    defaults = cellfun( @num2str, initVal, 'UniformOutput',false );
-    a = inputdlg( prompt, sprintf('Edit state %d',stateID), 1, defaults );
-
-    % Save the value. It is saved in the showModel() function's scope because
-    % this is a nested function (right?)
-    if ~isempty(a),
+        % Check validity of inputs
         a = cellfun(@str2double,a);
-        if a(1)<0 || a(1)>1 || ~ismember(a(2),1:10)
+        if a(1)<0 || a(1)>1 || ~ismember(a(2),1:10) || a(2)>this.model.nClasses+1,
             warndlg('Invalid parameter values');
             return;
         end
 
+        % If this is a new class, use reasonable defaults.
+        if a(2) > this.model.nClasses,
+            this.model.addClass( a(2) );
+        end
         this.model.p0(stateID)    = a(1);
         this.model.class(stateID) = a(2);
 
-       % If the class number is changed, update the box color as well.
-       set( this.hBox(stateID),  'FaceColor',this.colors{a(2)} );
-       set( this.hText(stateID), 'Color',this.textColors{a(2)} );
-    end
-
+        % If the class number is changed, update the box color as well.
+        set( this.hBox(stateID),  'FaceColor',this.colors{a(2)} );
+        set( this.hText(stateID), 'Color',this.textColors{a(2)} );
+       
     end %function editState
 
 

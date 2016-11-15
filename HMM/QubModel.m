@@ -48,6 +48,15 @@ properties (SetAccess=protected, GetAccess=public)
     % Structure containing the .qmf format tree of all model information.
     % This includes many parameters we don't use but QuB expects.
     qubTree;
+    
+    % UpdateModel event listener
+    updateListener;
+end
+
+events
+    % Event triggered after model parameters have been changed, and the model
+    % is verified to be valid.
+    UpdateModel;
 end
 
 
@@ -123,9 +132,15 @@ methods
         
         % Verify the model parameters make sense.
         obj.verify();
+        obj.updateListener = addlistener(obj, {'mu','fixMu','sigma','fixSigma'}, ...
+                                        'PostSet',@obj.UpdateModel_Callback);
     end
     
-    
+    function UpdateModel_Callback(obj,varargin)
+        if obj.updateListener.Enabled,
+            notify(obj,'UpdateModel');
+        end
+    end
     
     %% ----------------------   SERIALIZATION   ---------------------- %%
     
@@ -223,9 +238,9 @@ methods
     
     function revert(model,varargin)
     % Revert to the state of the file before any modifications.
+        model.updateListener.Enabled = false;
+        
         newmodel = QubModel(model.filename);
-        %ax = model.parent;
-
         mco   = ?QubModel;
         props = {mco.PropertyList.Name};
         props = props(~[mco.PropertyList.Dependent] & ~[mco.PropertyList.Constant]);
@@ -234,7 +249,8 @@ methods
             model.(props{i}) = newmodel.(props{i});
         end
 
-        %model.showModel(ax);
+        notify(model,'UpdateModel');  %inform listeners model has changed.
+        model.updateListener.Enabled = true;
     end
     
     
@@ -268,11 +284,15 @@ methods
     function addState(model, newClass, newP0, newX,newY)
     % Add a new state to the model
         if nargin<2, newClass=1; end
-        if nargin<3, newP0=0; end
+        if nargin<3,
+            newP0 = double(model.nStates==0);  %set to 1.0 if empty model
+        end
         if nargin<5, newX=50; newY=50; end
         
-        % Add a state with default settings
+        model.updateListener.Enabled = false;
         N = model.nStates;
+        
+        % Add a state with default settings
         model.class(N+1) = newClass;
         model.p0(N+1) = newP0;
         model.rates(N+1,N+1) = 0;
@@ -280,12 +300,44 @@ methods
         model.x(N+1) = newX;
         model.y(N+1) = newY;
         
-        model.p0 = model.p0/sum(model.p0);  %re-normalize
+        % If this is a new class, use reasonable defaults.
+        if newClass>numel(model.mu)
+            model.addClass(newClass);
+        else
+            model.verify();
+            notify(model,'UpdateModel');  %inform listeners model has changed.
+            model.updateListener.Enabled = true;
+        end
+    end
+    
+    function addClass(model, newClass, newMu, newSigma)
+        % Update properties to include a new class, using reasonable defaults.
+        % FIXME: what if newClass is not contiguous with existing states?
+        % FIXME: what about empty models?
+        narginchk(2,4);
+        
+        model.updateListener.Enabled = false;
+        
+        if nargin<3,
+            newMu = max(model.mu) + 0.1;
+        end
+        if nargin<4,
+            newSigma = model.sigma(end);
+        end
+        
+        model.mu(newClass) = newMu;
+        model.sigma(newClass) = newSigma;
+        model.fixMu(newClass) = false;
+        model.fixSigma(newClass) = false;
+        
         model.verify();
+        notify(model,'UpdateModel');  %inform listeners model has changed.
+        model.updateListener.Enabled = true;
     end
     
     function removeState(model,id)
     % Add a new state to the model
+        model.updateListener.Enabled = false;
         
         % Remove state from variables
         fields = {'class','p0','x','y'};
@@ -302,6 +354,8 @@ methods
         model.fixRates(:,id) = [];
         
         model.verify();
+        notify(model,'UpdateModel');  %inform listeners model has changed.
+        model.updateListener.Enabled = true;
     end
     
     % Verify model is self-consistent and valid (see qub_verifyModel).
@@ -339,7 +393,7 @@ methods
         isValid = isempty(str);
         
         % These checks only produce warnings
-        if abs(sum(model.p0)-1) > 0.01
+        if ~isempty(model.p0) && abs(sum(model.p0)-1) > 0.01
             str = 'p0 values not normalized';
         end        
         

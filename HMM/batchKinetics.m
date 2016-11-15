@@ -165,8 +165,7 @@ set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
 set(handles.btnExecute,'Enable',onoff(~isempty(handles.dataFilenames)));
 
 % Automatically update the parameter table when the model is altered.
-handles.modelUpdateListener = addlistener(handles.model, ...
-                        {'mu','fixMu','sigma','fixSigma'}, 'PostSet', ...
+handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
                         @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
 handles.model.mu = handles.model.mu;  %trigger table update
 
@@ -327,7 +326,7 @@ handles.modelUpdateListener.Enabled = true;
 function modelUpdate_Callback(tblFixFret,event)
 % Update tblFixFret to reflect current model parameters
 
-model = event.AffectedObject;
+model = event.Source;
 
 celldata = num2cell(false(model.nClasses,4));
 celldata(:,1) = num2cell(model.mu);
