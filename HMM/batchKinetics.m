@@ -206,7 +206,7 @@ end
 
 
 % Verify external modules installed
-if strcmp(options.idealizeMethod,'vbFRET') && ~exist('ebfret','file')
+if strcmpi(options.idealizeMethod,'ebFRET') && ~exist('ebfret','file')
     errordlg('ebFRET not found. Check your path.',mfilename);
     disp('Go to https://ebfret.github.io/ to download ebFRET, then add to the MATLAB path.');
     return;
@@ -218,10 +218,11 @@ end
 
 % Run the analysis algorithms...
 % FIXME: ideally we want idl (or dwt) returned directly for speed.
-[resultTree,handles.dwtFilenames] = runParamOptimizer(model,handles.dataFilenames,options); %#ok<ASGLU>
+% FIXME: returns an optimized model. What do we do with it?
+handles.dwtFilenames = runParamOptimizer(model,handles.dataFilenames,options);
 
 % Save results to file for later processing by the user.
-save('resultTree.mat','resultTree');
+% save('resultTree.mat','resultTree');
 % qub_saveTree(resultTree,resultFilename);
 % qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 

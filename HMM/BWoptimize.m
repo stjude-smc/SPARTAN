@@ -1,4 +1,4 @@
-function [results,errorResults,meanResults] = BWoptimize( ...
+function [optModel,LL,errorResults,meanResults] = BWoptimize( ...
           observations, sampling, model, params )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
@@ -147,6 +147,12 @@ initialValues = {model.calcA(sampling/1000) to_row(model.mu) to_row(model.sigma)
 
 results = BWrun( observations, initialValues, params );
 
+optModel = copy(model);
+optModel.mu    = results.mu;
+optModel.sigma = results.sigma;
+optModel.p0    = results.p0;
+optModel.rates = results.A*sampling/1000;
+LL = results.LL(end);
 
 % Run boostrapping proceedure for error estimation -- 
 % Initial conditions are set close to final results for speed.

@@ -1,4 +1,4 @@
-function [idl,optModels,selfanalysis] = runEbFret(data, model, varargin)
+function [idl,optModels,LL,selfanalysis] = runEbFret(data, model, varargin)
 % runEbFret  Empirical Bayes model optimization and idealization.
 %   
 %   [IDL,MODEL] = runVbFret(DATA,STATES) finds the most likely model given the
@@ -139,6 +139,8 @@ narginchk(2,Inf);
         
         idl(i,1:numel(v)) = v;
     end
+    
+    LL = L(end);
 end
 
 
