@@ -316,8 +316,8 @@ handles.model = QubModel(fname);
 set( handles.txtModelFilename, 'String',['...' fname(max(1,end-40):end)] );
 
 % Show the model properties in the GUI. The model's properties are
-% automatically updated whenever the model is modified in the GUI.
-handles.model.showModel( handles.axModel );
+% automatically updated whenever the model is modified in the GUI.handles.model = QubModel(fname);
+handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
 
 
 % Enable saving the model
