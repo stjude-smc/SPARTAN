@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Nov-2016 17:12:24
+% Last Modified by GUIDE v2.5 15-Nov-2016 20:20:43
 
 
 %% GUI Callbacks
@@ -73,12 +73,9 @@ options.threshold = 1e-5;
 handles.options = options;
 
 % Update GUI to reflect these default settings.
-set( handles.cboIdealizationMethod, 'String',{'Do Nothing','Segmental k-Means','Baum-Welch','ebFRET','Thresholding'});
-set( handles.cboIdealizationMethod, 'Value',2 );  %SKM
+set( handles.cboIdealizationMethod, 'String',{'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'});
+set( handles.cboIdealizationMethod, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
-
-set( handles.cboKineticsMethod, 'Value',1 );  %Do nothing
-handles = cboKineticsMethod_Callback(handles.cboKineticsMethod,[],handles);
 
 constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
@@ -185,28 +182,8 @@ if isempty(handles.model) || isempty(handles.dataFilenames),
     return;
 end
 
-% Clear current idealization
-handles.idl = [];
-set(handles.hIdlLine,'Visible','off');
-
-% Process analysis parameters from GUI
-options  = handles.options;
-model = handles.model;
-
-if isfield(options,'fixFret'),
-    assert( all(options.fixFret<=model.nStates) );
-    model.fixMu = zeros(model.nStates,1);
-    model.fixMu( options.fixFret ) = 1;
-end
-if isfield(options,'fixStdev'),
-    assert( all(options.fixStdev<=model.nStates) );
-    model.fixSigma = zeros(model.nStates,1);
-    model.fixSigma( options.fixStdev ) = 1;
-end
-
-
 % Verify external modules installed
-if strcmpi(options.idealizeMethod,'ebFRET') && ~exist('ebfret','file')
+if strcmpi(handles.options.idealizeMethod,'ebFRET') && ~exist('ebfret','file')
     errordlg('ebFRET not found. Check your path.',mfilename);
     disp('Go to https://ebfret.github.io/ to download ebFRET, then add to the MATLAB path.');
     return;
@@ -218,8 +195,20 @@ end
 
 % Run the analysis algorithms...
 % FIXME: ideally we want idl (or dwt) returned directly for speed.
-% FIXME: returns an optimized model. What do we do with it?
-handles.dwtFilenames = runParamOptimizer(model,handles.dataFilenames,options);
+if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
+    % NOTE: MIL will only look at the current file.
+    dwtfname = handles.dwtFilenames{ get(handles.lbFiles,'Value') };
+    optModel = milOptimize(dwtfname, handles.model, handles.options);
+    handles.model.rates = optModel.rates;
+    handles.modelViewer.redraw();
+else
+    % Clear current idealization (FIXME also delete .dwt?)
+    handles.idl = [];
+    set(handles.hIdlLine,'Visible','off');
+    
+    handles.dwtFilenames = runParamOptimizer(handles.model, ...
+                                     handles.dataFilenames, handles.options);
+end
 
 % Save results to file for later processing by the user.
 % save('resultTree.mat','resultTree');
@@ -282,28 +271,7 @@ text = get(hObject,'String');
 handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
-% If user selected "Do Nothing", disable idealization option controls.
-enable = onoff( get(hObject,'Value')>1 );
-set(handles.mnuIdlSettings, 'Enable',enable);
-
 % END FUNCTION cboIdealizationMethod_Callback
-    
-    
-% --- Executes on selection change in cboKineticsMethod.
-function handles = cboKineticsMethod_Callback(hObject, ~, handles)
-% Idealization options: idealization method combo box
-
-% Update method to use for kinetic parameter estimation.
-text = get(hObject,'String');
-handles.options.kineticsMethod = text{get(hObject,'Value')};
-guidata(hObject, handles);
-
-% If user selected "Do Nothing", disable idealization option controls.
-enable = onoff( get(hObject,'Value')>1 );
-set(handles.mnuKineticsSettings, 'Enable',enable);
-
-% END FUNCTION cboKineticsMethod_Callback
-
 
 
 % --- Executes when entered data in editable cell(s) in tblFixFret.
@@ -400,6 +368,10 @@ switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
     case {'VB','EB'}  %vb/ebFRET
         prompt = {'Min states','Max states','Max restarts:','Max iterations:','Convergence'};
         fields = {'minStates', 'maxStates', 'maxRestarts',  'maxItr',         'threshold'};
+    
+    case 'MI'  %MIL
+        prompt = {'Max iterations:'};  %'Dead time (frames):'
+        fields = {'maxIter'};  %'deadTime'
         
     otherwise
         return;
@@ -407,18 +379,6 @@ end
 
 handles.options = settingsDialog(handles.options, fields, prompt);
 guidata(hObject,handles);
-
-% END FUNCTION mnuIdlSettings_Callback
-
-
-function mnuKineticsSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Change kinetic parameter estimation (MIL) settings
-
-prompt = {'Bootstrap samples:', 'Dead time (frames):'};
-fields = {'bootstrapN', 'deadTime'};
-handles.options = settingsDialog(handles.options, fields, prompt);
-guidata(hObject,handles);
-
 % END FUNCTION mnuIdlSettings_Callback
 
 
@@ -531,5 +491,3 @@ set(handles.sldTraces, 'Value', loc);
 % The trace viewer is automatically updated by the Value property listener.
 
 % END FUNCTION wheelScroll_callback
-
-

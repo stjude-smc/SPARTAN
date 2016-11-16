@@ -86,9 +86,8 @@ if numel(milFilename)<1,
     error('miltreeiface program not found. Make sure it is in your path.');
 elseif numel(milFilename)>1,
     warning('More than one miltreeiface program on path.')
+    milFilename = milFilename{1};
 end
-milFilename = milFilename{1};
-
 
 % Compile a job queue of MIL commands to run
 if ~iscell(dwtFilenames), dwtFilenames={dwtFilenames}; end
@@ -117,7 +116,6 @@ end
 
 % Run the job queue
 result = jobQueue( commands, outputFiles );
-drawnow;
 
 if ~all(result),
     % At least one result failed. Remember that with the way things are
