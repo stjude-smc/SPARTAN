@@ -1,5 +1,4 @@
-function [optModel,LL,errorResults,meanResults] = BWoptimize( ...
-          observations, sampling, model, params )
+function [optModel,LL] = BWoptimize( observations, sampling, model, params )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
 %    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, NSTATES, PARAMS )
@@ -49,9 +48,9 @@ function [optModel,LL,errorResults,meanResults] = BWoptimize( ...
 %   N->1  N->2  N->3  ..  N->N
 %
 
-nTraces = size(observations,1);
 
 %% ----------- PARSE INPUT PARAMETER VALUES -----------
+%FIXME: use inputParser
 
 % PARSE REQUIRED PARAMETER VALUES
 % if ~isstruct( model ),
@@ -63,11 +62,6 @@ nTraces = size(observations,1);
     assert( nStates==nClass, 'SKM: aggregate states not supported.' );
     assert(qub_verifyModel(model),'Invalid model');
 % end
-
-% Convert rate matrix (Q) to transition probability matrix (A)
-% A = model.rates*(sampling/1000);
-% A( logical(eye(nStates)) ) = 1-sum(A,2);
-% model.A = A;
 
 % 
 if nargin < 3,
@@ -85,13 +79,6 @@ end
 if isfield(params,'deadtime'),
     warning('BW:deadtime','Deadtime correction not supported');
 end
-
-% if ~isfield(model,'p0')
-%     warning('BWOptimize:no_p0','Initializing p0 to equilibrium probabilities');
-%     p0 = model.A^10000;
-%     p0 = p0(1,:);
-%     model.p0 = p0/sum(p0);
-% end
 
 % PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
 if isfield(model,'fixMu')
@@ -132,153 +119,60 @@ end
 
 
 
-%% ----------- RUN BAUM-WELCH, ESTIMATE ERROR W/ BOOTSTRAPPING -----------
-
-if nTraces>1 && params.bootstrapN>1,
-    h = waitbar(0,'Baum-Welch parameter estimation...');
-end
+%% -----------------------  RUN BAUM-WELCH  ----------------------- %%
+wbh = waitbar(0,'Running Baum-Welch...');
 
 params.muMask = 1-params.fixMu;
 params.sigmaMask = 1-params.fixSigma;
 
 % Obtain parameter estimates for complete sample.
-% If bootstraping is disabled, this is all we do.
 initialValues = {model.calcA(sampling/1000) to_row(model.mu) to_row(model.sigma) to_row(model.p0)};
-
-results = BWrun( observations, initialValues, params );
-
-optModel = copy(model);
-optModel.mu    = results.mu;
-optModel.sigma = results.sigma;
-optModel.p0    = results.p0;
-optModel.rates = results.A/(sampling/1000);
-optModel.rates( logical(eye(size(optModel.rates))) ) = 0;
-LL = results.LL(end);
-
-% Run boostrapping proceedure for error estimation -- 
-% Initial conditions are set close to final results for speed.
-bootstrapN = params.bootstrapN;
-
-if bootstrapN>1
-    if nTraces>1,  waitbar( 1/(bootstrapN+1),h );  end
-    
-    initialValues = {results.A, results.mu, results.sigma, results.p0};
-
-    for i=1:bootstrapN,
-        % Generate bootstrap dataset (random set, with replacement)
-        selection = floor(rand(nTraces,1)*nTraces)+1;
-        bootstrapData = observations(selection,:);
-
-        % Optimize parameter values, add results to output.
-        bootstrapResults(i) = BWrun( bootstrapData, initialValues, params );
-        
-        if nTraces>1,  waitbar( (i+1)/(params.bootstrapN+1), h );  end
-    end
-
-    % Estimate errors
-    fnames = fieldnames(bootstrapResults);
-
-    for i=1:length(fnames)
-        data = {bootstrapResults.(fnames{i})};
-        [mu,sigma] = cellDist(data);
-
-        meanResults.(fnames{i})  = mu;
-        errorResults.(fnames{i}) = sigma;
-    end
-    
-    if nTraces>1,  close(h);  end
-else
-    errorResults = struct([]);
-    meanResults  = struct([]);
-end
-
-end %function BWoptimize
-
-
-
-function [meanA,stdA] = cellDist( A )
-% works with 1D or 2D input A{i}s.
-
-assert( iscell(A) && ~isempty(A) );
-
-N = numel(A);
-B = zeros( N,numel(A{1}) );
-
-for i=1:numel(A)
-    assert( numel(A{i})==numel(A{1}) );
-    B(i,:) = A{i}(:);
-end
-
-meanA = mean(B);
-meanA = reshape(meanA,size(A{1}));
-
-stdA  = std(B);
-stdA = reshape(stdA,size(A{1}));
-
-end
-
-
-
-
-
-
-%% ----------- BAUM-WELCH ITERATOR -----------
-function results = BWrun( observations, initialValues, params )
-
 LL = zeros(0,1);
+dL = Inf;
 
 [~,mu_start,sigma_start,~] = initialValues{:};
 [A,mu,sigma,p0] = initialValues{:};
 
-
 % Run Baum-Welch optimization iterations until convergence
 for n = 1:params.maxItr
-
     [LL(n),A,mu,sigma,p0,ps] = BWiterate2(observations,A,mu,sigma,p0);
    
     if any(isnan(A(:))) || any(isnan(mu)) || any(isnan(sigma)) || ...
         any(isnan(p0))  || any(isnan(ps))
-        disp('NaN = BWoptimize');
+        disp('Warning: NaN parameter values in BWoptimize');
     end
-    
-%     a = A(:)*25;
-%     disp( sprintf( '%0.2f  ', a') );
   
     % Apply re-estimation constraints
     mu    = mu.*params.muMask       + mu_start.*(1-params.muMask);
     sigma = sigma.*params.sigmaMask + sigma_start.*(1-params.sigmaMask);
     
+    % Update progress bar
+    if n>1, dL=LL(n)-LL(n-1); end
+    progress = max( n/params.maxItr, log10(dL)/log10(params.convLL) );
+    waitbar(progress, wbh);
+    
     if ~params.quiet
-        disp( [sprintf( '   Iter %d: %f', n, LL(n)) sprintf('\t%.3f',mu)] );
+        fprintf( '   Iter %d: %f\n', n, LL(n), dL);
         disp( [mu' sigma' p0' A] );
     end
     
-    % Check for convergence of likelihood
-    if n>1,
-        if LL(n)<LL(n-1),
-            warning('BW: LL is decreasing!');
-        end
-        if abs(LL(n)-LL(n-1)) <= params.convLL,  break;  end
-    end
-    
-    
-    drawnow;
+    % Check for convergence
+    if dL<0, disp('Warning: Baum-Welch is diverging!'); end
+    if abs(dL)<=params.convLL, break; end
 end
 
+close(wbh);
+
 % Save results
-results.LL = LL(end);
-results.A = A;
-results.mu = mu;
-results.sigma = sigma;
-results.p0 = p0;
-results.ps = ps;
+optModel = copy(model);
+optModel.mu    = mu;
+optModel.sigma = sigma;
+optModel.p0    = p0;
+A( logical(eye(size(A))) ) = 0;
+optModel.rates = A/(sampling/1000);
+LL = LL(end);
 
-
-end %function BWrun
-
-
-
-
+end %function BWoptimize
 
 
 

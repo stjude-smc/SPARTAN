@@ -22,6 +22,8 @@ function [idl,optModels,LL,selfanalysis] = runEbFret(data, model, varargin)
 
 narginchk(2,Inf);
 
+    wbh = waitbar(0,'Running ebFRET...');
+    dL = 0.3;
 
 %     ip = inputParser();
 %     ip.StructExpand = true;
@@ -51,7 +53,6 @@ narginchk(2,Inf);
     exclude = false(nTraces,1);
     
     for i=1:nTraces,
-%         lt = find(data(i,:)==0,1,'first')-1;
         lt = find(data(i,:)~=0,1,'last');
         xall{i} = double( data(i,1:lt)' );
     end
@@ -80,23 +81,21 @@ narginchk(2,Inf);
             % Exclude any problematic traces from further analysis.
             % These prevent convergence of ensemble parameters.
             exclude = selfanalysis(a).lowerbound./nFrames>2;
-            
-            % FIXME: this should be normalized to total number of frames.
             lb = selfanalysis(a).lowerbound(~exclude) ./ nFrames(~exclude) / sum(~exclude);
             L(it) = sum(lb);
-            if it == 1
-                fprintf('it %02d   L %.5e\n', it, L(it));
-            else
-                fprintf('it %02d   L %.5e    dL %.2e\n', it, L(it), (L(it)-L(it-1)) / abs(L(it)));
-            end
-
-            % check if max iterations reached
-            if it>max_iter, break; end
             
-            % check convergence
-            if it>1 && L(it)-L(it-1) < threshold*abs(L(it)),
-                break;
+            if it == 1
+                %fprintf('it %02d   L %.5e\n', it, L(it));
+            else
+                dL = (L(it)-L(it-1)) / abs(L(it));  %relative change in likelihood score
+                %fprintf('it %02d   L %.5e    dL %.2e\n', it, L(it), dL);
             end
+            progress = max( it/max_iter, log10(dL)/log10(threshold) );
+            waitbar(progress, wbh);
+
+            % check termination crtieria
+            if it>max_iter, break; end
+            if it>1 && dL<threshold, break; end
             
             % run iterative empirical bayes update
             % (assuming constant posterior statistics)
@@ -141,6 +140,8 @@ narginchk(2,Inf);
     end
     
     LL = L(end);
+    
+    close(wbh);
 end
 
 
