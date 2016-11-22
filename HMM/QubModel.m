@@ -28,7 +28,7 @@ properties (SetAccess=public, GetAccess=public, SetObservable)
     fixMu;
     fixSigma;
     
-    %Internal display data (must be public for showModel.m)
+    %Internal display data (must be public for QubModelViewer)
     x = [];
     y = [];
 end
@@ -48,7 +48,9 @@ properties (SetAccess=protected, GetAccess=public)
     % Structure containing the .qmf format tree of all model information.
     % This includes many parameters we don't use but QuB expects.
     qubTree;
-    
+end
+
+properties (SetAccess=protected, GetAccess=protected, Hidden)
     % UpdateModel event listener
     updateListener;
 end
@@ -132,7 +134,7 @@ methods
         
         % Verify the model parameters make sense.
         obj.verify();
-        obj.updateListener = addlistener(obj, {'mu','fixMu','sigma','fixSigma'}, ...
+        obj.updateListener = addlistener(obj, {'mu','fixMu','sigma','fixSigma','rates'}, ...
                                         'PostSet',@obj.UpdateModel_Callback);
     end
     
@@ -142,8 +144,8 @@ methods
         end
     end
     
-    %% ----------------------   SERIALIZATION   ---------------------- %%
     
+    %% ----------------------   SERIALIZATION   ---------------------- %%
     function save( model, fname )
         % Save the model to file. The code is essentially the same as
         % qub_saveModel, but that code can't be used directly since it
@@ -243,21 +245,20 @@ methods
         newmodel = QubModel(model.filename);
         mco   = ?QubModel;
         props = {mco.PropertyList.Name};
-        props = props(~[mco.PropertyList.Dependent] & ~[mco.PropertyList.Constant]);
+        props = props(~[mco.PropertyList.Dependent] & ~[mco.PropertyList.Constant] & ~[mco.PropertyList.Hidden]);
 
         for i=1:numel(props),
             model.(props{i}) = newmodel.(props{i});
         end
 
-        notify(model,'UpdateModel');  %inform listeners model has changed.
         model.updateListener.Enabled = true;
+        notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
     
     
         
     %% ---------------------   GET/SET METHODS   --------------------- %%
-
     function n = get.nStates( model )
         n = numel(model.class);
     end
@@ -304,10 +305,10 @@ methods
         if newClass>numel(model.mu)
             model.addClass(newClass);
         else
-            model.verify();
             notify(model,'UpdateModel');  %inform listeners model has changed.
-            model.updateListener.Enabled = true;
         end
+        model.verify();
+        model.updateListener.Enabled = true;
     end
     
     function addClass(model, newClass, newMu, newSigma)
@@ -331,8 +332,8 @@ methods
         model.fixSigma(newClass) = false;
         
         model.verify();
-        notify(model,'UpdateModel');  %inform listeners model has changed.
         model.updateListener.Enabled = true;
+        notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
     function removeState(model,id)
@@ -354,8 +355,8 @@ methods
         model.fixRates(:,id) = [];
         
         model.verify();
-        notify(model,'UpdateModel');  %inform listeners model has changed.
         model.updateListener.Enabled = true;
+        notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
     % Verify model is self-consistent and valid (see qub_verifyModel).
@@ -443,10 +444,6 @@ methods
     
     
 end %public methods
-
-
-
-
 
 end  %classdef
 

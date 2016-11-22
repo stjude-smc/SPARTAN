@@ -151,7 +151,8 @@ optModel = copy(model);
 optModel.mu    = results.mu;
 optModel.sigma = results.sigma;
 optModel.p0    = results.p0;
-optModel.rates = results.A*sampling/1000;
+optModel.rates = results.A/(sampling/1000);
+optModel.rates( logical(eye(size(optModel.rates))) ) = 0;
 LL = results.LL(end);
 
 % Run boostrapping proceedure for error estimation -- 

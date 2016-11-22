@@ -49,7 +49,7 @@ end
 
 methods
     %% ------------------------- CONSTRUCTOR ------------------------- %%
-    function this = QubModelViewer(input, axes)
+    function this = QubModelViewer(input, target)
     % Create a new viewer.
     
     narginchk(1,2); nargoutchk(0,1);
@@ -74,8 +74,8 @@ methods
     
     % Look for initial axes argument. Create a new figure if none given.
     if nargin>=2
-        assert( isscalar(axes) && ishghandle(axes) );  %isgraphics(varargin{1},'axes')
-        this.ax = axes;
+        assert( isscalar(target) && ishghandle(target) );  %isgraphics(varargin{1},'axes')
+        this.ax = target;
         hf = gcf;  %FIXME: get(axes,'Parent')?
     else
         hf = figure;
@@ -83,11 +83,9 @@ methods
     end
 
     % Setup internal variables.
-    % TODO (instead of everything being in redraw)
     set(hf,'WindowButtonMotionFcn',@this.figButtonMotion,  ...
            'WindowButtonUpFcn',    @this.dropObject  );
-
-    % Display the model
+    
     this.redraw();
     
     end %constructor
@@ -229,7 +227,7 @@ methods
 
     function editRate_callback(this, hObject, ~, rateID)
     % Called whenever one of the rate labels is clicked.
-
+    
     % Ask the user for the new value for the rate constant.
     initRate = this.model.rates( rateID(1), rateID(2) );
     text = sprintf('Enter a new rate constant (%d->%d)',rateID(1),rateID(2));
@@ -238,8 +236,8 @@ methods
 
     % Save the value.
     a = str2double(a);
-    this.model.rates( rateID(1), rateID(2) ) = a;
     set(hObject,'String', num2str(a) );
+    this.model.rates( rateID(1), rateID(2) ) = a;
 
     % Redraw if a connection was removed.
     if this.model.rates( rateID(1), rateID(2) )==0 && this.model.rates( rateID(2), rateID(1) )==0
@@ -247,7 +245,6 @@ methods
     end
 
     end %function editRate
-
 
 
     function editState_callback(this, ~,~, stateID)
@@ -305,13 +302,10 @@ methods
     end
 
 
-
     function addState_callback(this,varargin)
     %
         this.model.addState();
         newState = numel(this.model.class);
-
-        % Redrawn the model with the new state.
         this.redraw();
 
         % Get the Mouse Location
@@ -332,11 +326,9 @@ methods
     function removeState_callback(this,varargin)
     % State box context menu option to remove selected state.
         stateID = get(gco,'UserData');
-        this.model.removeState(stateID);
-
         this.hBox(stateID)  = [];
         this.hText(stateID) = [];
-
+        this.model.removeState(stateID);
         this.redraw();
     end
 
@@ -353,9 +345,9 @@ methods
         if this.model.rates(src,dst)==0 && this.model.rates(dst,src)==0
             this.model.rates(src,dst) = 1;
             this.model.rates(dst,src) = 1;
-
-            this.redraw();
         end
+        
+        this.redraw();
     end
 
 
@@ -373,10 +365,10 @@ methods
             this.model.save( fullfile(p,f) );
         end
     end
-
-
+    
+    
     function revert_callback(this,varargin)
-    % Revert to previously saved model state
+    % Save the current model to file.
         this.model.revert();
         this.redraw();
     end

@@ -74,20 +74,20 @@ qub_saveTree( config,'.milconfig.qtr','Properties' );
 %----- Run the external MIL interface program
 
 % Find the MIL interface program, verify there's only one
-if isunix,
+if ismac
+    error('Macs are not yet supported.');
+elseif isunix,
     milFilename = locate('miltreeiface');
 elseif ispc
     milFilename = locate('miltreeiface.exe');
-elseif ismac
-    error('Macs are not yet supported.');
 end
 
 if numel(milFilename)<1,
     error('miltreeiface program not found. Make sure it is in your path.');
 elseif numel(milFilename)>1,
-    warning('More than one miltreeiface program on path.')
-    milFilename = milFilename{1};
+    warning('More than one miltreeiface program on path.');
 end
+milFilename = milFilename{1};
 
 % Compile a job queue of MIL commands to run
 if ~iscell(dwtFilenames), dwtFilenames={dwtFilenames}; end

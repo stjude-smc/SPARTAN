@@ -166,7 +166,6 @@ handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
                         @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
 handles.model.mu = handles.model.mu;  %trigger table update
 
-% Update handles structure
 guidata(hObject, handles);
 
 % END FUNCTION btnLoadModel_Callback
@@ -176,11 +175,16 @@ function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
-if isempty(handles.model) || isempty(handles.dataFilenames),
+idxfile = get(handles.lbFiles,'Value');
+
+if isempty(handles.model) || isempty(idxfile),
     set(handles.btnExecute,'Enable','off');
     warning('Missing model or data');
     return;
 end
+
+trcfile  = handles.dataFilenames{idxfile};
+dwtfname = handles.dwtFilenames{idxfile};
 
 % Verify external modules installed
 if strcmpi(handles.options.idealizeMethod,'ebFRET') && ~exist('ebfret','file')
@@ -197,18 +201,25 @@ end
 % FIXME: ideally we want idl (or dwt) returned directly for speed.
 if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
     % NOTE: MIL will only look at the current file.
-    dwtfname = handles.dwtFilenames{ get(handles.lbFiles,'Value') };
     optModel = milOptimize(dwtfname, handles.model, handles.options);
     handles.model.rates = optModel.rates;
-    handles.modelViewer.redraw();
 else
     % Clear current idealization (FIXME also delete .dwt?)
     handles.idl = [];
     set(handles.hIdlLine,'Visible','off');
     
-    handles.dwtFilenames = runParamOptimizer(handles.model, ...
-                                     handles.dataFilenames, handles.options);
+    [handles.dwtFilenames{idxfile},optModel] = runParamOptimizer(...
+                                 handles.model, trcfile, handles.options);
 end
+
+if strcmpi(handles.options.idealizeMethod(1:4),'Baum')
+    handles.model.rates = optModel.rates;
+    handles.model.mu    = optModel.mu;
+    handles.model.sigma = optModel.sigma;
+    handles.model.p0    = optModel.p0;
+end
+
+handles.modelViewer.redraw();
 
 % Save results to file for later processing by the user.
 % save('resultTree.mat','resultTree');
