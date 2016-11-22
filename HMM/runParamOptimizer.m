@@ -46,7 +46,7 @@ otherwise
 end
 
 % Average ensemble parameters to get an average model output.
-if skmOptions.seperately,
+if numel(optModel)>1,
     outModel = copy(model);
     outModel.mu    = mean( [optModel.mu], 2 );
     outModel.sigma = mean( [optModel.sigma], 2 );

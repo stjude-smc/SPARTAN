@@ -59,7 +59,7 @@ handles.output = hObject;
 % Set initial internal state of the program
 [handles.modelFilename,handles.model,handles.idl] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
-handles.nTracesToShow = 5;  %number displayed in trace display panel
+handles.nTracesToShow = 6;  %number displayed in trace display panel
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -72,8 +72,12 @@ options.maxRestarts = 10;
 options.threshold = 1e-5;
 handles.options = options;
 
-% Update GUI to reflect these default settings.
-set( handles.cboIdealizationMethod, 'String',{'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'});
+% Update GUI to reflect these default settings. MIL not supported on Macs
+methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'};
+if isempty(which('ebfret.analysis.hmm.vbayes')), methods(3)=[]; end
+if ismac, methods(end)=[]; end
+
+set( handles.cboIdealizationMethod, 'String',methods);
 set( handles.cboIdealizationMethod, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -148,14 +152,13 @@ end
 % Ask the user for a filename
 [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
 if fname==0, return; end
-fname = fullfile(p,fname);
 
 % Load the model and show the model properties in the GUI.
 % The model's properties are automatically updated whenever the model is
 % modified in the GUI.
-handles.model = QubModel(fname);
+handles.model = QubModel( fullfile(p,fname) );
 handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
-title(handles.axModel, ['...' fname(max(1,end-40):end)], 'interpreter','none');
+title(handles.axModel, fname, 'interpreter','none');
 
 % Enable relevant GUI controls
 set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
@@ -187,7 +190,7 @@ trcfile  = handles.dataFilenames{idxfile};
 dwtfname = handles.dwtFilenames{idxfile};
 
 % Verify external modules installed
-if strcmpi(handles.options.idealizeMethod,'ebFRET') && ~exist('ebfret','file')
+if strcmpi(handles.options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hmm.vbayes'))
     errordlg('ebFRET not found. Check your path.',mfilename);
     disp('Go to https://ebfret.github.io/ to download ebFRET, then add to the MATLAB path.');
     return;
@@ -200,7 +203,11 @@ end
 % Run the analysis algorithms...
 % FIXME: ideally we want idl (or dwt) returned directly for speed.
 if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
-    % NOTE: MIL will only look at the current file.
+    if isempty(dwtfname) || ~exist(dwtfname,'file'),
+        errordlg('Traces must be idealized before running MIL');
+        return;
+    end
+    
     optModel = milOptimize(dwtfname, handles.model, handles.options);
     handles.model.rates = optModel.rates;
 else
@@ -212,7 +219,7 @@ else
                                  handles.model, trcfile, handles.options);
 end
 
-if strcmpi(handles.options.idealizeMethod(1:4),'Baum')
+if get(handles.chkUpdateModel,'Value'),
     handles.model.rates = optModel.rates;
     handles.model.mu    = optModel.mu;
     handles.model.sigma = optModel.sigma;
@@ -282,6 +289,12 @@ text = get(hObject,'String');
 handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
+if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
+    set(handles.chkUpdateModel,'Enable','off');
+else
+    set(handles.chkUpdateModel,'Enable','on');
+end
+
 % END FUNCTION cboIdealizationMethod_Callback
 
 
@@ -330,9 +343,8 @@ fname = handles.model.filename;
 [f,p] = uiputfile(fname,'Save model to file');
 
 if f~=0,
-    fname = fullfile(p,f);
-    handles.model.save( fname );
-    title(handles.axModel, ['...' fname(max(1,end-40):end)], 'interpreter', 'none');
+    handles.model.save( fullfile(p,f) );
+    title(handles.axModel, f, 'interpreter', 'none');
 end
 
 % END FUNCTION btnSaveModel_Callback
