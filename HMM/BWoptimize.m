@@ -125,6 +125,8 @@ wbh = waitbar(0,'Running Baum-Welch...');
 params.muMask = 1-params.fixMu;
 params.sigmaMask = 1-params.fixSigma;
 
+observations = max(-0.5, min(1.5,observations));  %remove outlier values
+
 % Obtain parameter estimates for complete sample.
 initialValues = {model.calcA(sampling/1000) to_row(model.mu) to_row(model.sigma) to_row(model.p0)};
 LL = zeros(0,1);
@@ -151,10 +153,10 @@ for n = 1:params.maxItr
     progress = max( n/params.maxItr, log10(dL)/log10(params.convLL) );
     waitbar(progress, wbh);
     
-    if ~params.quiet
-        fprintf( '   Iter %d: %f\n', n, LL(n), dL);
-        disp( [mu' sigma' p0' A] );
-    end
+%     if ~params.quiet
+        fprintf( '   Iter %d: %.2e %.2e\n', n, LL(n), dL);
+%         disp( [mu' sigma' p0' A] );
+%     end
     
     % Check for convergence
     if dL<0, disp('Warning: Baum-Welch is diverging!'); end
@@ -190,16 +192,11 @@ assert( all(p0s(:)>=0), 'Invalid p0 vector' );
 
 Nstates = length(mus);
 
-% Set maximal FRET to 1.0 to prevent overflows with zero probability
-observations( observations>1.0 ) = 1.0;
-observations( observations<-1.0 ) = -1.0;
-
 % Get the photobleaching point of each trace
 traceLengths = zeros( 1,size(observations,1) );
 
 for i=1:size(observations,1),
     trace = observations(i,:);
-    %NT = find(trace>=0.15, 1,'last');
     NT = find(trace~=0, 1,'last');
     if isempty(NT), NT=0; end
     traceLengths(i) = NT;
@@ -210,29 +207,33 @@ observations = observations( traceLengths>=5, : );
 traceLengths = traceLengths( traceLengths>=5 );
 nTraces = size(observations,1);
 
-%
-totalLength = sum(traceLengths-1);  %size of output array
-starts = [1 cumsum(traceLengths-1)]-1;  %index into output array
-
 % intialize variables assigned in loop
 LLtot = 0;
 p0tot = zeros(1,Nstates);
 Etot  = zeros(Nstates,Nstates);
-lamb_tot = zeros(totalLength,Nstates);
-Osave = zeros( totalLength, 1 );
+lambda_cell = cell(nTraces,1);
 
-for n = 1:nTraces  %for each trace **with at least 5 datapoints**
+% Use multi-process execution only for large datasets.
+constants = cascadeConstants;
+if numel(observations)>1e5 && constants.enable_parfor,
+    pool = gcp;
+    M = pool.NumWorkers;
+else
+    M = 0;  % Single-thread execution.
+end
+
+parfor (n=1:nTraces, M)  %for each trace **with at least 5 datapoints**
   NT = traceLengths(n);
   obs = observations(n,1:NT);
 
-  % Calculate 
-  % LLc1 is the final backward LL.
+  % Calculate transition probabilities at each point in time using the
+  % forward/backward algorithm. LLc1 is the final backward LL.
   [E,alphas,LLc1] = BWtransition(obs,A,mus,sigmas,p0s);
   
-  if any( isnan(LLc1) )
-      fprintf('BW:NaN: NaN found at %d\n',n);
-      break;
-  end
+%   if any( isnan(LLc1) )
+%       fprintf('BW:NaN: NaN found at %d\n',n);
+%       break;
+%   end
   
   LLtot = LLtot + log(sum(alphas(NT,:)))+LLc1;
 
@@ -240,21 +241,31 @@ for n = 1:nTraces  %for each trace **with at least 5 datapoints**
   % probability all every point in the dataset
   % (normalization at end of loop)
   lambdas = zeros(NT-1,Nstates);
-%   Enorm = zeros(Nstates,Nstates);
   for t = 1:NT-1
-%     Enorm = Enorm + E{t};
     Etot  = Etot + E{t};
 	lambdas(t,:) = sum(E{t},2); %probability of the state at time=t
   end
   p0tot = p0tot + lambdas(1,:); %unnormalized initial probability
   
-  % lamb_tot = unnormalized probability of being in state i at time t
-  % with the concatinated observation sequence (Osave)
-  lamb_tot( starts(n)+(1:NT-1), : ) = lambdas;  %really slow
-  
-  %
-  Osave( starts(n)+(1:NT-1) ) = observations( n, 1:NT-1 );
+  lambda_cell{n} = lambdas;
 end
+
+
+% lamb_tot = unnormalized probability of being in state i at time t
+% with the concatinated observation sequence (Osave)
+totalLength = sum(traceLengths-1);  %size of output array
+starts = [1 cumsum(traceLengths-1)]-1;  %index into output array
+
+lamb_tot = zeros(totalLength,Nstates);
+Osave = zeros( totalLength, 1 );
+
+for n=1:nTraces,
+   NT = traceLengths(n);
+   lamb_tot( starts(n)+(1:NT-1), : ) = lambda_cell{n};  %really slow
+   Osave( starts(n)+(1:NT-1) ) = observations( n, 1:NT-1 );
+end
+ 
+% lamb_tot = cat(1,lambda_cell{:});  %why doesn't this work?
 
 
 % Calculate total occupancy of each state
@@ -300,7 +311,7 @@ end
 % estimates -- there is no variance.
 % Ideally, a higher probability should be assigned to the solution
 % with a state that is not occupied...
-eSIG(eSIG<0.02) = 0.02;
+eSIG = max(0.02,eSIG);
 
 % Calc....
 p0s = p0tot/nTraces;
