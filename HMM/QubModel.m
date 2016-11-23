@@ -50,8 +50,9 @@ properties (SetAccess=protected, GetAccess=public)
     qubTree;
 end
 
-properties (SetAccess=protected, GetAccess=protected, Hidden)
+properties (SetAccess=protected, GetAccess=protected, Transient, Hidden)
     % UpdateModel event listener
+    % FIXME: loading (incl. w/ parfor) will need to recreate listener!
     updateListener;
 end
 
@@ -139,7 +140,7 @@ methods
     end
     
     function UpdateModel_Callback(obj,varargin)
-        if obj.updateListener.Enabled,
+        if enableListener(obj.updateListener),
             notify(obj,'UpdateModel');
         end
     end
@@ -240,7 +241,7 @@ methods
     
     function revert(model,varargin)
     % Revert to the state of the file before any modifications.
-        model.updateListener.Enabled = false;
+        enableListener(model.updateListener, false);
         
         newmodel = QubModel(model.filename);
         mco   = ?QubModel;
@@ -251,7 +252,7 @@ methods
             model.(props{i}) = newmodel.(props{i});
         end
 
-        model.updateListener.Enabled = true;
+        enableListener(model.updateListener, true);
         notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
@@ -290,7 +291,7 @@ methods
         end
         if nargin<5, newX=50; newY=50; end
         
-        model.updateListener.Enabled = false;
+        enableListener(model.updateListener, false);
         N = model.nStates;
         
         % Add a state with default settings
@@ -308,7 +309,7 @@ methods
             notify(model,'UpdateModel');  %inform listeners model has changed.
         end
         model.verify();
-        model.updateListener.Enabled = true;
+        enableListener(model.updateListener, true);
     end
     
     function addClass(model, newClass, newMu, newSigma)
@@ -317,7 +318,7 @@ methods
         % FIXME: what about empty models?
         narginchk(2,4);
         
-        model.updateListener.Enabled = false;
+        enableListener(model.updateListener, false);
         
         if nargin<3,
             newMu = max(model.mu) + 0.1;
@@ -332,13 +333,13 @@ methods
         model.fixSigma(newClass) = false;
         
         model.verify();
-        model.updateListener.Enabled = true;
+        enableListener(model.updateListener, true);
         notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
     function removeState(model,id)
     % Add a new state to the model
-        model.updateListener.Enabled = false;
+        enableListener(model.updateListener, false);
         
         % Remove state from variables
         fields = {'class','p0','x','y'};
@@ -355,7 +356,7 @@ methods
         model.fixRates(:,id) = [];
         
         model.verify();
-        model.updateListener.Enabled = true;
+        enableListener(model.updateListener, true);
         notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     

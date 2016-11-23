@@ -302,7 +302,7 @@ end
 function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
 % Update QubModel object with new settings from the table
 
-handles.modelUpdateListener.Enabled = false;
+enableListener(handles.sldTracesListener, false);
 
 data = get(hObject,'Data');
 handles.model.mu       = [data{:,1}];
@@ -310,7 +310,7 @@ handles.model.fixMu    = [data{:,2}];
 handles.model.sigma    = [data{:,3}];
 handles.model.fixSigma = [data{:,4}];
 
-handles.modelUpdateListener.Enabled = true;
+enableListener(handles.sldTracesListener, true);
 
 % END FUNCTION tblFixFret_CellEditCallback
 
@@ -408,12 +408,6 @@ guidata(hObject,handles);
 
 % ========================  TRACE VIEWER PANEL  ======================== %
 
-% --------------------------------------------------------------------
-function sldTraces_Callback(~, ~, handles) %#ok<DEFNU>
-% User adjusted the trace view slider -- show a different subset of traces.
-showTraces(handles);
-% END FUNCTION sldTraces_Callback
-
 function sldTracesX_Callback(~, ~, handles)
 % User adjusted the trace view slider -- show a different subset of traces.
 
@@ -440,10 +434,10 @@ data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
 handles.idl = loadIdl(handles);
 
-[handles.sldTracesListener.Enabled] = deal(false);
+enableListener(handles.sldTracesListener, false);
 set(handles.sldTraces,  'Min',0,  'Max',data.nTraces-handles.nTracesToShow, 'Value',data.nTraces-handles.nTracesToShow);
 set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames,    'Value',data.nFrames);
-[handles.sldTracesListener.Enabled] = deal(true);
+enableListener(handles.sldTracesListener, true);
 
 % Setup axes for plotting traces.
 % Some code duplication with showTraces().
