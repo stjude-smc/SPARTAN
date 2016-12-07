@@ -35,7 +35,7 @@ end
 
 
 % For each trace, calc Cy3 lifetime
-parfor (i=1:Ntraces, M)
+for i=1:Ntraces,
     % Median filter traces to remove high frequency noise and find drops in
     % total intensity to detect bleaching steps (or blinking).
     dfilt_total = gradient( medianfilter(total(:,i)',TAU) );

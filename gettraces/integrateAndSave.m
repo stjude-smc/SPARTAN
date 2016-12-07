@@ -73,14 +73,14 @@ end
 
 % Parallelize very large TIFF movies, where disk access is quick compared to
 % image processing. 
-if nTraces*nFrames/2000 > 1500 && constants.enable_parfor && isa(movie,'Movie_TIFF'),
-    % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
-    pool = gcp;
-    M = pool.NumWorkers;
-else
-    % For small datasets, do everything in the GUI thread (regular for loop).
-    M = 0;
-end
+% if nTraces*nFrames/2000 > 1500 && constants.enable_parfor && isa(movie,'Movie_TIFF'),
+%     % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
+%     pool = gcp;
+%     M = pool.NumWorkers;
+% else
+%     % For small datasets, do everything in the GUI thread (regular for loop).
+%     M = 0;
+% end
 
 % Create a trace for each molecule across the entire movie.
 % The estimated background image is also subtracted to help with molecules
@@ -100,7 +100,7 @@ idx = stkData.regionIdx;  %pixel, peak(chId:nCh:end).
 bg = single(stkData.background);
 nPx = params.nPixelsToSum;
 
-parfor (k=1:nFrames, M)
+for k=1:nFrames,
     % NOTE: 25% faster by converting to int16, with no change to sCMOS data.
     % But EMCCD have slight differences due to 15-bit overflows?
     frame = single(movie.readFrame(k)) - bg; %#ok<PFBNS>

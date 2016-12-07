@@ -235,7 +235,8 @@ function selfanalysis = run_vbayes(x, selfanalysis, nStates, varargin)
             restart = {};
             
             % parallel loop over batch of traces
-            parfor n = ns
+%             parfor n = ns
+            for n = ns
                 % construct initial guesses for posterior parameters
                 w0 = u([]);
                 if ~isempty(w(n).mu)

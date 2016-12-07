@@ -213,16 +213,17 @@ p0tot = zeros(1,Nstates);
 Etot  = zeros(Nstates,Nstates);
 lambda_cell = cell(nTraces,1);
 
-% Use multi-process execution only for large datasets.
-constants = cascadeConstants;
-if numel(observations)>1e5 && constants.enable_parfor,
-    pool = gcp;
-    M = pool.NumWorkers;
-else
-    M = 0;  % Single-thread execution.
-end
+% % Use multi-process execution only for large datasets.
+% constants = cascadeConstants;
+% if numel(observations)>1e5 && constants.enable_parfor,
+%     pool = gcp;
+%     M = pool.NumWorkers;
+% else
+%     M = 0;  % Single-thread execution.
+% end
 
-parfor (n=1:nTraces, M)  %for each trace **with at least 5 datapoints**
+% parfor (n=1:nTraces, M)  %for each trace **with at least 5 datapoints**
+for n=1:nTraces,  %for each trace **with at least 5 datapoints**
   NT = traceLengths(n);
   obs = observations(n,1:NT);
 

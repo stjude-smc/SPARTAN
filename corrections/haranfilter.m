@@ -95,20 +95,20 @@ end
 function data = haranfilter_file( data, M,P,windowSizes, wbh )
 % Wrapper function to run the filter on a single file.
 
-% Start parallel pool for large data sets, if enabled.
-constants = cascadeConstants;
-if data.nTraces*data.nFrames/2000 > 5 && constants.enable_parfor,
-    pool = gcp;
-    nProc = pool.NumWorkers;
-else
-    nProc = 0;
-end
+% % Start parallel pool for large data sets, if enabled.
+% constants = cascadeConstants;
+% if data.nTraces*data.nFrames/2000 > 5 && constants.enable_parfor,
+%     pool = gcp;
+%     nProc = pool.NumWorkers;
+% else
+%     nProc = 0;
+% end
 
 % Filter the data.
 d = data.donor;
 a = data.acceptor;
 
-parfor (i=1:data.nTraces, nProc)
+parfor i=1:data.nTraces,
 % for i=1:data.nTraces,
     [d(i,:),a(i,:)] = haranfilter3( d(i,:),a(i,:), M,P,windowSizes );
     wbh.iterate();  %update waitbar. consider using mod().

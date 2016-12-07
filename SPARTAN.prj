@@ -1,0 +1,271 @@
+<deployment-project plugin="plugin.ezdeploy" plugin-version="1.0">
+  <configuration build-checksum="2626094643" file="/home/dsterry/code/cascade/SPARTAN.prj" location="/home/dsterry/code/cascade" name="SPARTAN" preferred-package-location="/home/dsterry/code/cascade/SPARTAN/for_redistribution" preferred-package-type="package.type.install" target="target.ezdeploy.standalone" target-name="Application Compiler">
+    <param.appname>SPARTAN</param.appname>
+    <param.icon />
+    <param.icons />
+    <param.version>3.2</param.version>
+    <param.authnamewatermark>Scott C. Blanchard Laboratory</param.authnamewatermark>
+    <param.email>scb2005@med.cornell.edu</param.email>
+    <param.company>Weill Cornell Medicine</param.company>
+    <param.summary>Single molecule fluorescence data analysis software</param.summary>
+    <param.description>Compiled with 64-bit MATLAB 2015a on Ubuntu 16.04 (no parfor).</param.description>
+    <param.screenshot />
+    <param.guid />
+    <param.net.saved.interface />
+    <param.installpath.string>/Weill_Cornell_Medicine/SPARTAN/</param.installpath.string>
+    <param.installpath.combo>option.installpath.user</param.installpath.combo>
+    <param.logo>/home/dsterry/data/SharedDocs/Matlab/compiled/spartan logo equal.png</param.logo>
+    <param.install.notes />
+    <param.intermediate>${PROJECT_ROOT}/SPARTAN/for_testing</param.intermediate>
+    <param.files.only>${PROJECT_ROOT}/SPARTAN/for_redistribution_files_only</param.files.only>
+    <param.output>${PROJECT_ROOT}/SPARTAN/for_redistribution</param.output>
+    <param.enable.clean.build>false</param.enable.clean.build>
+    <param.user.defined.mcr.options />
+    <param.embed.ctf>true</param.embed.ctf>
+    <param.target.type>subtarget.standalone</param.target.type>
+    <param.support.packages />
+    <param.required.mcr.products>
+      <item>35000</item>
+      <item>35010</item>
+      <item>35001</item>
+    </param.required.mcr.products>
+    <param.web.mcr>true</param.web.mcr>
+    <param.package.mcr>false</param.package.mcr>
+    <param.no.mcr>false</param.no.mcr>
+    <param.web.mcr.name>Install_SPARTAN</param.web.mcr.name>
+    <param.package.mcr.name>MyAppInstaller_mcr</param.package.mcr.name>
+    <param.no.mcr.name>MyAppInstaller_app</param.no.mcr.name>
+    <param.windows.command.prompt>false</param.windows.command.prompt>
+    <param.create.log>false</param.create.log>
+    <param.log.file />
+    <unset>
+      <param.icon />
+      <param.icons />
+      <param.authnamewatermark />
+      <param.email />
+      <param.company />
+      <param.screenshot />
+      <param.guid />
+      <param.net.saved.interface />
+      <param.installpath.string />
+      <param.installpath.combo />
+      <param.intermediate />
+      <param.files.only />
+      <param.output />
+      <param.enable.clean.build />
+      <param.user.defined.mcr.options />
+      <param.embed.ctf />
+      <param.target.type />
+      <param.support.packages />
+      <param.web.mcr />
+      <param.package.mcr />
+      <param.no.mcr />
+      <param.package.mcr.name />
+      <param.no.mcr.name />
+      <param.windows.command.prompt />
+      <param.create.log />
+      <param.log.file />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}/spartan_basic.m</file>
+    </fileset.main>
+    <fileset.resources>
+      <file>${PROJECT_ROOT}/HMM/BWbackward.m</file>
+      <file>${PROJECT_ROOT}/HMM/BWforward.m</file>
+      <file>${PROJECT_ROOT}/HMM/BWoptimize.m</file>
+      <file>${PROJECT_ROOT}/HMM/BWtransition.m</file>
+      <file>${PROJECT_ROOT}/HMM/QubModel.m</file>
+      <file>${PROJECT_ROOT}/HMM/QubModelViewer.m</file>
+      <file>${PROJECT_ROOT}/HMM/batchKinetics.fig</file>
+      <file>${PROJECT_ROOT}/HMM/batchKinetics.m</file>
+      <file>${PROJECT_ROOT}/HMM/dwellhist.m</file>
+      <file>${PROJECT_ROOT}/HMM/dwellplots.m</file>
+      <file>${PROJECT_ROOT}/HMM/dwtToIdl.m</file>
+      <file>${PROJECT_ROOT}/HMM/findDwt.m</file>
+      <file>${PROJECT_ROOT}/HMM/forHammy.m</file>
+      <file>${PROJECT_ROOT}/HMM/forvbFRET.m</file>
+      <file>${PROJECT_ROOT}/HMM/forward_viterbi.m</file>
+      <file>${PROJECT_ROOT}/HMM/hammyToDWT.m</file>
+      <file>${PROJECT_ROOT}/HMM/idealize.m</file>
+      <file>${PROJECT_ROOT}/HMM/idlToDwt.m</file>
+      <file>${PROJECT_ROOT}/HMM/loadDWT.m</file>
+      <file>${PROJECT_ROOT}/HMM/loadDwelltimes.m</file>
+      <file>${PROJECT_ROOT}/HMM/milOptimize.m</file>
+      <file>${PROJECT_ROOT}/HMM/occtime.m</file>
+      <file>${PROJECT_ROOT}/HMM/percentTime.m</file>
+      <file>${PROJECT_ROOT}/HMM/removeBlinks.m</file>
+      <file>${PROJECT_ROOT}/HMM/runEbFret.m</file>
+      <file>${PROJECT_ROOT}/HMM/runParamOptimizer.m</file>
+      <file>${PROJECT_ROOT}/HMM/saveDWT.m</file>
+      <file>${PROJECT_ROOT}/HMM/skm.m</file>
+      <file>${PROJECT_ROOT}/HMM/transitionsPerSecond.m</file>
+      <file>${PROJECT_ROOT}/HMM/vbFRET_dwt.m</file>
+      <file>${PROJECT_ROOT}/Traces/Traces.m</file>
+      <file>${PROJECT_ROOT}/Traces/TracesFluor.m</file>
+      <file>${PROJECT_ROOT}/Traces/TracesFret.m</file>
+      <file>${PROJECT_ROOT}/Traces/TracesFret4.m</file>
+      <file>${PROJECT_ROOT}/Traces/loadTraces.m</file>
+      <file>${PROJECT_ROOT}/Traces/loadTraces_legacy.m</file>
+      <file>${PROJECT_ROOT}/Traces/saveTraces.m</file>
+      <file>${PROJECT_ROOT}/Traces/sizeTraces.m</file>
+      <file>${PROJECT_ROOT}/Traces/skmTotal.m</file>
+      <file>${PROJECT_ROOT}/Traces/thresholdTotal.m</file>
+      <file>${PROJECT_ROOT}/autotrace/RLEncode.m</file>
+      <file>${PROJECT_ROOT}/autotrace/autotrace.fig</file>
+      <file>${PROJECT_ROOT}/autotrace/autotrace.m</file>
+      <file>${PROJECT_ROOT}/autotrace/calcLifetime.m</file>
+      <file>${PROJECT_ROOT}/autotrace/gradient1.m</file>
+      <file>${PROJECT_ROOT}/autotrace/loadPickSaveTraces.m</file>
+      <file>${PROJECT_ROOT}/autotrace/medianfilter.m</file>
+      <file>${PROJECT_ROOT}/autotrace/pickTraces.m</file>
+      <file>${PROJECT_ROOT}/autotrace/rleFilter.m</file>
+      <file>${PROJECT_ROOT}/autotrace/std1.m</file>
+      <file>${PROJECT_ROOT}/autotrace/traceStat.m</file>
+      <file>${PROJECT_ROOT}/binary/forward_viterbix.mexa64</file>
+      <file>${PROJECT_ROOT}/binary/libpython2.6.so.1.0</file>
+      <file>${PROJECT_ROOT}/binary/libqublib.so</file>
+      <file>${PROJECT_ROOT}/binary/libqubopt.so</file>
+      <file>${PROJECT_ROOT}/binary/libqubtree.so</file>
+      <file>${PROJECT_ROOT}/binary/medianfilterx.mexa64</file>
+      <file>${PROJECT_ROOT}/binary/miltreeiface</file>
+      <file>${PROJECT_ROOT}/binary/qub_loadTree.mexa64</file>
+      <file>${PROJECT_ROOT}/binary/qub_saveTree.mexa64</file>
+      <file>${PROJECT_ROOT}/binary/qubtree64.exp</file>
+      <file>${PROJECT_ROOT}/binary/qubtree64.lib</file>
+      <file>${PROJECT_ROOT}/cascadeConstants.m</file>
+      <file>${PROJECT_ROOT}/corrections/bgsub.m</file>
+      <file>${PROJECT_ROOT}/corrections/correctTraces.m</file>
+      <file>${PROJECT_ROOT}/corrections/crosstalkcorrect.m</file>
+      <file>${PROJECT_ROOT}/corrections/gammacorrect.m</file>
+      <file>${PROJECT_ROOT}/corrections/scaleacceptor.m</file>
+      <file>${PROJECT_ROOT}/gettraces/Movie.m</file>
+      <file>${PROJECT_ROOT}/gettraces/Movie_STK.m</file>
+      <file>${PROJECT_ROOT}/gettraces/Movie_TIFF.m</file>
+      <file>${PROJECT_ROOT}/gettraces/OpenStk.m</file>
+      <file>${PROJECT_ROOT}/gettraces/Wavelength_to_RGB.m</file>
+      <file>${PROJECT_ROOT}/gettraces/getCentroids.m</file>
+      <file>${PROJECT_ROOT}/gettraces/getIntegrationWindows.m</file>
+      <file>${PROJECT_ROOT}/gettraces/getPeaks.m</file>
+      <file>${PROJECT_ROOT}/gettraces/gettraces.m</file>
+      <file>${PROJECT_ROOT}/gettraces/gettraces_colormap.m</file>
+      <file>${PROJECT_ROOT}/gettraces/gettraces_gui.fig</file>
+      <file>${PROJECT_ROOT}/gettraces/gettraces_gui.m</file>
+      <file>${PROJECT_ROOT}/gettraces/gettraces_setch.m</file>
+      <file>${PROJECT_ROOT}/gettraces/icpalign.m</file>
+      <file>${PROJECT_ROOT}/gettraces/integrateAndSave.m</file>
+      <file>${PROJECT_ROOT}/gettraces/pickPeaks.m</file>
+      <file>${PROJECT_ROOT}/gettraces/readTiffHeader.m</file>
+      <file>${PROJECT_ROOT}/gettraces/subfield.m</file>
+      <file>${PROJECT_ROOT}/gettraces/subfield_mask.m</file>
+      <file>${PROJECT_ROOT}/gettraces/translatePeaks.m</file>
+      <file>${PROJECT_ROOT}/gettraces/weberQuality.m</file>
+      <file>${PROJECT_ROOT}/misc/clipboardmat.m</file>
+      <file>${PROJECT_ROOT}/misc/enableListener.m</file>
+      <file>${PROJECT_ROOT}/misc/getFile.m</file>
+      <file>${PROJECT_ROOT}/misc/getFiles.m</file>
+      <file>${PROJECT_ROOT}/misc/onoff.m</file>
+      <file>${PROJECT_ROOT}/misc/parfor_progressbar.m</file>
+      <file>${PROJECT_ROOT}/misc/settingsDialog.m</file>
+      <file>${PROJECT_ROOT}/misc/to_col.m</file>
+      <file>${PROJECT_ROOT}/misc/to_row.m</file>
+      <file>${PROJECT_ROOT}/misc/trimtitles.m</file>
+      <file>${PROJECT_ROOT}/misc/updateSpartan.m</file>
+      <file>${PROJECT_ROOT}/misc/versionEncode.m</file>
+      <file>${PROJECT_ROOT}/qub/forQuB.m</file>
+      <file>${PROJECT_ROOT}/qub/jobQueue.m</file>
+      <file>${PROJECT_ROOT}/qub/qub_loadModel.m</file>
+      <file>${PROJECT_ROOT}/qub/qub_milOptimize.m</file>
+      <file>${PROJECT_ROOT}/qub/qub_verifyModel.m</file>
+      <file>${PROJECT_ROOT}/rtd2/postSyncTraces.m</file>
+      <file>${PROJECT_ROOT}/rtd2/rtdPlots.m</file>
+      <file>${PROJECT_ROOT}/rtd2/rtdTool.m</file>
+      <file>${PROJECT_ROOT}/rtd2/rtdgui.fig</file>
+      <file>${PROJECT_ROOT}/rtd2/rtdgui.m</file>
+      <file>${PROJECT_ROOT}/rtd2/simplePostSync.m</file>
+      <file>${PROJECT_ROOT}/rtd2/stateMin.m</file>
+      <file>${PROJECT_ROOT}/rtd2/stateOccupancy.m</file>
+      <file>${PROJECT_ROOT}/spartan_basic.fig</file>
+      <file>${PROJECT_ROOT}/toolbox/catstruct.m</file>
+      <file>${PROJECT_ROOT}/toolbox/locate.m</file>
+      <file>${PROJECT_ROOT}/toolbox/mergestruct.m</file>
+      <file>${PROJECT_ROOT}/toolbox/regexpdir.m</file>
+      <file>${PROJECT_ROOT}/visualization/cplot.m</file>
+      <file>${PROJECT_ROOT}/visualization/forOrigin.m</file>
+      <file>${PROJECT_ROOT}/visualization/frethistComparison.m</file>
+      <file>${PROJECT_ROOT}/visualization/makecplot.m</file>
+      <file>${PROJECT_ROOT}/visualization/makeplots.m</file>
+      <file>${PROJECT_ROOT}/visualization/sorttraces.fig</file>
+      <file>${PROJECT_ROOT}/visualization/sorttraces.m</file>
+      <file>${PROJECT_ROOT}/visualization/statehist.m</file>
+      <file>${PROJECT_ROOT}/visualization/tdplot.m</file>
+      <file>${PROJECT_ROOT}/visualization/tplot.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+dirichlet/h_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+dirichlet/kl_div.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+dirichlet/rand.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+normgamma/h_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+normwish/e_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+normwish/kl_div.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+dist/+normwish/m_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+gmm/map.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/e_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/forwback.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/forwback.mexa64</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/forwback_native.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/guess_prior.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/h_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/init_posterior.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/init_prior.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/jitter_filter.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/kl_div.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/m_step.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/valid_prior.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/vbayes.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/viterbi.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/viterbi.mexa64</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/viterbi_native.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/+hmm/viterbi_vb.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/+analysis/x_lim.m</file>
+      <file>/home/dsterry/code_other/ebfret-gui-master/src/+ebfret/normalize.m</file>
+    </fileset.resources>
+    <fileset.package />
+    <build-deliverables>
+      <file location="${PROJECT_ROOT}/SPARTAN/for_testing" name="splash.png" optional="false">/home/dsterry/code/cascade/SPARTAN/for_testing/splash.png</file>
+      <file location="${PROJECT_ROOT}/SPARTAN/for_testing" name="SPARTAN" optional="false">/home/dsterry/code/cascade/SPARTAN/for_testing/SPARTAN</file>
+      <file location="${PROJECT_ROOT}/SPARTAN/for_testing" name="readme.txt" optional="true">/home/dsterry/code/cascade/SPARTAN/for_testing/readme.txt</file>
+      <file location="${PROJECT_ROOT}/SPARTAN/for_testing" name="run_SPARTAN.sh" optional="false">/home/dsterry/code/cascade/SPARTAN/for_testing/run_SPARTAN.sh</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>/usr/local/MATLAB/R2015a</root>
+      <toolboxes>
+        <toolbox name="fixedpoint" />
+        <toolbox name="matlabcoder" />
+      </toolboxes>
+      <toolbox>
+        <fixedpoint>
+          <enabled>true</enabled>
+        </fixedpoint>
+      </toolbox>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>true</unix>
+      <mac>false</mac>
+      <windows>false</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>true</linux>
+      <solaris>false</solaris>
+      <osver>4.4.0-47-generic</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>glnxa64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>

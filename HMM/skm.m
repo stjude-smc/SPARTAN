@@ -95,20 +95,20 @@ if params.seperately,
         wbh = [];
     end
     
-    % Use multi-process execution only for large datasets.
-    if nTraces*nFrames > 1e5 && constants.enable_parfor,
-        pool = gcp;
-        M = pool.NumWorkers;
-    else
-        M = 0;  % Single-thread execution.
-    end
+%     % Use multi-process execution only for large datasets.
+%     if nTraces*nFrames > 1e5 && constants.enable_parfor,
+%         pool = gcp;
+%         M = pool.NumWorkers;
+%     else
+%         M = 0;  % Single-thread execution.
+%     end
     
     dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
     
     % Optimize each trace seperately.
-    parfor (n=1:nTraces,M)
-%     for n=1:nTraces,
+%     parfor (n=1:nTraces,M)
+    for n=1:nTraces,
         [newDWT,model(n),newLL] = runSKM( data(n,:), ...
                                      sampling, initialModel, params );
         dwt{n} = newDWT{1};

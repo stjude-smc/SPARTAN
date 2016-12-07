@@ -189,7 +189,7 @@ delta = 0.1;  %sub-pixel integration step size
 [y,x] = meshgrid( (0:delta:0.9)+delta/2, (0:delta:0.9)+delta/2 );  %subpixel bin centers
 prefactor = -0.5/(params.sigmaPSF^2);
 
-parfor (i=1:nPeaks,M)
+for i=1:nPeaks,
     for xx=1:nw,
         dx2 = (bins(xx)+x-cx(i)).^2;   %#ok<PFBNS>
         for yy=1:nw,

@@ -163,15 +163,15 @@ end
 
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors.
-constants = cascadeConstants;
-if nTraces*traceLen/1000 > 10 && constants.enable_parfor,
-    % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
-    pool = gcp;
-    M = pool.NumWorkers;
-else
-    % For small datasets, do everything in the GUI thread (regular for loop).
-    M = 0;
-end
+% constants = cascadeConstants;
+% if nTraces*traceLen/1000 > 10 && constants.enable_parfor,
+%     % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
+%     pool = gcp;
+%     M = pool.NumWorkers;
+% else
+%     % For small datasets, do everything in the GUI thread (regular for loop).
+%     M = 0;
+% end
 
 simTraces = nargout<2;
 
@@ -181,8 +181,8 @@ dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
 
-parfor (i=1:nTraces,M)
-% for i=1:nTraces,
+% parfor (i=1:nTraces,M)
+for i=1:nTraces,
     % Choose the initial state
     curState = find( rand <= cumsum(p0), 1, 'first' );
     
