@@ -88,6 +88,11 @@ methods
     
     this.redraw();
     
+    if ~isempty(this.model.filename)
+        [~,f] = fileparts(this.model.filename);
+        title(this.ax, f, 'interpreter', 'none');
+    end
+    
     end %constructor
     
     
@@ -366,7 +371,11 @@ methods
             [f,p] = uiputfile([pwd filesep '*.qmf']);
         end
         if ischar(f),
-            this.model.save( fullfile(p,f) );
+            fname = fullfile(p,f);
+            this.model.save(fname);
+            
+            [~,f] = fileparts(fname);
+            title(this.ax, f, 'interpreter', 'none');
         end
     end
     

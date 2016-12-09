@@ -152,13 +152,14 @@ end
 % Ask the user for a filename
 [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
 if fname==0, return; end
+[~,f] = fileparts(fname);
 
 % Load the model and show the model properties in the GUI.
 % The model's properties are automatically updated whenever the model is
 % modified in the GUI.
 handles.model = QubModel( fullfile(p,fname) );
 handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
-title(handles.axModel, fname, 'interpreter','none');
+title(handles.axModel, f, 'interpreter','none');
 
 % Enable relevant GUI controls
 set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
