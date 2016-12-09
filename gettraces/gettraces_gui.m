@@ -736,8 +736,12 @@ prompt = {'Threshold (0 for auto):', 'Integration window size (px):', ...
 fields = {'don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
           'photonConversion', 'zeroMethod', 'nhoodSize','bgTraceField'};
 types = {[],[],[],[],{'off','threshold','skm'},[],[]};
-handles.params = settingsDialog(handles.params,fields,prompt,types);
-guidata(hObject,handles);
+params = settingdlg(handles.params,fields,prompt,types);
+
+if ~isempty(params),
+    handles.params = params;
+    guidata(hObject,handles);
+end
 
 % END FUNCTION mnuSettingsCustom_Callback
 
@@ -796,7 +800,7 @@ msgbox( output, 'MetaMorph metadata' );
 
 function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to alter field-specific settings (name, wavelength, etc).
-% FIXME: alter settingsDialog to make this work somehow?
+% FIXME: alter settingdlg to make this work somehow?
 % FIXME: some redundant code here.
 
 idxField = get(gca,'UserData');  %quadrant

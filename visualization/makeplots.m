@@ -153,7 +153,8 @@ fields = {'contour_length', 'pophist_offset', ...
           'cplot_scale_factor', 'contour_bin_size', ...
           'cplot_remove_bleached', 'tdp_max', ...
           'hideBlinksInTDPlots', 'truncate_tdplot' };
-opt = settingsDialog(handles.options,fields,prompt);
+opt = settingdlg(handles.options,fields,prompt);
+if isempty(opt), return; end
 
 opt.fret_axis = -0.1:opt.contour_bin_size:1.2;
 opt.contour_bounds = [1 opt.contour_length opt.fretRange];

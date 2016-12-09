@@ -5,13 +5,13 @@ function output = settingdlg(input, varargin) %fields, Prompt, types, Title, fun
 %   saving them in OUT if the user hits "OK" and returns IN unmodified otherwise.
 %   User input is converted into the type given in the 
 %
-%   OUT = settingsDialog(IN,FIELDS) specifies which fields in OPT to show.
+%   OUT = settingdlg(IN,FIELDS) specifies which fields in OPT to show.
 %   Other fields will be passed to OUT unmodified.
 %
-%   OUT = settingsDialog(IN,FIELDS,PROMPTS) specifies a title for each
+%   OUT = settingdlg(IN,FIELDS,PROMPTS) specifies a title for each
 %   input field.
 % 
-%   OUT = settingsDialog(IN,FIELDS,PROMPTS,TYPES) specifies valid input
+%   OUT = settingdlg(IN,FIELDS,PROMPTS,TYPES) specifies valid input
 %   values for each field. Each element of the TYPES cell array can be
 %   empty (use input type), a cell array of strings (), or a handle to a
 %   function that returns true if the input is valid and false otherwise.
@@ -23,7 +23,7 @@ function output = settingdlg(input, varargin) %fields, Prompt, types, Title, fun
 %     types  = { @isfinite, [], {'a','b','c'} };
 %     out    = settingdlg(in, fields, prompt, types, 'Settings');
 %
-%   settingsDialog(...,FUN,FIN) after the dialog closes, calls the function
+%   settingdlg(...,FUN,FIN) after the dialog closes, calls the function
 %   handle as FUN(OPT,FIN{:}).
 %
 %   See also: inputdlg.
@@ -339,6 +339,7 @@ drawnow; % Update the view to remove the closed figure (g1031998)
 if ok && ~isempty(idxFun),
     fun(fin{:}, output);
 end
+if ~ok, output=[]; end
 
 
 end

@@ -416,8 +416,12 @@ switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
         return;
 end
 
-handles.options = settingsDialog(handles.options, fields, prompt);
-guidata(hObject,handles);
+options = settingdlg(handles.options, fields, prompt);
+if ~isempty(options),
+    handles.options = options;
+    guidata(hObject,handles);
+end
+
 % END FUNCTION mnuIdlSettings_Callback
 
 
@@ -546,7 +550,8 @@ prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
           'Signal:background noise ratio', 'Shot noise', 'Apparent gamma', ...
           'Intensity (photons)', 'Intensity stdev', ...
           'Excess noise stdev',  'FRET Lifetime (s)'};
-opt = settingsDialog(opt, fields, prompt);
+newOpt = settingdlg(opt, fields, prompt);
+if isempty(newOpt), return; end
 
 % Simulate new data.
 % FIXME: simulate.m should return a valid traces object.
