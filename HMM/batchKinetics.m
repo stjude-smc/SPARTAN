@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 15-Nov-2016 20:20:43
+% Last Modified by GUIDE v2.5 09-Dec-2016 16:12:51
 
 
 %% GUI Callbacks
@@ -524,3 +524,49 @@ set(handles.sldTraces, 'Value', loc);
 % The trace viewer is automatically updated by the Value property listener.
 
 % END FUNCTION wheelScroll_callback
+
+
+
+function mnuSim_Callback(~, ~, handles) %#ok<DEFNU>
+% Simulate traces using current model.
+
+if isempty(handles.model), return; end  %model required.
+
+% Get simulation settings.
+% FIXME: pressing cancel still simulates!!
+persistent opt;
+if isempty(opt)
+    opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, ...
+                 'snr',30, 'shotNoise',true, 'gamma',1, ...
+                 'totalIntensity',500, 'stdTotalIntensity',100, ...
+                 'stdPhoton',0, 'totalTimeOn',2 );
+end
+fields = fieldnames(opt);
+prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
+          'Signal:background noise ratio', 'Shot noise', 'Apparent gamma', ...
+          'Intensity (photons)', 'Intensity stdev', ...
+          'Excess noise stdev',  'FRET Lifetime (s)'};
+opt = settingsDialog(opt, fields, prompt);
+
+% Simulate new data.
+% FIXME: simulate.m should return a valid traces object.
+opt2 = opt;
+opt2.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
+opt2.kBleach = 1/opt.totalTimeOn;
+
+data = TracesFret(opt.nTraces, opt.nFrames);
+[~, data.fret, data.donor, data.acceptor] = simulate( ...
+         [opt.nTraces, opt.nFrames], opt.sampling/1000, handles.model, opt2 );
+data.time = 1000*opt.sampling*( (1:opt.nFrames)-1 );
+data.fileMetadata(1).wavelengths = [532 640];
+
+% Save to file
+[f,p] = uiputfile('sim.traces','Save simulated data as...');
+if f==0, return; end  %user pressed "cancel"
+saveTraces( [p f], data );
+
+% END FUNCTION mnuSim_Callback
+
+
+
+
