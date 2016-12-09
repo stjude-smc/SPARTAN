@@ -5,6 +5,10 @@ classdef QubModel < matlab.mixin.Copyable
 % a new object should be created to load another file. The exception is
 % when saving a file -- the model is now tied to the newly save file.
 %
+%   QubModel(N)     creates a model with N states/classes.
+%   QubModel(FILE)  loads the given .qmf file.
+%   QubModel(MODEL) creates a copy of a QubModel object or similar struct.
+%
 %   See also: qub_loadTree, qub_saveTree.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
@@ -87,6 +91,11 @@ methods
         elseif ischar(input),
             m = qub_loadModel( input );
             obj.filename = input;
+            
+        % New model with a given number of states
+        elseif isscalar(input) && numel(input)==1,
+            m = qub_createModel(input);
+            
         else
             error('Unexpected input for QubModel constructor');
         end
@@ -111,7 +120,6 @@ methods
         end
         
         % Extract model display settings from qubTree.
-        % FIXME: this should probably be in showModel instead
         if isempty(obj.x) || isempty(obj.y),
             if ~isempty(obj.qubTree)
                 obj.x = zeros( obj.nStates,1 );
@@ -122,7 +130,7 @@ methods
                 end
             else
                 % Default locations, scaled below.
-                obj.x = 1:N;
+                obj.x = (1:N)';
                 obj.y = obj.class;
             end
 

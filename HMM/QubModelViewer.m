@@ -360,7 +360,11 @@ methods
 
     function save_callback(this,varargin)
     % Save the current model to file.
-        [f,p] = uiputfile(this.model.filename);
+        if ~isempty(this.model.filename)
+            [f,p] = uiputfile(this.model.filename);
+        else
+            [f,p] = uiputfile([pwd filesep '*.qmf']);
+        end
         if ischar(f),
             this.model.save( fullfile(p,f) );
         end
@@ -369,8 +373,10 @@ methods
     
     function revert_callback(this,varargin)
     % Save the current model to file.
-        this.model.revert();
-        this.redraw();
+        if ~isempty(this.model.filename)
+            this.model.revert();
+            this.redraw();
+        end
     end
 
 

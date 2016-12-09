@@ -335,18 +335,32 @@ set( tblFixFret, 'Data', celldata );
 % --- Executes on button press in btnSaveModel.
 function btnSaveModel_Callback(~, ~, handles) %#ok<DEFNU>
 % Save current model to file
-
-if ~isfield(handles,'model') || isempty(handles.model),
-    return;
+if isfield(handles,'model') || ~isempty(handles.model),
+    handles.modelViewer.save_callback();
 end
+% END FUNCTION btnSaveModel_Callback
 
-fname = handles.model.filename;
-[f,p] = uiputfile(fname,'Save model to file');
 
-if f~=0,
-    handles.model.save( fullfile(p,f) );
-    title(handles.axModel, f, 'interpreter', 'none');
-end
+% --- Executes on button press in btnSaveModel.
+function btnNewModel_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Create a new model object.
+% FIXME: this shares some code with btnLoadModel.
+
+% Create a new model with two states and display it.
+handles.model = QubModel(2);
+handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
+
+% Enable relevant GUI controls
+set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
+set(handles.btnExecute,'Enable',onoff(~isempty(handles.dataFilenames)));
+
+% Automatically update the parameter table when the model is altered.
+handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
+                        @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
+handles.model.mu = handles.model.mu;  %trigger table update
+
+handles.modelFilename = [];
+guidata(hObject, handles);
 
 % END FUNCTION btnSaveModel_Callback
 

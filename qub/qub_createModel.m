@@ -41,10 +41,8 @@ model.rates( logical(eye(nStates,nStates)) ) = 0;
 
 model.p0 = repmat( 1/nStates, vectorSize );
 
-model.pt = model.p0;
-
 
 % MODEL-SPECIFIC FITTING CONSTRATINGS
-model.fixMu    = repmat( 0, vectorSize );
-model.fixSigma = repmat( 0, vectorSize );
-model.fixRates = repmat( 0, [nStates,nStates] );
+model.fixMu    = false( vectorSize );
+model.fixSigma = false( vectorSize );
+model.fixRates = false( nStates,nStates );
