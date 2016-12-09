@@ -131,7 +131,7 @@ handles.dwtFilenames = findDwt(handles.dataFilenames);
 
 if ~any( cellfun(@isempty,handles.dwtFilenames) )
     set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
-          handles.mnuViewPercentTime handles.mnuViewTPS ...
+          handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
           handles.btnOccTime handles.mnuViewOccTime], 'Enable','on');
 end
 
@@ -237,7 +237,8 @@ handles.modelViewer.redraw();
 % set(handles.btnStop,'Enable','off');
 set( [handles.btnExecute handles.btnDwellhist handles.btnMakeplots ...
       handles.mnuDwellhist handles.mnuViewPercentTime handles.btnPT ...
-      handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime], 'Enable','on');
+      handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime
+      handles.btnViewTPS], 'Enable','on');
 disp('Finished!');
 
 % Reload and draw idealization.
