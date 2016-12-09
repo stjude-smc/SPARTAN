@@ -94,34 +94,17 @@ linkaxes(ax,'xy');
 set(hFig,'pointer','arrow'); drawnow;
 
 
-%% Add menu items for adjusting settings and saving output to file.
-hTxtMenu = findall(hFig, 'tag', 'figMenuGenerateCode');
-output = [to_col(dwellaxis) horzcat(histograms{:})];
-set(hTxtMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,dwtfilename,output});
-
-hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
-delete(allchild(hMenu));
-set(hMenu, 'Callback', @(~,~)dwellplots(getFiles('*.dwt'),params) );
-hMenu = findall(hFig,'tag','Standard.NewFigure');
-set(hMenu, 'ClickedCallback', @(~,~)dwellplots(getFiles('*.dwt'),params) );
-
-hMenu = findall(hFig,'tag','figMenuOpen');
-set(hMenu, 'Callback', @(~,~)dwellplots(hFig,getFiles('*.dwt'),params) );
-hMenu = findall(hFig,'tag','Standard.FileOpen');
-set(hMenu, 'ClickedCallback', @(~,~)dwellplots(hFig,getFiles('*.dwt'),params) );
-
-
+%% Add menu items for adjusting settings and saving output to file
 prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
 fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
 types{4} = {'none','state','file','time'};
 cb = @(~,~)settingsDialog(params,fields,prompt,types,@dwellplots,{hFig,dwtfilename});
+output = [to_col(dwellaxis) horzcat(histograms{:})];
 
-hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
-delete(allchild(hEditMenu));
-uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
-
-uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,output});
-
+defaultFigLayout( hFig, @(~,~)dwellplots(getFiles('*.dwt'),params), ...
+                      @(~,~)dwellplots(hFig,getFiles('*.dwt'),params), ...
+                      {@exportTxt,dwtfilename,output}, ...
+       {'Change settings...',cb; 'Reset settings',{@clipboardmat,output}}  );
 
 
 end %function dwellplots

@@ -156,28 +156,12 @@ set(hFig,'pointer','arrow'); drawnow;
 
 %% Add menus to change settings, get data, open new plots, etc.
 txtout = [time occupancy{:}];
-hMenu = findall(hFig,'tag','figMenuGenerateCode');
-set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,txtout});
 
-hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
-delete(allchild(hMenu));
-set(hMenu, 'Callback', @(~,~)occtime(getFiles('*.dwt'),params) );
-hMenu = findall(hFig,'tag','Standard.NewFigure');
-set(hMenu, 'ClickedCallback', @(~,~)occtime(getFiles('*.dwt'),params) );
-
-hMenu = findall(hFig,'tag','figMenuOpen');
-set(hMenu, 'Callback', @(~,~)occtime(ax,getFiles('*.dwt'),params) );
-hMenu = findall(hFig,'tag','Standard.FileOpen');
-set(hMenu, 'ClickedCallback', @(~,~)occtime(ax,getFiles('*.dwt'),params) );
-
-
-hEditMenu = findall(hFig, 'tag','figMenuEdit');
-delete(allchild(hEditMenu));
-cb = @(~,~) settingsDialog(params,@occtime,{ax,files});
-uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
-uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',@(~,~)occtime(ax,files));
-uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,txtout});
-
+defaultFigLayout( hFig, @(~,~)occtime(getFiles('*.dwt'),params), ...
+    @(~,~)occtime(ax,getFiles('*.dwt'),params), {@exportTxt,files,txtout}, ...
+      { 'Change settings...',@(~,~)settingsDialog(params,@occtime,{ax,files}); ...
+        'Reset settings',    @(~,~)occtime(ax,files); ...
+        'Copy values',      {@clipboardmat,txtout}  }  );
 
 
 end %function occupancyTimecourse

@@ -108,28 +108,9 @@ output = {h1,dataFilenames};
 
 
 % =============== ADD GUI CONTROLS ================
-hMenu = findall(h1,'tag','figMenuUpdateFileNew');
-delete(allchild(hMenu));
-set(hMenu, 'Callback', @(~,~)makeplots() );
-
-hMenu = findall(h1,'tag','figMenuOpen');
-set(hMenu, 'Callback', @(~,~)makeplots(h1) );
-
-hMenu = findall(h1,'tag','Standard.FileOpen');
-set(hMenu, 'ClickedCallback', @(~,~)makeplots(h1) );
-hMenu = findall(h1,'tag','Standard.NewFigure');
-set(hMenu, 'ClickedCallback', @(~,~)makeplots() );
-
-hMenu = findall(h1,'tag','figMenuGenerateCode');
-set(hMenu, 'Label','Export .txt files', 'Callback',@(x,y)saveFiles2(x,y));
-       
-hEditMenu = findall(h1, 'tag','figMenuEdit');
-hCopyFig = findall(hEditMenu, 'tag','figMenuEditCopyFigure');
-items = allchild(hEditMenu);
-delete( items(items~=hCopyFig) );
-uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',@(x,y)changeDisplaySettings2(x,y),'Separator','on');
-uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',@(x,y)resetSettings2(x,y));
-
+defaultFigLayout( h1, @(~,~)makeplots, @(~,~)makeplots(h1), @(x,y)saveFiles2(x,y), ...
+                  {'Change settings...',@(x,y)changeDisplaySettings2(x,y); ...
+                   'Reset settings',    @(x,y)resetSettings2(x,y)} );
 
 
 % =============== COMPATIBILITY with 2.11 and earlier ================

@@ -98,24 +98,9 @@ end
 
 
 %% Add menu items
-hMenu = findall(hFig,'tag','figMenuGenerateCode');
-set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,output});
-
-hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
-delete(allchild(hMenu));
-set(hMenu, 'Callback', @(~,~)avgFretTime(getFiles(),params) );
-hMenu = findall(hFig,'tag','Standard.NewFigure');
-set(hMenu, 'ClickedCallback', @(~,~)avgFretTime(getFiles(),params) );
-
-hMenu = findall(hFig,'tag','figMenuOpen');
-set(hMenu, 'Callback', @(~,~)avgFretTime(cax,getFiles(),params) );
-hMenu = findall(hFig,'tag','Standard.FileOpen');
-set(hMenu, 'ClickedCallback', @(~,~)avgFretTime(cax,getFiles(),params) );
-
-
-hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
-delete(allchild(hEditMenu));
-uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,output});
+defaultFigLayout( hFig, @(~,~)avgFretTime(getFiles(),params), ...
+                        @(~,~)avgFretTime(cax,getFiles(),params),  ...
+      {@exportTxt,files,output}, {'Copy values',{@clipboardmat,output}} );
 
 
 end %function avgFretTime

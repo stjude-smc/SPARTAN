@@ -137,26 +137,11 @@ set(hFig, 'pointer','arrow');  drawnow;
 
 
 %% Add menus to change settings, get data, open new plots, etc.
-hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
-delete(allchild(hMenu));
-set(hMenu, 'Callback', @(~,~)percentTime(getFiles('*.dwt'),params) );
-hMenu = findall(hFig,'tag','Standard.NewFigure');
-set(hMenu, 'ClickedCallback', @(~,~)percentTime(getFiles('*.dwt'),params) );
-
-hMenu = findall(hFig,'tag','figMenuOpen');
-set(hMenu, 'Callback', @(~,~)percentTime(cax,getFiles('*.dwt'),params) );
-hMenu = findall(hFig,'tag','Standard.FileOpen');
-set(hMenu, 'ClickedCallback', @(~,~)percentTime(cax,getFiles('*.dwt'),params) );
-
-
-hEditMenu = findall(hFig, 'tag','figMenuEdit');
-delete(allchild(hEditMenu));
-cb = @(~,~) settingsDialog(params,@percentTime,{cax,filenames});
-uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
-
-uimenu('Label','Copy values', 'Parent',hEditMenu, 'Callback',{@clipboardmat,meanPT});
-uimenu('Label','Copy errors', 'Parent',hEditMenu, 'Callback',{@clipboardmat,stdPT});
-
+defaultFigLayout( hFig, @(~,~)percentTime(getFiles('*.dwt'),params), ...
+                        @(~,~)percentTime(cax,getFiles('*.dwt'),params), [], ...
+   {'Change settings...',@(~,~)settingsDialog(params,@percentTime,{cax,filenames}) ; ...
+    'Copy values',{@clipboardmat,meanPT}   ; ...
+    'Copy errors',{@clipboardmat,stdPT}    }     );
 
 
 end % FUNCTION percentTime
