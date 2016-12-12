@@ -12,7 +12,7 @@ function varargout = batchKinetics(varargin)
 %      BATCHKINETICS('Property','Value',...) creates a new BATCHKINETICS or raises the
 %      existing singleton*.  Starting from the left, property value pairs are
 %      applied to the GUI before batchKinetics_OpeningFunction gets called.  An
-%      unrecognized property name or invalid value makes property application
+%      unrecognized property name or invalid value makesroperty application
 %      stop.  All inputs are passed to batchKinetics_OpeningFcn via varargin.
 %
 %      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Dec-2016 16:12:51
+% Last Modified by GUIDE v2.5 09-Dec-2016 17:54:24
 
 
 %% GUI Callbacks
@@ -163,6 +163,7 @@ title(handles.axModel, f, 'interpreter','none');
 
 % Enable relevant GUI controls
 set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
+set([handles.btnSim handles.mnuSim], 'Enable','on');
 set(handles.btnExecute,'Enable',onoff(~isempty(handles.dataFilenames)));
 
 % Automatically update the parameter table when the model is altered.
@@ -238,7 +239,7 @@ handles.modelViewer.redraw();
 % set(handles.btnStop,'Enable','off');
 set( [handles.btnExecute handles.btnDwellhist handles.btnMakeplots ...
       handles.mnuDwellhist handles.mnuViewPercentTime handles.btnPT ...
-      handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime
+      handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime ...
       handles.btnViewTPS], 'Enable','on');
 disp('Finished!');
 
@@ -543,7 +544,7 @@ if isempty(opt)
     opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, ...
                  'snr',30, 'shotNoise',true, 'gamma',1, ...
                  'totalIntensity',500, 'stdTotalIntensity',100, ...
-                 'stdPhoton',0, 'totalTimeOn',2 );
+                 'stdPhoton',0, 'totalTimeOn',20 );
 end
 fields = fieldnames(opt);
 prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
@@ -555,14 +556,14 @@ if isempty(newOpt), return; end
 
 % Simulate new data.
 % FIXME: simulate.m should return a valid traces object.
-opt2 = opt;
-opt2.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
-opt2.kBleach = 1/opt.totalTimeOn;
+opt = newOpt;  %save for next call to function
+newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
+newOpt.kBleach = 1/opt.totalTimeOn;
 
 data = TracesFret(opt.nTraces, opt.nFrames);
 [~, data.fret, data.donor, data.acceptor] = simulate( ...
-         [opt.nTraces, opt.nFrames], opt.sampling/1000, handles.model, opt2 );
-data.time = 1000*opt.sampling*( (1:opt.nFrames)-1 );
+         [opt.nTraces, opt.nFrames], opt.sampling/1000, handles.model, newOpt );
+data.time = opt.sampling*( (1:opt.nFrames)-1 );
 data.fileMetadata(1).wavelengths = [532 640];
 
 % Save to file
@@ -570,8 +571,21 @@ data.fileMetadata(1).wavelengths = [532 640];
 if f==0, return; end  %user pressed "cancel"
 saveTraces( [p f], data );
 
+% Display traces in GUI.
+% FIXME: this should be a common function
+handles.dataFilenames = { fullfile(p,f) };
+handles.dwtFilenames  = cell( size(handles.dataFilenames) );  %findDwt(handles.dataFilenames);
+
+set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
+      handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
+      handles.btnOccTime handles.mnuViewOccTime], 'Enable','off');
+
+set(handles.btnExecute, 'Enable',onoff(~isempty(handles.model)));
+set([handles.btnMakeplots handles.mnuViewMakeplots], 'Enable','on');
+
+[~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
+set(handles.lbFiles, 'Value',1, 'String',names);
+
+lbFiles_Callback(handles.lbFiles, [], handles);
+
 % END FUNCTION mnuSim_Callback
-
-
-
-

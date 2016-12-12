@@ -60,7 +60,7 @@ end
 % Save the idealization.
 [p,n] = fileparts(trcfile);
 dwtfile = fullfile( p, [n '.qub.dwt'] );
-fretModel = [to_col(optModel.mu) to_col(optModel.sigma)];
+fretModel = [to_col(outModel.mu) to_col(outModel.sigma)];
 saveDWT( dwtfile, dwt, offsets, fretModel, data.sampling );
 
     
