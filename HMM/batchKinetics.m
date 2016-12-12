@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 12-Dec-2016 14:24:05
+% Last Modified by GUIDE v2.5 12-Dec-2016 14:47:38
 
 
 %% GUI Callbacks
@@ -432,6 +432,20 @@ end
 
 % ========================  TRACE VIEWER PANEL  ======================== %
 
+function mnuDisplaySettings_Callback(~, ~, handles) %#ok<DEFNU>
+% Change display settings (e.g., number of traces displayed).
+
+opt = struct('nTracesToShow',handles.nTracesToShow);
+prompt = {'Number of traces to show'};
+opt = settingdlg(opt, fieldnames(opt), prompt);
+if ~isempty(opt),
+    handles.nTracesToShow = opt.nTracesToShow;
+    lbFiles_Callback(handles.lbFiles, [], handles);
+end
+
+% END FUNCTION mnuDisplaySettings_Callback
+
+
 function sldTracesX_Callback(~, ~, handles)
 % User adjusted the trace view slider -- show a different subset of traces.
 
@@ -466,6 +480,7 @@ enableListener(handles.sldTracesListener, true);
 % Setup axes for plotting traces.
 % Some code duplication with showTraces().
 cla(handles.axTraces);
+[handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
 
 xlimit = floor(get(handles.sldTracesX,'Value'));
 time = handles.data.time(1:xlimit);
@@ -549,12 +564,11 @@ if isempty(opt)
                  'totalIntensity',300, 'stdTotalIntensity',100, ...
                  'stdPhoton',0, 'totalTimeOn',20 );
 end
-fields = fieldnames(opt);
 prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
           'Signal:background noise ratio', 'Shot noise', 'Apparent gamma', ...
           'Intensity (photons)', 'Intensity stdev', ...
           'Excess noise stdev',  'FRET Lifetime (s)'};
-newOpt = settingdlg(opt, fields, prompt);
+newOpt = settingdlg(opt, fieldnames(opt), prompt);
 if isempty(newOpt), return; end
 
 % Get output filename from user.
