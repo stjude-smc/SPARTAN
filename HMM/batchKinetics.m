@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 12-Dec-2016 12:09:43
+% Last Modified by GUIDE v2.5 12-Dec-2016 14:24:05
 
 
 %% GUI Callbacks
@@ -77,8 +77,7 @@ methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'};
 if isempty(which('ebfret.analysis.hmm.vbayes')), methods(3)=[]; end
 if ismac, methods(end)=[]; end
 
-set( handles.cboIdealizationMethod, 'String',methods);
-set( handles.cboIdealizationMethod, 'Value',1 );  %SKM
+set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
 constants = cascadeConstants;
@@ -115,14 +114,6 @@ function btnLoadData_Callback(~, ~, handles) %#ok<DEFNU>
 % Prompt use for location to save file in...
 handles.dataFilenames = getFiles([],'Select traces files to analyze');
 if isempty(handles.dataFilenames), return; end  %user hit cancel.
-handles.dataPath = pwd;
-
-% If a model is loaded, enable the Execute button & update GUI
-if ~isempty(handles.model),
-    set(handles.btnExecute,'Enable','on');
-end
-set([handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
-     handles.mnuSorttraces], 'Enable','on');
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
 set(handles.lbFiles, 'Value',1, 'String',names);
@@ -130,17 +121,31 @@ set(handles.lbFiles, 'Value',1, 'String',names);
 % Look for .dwt files if data were already analyzed.
 handles.dwtFilenames = findDwt(handles.dataFilenames);
 
-if ~any( cellfun(@isempty,handles.dwtFilenames) )
-    set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
-          handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
-          handles.btnOccTime handles.mnuViewOccTime], 'Enable','on');
-end
-
-% Show the first file.
+% Update GUI, showing the first file
 lbFiles_Callback(handles.lbFiles, [], handles);
+enableControls(handles);
 
 % END FUNCTION btnLoadData_Callback
 
+
+function enableControls(handles)
+% Enable or disable toolbar buttons and menus according to current state.
+
+hasData = ~isempty(handles.dataFilenames);
+set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
+      handles.mnuSorttraces], 'Enable',onoff(hasData) );
+
+hasModel = ~isempty(handles.modelFilename);
+set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim], ...
+                                                   'Enable',onoff(hasModel) );
+set( handles.btnExecute, 'Enable',onoff(hasData&hasModel) );
+  
+isIdealized = any( ~cellfun(@isempty,handles.dwtFilenames) );
+set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
+      handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
+      handles.btnOccTime handles.mnuViewOccTime], 'Enable',onoff(isIdealized));
+
+% END FUNCTION enableControls
 
 
 function btnLoadModel_Callback(hObject, ~, handles) %#ok<DEFNU>
@@ -153,19 +158,15 @@ end
 % Ask the user for a filename
 [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
 if fname==0, return; end
-[~,f] = fileparts(fname);
 
 % Load the model and show the model properties in the GUI.
 % The model's properties are automatically updated whenever the model is
 % modified in the GUI.
 handles.model = QubModel( fullfile(p,fname) );
 handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
-title(handles.axModel, f, 'interpreter','none');
 
 % Enable relevant GUI controls
-set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
-set([handles.btnSim handles.mnuSim], 'Enable','on');
-set(handles.btnExecute,'Enable',onoff(~isempty(handles.dataFilenames)));
+enableControls(handles);
 
 % Automatically update the parameter table when the model is altered.
 handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
@@ -199,15 +200,14 @@ if strcmpi(handles.options.idealizeMethod,'ebFRET') && isempty(which('ebfret.ana
     return;
 end
 
-% Update GUI for "Running" status.
-% set(handles.btnExecute,'Enable','off');
-% set(handles.btnStop,'Enable','on');
-
 % Run the analysis algorithms...
 % FIXME: ideally we want idl (or dwt) returned directly for speed.
+set(handles.figure1,'pointer','watch'); drawnow;
+
 if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
     if isempty(dwtfname) || ~exist(dwtfname,'file'),
         errordlg('Traces must be idealized before running MIL');
+        set(handles.figure1,'pointer','arrow');
         return;
     end
     
@@ -237,17 +237,15 @@ handles.modelViewer.redraw();
 % qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 
 % Update GUI for finished status.
-% set(handles.btnStop,'Enable','off');
-set( [handles.btnExecute handles.btnDwellhist handles.btnMakeplots ...
-      handles.mnuDwellhist handles.mnuViewPercentTime handles.btnPT ...
-      handles.mnuViewTPS handles.mnuViewOccTime handles.btnOccTime ...
-      handles.btnViewTPS], 'Enable','on');
 disp('Finished!');
+enableControls(handles)
 
 % Reload and draw idealization.
 handles.idl = loadIdl(handles);
 guidata(hObject,handles);
 showTraces(handles);
+
+set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION btnExecute_Callback
 
@@ -354,8 +352,7 @@ handles.model = QubModel(2);
 handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
 
 % Enable relevant GUI controls
-set([handles.btnSaveModel handles.tblFixFret], 'Enable','on');
-set(handles.btnExecute,'Enable',onoff(~isempty(handles.dataFilenames)));
+enableControls(handles);
 
 % Automatically update the parameter table when the model is altered.
 handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
@@ -370,6 +367,11 @@ guidata(hObject, handles);
 
 % ========================  PLOTTING FUNCTIONS  ======================== %
 % Executed when plotting menu or toolbar buttons are clicked.
+
+function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
+idxFile  = get(handles.lbFiles,   'Value');
+idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
+sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
 
 function btnMakeplots_Callback(~, ~, handles) %#ok<DEFNU>
 makeplots(handles.dataFilenames);
@@ -502,8 +504,9 @@ idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 
 for i=1:handles.nTracesToShow,
     idx = i+idxStart;
+    ydata = min(1.15, max(-0.15,handles.data.fret(idx,:)) );
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    set( handles.hFretLine(i), 'YData',y_offset+handles.data.fret(idx,:) );
+    set( handles.hFretLine(i), 'YData',y_offset+ydata );
     
     if ~isempty(handles.idl)
         set( handles.hIdlLine(i), 'YData', y_offset+handles.idl(idx,:) );
@@ -533,19 +536,18 @@ set(handles.sldTraces, 'Value', loc);
 
 
 
-function mnuSim_Callback(~, ~, handles) %#ok<DEFNU>
+function mnuSim_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Simulate traces using current model.
 
 if isempty(handles.model), return; end  %model required.
 
 % Get simulation settings.
-% FIXME: pressing cancel still simulates!!
 persistent opt;
 if isempty(opt)
     opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, ...
-                 'snr',30, 'shotNoise',true, 'gamma',1, ...
-                 'totalIntensity',500, 'stdTotalIntensity',100, ...
-                 'stdPhoton',0, 'totalTimeOn',2 );
+                 'snr',20, 'shotNoise',true, 'gamma',1, ...
+                 'totalIntensity',300, 'stdTotalIntensity',100, ...
+                 'stdPhoton',0, 'totalTimeOn',20 );
 end
 fields = fieldnames(opt);
 prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
@@ -555,8 +557,15 @@ prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
 newOpt = settingdlg(opt, fields, prompt);
 if isempty(newOpt), return; end
 
+% Get output filename from user.
+[f,p] = uiputfile('sim.traces','Save simulated data as...');
+if f==0, return; end  %user pressed "cancel"
+
+
 % Simulate new data.
 % FIXME: simulate.m should return a valid traces object.
+set(handles.figure1,'pointer','watch'); drawnow;
+
 opt = newOpt;
 newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
 newOpt.kBleach = 1/opt.totalTimeOn;
@@ -564,39 +573,24 @@ newOpt.kBleach = 1/opt.totalTimeOn;
 data = TracesFret(opt.nTraces, opt.nFrames);
 [~, data.fret, data.donor, data.acceptor] = simulate( ...
          [opt.nTraces, opt.nFrames], opt.sampling/1000, handles.model, newOpt );
-data.time = 1000*opt.sampling*( (1:opt.nFrames)-1 );
+data.time = opt.sampling*( (1:opt.nFrames)-1 );
 data.fileMetadata(1).wavelengths = [532 640];
 
-% Save to file
-[f,p] = uiputfile('sim.traces','Save simulated data as...');
-if f==0, return; end  %user pressed "cancel"
-saveTraces( [p f], data );
+saveTraces( fullfile(p,f), data );
+
 
 % Load the new simulated file and clear any others loaded.
-set(handles.btnExecute, 'Enable',onoff(~isempty(handles.model)));
-set([handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
-     handles.mnuSorttraces], 'Enable','on');
+handles.dataFilenames = { fullfile(p,f) };
+handles.dwtFilenames = findDwt(handles.dataFilenames);  %FIXME?
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
 set(handles.lbFiles, 'Value',1, 'String',names);
 
-handles.dwtFilenames = findDwt(handles.dataFilenames);  %FIXME?
-
-if ~any( cellfun(@isempty,handles.dwtFilenames) )
-    set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
-          handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
-          handles.btnOccTime handles.mnuViewOccTime], 'Enable','on');
-end
-
+% Update GUI
+guidata(hObject,handles);
+enableControls(handles);
 lbFiles_Callback(handles.lbFiles, [], handles);
 
+set(handles.figure1,'pointer','arrow'); drawnow;
+
 % END FUNCTION mnuSim_Callback
-
-
-% --------------------------------------------------------------------
-function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
-% Launch sorttraces to view the current file.
-idxFile  = get(handles.lbFiles,   'Value');
-idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
-sorttraces( 0,  handles.dataFilenames{idxFile}, idxTrace );
-% END FUNCTION mnuSorttraces_Callback
