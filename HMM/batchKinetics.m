@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Dec-2016 17:54:24
+% Last Modified by GUIDE v2.5 12-Dec-2016 12:09:43
 
 
 %% GUI Callbacks
@@ -121,7 +121,8 @@ handles.dataPath = pwd;
 if ~isempty(handles.model),
     set(handles.btnExecute,'Enable','on');
 end
-set([handles.btnMakeplots handles.mnuViewMakeplots], 'Enable','on');
+set([handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
+     handles.mnuSorttraces], 'Enable','on');
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
 set(handles.lbFiles, 'Value',1, 'String',names);
@@ -544,7 +545,7 @@ if isempty(opt)
     opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, ...
                  'snr',30, 'shotNoise',true, 'gamma',1, ...
                  'totalIntensity',500, 'stdTotalIntensity',100, ...
-                 'stdPhoton',0, 'totalTimeOn',20 );
+                 'stdPhoton',0, 'totalTimeOn',2 );
 end
 fields = fieldnames(opt);
 prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
@@ -556,14 +557,14 @@ if isempty(newOpt), return; end
 
 % Simulate new data.
 % FIXME: simulate.m should return a valid traces object.
-opt = newOpt;  %save for next call to function
+opt = newOpt;
 newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
 newOpt.kBleach = 1/opt.totalTimeOn;
 
 data = TracesFret(opt.nTraces, opt.nFrames);
 [~, data.fret, data.donor, data.acceptor] = simulate( ...
          [opt.nTraces, opt.nFrames], opt.sampling/1000, handles.model, newOpt );
-data.time = opt.sampling*( (1:opt.nFrames)-1 );
+data.time = 1000*opt.sampling*( (1:opt.nFrames)-1 );
 data.fileMetadata(1).wavelengths = [532 640];
 
 % Save to file
@@ -571,21 +572,31 @@ data.fileMetadata(1).wavelengths = [532 640];
 if f==0, return; end  %user pressed "cancel"
 saveTraces( [p f], data );
 
-% Display traces in GUI.
-% FIXME: this should be a common function
-handles.dataFilenames = { fullfile(p,f) };
-handles.dwtFilenames  = cell( size(handles.dataFilenames) );  %findDwt(handles.dataFilenames);
-
-set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
-      handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
-      handles.btnOccTime handles.mnuViewOccTime], 'Enable','off');
-
+% Load the new simulated file and clear any others loaded.
 set(handles.btnExecute, 'Enable',onoff(~isempty(handles.model)));
-set([handles.btnMakeplots handles.mnuViewMakeplots], 'Enable','on');
+set([handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
+     handles.mnuSorttraces], 'Enable','on');
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
 set(handles.lbFiles, 'Value',1, 'String',names);
 
+handles.dwtFilenames = findDwt(handles.dataFilenames);  %FIXME?
+
+if ~any( cellfun(@isempty,handles.dwtFilenames) )
+    set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
+          handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
+          handles.btnOccTime handles.mnuViewOccTime], 'Enable','on');
+end
+
 lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION mnuSim_Callback
+
+
+% --------------------------------------------------------------------
+function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
+% Launch sorttraces to view the current file.
+idxFile  = get(handles.lbFiles,   'Value');
+idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
+sorttraces( 0,  handles.dataFilenames{idxFile}, idxTrace );
+% END FUNCTION mnuSorttraces_Callback
