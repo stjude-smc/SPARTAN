@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 12-Dec-2016 14:47:38
+% Last Modified by GUIDE v2.5 13-Dec-2016 15:08:56
 
 
 %% GUI Callbacks
@@ -91,6 +91,7 @@ handles.sldTracesListener(2) = addlistener( handles.sldTracesX, 'Value', ...
           'PostSet',@(h,e)sldTracesX_Callback(h,e,guidata(e.AffectedObject))  );
 
 hold(handles.axTraces,'on');
+box(handles.axTraces,'on');
 guidata(hObject,handles);
 
 % END FUNCTION batchKinetics_OpeningFcn
@@ -138,8 +139,8 @@ set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
 hasModel = ~isempty(handles.modelFilename);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim], ...
                                                    'Enable',onoff(hasModel) );
-set( [handles.btnExecute handles.btnExecuteAll], ...
-                                            'Enable',onoff(hasData&hasModel) );
+set( [handles.btnExecute handles.btnExecuteAll handles.mnuExecute ...
+      handles.mnuExecuteAll], 'Enable',onoff(hasData&hasModel) );
   
 isIdealized = any( ~cellfun(@isempty,handles.dwtFilenames) );
 set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
@@ -196,7 +197,8 @@ end
 
 % Run the analysis algorithms...
 % FIXME: ideally we want idl (or dwt) returned directly for speed.
-set(handles.figure1,'pointer','watch'); drawnow;
+set(handles.figure1,'pointer','watch');
+set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
 if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
     if isempty(dwtfname) || ~exist(dwtfname,'file'),
@@ -222,7 +224,6 @@ if get(handles.chkUpdateModel,'Value'),
     handles.model.sigma = optModel.sigma;
     handles.model.p0    = optModel.p0;
 end
-
 handles.modelViewer.redraw();
 
 % Save results to file for later processing by the user.
@@ -230,15 +231,14 @@ handles.modelViewer.redraw();
 % qub_saveTree(resultTree,resultFilename);
 % qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 
-% Update GUI for finished status.
-enableControls(handles)
-
-% Reload and draw idealization.
+% Load and draw idealization, show traces, and update toolbar/menu state.
 handles.idl = loadIdl(handles);
 guidata(hObject,handles);
 showTraces(handles);
 
-set(handles.figure1,'pointer','arrow'); drawnow;
+enableControls(handles);
+set(handles.figure1,'pointer','arrow');
+set(handles.txtStatus,'String','Finished'); %drawnow;
 
 % END FUNCTION btnExecute_Callback
 
@@ -546,9 +546,7 @@ function wheelScroll_callback(~, eventData, handles) %#ok<DEFNU>
 loc = get(handles.sldTraces, 'Value')-3*eventData.VerticalScrollCount;
 loc = min( loc, get(handles.sldTraces,'Max') );
 loc = max( loc, get(handles.sldTraces,'Min') );
-set(handles.sldTraces, 'Value', loc);
-
-% The trace viewer is automatically updated by the Value property listener.
+set(handles.sldTraces, 'Value', loc);  %triggers listener, updating viewer.
 
 % END FUNCTION wheelScroll_callback
 
@@ -581,7 +579,8 @@ if f==0, return; end  %user pressed "cancel"
 
 % Simulate new data.
 % FIXME: simulate.m should return a valid traces object.
-set(handles.figure1,'pointer','watch'); drawnow;
+set(handles.figure1,'pointer','watch');
+set(handles.txtStatus,'String','Simulating...'); drawnow;
 
 opt = newOpt;
 newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
@@ -598,7 +597,7 @@ saveTraces( fullfile(p,f), data );
 
 % Load the new simulated file and clear any others loaded.
 handles.dataFilenames = { fullfile(p,f) };
-handles.dwtFilenames = findDwt(handles.dataFilenames);  %FIXME?
+handles.dwtFilenames = cell( size(handles.dataFilenames) );  %findDwt(handles.dataFilenames);  %FIXME?
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
 set(handles.lbFiles, 'Value',1, 'String',names);
@@ -608,6 +607,7 @@ guidata(hObject,handles);
 enableControls(handles);
 lbFiles_Callback(handles.lbFiles, [], handles);
 
-set(handles.figure1,'pointer','arrow'); drawnow;
+set(handles.figure1,'pointer','arrow');
+set(handles.txtStatus,'String','Finished.'); drawnow;
 
 % END FUNCTION mnuSim_Callback
