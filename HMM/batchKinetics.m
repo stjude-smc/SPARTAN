@@ -138,7 +138,8 @@ set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
 hasModel = ~isempty(handles.modelFilename);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim], ...
                                                    'Enable',onoff(hasModel) );
-set( handles.btnExecute, 'Enable',onoff(hasData&hasModel) );
+set( [handles.btnExecute handles.btnExecuteAll], ...
+                                            'Enable',onoff(hasData&hasModel) );
   
 isIdealized = any( ~cellfun(@isempty,handles.dwtFilenames) );
 set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
@@ -178,18 +179,11 @@ guidata(hObject, handles);
 % END FUNCTION btnLoadModel_Callback
 
 
-function btnExecute_Callback(hObject, ~, handles) %#ok<DEFNU>
+function handles = btnExecute_Callback(hObject, ~, handles)
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
 idxfile = get(handles.lbFiles,'Value');
-
-if isempty(handles.model) || isempty(idxfile),
-    set(handles.btnExecute,'Enable','off');
-    warning('Missing model or data');
-    return;
-end
-
 trcfile  = handles.dataFilenames{idxfile};
 dwtfname = handles.dwtFilenames{idxfile};
 
@@ -237,7 +231,6 @@ handles.modelViewer.redraw();
 % qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
 
 % Update GUI for finished status.
-disp('Finished!');
 enableControls(handles)
 
 % Reload and draw idealization.
@@ -248,6 +241,16 @@ showTraces(handles);
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION btnExecute_Callback
+
+
+function btnExecuteAll_Callback(~, ~, handles) %#ok<DEFNU>
+% Analyize each loaded file in sequence (batch mode).
+for i=1:numel(handles.dataFilenames),
+    set(handles.lbFiles,'Value',i);
+    handles = lbFiles_Callback(handles.lbFiles, [], handles);
+    handles = btnExecute_Callback(handles.btnExecute, [], handles);
+end
+% END FUNCTION btnExecuteAll_Callback
 
 
 function idl = loadIdl(handles)
@@ -462,7 +465,7 @@ end
 
 
 % --------------------------------------------------------------------
-function lbFiles_Callback(hObject, ~, handles)
+function handles = lbFiles_Callback(hObject, ~, handles)
 % User selected a file. Show traces in the trace viewer panel.
 % FIXME: could be somewhat faster if plotting one long trace rather than
 % many line objects...
