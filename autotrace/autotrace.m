@@ -139,22 +139,19 @@ function OpenTracesFile_Callback(hObject, ~, handles) %#ok<*DEFNU>
 % This method is called when the user clicks the "Open Traces File.."
 % button in the GUI.  The trace is parsed,
 
-%--- Open file with user-interface.
+% Prompt user to select traces files to load.
 filter = {'*.rawtraces;*.traces','All traces files (*.rawtraces,*.traces)'; ...
           '*.rawtraces','Raw traces files (*.rawtraces)'; ...
           '*.*','All files (*.*)'  };
       
 [datafile,datapath] = uigetfile( filter,'Choose a traces file:', ...
                                                 'MultiSelect','on');
-
 if datapath==0, return; end %user hit cancel
 
-
-%--- Convert filename list into a cell array
+% Convert filename list into a cell array
 if ~iscell(datafile), datafile = {datafile}; end
 filename = strcat(datapath,datafile);
 
-%--- Save file list for later use.
 handles.inputdir = datapath;
 handles.inputfiles = filename;
 
@@ -166,19 +163,20 @@ end
 if numel(filename) == 1,
     fileDisplayText = handles.inputfiles{1};
 else
-    fileDisplayText = handles.inputdir;
+    % Find common substring within files.
+    tmp = char(filename{:});
+    first = find( sum(abs(bsxfun(@minus,tmp(1,:),tmp)))~=0, 1,'first' ); %find first differing character
+    fileDisplayText = sprintf('%s... (%d files)', tmp(1,1:first-1), numel(filename));
 end
 
 % Shorten display name by removing initial part of the path if too long.
 if length(fileDisplayText)>100,
     fileDisplayText = ['...' fileDisplayText(end-100:end)];
 end
-
 set(handles.editFilename,'String', fileDisplayText);
 
-%--- Load the traces files.
+% Load the traces files.
 OpenTracesBatch( hObject, handles );
-
 
 % END FUNCTION OpenTracesFile_Callback
 
@@ -196,7 +194,8 @@ datapath=uigetdir;
 if datapath==0, return; end %user hit cancel.
 
 % Create list of .rawtraces files in the directory.
-traces_files = dir( [datapath filesep '*.rawtraces'] );
+target = [datapath filesep '*.rawtraces'];
+traces_files = dir(target);
 
 if numel(traces_files) == 0
     disp('No files in this directory!');
@@ -207,8 +206,8 @@ handles.inputdir = datapath;
 handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
 
 % Update the GUI with the new data location name.
-disp(handles.inputdir);
-set(handles.editFilename,'String',handles.inputdir);
+fileDisplayText = sprintf('%s (%d files)', target, numel(traces_files));
+set(handles.editFilename, 'String',fileDisplayText);
 
 % Load the traces files.
 OpenTracesBatch( hObject, handles );
