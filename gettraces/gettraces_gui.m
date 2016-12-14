@@ -150,7 +150,7 @@ set( handles.txtAlignWarning, 'Visible','off' );
 set([handles.txtOverlapStatus handles.txtIntegrationStatus, ...
      handles.txtWindowOverlap handles.txtPSFWidth handles.nummoles], ...
      'String', '');
-set(handles.panAlignment, 'Title','Software Alignment', 'ForegroundColor',[0 0 0]);
+set(handles.panAlignment, 'ForegroundColor',[0 0 0]);
 set(handles.tblAlignment, 'Data',{});
 
 
@@ -382,7 +382,7 @@ title( handles.axTotal, 'Total Intensity' );
 set( handles.txtAlignWarning, 'Visible','off' );
 
 if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
-    set(handles.panAlignment, 'Title','Software Alignment', 'ForegroundColor', [0 0 0]);
+    set(handles.panAlignment, 'Visible','off', 'ForegroundColor', [0 0 0]);
     handles.alignment = [];
     
 % Display alignment status to inform user if realignment may be needed.
@@ -390,12 +390,6 @@ if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
 else
     a = stkData.alignStatus;
     handles.alignment = a;
-    
-    if handles.params.alignMethod==1,
-        text = 'Alignment Deviation:';
-    else
-        text = 'Alignment Applied:';
-    end
     
     tableData = cell(numel(a)-1,6);
     fmt = {'% 0.2f','% 0.2f','% 0.2f','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
@@ -416,12 +410,13 @@ else
     set( handles.tblAlignment, 'RowName',handles.params.chDesc(idxShow) );
     
     % If the alignment quality (confidence) is low, warn the user.
-    if isfield(a,'quality'),
-        if any( [a.quality]<1.1 & [a.quality]>0 ),
-            text = [text sprintf(' (low confidence!)')];
-        end
-    end
+    methods = {'Alignment Disabled','Aligned from File', ...
+               'Auto Aligned (ICP)','Alignment Memorized'};
+    text = methods{handles.params.alignMethod};
     
+    if isfield(a,'quality') &&  any( [a.quality]<1.1 & [a.quality]>0 ),
+        text = [text sprintf(': LOW CONFIDENCE!')];
+    end
     set(handles.panAlignment, 'Title',text);
 
     % Color the text to draw attention to it if the alignment is bad.
@@ -701,7 +696,6 @@ constants = cascadeConstants;
 params = constants.gettraces_profiles(handles.profile);
 handles.params = params;
 
-
 % Set all GUI to defaults of currently selected profile.
 set( handles.mnuBatchRecursive,   'Checked', onoff(params.recursive)    );
 set( handles.mnuBatchOverwrite,   'Checked', onoff(params.skipExisting) );
@@ -711,9 +705,15 @@ set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
      'Checked','on' );
 set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 
+
 % Enable alignment, crosstalk, and scale controls only in multi-color.
+isMultiColor = numel(handles.params.idxFields)>1;
 set( [handles.mnuAlign handles.btnCrosstalk handles.btnScaleAcceptor], ...
-                       'Enable',onoff(numel(handles.params.idxFields)>1) );
+                       'Enable',onoff(isMultiColor) );
+set( handles.tblAlignment, 'Visible',onoff(isMultiColor) );
+
+set( handles.panAlignment, 'Title','Software Alignment', ...
+                           'Visible',onoff(isMultiColor) );
 
 % If a movie has already been loaded, reload movie with new setup.
 if isfield(handles,'stkfile'),
@@ -931,7 +931,6 @@ if sel==2
     handles.params.alignment = input.alignment; %gettraces() input
     
 elseif sel==4
-    sel = 2; %basically the same thing
     handles.params.alignment = rmfield( handles.alignment, {'quality'} );
     %FIMXE: only run getTraces_Callback if molecules not picked yet.
 end

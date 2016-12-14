@@ -172,7 +172,7 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         
         % Search for an optimal alignment of the selected field vs donor.
         % tform moves the acceptor field to be aligned with the donor.
-        if params.alignMethod==2,
+        if params.alignMethod==2 || params.alignMethod==4,
             % Nothing to search, just apply the alignment.
             newAlign(i) = params.alignment(i);
         
