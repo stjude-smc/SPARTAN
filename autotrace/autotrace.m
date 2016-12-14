@@ -4,22 +4,19 @@ function varargout = autotrace(varargin)
 %   Autotrace is a GUI that displays histograms of statistics calculated
 %   for each trace in loaded file(s). These are calculated in traceStat.m.
 %   The user can then select traces according to a defined set of criteria
-%   and save that subse to a new file, typically ending in "_auto.traces".
+%   and save that subset to a new file, typically ending in "_auto.traces".
 %   A .log file is also saved that includes the criteria and other details.
 %
-%   "Batch Mode": For each .rawtraces file in the current directory and
-%   sub-directories, load the traces, calculate statistics, select traces
-%   according to the current criteria, and saved as an "_auto.traces" file.
-%
-%   NOTE that selection can bias the data. Always use the same selection
-%   criteria when comparing datasets.
+%   NOTE: selection can introduce bias in the data analysis process.
+%   Ensure that the selected subset reflects the whole ensemble of traces
+%   and use consistent criteria when comparing datasets.
 %
 %   See also traceStat, pickTraces, loadPickSaveTraces.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Last Modified by GUIDE v2.5 23-Oct-2015 18:27:13
+% Last Modified by GUIDE v2.5 14-Dec-2016 10:33:36
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -55,44 +52,29 @@ function autotrace_OpeningFcn(hObject, ~, handles, varargin)
 % Executes just before autotrace is made visible.
 
 updateSpartan; %check for updates
-
-%---- PROGRAM CONSTANTS
 constants = cascadeConstants();
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
-criteria = constants.defaultAutotraceCriteria;
-handles.criteria = criteria;
-
-%---- Initialize input fields with values defined above.
-value = isfield(criteria,'eq_overlap') && criteria.eq_overlap==0;
-set(handles.chk_overlap,'Value',value);
-
-set( handles.ed_min_corr, 'String',num2str(criteria.min_corr)    );
-set( handles.ed_max_corr, 'String',num2str(criteria.max_corr)    );
-set( handles.ed_snr,      'String',num2str(criteria.min_snr)     );
-set( handles.ed_bg,       'String',num2str(criteria.max_bg)      );
-set( handles.ed_ncross,   'String',num2str(criteria.max_ncross)  );
-set( handles.ed_acclife,  'String',num2str(criteria.min_acclife) );
+% Standard criteria control names and corresponding criteria.
+% See PickTraces_Callback() and setCriteria() functions.
+handles.chkNames = {'chk_acclife','chk_corr','chk_corr','chk_snr','chk_bg','chk_ncross','chk_maxTotalSigma'};
+handles.txtNames = {'ed_acclife','ed_min_corr','ed_max_corr','ed_snr','ed_bg','ed_ncross','ed_maxTotalSigma'};
+handles.criteriaNames = {'min_acclife','min_corr','max_corr','min_snr','max_bg','max_ncross','maxTotalSigma'};
 
 %---- Setup drop-down boxes listing trace statistics.
-
 % Get names of trace statistics
 ln = traceStat;  %get long statistic names
 handles.statLongNames = ln;
 longNames  = struct2cell(ln);
 shortNames = fieldnames(ln);
 
-% Add trace statistic names to dropdown boxes above histogram axes.
+% Populate statistic dropdowns above histograms and set defaults.
 handles.cboNames = strcat('cboStat',{'1','2','3','4'});
+statNames = {'t','donorlife','corr','snr'};
 for id=1:length(handles.cboNames),
-    set( handles.(['cboStat' num2str(id)]), 'String', longNames );
+    set( handles.(handles.cboNames{id}), 'String',longNames, ...
+             'Value',find(strcmp(statNames{id},shortNames)) );
 end
-
-% Set default selections for the drop-down boxes.
-set( handles.cboStat1, 'Value', find(strcmp('t',shortNames))  );
-set( handles.cboStat2, 'Value', find(strcmp('donorlife',shortNames))  );
-set( handles.cboStat3, 'Value', find(strcmp('corr',shortNames))  );
-set( handles.cboStat4, 'Value', find(strcmp('snr',shortNames))   );
 
 % Setup special criteria selection drop-down boxes.
 handles.nCriteriaBoxes = 7;
@@ -111,6 +93,9 @@ zoom on;
 % Choose default command line output for autotrace
 handles.output=hObject;
 guidata(hObject,handles);
+
+% Set controls to default selection criteria
+mnuCriteriaReset_Callback(hObject, [], handles);
 
 % END FUNCTION autotrace_OpeningFcn
 
@@ -428,8 +413,7 @@ else
     outfile = handles.outfile;
 end
 
-% Run sorttraces interface so traces can be viewed
-% Could pass description/title as third param (currently empty!)
+% Run sorttraces interface so traces can be viewed.
 if ~isempty(outfile),
     sorttraces(0, outfile);
 end
@@ -451,50 +435,45 @@ equalityText = {'min_','max_','eq_'};
 
 for id=1:handles.nCriteriaBoxes
     selection = get( handles.(['cboCriteria' num2str(id)]), 'Value' );
-    if selection==1, continue; end %no selection
+    equality  = get( handles.(['cboEquality' num2str(id)]), 'Value' );
+    edText    = get( handles.(['edCriteria'  num2str(id)]), 'String');
     
-    equality = get(handles.(['cboEquality' num2str(id)]),'Value');
-    if equality==1, continue; end %no inequality selected
-    
-    criteriaName = [equalityText{equality-1} shortNames{selection-1}];
-    edText = get(handles.(['edCriteria' num2str(id)]),'String');
-    if isempty(edText), continue; end %no criteria value.
-    
-    criteria.(criteriaName) = ...
-        str2double( get(handles.(['edCriteria' num2str(id)]),'String') );
-end
-
-% 
-% Get criteria values for all the fixed GUI elements.
-% chk_corr is listed twice because it applies to two distinct criteria.
-% Overlap must be handled seperately since it doesn't have an associated textbox.
-chkNames = {'chk_acclife','chk_corr','chk_corr','chk_snr','chk_bg','chk_ncross','chk_maxTotalSigma'};
-txtNames = {'ed_acclife','ed_min_corr','ed_max_corr','ed_snr','ed_bg','ed_ncross','ed_maxTotalSigma'};
-criteriaNames = {'min_acclife','min_corr','max_corr','min_snr','max_bg','max_ncross','maxTotalSigma'};
-
-for i=1:numel(chkNames),
-    if get(handles.(chkNames{i}),'Value'),
-        criteria.(criteriaNames{i}) = str2double( get(handles.(txtNames{i}),'String') );
+    if selection>1 && equality>1 && ~isempty(edText),
+        name = [equalityText{equality-1} shortNames{selection-1}];
+        criteria.(name) = str2double(edText);
     end
 end
 
-% Handle overlap checkbox special case.
+% Get criteria values for all the fixed GUI elements.
+% chk_corr is listed twice because it applies to two distinct criteria.
+% Overlap must be handled seperately since it doesn't have an associated textbox.
+for i=1:numel(handles.chkNames),
+    hchk = handles.chkNames{i};
+    htxt = handles.txtNames{i};
+    name = handles.criteriaNames{i};
+    
+    if get(handles.(hchk),'Value'),
+        criteria.(name) = str2double( get(handles.(htxt),'String') );
+    end
+end
+
 if get(handles.chk_overlap,'Value'),
     criteria.eq_overlap = 0;  %zero means remove overlapped traces.
 end
 
 handles.criteria = criteria;
-
+guidata(hObject,handles);  %for saving criteria before traces loaded.
 
 % Find which molecules pass the selection criteria
 stats = getappdata(handles.figure1,'infoStruct');
 if isempty(stats), return; end %no data loaded, nothing to do.
 
-picks = pickTraces( stats, criteria );
-
-% The number of traces picked.
-handles.inds_picked = picks;
+handles.inds_picked = pickTraces( stats, criteria );
 handles.picked_mols = numel(handles.inds_picked);
+guidata(hObject,handles);
+
+set(handles.MoleculesPicked,'String', ...
+            sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
 
 % If at least one trace is picked, turn some buttons on.
 if handles.picked_mols > 0
@@ -503,18 +482,10 @@ if handles.picked_mols > 0
           handles.mnuFileSaveProp], 'Enable','on');
 end
 
-% Turn some other buttons on/off.
-set(handles.MoleculesPicked,'String', ...
-            sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
-
-        
 % Update trace statistic histograms for traces passing selection criteria.
 for i=1:length(handles.cboNames),
     cboStat_Callback(handles.(handles.cboNames{i}), [], handles);
 end
-
-
-guidata(hObject,handles);
 
 % END FUNCTION PickTraces_Callback
 
@@ -536,8 +507,6 @@ if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' );
 else
     outfile = handles.outfile;
 end
-
-assert( exist(outfile,'file')~=0 );
 
 % Run makeplots to display FRET contour plot
 if ~isempty(outfile),
@@ -716,5 +685,96 @@ end
 
 btnBatchMode_Callback( handles.figure1, [], handles, targetDir );
 
-
 % END FUNCTION updateFileTimer
+
+
+
+%#########################################################################
+%------------------------ LOAD AND SAVE CRITERIA ------------------------%
+%#########################################################################
+
+% --------------------------------------------------------------------
+function mnuCriteriaLoad_Callback(hObject, ~, handles)
+% Load criteria from .mat file saved by autotrace.
+fname = getFile('*.mat','Load Criteria');
+if isempty(fname), return; end  %user hit cancel
+input = load(fname);
+
+if ~isfield(input,'criteria'),
+    errordlg('Invalid criteria file');
+else
+    handles.criteria = input.criteria;
+    guidata(hObject,handles);
+    setCriteria(handles);
+end
+
+
+% --------------------------------------------------------------------
+function mnuCriteriaSave_Callback(~, ~, handles)
+% Save criteria struct to a .mat file.
+[f,p] = uiputfile('criteria.mat','Save criteria:');
+if isequal(f,0), return; end  %user hit cancel
+criteria = handles.criteria; %#ok<NASGU>
+save(fullfile(p,f),'criteria');
+
+
+% --------------------------------------------------------------------
+function mnuCriteriaReset_Callback(hObject, ~, handles)
+% Reset criteria to factory defaults in cascadeConstants.
+constants = cascadeConstants;
+criteria = constants.defaultAutotraceCriteria;
+handles.criteria = criteria;
+guidata(hObject,handles);
+setCriteria(handles);
+
+
+% --------------------------------------------------------------------
+function setCriteria(handles)
+% Update GUI controls to reflect current criteria values.
+% Called on load and by mnuCriteriaReset_Callback().
+
+criteria = handles.criteria;
+
+% Set standard criteria
+for i=1:numel(handles.chkNames),
+    hchk = handles.chkNames{i};
+    htxt = handles.txtNames{i};
+    name = handles.criteriaNames{i};
+    
+    set( handles.(hchk), 'Value',isfield(criteria,name) );
+    if isfield(criteria,name),
+        set( handles.(htxt), 'String', num2str(criteria.(name)) );
+    end
+end
+overlap = isfield(criteria, 'eq_overlap') && criteria.eq_overlap==0;
+set( handles.chk_overlap, 'Value',overlap);
+
+% Clear non-standard fields
+for i=1:handles.nCriteriaBoxes,
+    set( handles.(['cboCriteria' num2str(i)]), 'Value', 1  );
+    set( handles.(['cboEquality' num2str(i)]), 'Value', 1  );
+    set( handles.(['edCriteria'  num2str(i)]), 'String','' );
+end
+
+% Set non-standard criteria.
+fields = setdiff( fieldnames(criteria), [handles.criteriaNames 'eq_overlap'] );
+assert( numel(fields)<=handles.nCriteriaBoxes, 'Too many criteria' );
+
+shortNames = fieldnames(handles.statLongNames);
+equalityText = {'min','max','eq'};
+
+for i=1:numel(fields),
+    temp = strsplit(fields{i},'_');
+    [equality,name] = temp{:};
+    
+    set( handles.(['cboCriteria' num2str(i)]), 'Value',  find(strcmp(name,shortNames))+1       );
+    set( handles.(['cboEquality' num2str(i)]), 'Value',  find(strcmp(equality,equalityText))+1 );
+    set( handles.(['edCriteria'  num2str(i)]), 'String', num2str(criteria.(fields{i}))         );
+end
+
+% Update trace selections
+PickTraces_Callback(handles.figure1, handles);
+
+% END FUNCTION setCriteria
+
+
