@@ -66,7 +66,7 @@ set(cax, 'PlotBoxAspectRatio', [1 1 1]);
 %     ylabel(cax,'Final FRET');
 % end
 
-zoom(cax,'on');
+% zoom(cax,'on');
 
 
 % Display number of transitions and transition rate.

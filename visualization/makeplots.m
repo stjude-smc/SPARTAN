@@ -243,7 +243,6 @@ end %FUNCTION mpdefault
 
 function plotData(hObject,handles)
 % Load data, calculate plots, and display them.
-
 set(handles.hFig,'pointer','watch'); drawnow;
 
 options = handles.options;
@@ -375,7 +374,7 @@ for k=1:nFiles,
     end
     
     set(histax(k),'ytick', 0:0.2:1);
-    drawnow;
+%     drawnow;
     
         
     %% ========================= TD PLOTS ========================= 
@@ -450,6 +449,7 @@ if any(tdax~=0),
     set(tdax, 'XGrid','on', 'YGrid','on', 'Box','on');
 end
 
+zoom(handles.hFig,'on');
 
 
 end  % function plotData
