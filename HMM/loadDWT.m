@@ -1,84 +1,87 @@
-function [dwells,sampling,offsets,model] = loadDWT(dwtfilename)
-% LOADDWT  Loads a QuB idealization dwell time file
+function [dwells,sampling,offsets,model] = loadDWT(dwtfname)
+% LOADDWT  Load dwell-times from a QuB-format .dwt file
 %     
-%   [DWELLS,SAMPLING,OFFSETS,FRET_MODEL] = LoadDWT( DWTFILENAME )
-%   Loads a .dwt file (DWTFILENAME), returning the sequence of DWELLS
-%   as a cell array (Nx1, where N=number of traces). Each element has
-%   an Mx2 matrix of the state number (1-based) and the duration
-%   (in frames), where M=number of dwells. SAMPLING is milliseconds.
-%   If no filename is given, the user is prompted for one.
+%   [DWELLS,SAMPLING,OFFSETS,MODEL] = LoadDWT( FILENAME )
+%   Extracts dwell-time information from the QuB-format file in FILENAME.
+%   
+%   DWELLS is a cell array with each element represents an idealized trace
+%   with each row having the class number and dwell-time of a dwell.
+%   Class numbers are 1-based and times are in frames.
+%   
+%   SAMPLING is the time resolution milliseconds.
+%  
+%   OFFSETS is a vector of the start of each trace in milliseconds relative
+%   to the beginning of the file, as if it were one long trace.
+%
+%   MODEL is a cell array with each element having a matrix in which 
+%   each row is the mean FRET values and noise stdev for each state class.
+%
+%   See also: saveDWT.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Set default values for outputs in case user cancels.
-[sampling,offsets,nStates] = deal( [] );
-dwells  = {};
-model = {};
 
-% Ask user for file if none specified.
-if nargin<1 || isempty(dwtfilename),
-    [f,p] = uigetfile( {'*.dwt;*.traces','Dwell-Time Files (*.dwt)'; ...
-                        '*.*','All Files (*.*)'}, 'Select a DWT file');
-    if f==0, return; end
-    dwtfilename = [p f];
+% Prompt the user for the input file if none given.
+if nargin<1 || isempty(dwtfname),
+    [f,p] = uigetfile( {'*.dwt','Dwell-Time Files (*.dwt)'; ...
+                        '*.*','All Files (*.*)'}, 'Load a dwell-time file');
+    if isequal(f,0), return; end  %user hit cancel
+    dwtfname = fullfile(p,f);
 end
 
-% Load dwell time file
-if ~exist(dwtfilename,'file')
-    error('Can''t find DWT file for %s',dwtfilename);
-end
 
-fid = fopen(dwtfilename);
+% Find segement header lines
+text = fileread(dwtfname);
+[first,last,match] = regexp(text,'Segment[^\n]*','start','end','match');
+first(end+1) = numel(text)+1;  %special case last dwell
+nTraces = numel(match);
 
-while 1,
-    
-    % Load next segment in file
-    % Segment: 1 Dwells: 6 Sampling(ms): 10 Start(ms): 0 ClassCount: 4 0.01
-    %                                 0.034 0.15 0.061 0.3 0.061 0.55 0.061
-    data = textscan(fid, 'Segment: %f Dwells: %f Sampling(ms): %f Start(ms): %f ClassCount: %f %[^\n]');
-    if numel(data{1}) == 0, break; end
-    
-    % Loop over any empty segments, which will be grouped by textscan.
-    % Most often segid will be scalar.
-    for i=1:numel(data{1}),
-        segid     = data{1}(i);
-        ndwells   = data{2}(i);
-        sampling  = data{3}(i);
-        startTime = data{4}(i);
-        %nClasses  = data{5}(i);
-        
-        % Reshape model to expected dimensions (FRET first column, std second).
-        m = sscanf(data{6}{i},'%f');
-        modelOut = zeros( numel(m)/2, 2 );
-        modelOut(:,1) = m(1:2:end); %FRET values
-        modelOut(:,2) = m(2:2:end); %standard deviations
-        model{segid} = modelOut; %#ok<AGROW>
-        nStates(segid) = numel(m)/2;
 
-        offsets(segid) = startTime/sampling;  %segment start time (frames)
-        
-        % Dummy dwell list for empty traces
-        dwells{segid} = zeros(0,2); %#ok<AGROW>
-    end
-    
-    % Load dwell-times in this segment
-    data = fscanf(fid, '%f', [2 ndwells])';
-    dwells{segid} = [data(:,1)+1 data(:,2)/sampling]; %#ok<AGROW>
-    
-end
-fclose(fid);
+% Parse segment header lines
+data = textscan( strjoin(match,'|'), ...
+    'Segment: %f Dwells: %f Sampling(ms): %f Start(ms): %f ClassCount: %f %[^|]', ...
+    'delimiter','|' );
+[segid,~,sampling,offsets,~,modelText] = data{:};
 
-% If all the models are identical, merge into a single model. Many
-% QuB-based functions assume this.
-if numel( unique(nStates) )==1,
-    if all(model{1}(:)==model{end}(:))
-        model = model{1};
+assert( all(sampling==sampling(1)), 'Imaging time resolution not consistent' );
+sampling = sampling(1);
+offsets = offsets'/sampling;
+
+
+% Parse model parameters in header lines (mean FRET and noise stdev).
+nModels = numel(unique(modelText));
+if nModels==1,
+    % If all are the same, return just one. Many functions assume this.
+    model = parseModel(modelText{1});
+else
+    model = cell(nTraces,1);
+    for s=1:nModels,
+        model{segid(s)} = parseModel(modelText{s});
     end
 end
 
-if ~exist('sampling','var'),
-    error('Malformed or empty DWT file');
+
+% Parse dwell-times, using 1-based class numbering and frames for time.
+dwells = cell(1,nTraces);
+
+for s=1:nTraces,
+    block = text(last(s)+1:first(s+1)-1);
+    data = sscanf( block, '%f' );
+    dwells{segid(s)} = [data(1:2:end)+1 data(2:2:end)/sampling];
 end
 
-end  % function LoadDWT
+
+end
+
+
+
+function m = parseModel(text)
+% Parse and shape the list of FRET parameters.
+m = sscanf(text,'%f');
+m = [m(1:2:end) m(2:2:end)];
+end
+
+
+
+
