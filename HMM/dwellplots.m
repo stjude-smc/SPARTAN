@@ -98,13 +98,15 @@ set(hFig,'pointer','arrow'); drawnow;
 prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
 fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
 types{4} = {'none','state','file','time'};
-cb = @(~,~)settingsDialog(params,fields,prompt,types,@dwellplots,{hFig,dwtfilename});
+cb = @(~,~)settingdlg(params,fields,prompt,types,@dwellplots,{hFig,dwtfilename});
 output = [to_col(dwellaxis) horzcat(histograms{:})];
 
 defaultFigLayout( hFig, @(~,~)dwellplots(getFiles('*.dwt'),params), ...
                       @(~,~)dwellplots(hFig,getFiles('*.dwt'),params), ...
                       {@exportTxt,dwtfilename,output}, ...
-       {'Change settings...',cb; 'Reset settings',{@clipboardmat,output}}  );
+       {'Change settings...',cb; ...
+        %'Reset settings',@(~,~)dwellplots(hFig,dwtfilename) ...  %FIXME!
+        'Copy output',{@clipboardmat,output}}  );
 
 
 end %function dwellplots

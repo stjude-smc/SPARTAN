@@ -135,33 +135,9 @@ end
 %% Add menus to change settings, get data, open new plots, etc.
 defaultFigLayout( hFig, @(~,~)transitionsPerSecond(getFiles('*.dwt'),params), ...
                         @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params), [], ...
-   {'Change settings...',@(~,~)settingsDialog(params,@transitionsPerSecond,{cax,dwtFilenames}) ; ...
+   {'Change settings...',@(~,~)settingdlg(params,@transitionsPerSecond,{cax,dwtFilenames}) ; ...
+    'Reset settings',   @(~,~)transitionsPerSecond(cax,dwtFilenames) ; ...
     'Copy values',{@clipboardmat,[meanTPS stdTPS]}  }    );
-
-
-% if isempty( findall(hFig,'tag','spartanSettings') ),
-%     hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
-%     delete(allchild(hMenu));
-%     set(hMenu, 'Callback', @(~,~)transitionsPerSecond(getFiles('*.dwt'),params), 'Visible','on' );
-%     hMenu = findall(hFig,'tag','Standard.NewFigure');
-%     set(hMenu, 'ClickedCallback', @(~,~)transitionsPerSecond(getFiles('*.dwt'),params), 'Visible','on' );
-% 
-%     hMenu = findall(hFig,'tag','figMenuOpen');
-%     set(hMenu, 'Callback', @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params) );
-%     hMenu = findall(hFig,'tag','Standard.FileOpen');
-%     set(hMenu, 'ClickedCallback', @(~,~)transitionsPerSecond(cax,getFiles('*.dwt'),params) );
-% 
-%     hEditMenu = findall(hFig, 'tag','figMenuEdit');
-%     set(hEditMenu, 'Visible','on');
-%     cb = @(~,~) settingsDialog(params,@transitionsPerSecond,{cax,dwtFilenames});
-%     uimenu(hEditMenu, 'Label','Change settings...', 'Callback',cb, 'tag','spartanSettings');
-%     uimenu(hEditMenu, 'Label','Copy values',        'Callback',{@clipboardmat,[meanTPS stdTPS]});
-% 
-%     % Put the new ones at the top.
-%     c = allchild(hEditMenu);
-%     set(hEditMenu,'Children',c([3:end 1 2]));
-%     set(c(end),'Separator','on');
-% end
 
 
 

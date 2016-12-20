@@ -25,22 +25,26 @@ params.hideZeroState = true;
 narginchk(0,3);
 nargoutchk(0,2);
 [varargout{1:nargout}] = deal([]);
+[ax,hFig] = deal([]);
 
-if nargin>0 && all(ishghandle(varargin{1},'axes'))
-    ax = varargin{1};
-    args = varargin(2:end);
-else
-    ax = [];
-    args = varargin;
+if nargin>0,
+    if all(ishghandle(varargin{1},'axes'))
+        ax = varargin{1};
+        hFig = get(ax(1),'Parent');
+        varargin = varargin(2:end);
+    elseif all(ishghandle(varargin{1},'figure'))
+        hFig = varargin{1};
+        varargin = varargin(2:end);
+    end
 end
 
-switch numel(args)
+switch numel(varargin)
     case 0
         files = getFiles('*.dwt');
     case 1
-        files = args{1};
+        files = varargin{1};
     case 2
-        [files,inputParams] = args{:};
+        [files,inputParams] = varargin{:};
         params = mergestruct(params, inputParams);
 end
 cellinput = iscell(files);
@@ -56,14 +60,11 @@ if ~isempty(ax) && numel(ax)~=nFiles,
     error('Input axes must match number of files');
 end
 
-
-% Create figure
-hasTarget = ~isempty(ax);
-if hasTarget,
-    hFig = get(ax(1),'Parent');
-    set(hFig,'pointer','watch'); drawnow;
-elseif nargout==0
+% Create figure, 
+if isempty(hFig) && nargout==0
     hFig = figure;
+end
+if ~isempty(hFig),
     set(hFig,'pointer','watch'); drawnow;
 end
 
@@ -127,9 +128,11 @@ if params.hideZeroState
     lgtxt = lgtxt(2:end);
 end
 
+doCreatePlot = isempty(ax);
+
 for i=1:nFiles,
     % Clear axes for new plot.
-    if ~hasTarget
+    if doCreatePlot
         ax(i) = subplot(1,nFiles,i, 'Parent',hFig);
     else
         newplot(ax(i));
@@ -157,9 +160,10 @@ set(hFig,'pointer','arrow'); drawnow;
 %% Add menus to change settings, get data, open new plots, etc.
 txtout = [time occupancy{:}];
 
-defaultFigLayout( hFig, @(~,~)occtime(getFiles('*.dwt'),params), ...
-    @(~,~)occtime(ax,getFiles('*.dwt'),params), {@exportTxt,files,txtout}, ...
-      { 'Change settings...',@(~,~)settingsDialog(params,@occtime,{ax,files}); ...
+defaultFigLayout( hFig, @(~,~)occtime(getFiles('*.dwt'),params), ...  %File->New callback
+                   @(~,~)occtime(hFig,getFiles('*.dwt'),params), ...  %File->Open callaback
+                   {@exportTxt,files,txtout}, ...                     %Export callaback
+      { 'Change settings...',@(~,~)settingdlg(params,@occtime,{ax,files}); ...
         'Reset settings',    @(~,~)occtime(ax,files); ...
         'Copy values',      {@clipboardmat,txtout}  }  );
 

@@ -1,5 +1,5 @@
 function output = settingdlg(input, varargin) %fields, Prompt, types, Title, fun, params)
-%settingsDialog  Input dialog to change arbitrary struct fields
+%settingdlg  Input dialog to change arbitrary struct fields
 %
 %   OUT = settingdlg(IN) prompts the user for values in the struct IN,
 %   saving them in OUT if the user hits "OK" and returns IN unmodified otherwise.

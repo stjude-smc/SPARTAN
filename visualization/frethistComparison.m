@@ -130,35 +130,17 @@ end
 set(hFig,'pointer','arrow'); drawnow;
 
 
-%% Add menu items
-hMenu = findall(hFig,'tag','figMenuGenerateCode');
-set(hMenu, 'Label','Export as .txt', 'Callback',{@exportTxt,files,output});
 
-hMenu = findall(hFig,'tag','figMenuUpdateFileNew');
-delete(allchild(hMenu));
-set(hMenu, 'Callback', @(~,~)frethistComparison(getFiles(),params) );
-hMenu = findall(hFig,'tag','Standard.NewFigure');
-set(hMenu, 'ClickedCallback', @(~,~)frethistComparison(getFiles(),params) );
-
-hMenu = findall(hFig,'tag','figMenuOpen');
-set(hMenu, 'Callback', @(~,~)frethistComparison(cax,getFiles(),params) );
-hMenu = findall(hFig,'tag','Standard.FileOpen');
-set(hMenu, 'ClickedCallback', @(~,~)frethistComparison(cax,getFiles(),params) );
-
-
-hEditMenu = findall(hFig, 'tag', 'figMenuEdit');
-delete(allchild(hEditMenu));
-
+%% Add menus to change settings, get data, open new plots, etc.
 fields = {'removeBlinks', 'calcErrorBars', 'contour_length', 'pophist_offset'};
 prompt = {'Remove blinks:', 'Show error bars:', 'Frames', 'Offset:'};
-cb = @(~,~) settingsDialog(params,fields,prompt,@frethistComparison,{cax,files});
-uimenu('Label','Change settings...', 'Parent',hEditMenu, 'Callback',cb);
 
-cb = @(~,~)frethistComparison(cax,files);
-uimenu('Label','Reset settings', 'Parent',hEditMenu, 'Callback',cb);
-
-uimenu('Label','Copy data', 'Parent',hEditMenu, 'Callback',{@clipboardmat,output});
-
+defaultFigLayout( hFig, @(~,~)frethistComparison(getFiles(),params), ...  %File->New callback
+                        @(~,~)frethistComparison(cax,getFiles(),params), ...  %File->Open callaback
+                        {@exportTxt,files,output}, ...                     %Export callaback
+      { 'Change settings...',@(~,~)settingdlg(params,fields,prompt,@frethistComparison,{cax,files}); ...
+        'Reset settings',    @(~,~)frethistComparison(cax,files); ...
+        'Copy values',      {@clipboardmat,output}  }  );
 
 end
 

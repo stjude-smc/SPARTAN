@@ -62,7 +62,7 @@ if nargin>=4 && ~isempty(fhExport),
     set(hMenu, 'Label','Export .txt files', 'Callback',fhExport, 'Visible','on');
 end
 
-% Add custom Edit menu options -- only once for figure creation.
+% Add custom Edit menu options
 if nargin>=5 && ~isempty(editCallbacks),
     % Remove any old custom menu items.
     delete( findall(hFig,'tag','spartanMenuEdit') );
