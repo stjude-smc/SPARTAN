@@ -41,6 +41,7 @@ lt = calcLifetime(data.total,constants.TAU,constants.NSTD);
 % subtracted from each frame in gettraces.
 % FIXME: consider making this a method in Traces class
 [nTraces,len] = size(data.donor);
+bg = zeros(nTraces,3);
 
 for m=1:nTraces,
 
@@ -53,16 +54,25 @@ for m=1:nTraces,
     end
 
     % Make background correction
-    data.donor(m,:) = data.donor(m,:)- sum( data.donor(m,range) )/nRange;
+    bg(m,1) = sum( data.donor(m,range) )/nRange;
     
     if isFret,
-        data.acceptor(m,:) = data.acceptor(m,:) - sum( data.acceptor(m,range) )/nRange;
+        bg(m,2) = sum( data.acceptor(m,range) )/nRange;
     end
     
     if isThreeColor,
-        data.acceptor2(m,:) = data.acceptor2(m,:) - sum( data.acceptor2(m,range) )/nRange;
+        bg(m,3) = sum( data.acceptor2(m,range) )/nRange;
     end
 end
 
+data.donor = bsxfun(@minus, data.donor, bg(:,1));
+
+if isFret,
+    data.acceptor = bsxfun(@minus, data.acceptor, bg(:,2));
+end
+
+if isThreeColor,
+    data.acceptor2 = bsxfun(@minus, data.acceptor2, bg(:,3));
+end
 
 
