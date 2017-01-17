@@ -33,7 +33,7 @@ temp = cell(numel(titles), 0);
 for i=1:nFiles,
     line = titles{i};
     
-    idx = [1 find(~arrayfun(@isalpha_num,line)) numel(line)+1];
+    idx = [1 find(~arrayfun(@isalnum,line)) numel(line)+1];
     for j=1:numel(idx)-1,
         temp{i,j} = line(idx(j):idx(j+1)-1);
     end
@@ -74,6 +74,14 @@ e = cellfun(@isempty,titles);
 
 
 end
+
+
+
+function out = isalnum(str)
+% Check if all characters are alpha-numeric or underscore.
+out = all( ismember(upper(str),'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') );
+end
+
 
 
 
