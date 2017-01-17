@@ -195,9 +195,14 @@ for i=1:size(data.donor,1),
 end
 
 % ---- Save data to file.
-[p,name]=fileparts(stk_fname);
-save_fname = fullfile(p, [name '.rawtraces']);
-saveTraces(save_fname, data);
+if ~isfield(params,'outFilename') || isempty(params.outFilename)
+    [p,name] = fileparts(stk_fname);
+    save_fname = fullfile(p, [name '.rawtraces']);
+    saveTraces(save_fname, data);
+else
+    disp(params.outFilename);
+    saveTraces(params.outFilename, data);
+end
 
 if ~quiet,
     close(wbh);

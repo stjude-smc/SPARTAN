@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 03-Nov-2016 16:06:28
+% Last Modified by GUIDE v2.5 29-Dec-2016 10:34:44
 
 
 % Begin initialization code - DO NOT EDIT
@@ -234,7 +234,7 @@ title(handles.axTotal,'Total Intensity', 'FontSize',10);
 
 set(handles.figure1,'pointer','arrow');
 set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
-set([handles.btnSave handles.mnuFileSave],'Enable','off');
+set([handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs],'Enable','off');
 
 %end function OpenStk
 
@@ -499,7 +499,8 @@ handles.num = numel(handles.total_x);
 set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
                                     numel(handles.rtotal_x)+handles.num) );
 
-set( [handles.btnSave handles.mnuFileSave handles.mnuHidePeaks], 'Enable','on');
+set( [handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs ...
+                                     handles.mnuHidePeaks], 'Enable','on');
 
 set(handles.figure1,'pointer','arrow');
 guidata(hObject,handles);
@@ -594,9 +595,9 @@ delete(findobj(handles.figure1,'type','line'));
 % --------------------- SAVE PICKED TRACES TO FILE --------------------- %
 
 % --- Executes on button press in mnuFileSave.
-function mnuFileSave_Callback(~, ~, handles)
+function mnuFileSave_Callback(~, ~, handles, prompt)
 
-set(handles.figure1,'pointer','watch'); drawnow;
+if nargin<4, prompt=false; end
 
 if iscell(handles.stkfile),
     filename = handles.stkfile{1};
@@ -607,8 +608,18 @@ end
 % Remove file extension for multi-part movies.
 filename = regexprep(filename,'-file[0-9]*.[A-Za-z0-9]*$','');
 
+% Prompt user for target filename, if called from the "File->Save As" menu.
+if prompt,
+    [p,f] = fileparts(filename);
+    [f,p] = uiputfile('*.traces', 'Save traces as:', fullfile(p,[f '.rawtraces']));
+    if f==0, return; end
+    params.outFilename = fullfile(p,f);
+end
+
 % Integrate fluorophore point-spread functions, generate fluorescence
 % traces, and save to file.
+set(handles.figure1,'pointer','watch'); drawnow;
+
 stkData = getappdata(handles.figure1,'stkData');
 if isfield(stkData,'peaks')
     integrateAndSave(stkData, filename, handles.params);
@@ -619,7 +630,6 @@ end
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION mnuFileSave_Callback
-
 
 
 
@@ -1099,6 +1109,3 @@ function updateFileTimer(~,~,hObject,targetDir)
 % movies that may have appeared on the path.
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
-
-
-
