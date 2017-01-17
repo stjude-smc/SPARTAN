@@ -38,14 +38,14 @@ end
 parfor (i=1:Ntraces, M)
     % Median filter traces to remove high frequency noise and find drops in
     % total intensity to detect bleaching steps (or blinking).
-    dfilt_total = gradient( medianfilter(total(:,i)',TAU) );
+    dfilt_total = gradient1( medianfilter(total(:,i)',TAU) );
     
     % Exclude "outliers" from std (including bleaching steps).
     % std() should only consider noise, not blinking/bleaching steps.
-    outlier_thresh = mean(dfilt_total) + 6*std(dfilt_total);
-    outliers = abs(dfilt_total)>outlier_thresh;
+    thresh = sum(dfilt_total)/nFrames + 6*std1(dfilt_total);
     
-    thresh = mean( dfilt_total(~outliers) ) - NSTD*std( dfilt_total(~outliers) );
+    df_clean = dfilt_total( abs(dfilt_total)<=thresh );
+    thresh = sum(df_clean)/numel(df_clean) - NSTD*std1(df_clean);
     
     % Find Cy3 photobleaching event by finding *last* large drop in total
     % fluorescence in the median filtered trace. The last frame can have

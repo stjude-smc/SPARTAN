@@ -1,4 +1,4 @@
-function result = rleFilter( signal, tau )
+function result = rleFilter( x, tau )
 % RLE_FILTER  Run-length-encoding filter
 %
 %   VALUES = RLE_FILTER( SIGNAL, TAU )
@@ -9,8 +9,6 @@ function result = rleFilter( signal, tau )
 % Parts adopted from:
 % http://home.online.no/~pjacklam/matlab/doc/mtt/index.html
 
-
-x = signal;
 
 % Create a run-length-encoded version of signal
 i = [ find(x(1:end-1) ~= x(2:end)) numel(x) ]; %run end positions
