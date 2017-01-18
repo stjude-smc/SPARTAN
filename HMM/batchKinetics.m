@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 13-Dec-2016 15:08:56
+% Last Modified by GUIDE v2.5 18-Jan-2017 18:55:40
 
 
 %% GUI Callbacks
@@ -470,6 +470,8 @@ function handles = lbFiles_Callback(hObject, ~, handles)
 % FIXME: could be somewhat faster if plotting one long trace rather than
 % many line objects...
 
+if isempty(handles.dataFilenames), return; end  %no data loaded.
+
 idxFile = get(hObject,'Value');
 data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
@@ -611,3 +613,43 @@ set(handles.figure1,'pointer','arrow');
 set(handles.txtStatus,'String','Finished.'); drawnow;
 
 % END FUNCTION mnuSim_Callback
+
+
+% --------------------------------------------------------------------
+function mnuFileRemove_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Close currently-selected file in GUI list.
+
+idxfile = get(handles.lbFiles,'Value');
+handles.dataFilenames(idxfile) = [];
+handles.dwtFilenames(idxfile) = [];
+guidata(hObject,handles);
+
+names = get(handles.lbFiles,'String');
+names(idxfile) = [];
+set(handles.lbFiles,'String',names, 'Value',max(1,idxfile-1));
+
+% Update GUI.
+if numel(names)>0
+    lbFiles_Callback(handles.lbFiles, [], handles);
+else
+    cla(handles.axTraces);
+    enableControls(handles);
+end
+
+% END FUNCTION mnuFileRemove_Callback
+
+
+% --------------------------------------------------------------------
+function mnuFileRemoveAll_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Close all open files.
+
+handles.dataFilenames = {};
+handles.dwtFilenames = {};
+set(handles.lbFiles, 'String',{}, 'Value',1);
+guidata(hObject,handles);
+
+cla(handles.axTraces);
+enableControls(handles);
+
+% END FUNCTION mnuFileRemoveAll_Callback
+
