@@ -58,10 +58,10 @@ for i=1:numel(files),
     end
     
     % For each trace, average the FRET values at each frame to create an
-    % average FRET trace. Exclude regions where the dyes are dark.
+    % average FRET trace. Exclude dark states and extreme values.
     for j=1:params.truncateLen,
-        nonzero = data.fret(:,j) >= params.min_fret;
-        output(j,i+1) = median( data.fret(nonzero,j) );
+        nonzero = data.fret(:,j) >= params.min_fret & data.fret(:,j)<1.2;
+        output(j,i+1) = mean( data.fret(nonzero,j) );
     end
 
 end %for each trace.

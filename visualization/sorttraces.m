@@ -763,20 +763,21 @@ elseif mode==3,  % Substrate background in ALL fluorescence channels
 end
 
 % Subtract background from all selected channels
-for i=1:numel(idxSub), %for every non-fret channel index
-    ch = fluorNames{ idxSub(i) };
-    bg = mean(  handles.data.(ch)(m,xrange)  );
-    handles.backgrounds( idxSub(i) ) = bg;
-    handles.data.(ch)(m,:) = handles.data.(ch)(m,:) - bg;
-end
-    
+if mode<4
+    for i=1:numel(idxSub), %for every non-fret channel index
+        ch = fluorNames{ idxSub(i) };
+        bg = mean(  handles.data.(ch)(m,xrange)  );
+        handles.backgrounds( idxSub(i) ) = bg;
+        handles.data.(ch)(m,:) = handles.data.(ch)(m,:) - bg;
+    end
     
 % UNDO background subtraction for all fluorescence channels
-if mode==4,
+else
     for i=1:numel(fluorNames), %for every non-fret channel
         ch = fluorNames{i};
         handles.data.(ch)(m,:) = handles.data.(ch)(m,:) + handles.backgrounds(i);
-    end    
+    end
+    handles.backgrounds = zeros( size(handles.backgrounds) );
 end
 
 updateTraceData( handles );
