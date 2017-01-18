@@ -61,11 +61,12 @@ dwtIDs = zeros( 1, nTraces );
 for dwtID=1:numel(dwt)
     traceID = floor(offsets(dwtID)/traceLen)+1;
     dwtIDs(traceID)=dwtID;
+    trace = dwt{dwtID};
     
-    states = floor( dwt{dwtID}(:,1) );
-    times  = floor( dwt{dwtID}(:,2) );
+    if isempty(trace), continue; end
     
-    if isempty(states), continue; end
+    states = floor( trace(:,1) );
+    times  = floor( trace(:,2) );
 
     % For all dwells in this trace, get the start and end times.
     ends = cumsum(times);
