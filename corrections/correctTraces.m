@@ -1,18 +1,23 @@
 function data = correctTraces(data, crosstalk, scaleFluor, indexes)
-% CORRECT applies crosstalk and scaling corrections to fluorescence traces.
+% correctTraces  Apply crosstalk and scaling corrections to fluorescence traces.
 %
-%    DATA = CORRECT(DATA, CROSSTALK, SCALING) modifies the Traces object DATA
+%    DATA = correctTraces(DATA, CROSSTALK, SCALING) modifies the Traces object DATA
 %    in place (left hand argument is optional), applying the given CROSSTALK
 %    and channel SCALING corrections in that order. Use data.recalculateFret
 %    to update FRET values from corrected fluorescence traces.
 %      CROSSTALK(source channel number, destination channel number, trace ID)
 %      SCALING(channel number, trace ID)
 %
-%    ... = CORRECT(..., INDEXES) only adjustes the traces listed in the
+%    ... = correctTraces(..., INDEXES) only adjustes the traces listed in the
 %    vector INDEXES. CROSSTALK and SCALING include values for all traces.
 %
 %    If the final dimension of either CROSSTALK or SCALING is unity, the
 %    value will be applied to all traces.
+%
+%    This function does not alter FRET traces. Use the TracesFret(4) method
+%    recalculateFret to update FRET traces.
+%
+%    See also crosstalkcorrect, gammacorrect, scaleAcceptor, bgsub.
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
@@ -70,54 +75,55 @@ end
 chNames = data.channelNames(data.idxFluor);  %increasing wavelength order.
 % nFluor = numel(data.idxFluor);
 
-for i=to_row(indexes),
-    
-    % Undo any previous scaling.
-    for ch=1:nFluor,
-        data.(chNames{ch})(i,:) = data.(chNames{ch})(i,:) / ...
-                                       data.traceMetadata(i).scaleFluor(ch); 
-    end
-    
-    % Undo crosstalk subtraction in reverse order (red to blue).
-    for src=nFluor:-1:1,
-        for dst=nFluor:-1:1,
-            if src>=dst, continue; end  %only consider forward crosstalk
-            
-            ch1 = chNames{src};
-            ch2 = chNames{dst};
-            ct = data.traceMetadata(i).crosstalk(src,dst);
-            data.(ch2)(i,:) = data.(ch2)(i,:) + ct*data.(ch1)(i,:);
-        end
-    end
+% Undo previous scaling by dividing fluorescence by the factor in metadata.
+for ch=1:nFluor,
+    chscale = arrayfun( @(x)x.scaleFluor(ch), data.traceMetadata(indexes) );
+    data.(chNames{ch})(indexes,:) = bsxfun(@rdivide, data.(chNames{ch})(indexes,:), chscale);  %indexes
+end
 
-end %for each trace
+% Determine reverse crosstalk channel pairs.
+[src,dst] = find( triu(ones(nFluor))-eye(nFluor) );
+src=flip(src); dst=flip(dst);
+
+% Undo previous crosstalk corrections by adding forward fluorescence
+% by the factor in metadata.
+for c=1:numel(src)
+    ch1 = chNames{src(c)};
+    ch2 = chNames{dst(c)};
+    
+    ct = arrayfun( @(x)x.crosstalk(src(c),dst(c)), data.traceMetadata(indexes) );
+    data.(ch2)(indexes,:) = data.(ch2)(indexes,:) + bsxfun(@times, data.(ch1)(indexes,:), ct);
+end
+
 
 
 %% Apply new corrections
+
+% Determine foward crosstalk channel pairs.
+[src,dst] = find( triu(ones(nFluor))-eye(nFluor) );
+
+% Subtract forward crosstalk (in wavelength order: blue to red).
+for c=1:numel(src)
+    ch1 = chNames{src(c)};
+    ch2 = chNames{dst(c)};
+    
+    ct = squeeze( crosstalk(src(c),dst(c),indexes) );
+    data.(ch2)(indexes,:) = data.(ch2)(indexes,:) - bsxfun(@times, ...
+                                                   data.(ch1)(indexes,:), ct);
+end
+
+% Scale fluorescence to correct for unequal brightness/sensitivity
+for ch=1:nFluor,
+    data.(chNames{ch})(indexes,:) = bsxfun(@times, ...
+                      data.(chNames{ch})(indexes,:), scaleFluor(ch,indexes)');
+end
+
+% Save new correction parameters in metadata
 for i=to_row(indexes),
-    
-    % Apply crosstalk subtraction in wavelength order (blue to red).
-    for src=1:nFluor,
-        for dst=1:nFluor,
-            if src>=dst, continue; end  %only consider forward crosstalk
-            
-            ch1 = chNames{src};
-            ch2 = chNames{dst};
-            data.(ch2)(i,:) = data.(ch2)(i,:) - crosstalk(src,dst,i) * ...
-                                                            data.(ch1)(i,:);
-        end
-    end
-    
-    % Scale fluorescence to correct for unequal brightness/sensitivity
-    for ch=1:nFluor,
-        data.(chNames{ch})(i,:) = data.(chNames{ch})(i,:) * scaleFluor(ch,i); 
-    end
-    
-    % Save new correction parameters in metadata
     data.traceMetadata(i).crosstalk  = crosstalk(:,:,i);
     data.traceMetadata(i).scaleFluor = scaleFluor(:,i);
+end
 
-end %for each trace
 
 
 end %function correctTraces
