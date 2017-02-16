@@ -9,6 +9,7 @@ function result = rleFilter( x, tau )
 % Parts adopted from:
 % http://home.online.no/~pjacklam/matlab/doc/mtt/index.html
 
+if isempty(x), result=x; return; end
 
 % Create a run-length-encoded version of signal
 i = [ find(x(1:end-1) ~= x(2:end)) numel(x) ]; %run end positions
