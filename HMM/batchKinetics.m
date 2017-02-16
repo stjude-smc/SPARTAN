@@ -60,6 +60,7 @@ handles.output = hObject;
 [handles.modelFilename,handles.model,handles.idl] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 handles.nTracesToShow = 6;  %number displayed in trace display panel
+handles.showStateMarkers = true;  %show dotted lines for model FRET values
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -438,11 +439,12 @@ end
 function mnuDisplaySettings_Callback(~, ~, handles) %#ok<DEFNU>
 % Change display settings (e.g., number of traces displayed).
 
-opt = struct('nTracesToShow',handles.nTracesToShow);
-prompt = {'Number of traces to show'};
+opt = struct('nTracesToShow',handles.nTracesToShow, 'showStateMarkers',handles.showStateMarkers);
+prompt = {'Number of traces to show', 'Show model FRET values over traces'};
 opt = settingdlg(opt, fieldnames(opt), prompt);
 if ~isempty(opt),
     handles.nTracesToShow = opt.nTracesToShow;
+    handles.showStateMarkers = opt.showStateMarkers;
     lbFiles_Callback(handles.lbFiles, [], handles);
 end
 
@@ -495,6 +497,15 @@ for i=1:handles.nTracesToShow,
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
            
     plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' );  %baseline marker
+    
+    % State markers.
+    if ~isempty(handles.model) && handles.showStateMarkers,
+        colors = 'krbgym';
+        for k=2:handles.model.nStates,
+            mu = repmat( handles.model.mu(k), 1,2 );
+            plot( handles.axTraces, time([1,end]), y_offset+mu, [colors(k) ':'] );
+        end
+    end
     
     handles.hFretLine(i) = plot( handles.axTraces, time, ...
                               y_offset+zeros(1,xlimit), 'b-' );
