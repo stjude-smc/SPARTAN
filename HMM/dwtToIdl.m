@@ -35,7 +35,8 @@ end
 % the minimum size to contain the idealization, assuming all traces are
 % idealized. Often used when using the idealization alone without FRET data.
 if nargin==1,
-    traceLen = max(  cellfun( @(x) sum(x(:,2)), dwt )  );
+    empty = cellfun(@isempty,dwt);
+    traceLen = max(  cellfun( @(x) sum(x(:,2)), dwt(~empty) )  );
     offsets = (0:1:numel(dwt)-1)*traceLen;
     nTraces = numel(dwt);
 
