@@ -153,7 +153,7 @@ methods
     % Add a callback to the box so the properties can be seen and changed.
     set([this.hBox; this.hText], 'ButtonDownFcn', @this.stateClicked_callback );
 
-    menu = uicontextmenu;
+    menu = uicontextmenu(gcbf);
     uimenu( menu, 'Label','State properties...', 'Callback', @this.editState_callback   );
     uimenu( menu, 'Label','Class properties...', 'Callback', @this.editClass_callback  );
     uimenu( menu, 'Label','Connect to...',       'Callback', @this.connect_callback     );
@@ -172,7 +172,7 @@ methods
     ylim(this.ax,[7 90]);
 
     %---- Add context menu to for additional options
-    menu = uicontextmenu;
+    menu = uicontextmenu(gcbf);
     uimenu( menu, 'Label','Add state', 'Callback',@this.addState_callback );
     uimenu( menu, 'Label','Calculate and apply equilibrium p0', ...
                              'Callback',@this.calcEqP0_callback );

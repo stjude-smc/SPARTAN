@@ -210,6 +210,7 @@ if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
     
     optModel = milOptimize(dwtfname, handles.model, handles.options);
     handles.model.rates = optModel.rates;
+    handles.modelViewer.redraw();
 else
     % Clear current idealization (FIXME also delete .dwt?)
     handles.idl = [];
@@ -224,8 +225,8 @@ if get(handles.chkUpdateModel,'Value'),
     handles.model.mu    = optModel.mu;
     handles.model.sigma = optModel.sigma;
     handles.model.p0    = optModel.p0;
+    handles.modelViewer.redraw();
 end
-handles.modelViewer.redraw();
 
 % Save results to file for later processing by the user.
 % save('resultTree.mat','resultTree');
@@ -259,7 +260,7 @@ function idl = loadIdl(handles)
 
 dwtfname = handles.dwtFilenames{ get(handles.lbFiles,'Value') };
 
-if ~isempty(dwtfname)
+if ~isempty(dwtfname) && exist(dwtfname,'file'),
     [dwt,~,offsets,model] = loadDWT(dwtfname);
     idl = dwtToIdl(dwt, offsets, handles.data.nFrames, handles.data.nTraces);
     
