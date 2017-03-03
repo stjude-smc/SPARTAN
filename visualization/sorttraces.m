@@ -1374,7 +1374,7 @@ switch ch
         dt  = diff(handles.data.time(1:2)) / 1000;  %time step in seconds
         lt  = handles.stats.lifetime*dt;
         lta = handles.stats.acclife*dt;
-        x = xlim();  x = x(end);
+        x = xlim(handles.axFluor);  x = x(end);
 
         if x==lt+15*dt,
             % User already zoomed once; zoom in further.
@@ -1459,7 +1459,9 @@ if isempty(handles.axFOV) || ~ishandle(handles.axFOV),
     handles.axFOV = gca;
 
     % Load an image from the first 10 frames of the movie.
-    stkData = gettraces( movieFilename );
+    constants = cascadeConstants;
+    params = constants.gettraces_profiles(1); %single color
+    stkData = OpenStk( movieFilename, params );
     image_t = stkData.stk_top-stkData.background;
 
     % Display the field of view
