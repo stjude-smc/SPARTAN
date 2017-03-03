@@ -1,25 +1,34 @@
 function integrateAndSave(stkData, stk_fname, params)
 %integrateAndSave  Sum single molecule PSFs, save as .traces file.
 %
-%   integrateAndSave(STK, PEAKS, FILENAME, PARAMS)
+%   integrateAndSave(STKDATA, TRCNAME, PARAMS)
 %
-% For each location in "peaks", sum a region that includes most of the
-% intensity for that spot and repeat for each time point to get a
-% fluorescence-time trace for each peak. Background subtraction, crosstalk
-% correction, and calculation of derived signals (FRET traces) is all done
-% here. Then the result is saved as a .rawtraces file with metadata.
+%   STKDATA is a structure produced by gettraces.m including:
+%     stkData.movie: Movie object referencing the underlying movie data.
+%     stkData.peaks: molecule locations (x first col, y second col).
+%     stkData.regionIdx: integration regions, specified as a list of
+%                        flat indices for each molecule and each channel.
+%     stkData.background: estimated background field image.
+%     stkData.bgMask: (optional) specifies background regions to sum to
+%                      general a background intensity trace.
+%
+%   TRCNAME is a the path to output .rawtraces file.
+%
+%   PARAMS is a structure containing optional parameters. See
+%     cascadeConstants.m and gettraces.m.
+%     
+%   For each location in "peaks", sum a region that includes most of the
+%   intensity for that spot and repeat for each time point to get a
+%   fluorescence-time trace for each peak. Background subtraction, crosstalk
+%   correction, and calculation of derived signals (FRET traces) is all done
+%   here. Then the result is saved as a .rawtraces file with metadata.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 constants = cascadeConstants;
 movie = stkData.movie;
 nFrames = movie.nFrames;
-
-% Start the progress bar before initial setup; indicate something is happening.
 quiet = params.quiet;
-if ~quiet,
-    wbh = parfor_progressbar(1.1*nFrames,'Extracting traces from movie data');
-end
 
 % Get x,y coordinates of picked peaks
 peaks = stkData.peaks;
@@ -59,16 +68,22 @@ if isfield(params,'zeroMethod'),
     data.fileMetadata(1).zeroMethod = params.zeroMethod;
 end
 
-% Ask the user
-if ~quiet && data.time(1)==1,
+% If time stamps now
+if ~quiet && movie.timeAxis(1)==1,
     disp('Time axis information is not present in movie!');
     a = inputdlg('Time resolution (ms):','No time axis in movie!');
     a = str2double(a);
-    if ~isempty(a), %empty if user hit Cancel or entered an invalid number
-        data.time = a*( 0:nFrames-1 );
-    else
-        disp('Using frames as the time axis');
+    if isnan(a),
+        disp('gettraces: Invalid time resolution.');
+        return;
+    elseif isempty(a), return; %user hit cancel.
     end
+    data.time = a*( 0:nFrames-1 );
+end
+
+% Start the progress bar before initial setup; indicate something is happening.
+if ~quiet,
+    wbh = parfor_progressbar(1.1*nFrames,'Extracting traces from movie data');
 end
 
 % Parallelize very large TIFF movies, where disk access is quick compared to

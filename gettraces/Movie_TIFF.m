@@ -82,32 +82,43 @@ methods
             assert( info(1).SamplesPerPixel==1, 'Processing of multiple channels per pixel is not implemented' );
             
             % Process time axis information.
-            if isfield( info,'DateTime' )
-                dot = strfind( info(1).DateTime, '.' );
-                
-                % NOTE: for most acquisition implementations, these
-                % timestamps are for the time transfered from the camera 
-                % to the computer and may not actually be that valuable.
-                % This is hacky because ms time is variable width with
-                % MetaMorph and because each call to datenum is slow.
-                tcell = {info.DateTime};
-                ms  = cellfun( @(s) str2double(s(dot+1:end)), tcell );
-                pre = cellfun( @(s) s(1:dot-1), tcell, 'UniformOutput',false );
-                pre = vertcat( pre{:} );    
-                times{i} = ms + 24*60*60*1000*datenum(pre,'yyyymmdd HH:MM:SS')';
+            try
+                if isfield( info,'ExposureTime' )
+                    % No explicit time axis is available, but we can
+                    % reconstruct an approximate one using the exposure time.
+                    % This field is specific to the LabVIEW software.
+                    ms = info(1).ExposureTime*1000;
+                    firstTime(i) = 0 + sum( obj.nFramesPerMovie(1:i-1) )*ms;
+                    times{i} = firstTime(i) + (0:numel(info)-1)*ms;
 
-                firstTime(i) = times{i}(1);
-                
-            elseif isfield( info,'ExposureTime' )
-                % No explicit time axis is available, but we can
-                % reconstruct an approximate one using the exposure time.
-                % This field is specific to the LabVIEW software.
-                ms = info(1).ExposureTime*1000;                
-                firstTime(i) = 0 + sum( obj.nFramesPerMovie(1:i-1) )*ms;
-                times{i} = firstTime(i) + (0:numel(info)-1)*ms;
-                
-            else
-                disp('Warning: No DateTime field. Using frame number as time axis.');
+                elseif isfield( info,'DateTime' )
+                    dot = strfind( info(1).DateTime, '.' );
+                    if isempty(dot)
+                        disp('Warning: DateTime field does not have millisecond precision');
+
+                    else
+                        % NOTE: for most acquisition implementations, these
+                        % timestamps are for the time transfered from the camera
+                        % to the computer and may not actually be that valuable.
+                        % This is hacky because ms time is variable width with
+                        % MetaMorph and because each call to datenum is slow.
+                        tcell = {info.DateTime};
+                        ms  = cellfun( @(s) str2double(s(dot+1:end)), tcell );
+                        pre = cellfun( @(s) s(1:dot-1), tcell, 'UniformOutput',false );
+                        pre = vertcat( pre{:} );
+                        times{i} = ms + 24*60*60*1000*datenum(pre,'yyyymmdd HH:MM:SS')';
+
+                        firstTime(i) = times{i}(1);
+                    end
+                end
+            catch
+                times{i} = [];
+            end
+            
+            % If no time information found, use frame numbers instead.
+            % User will be asked in gettraces for a time resolution.
+            if isempty( times{i} )
+                disp('Warning: No exposure time found. Using frame numbers as time axis instead.');
                 firstTime(i) = 1 + sum( obj.nFramesPerMovie(1:i-1) );
                 times{i} = firstTime(i)+(1:numel(info))-1;
             end
@@ -189,9 +200,9 @@ methods
         end
         
         % In new versions (TIFF), the metadata is instead in XML.
-        if isfield(obj,'ImageDescription'),
+        %if isfield(obj,'ImageDescription'),
             % TODO
-        end
+        %end
         
         % Determine if the optimized fread version can be used.
         obj.useFread = strcmpi(obj.header.Compression,'Uncompressed') && ...
