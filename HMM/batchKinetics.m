@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 18-Jan-2017 18:55:40
+% Last Modified by GUIDE v2.5 14-Apr-2017 11:04:56
 
 
 %% GUI Callbacks
@@ -456,11 +456,11 @@ function sldTracesX_Callback(~, ~, handles)
 % User adjusted the trace view slider -- show a different subset of traces.
 
 xlimit = floor(get(handles.sldTracesX,'Value'));
-set( handles.axTraces, 'XLim',[0 handles.data.time(xlimit)] );
+set( handles.axTraces, 'XLim',[0 handles.data.time(xlimit)/1000] );
 
 for i=1:handles.nTracesToShow,
     p = get(handles.hTraceLabel(i), 'Position');
-    p(1) = 0.98*handles.data.time(xlimit);
+    p(1) = 0.98*handles.data.time(xlimit)/1000;
     set( handles.hTraceLabel(i), 'Position',p );
 end
 
@@ -493,7 +493,7 @@ cla(handles.axTraces);
 [handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
 
 xlimit = floor(get(handles.sldTracesX,'Value'));
-time = handles.data.time(1:xlimit);
+time = handles.data.time(1:xlimit)/1000;
 xlim( handles.axTraces, [0 time(end)] );
 
 for i=1:handles.nTracesToShow,
@@ -522,6 +522,7 @@ for i=1:handles.nTracesToShow,
 end
 
 ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
+xlabel('Time (s)');
 set(handles.figure1,'pointer','arrow');
 
 guidata(hObject,handles);
@@ -667,4 +668,3 @@ cla(handles.axTraces);
 enableControls(handles);
 
 % END FUNCTION mnuFileRemoveAll_Callback
-
