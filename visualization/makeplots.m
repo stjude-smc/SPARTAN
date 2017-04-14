@@ -310,6 +310,8 @@ end
 
 
 % Calculate and display all plots for each file:
+options.fretFieldLabel = 'FRET';
+
 for k=1:nFiles,
     
     % Load FRET data
@@ -320,11 +322,12 @@ for k=1:nFiles,
     data = loadTraces( dataFilenames{k} );
     
     % The data may have multiple FRET signals to analyze. Ask which to use.
-    if data.isChannel('fret2'),
+    if k==1 && data.isChannel('fret2'),
         a = questdlg('This data has multiple FRET channels. Which should be used?', ...
                      'Select FRET channel to use','fret','fret2','Cancel', 'fret');
         if strcmp(a,'Cancel'), return; end
         options.fretField = a;
+        options.fretFieldLabel = [ data.fretAxisLabel num2str(strcmpi(a,'fret2')+1) ];
     end
     
     
@@ -416,7 +419,7 @@ if any(cplotax~=0)
     linkaxes( cplotax, 'xy' );
     ylim( cplotax(1), options.fretRange );
     
-    ylabel(cplotax(1),upper(options.fretField));
+    ylabel(cplotax(1), options.fretFieldLabel);
     xlabel(cplotax(1),'Time (s)');  %fixme could be frames
     set(cplotax(2:end),'YTickLabel',[]);
     
@@ -430,7 +433,7 @@ if any(histax~=0),
     ylim( histax(1), options.fretRange );
     
     xlabel( histax(1),'Counts (%)' );
-    ylabel( histax(1),upper(options.fretField) );
+    ylabel( histax(1), options.fretFieldLabel );
     set(histax(2:end),'yticklabel',[]);
     
     set(histax, 'YGrid','on', 'Box','on');
