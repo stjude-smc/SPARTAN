@@ -64,8 +64,11 @@ else
     outModel = optModel;
 end
 
-% Save the idealization.
+% Save the idealization, deleting any previous ones.
 [p,n] = fileparts(trcfile);
+dwtfile = fullfile( p, [n '.dwt'] );
+if exist(dwtfile,'file'), delete(dwtfile); end
+
 dwtfile = fullfile( p, [n '.qub.dwt'] );
 fretModel = [to_col(outModel.mu) to_col(outModel.sigma)];
 saveDWT( dwtfile, dwt, offsets, fretModel, data.sampling );

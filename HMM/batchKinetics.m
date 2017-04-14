@@ -475,6 +475,8 @@ function handles = lbFiles_Callback(hObject, ~, handles)
 
 if isempty(handles.dataFilenames), return; end  %no data loaded.
 
+set(handles.figure1,'pointer','watch');
+
 idxFile = get(hObject,'Value');
 data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
@@ -520,6 +522,7 @@ for i=1:handles.nTracesToShow,
 end
 
 ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
+set(handles.figure1,'pointer','arrow');
 
 guidata(hObject,handles);
 showTraces(handles);
