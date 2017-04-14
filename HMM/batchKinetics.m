@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 14-Apr-2017 11:04:56
+% Last Modified by GUIDE v2.5 14-Apr-2017 13:41:03
 
 
 %% GUI Callbacks
@@ -177,6 +177,8 @@ handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
 handles.model.mu = handles.model.mu;  %trigger table update
 
 guidata(hObject, handles);
+
+lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION btnLoadModel_Callback
 
@@ -631,6 +633,7 @@ set(handles.txtStatus,'String','Finished.'); drawnow;
 % END FUNCTION mnuSim_Callback
 
 
+
 % --------------------------------------------------------------------
 function mnuFileRemove_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Close currently-selected file in GUI list.
@@ -668,3 +671,34 @@ cla(handles.axTraces);
 enableControls(handles);
 
 % END FUNCTION mnuFileRemoveAll_Callback
+
+
+% --------------------------------------------------------------------
+function mnuFileUp_Callback(hObject, ~, handles, inc) %#ok<DEFNU>
+% Move currently-selected file up in the GUI list.
+% The last parameter specifies the direction to move (+1 up, -1 down).
+
+% Reorder in handles objects
+names   = get(handles.lbFiles,'String');
+idxfile = get(handles.lbFiles,'Value');  %currently selected file.
+idxnew  = idxfile+inc;  %new position after move.
+idxnew  = max(1, min(numel(names),idxnew) );  %can't move past the end
+
+handles.dataFilenames = swap( handles.dataFilenames, idxfile, idxnew );
+handles.dwtFilenames  = swap( handles.dwtFilenames,  idxfile, idxnew );
+guidata(hObject,handles);
+
+% Reorder within listbox control
+names = swap( names, idxfile, idxnew );
+set(handles.lbFiles, 'String',names, 'Value',idxnew);
+
+% END FUNCTION mnuFileUp_Callback
+
+
+
+function out = swap(in, idx1, idx2)
+% Swap elements in a matrix by index.
+out = in;
+out(idx1) = in(idx2);
+out(idx2) = in(idx1);
+%end
