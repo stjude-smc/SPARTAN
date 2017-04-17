@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 29-Dec-2016 10:34:44
+% Last Modified by GUIDE v2.5 17-Apr-2017 11:29:13
 
 
 % Begin initialization code - DO NOT EDIT
@@ -55,18 +55,33 @@ handles.colortable = gettraces_colormap();
 % Choose default command line output for gettraces
 handles.output = hObject;
 
-% Add profiles from cascadeConstants to settings menu.
-profiles = {constants.gettraces_profiles.name};
-for i=1:numel(profiles),
-    h = uimenu(handles.mnuProfiles, 'Label',profiles{i}, 'Callback',@mnuProfiles_Callback);
-    if i>1 && lower(profiles{i}(1))~=lower(profiles{i-1}(1)),
-        set(h, 'Separator','on');
-    end
-    if i==constants.gettraces_defaultProfile,
-        set(h, 'Checked','on');
-    end
+% Load built-in and saved user-custom.
+profiles = constants.gettraces_profiles;
+nStandard = numel(profiles);
+
+if ispref('SPARTAN','gettraces_customProfiles')
+    profiles = [profiles getpref('SPARTAN','gettraces_customProfiles')];
+else
+    error('STUB');
 end
-set(handles.mnuSettingsCustom,'Position',numel(profiles)+1);
+
+% Add profiles from cascadeConstants to settings menu.
+for i=1:numel(profiles),
+    if i<=numel(constants.gettraces_profiles), pos=i; else pos=i+2; end
+    
+    hMenu(i) = uimenu(handles.mnuProfiles, 'Label',profiles(i).name, ...
+                      'Position',pos, 'Callback',@mnuProfiles_Callback); %#ok<AGROW>
+end
+
+% Put customization menu items in the correct spots.
+set(handles.mnuSettingsCustom,'Position',nStandard+1);
+set(handles.mnuSettingsSave,  'Position',nStandard+2);
+set( hMenu(nStandard+1), 'Separator','on' );
+
+handles.profile = constants.gettraces_defaultProfile;  %index to current profile (FIXME: rename)
+set( hMenu(handles.profile), 'Checked','on' );
+
+
 
 % Context menus for field-specific settings (names, wavelength, etc).
 hZoom = zoom(handles.figure1);
@@ -74,8 +89,9 @@ set(hZoom, 'UIContextMenu', handles.mnuField);
 zoom(handles.figure1,'on');
 
 % Setup default values for parameter values -- 2-color FRET.
+handles.hProfileMenu = hMenu;
+handles.profiles = profiles;
 handles.alignment = [];  %current alignment parameters (status)
-handles.profile = constants.gettraces_defaultProfile;
 guidata(hObject, handles);
 
 % Set up GUI elements to reflect the internal parameter values.
@@ -676,9 +692,9 @@ function mnuProfiles_Callback(hObject, ~)
 % Marks only the active profile and breaks up the movie.
 
 handles = guidata(hObject);
-set(findobj('Parent',get(hObject,'Parent')), 'Checked','off');
+set(handles.hProfileMenu,'Checked','off');
 set(hObject, 'Checked','on');
-handles.profile = get(hObject,'Position');
+handles.profile = find(hObject==handles.hProfileMenu);
 
 cboGeometry_Callback(hObject, [], handles);
 
@@ -702,8 +718,7 @@ end
 % Get parameter values associated with the selected profile.
 % Warning: if cascadeConstants is changed to add a new profile or rearrange
 % profiles, this can have unpredictable effects...
-constants = cascadeConstants;
-params = constants.gettraces_profiles(handles.profile);
+params = handles.profiles(handles.profile);
 handles.params = params;
 
 % Set all GUI to defaults of currently selected profile.
@@ -739,21 +754,78 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
-prompt = {'Threshold (0 for auto):', 'Integration window size (px):', ...
+prompt = {'Name:','Threshold (0 for auto):', 'Integration window size (px):', ...
           'Minimum separation (px):', 'ADU/photon conversion:', ...
           'Donor blink detection method:', 'Integration neighbhorhood (px):', ...
           'Background trace field'};
-fields = {'don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
+fields = {'name','don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
           'photonConversion', 'zeroMethod', 'nhoodSize','bgTraceField'};
-types = {[],[],[],[],{'off','threshold','skm'},[],[]};
+types = {[],[],[],[],[],{'off','threshold','skm'},[],[]};
 params = settingdlg(handles.params,fields,prompt,types);
+if isempty(params), return; end
 
-if ~isempty(params),
-    handles.params = params;
-    guidata(hObject,handles);
+% Update profile name
+constants = cascadeConstants;
+nStandard = numel(constants.gettraces_profiles);
+
+if handles.profile < nStandard  && ~strcmpi(params.name,handles.params.name)
+    % Standard profile's name was modified, so we assume they want to create a
+    % new custom-named profile, rather than giving an error.
+    % FIXME
+    errordlg('Can''t rename built-in profiles');
+    return;
 end
 
+% Save modified profile list.
+set( handles.hProfileMenu(handles.profile), 'Label',params.name );
+handles.params = params;
+handles.profiles(handles.profile) = params;
+guidata(hObject,handles);
+
+setpref('SPARTAN','gettraces_customProfiles',handles.profiles(nStandard+1:end));
+
 % END FUNCTION mnuSettingsCustom_Callback
+
+
+
+% --------------------------------------------------------------------
+function mnuSettingsSave_Callback(hObject, ~, handles)  %#ok<DEFNU>
+% Save current settings as a new imaging profile in the Settings menu.
+
+constants = cascadeConstants;
+nStandard = numel(constants.gettraces_profiles);
+
+% Ask for the new name
+newName = inputdlg('New profile name:', mfilename, 1, {handles.params.name});
+if isempty(newName), return; end  %user hit cancel
+newName = newName{1};
+
+% Overwrite if name matches an existing profile, except built-in.
+if strcmpi( newName, handles.params.name )
+    if handles.profile <= nStandard,
+        errordlg('Built-in profiles cannot be modified. Alter cascadeConstants.m instead.');
+        return;
+    else
+        handles.profiles(handles.profile) = handles.params;
+    end
+
+% Save as a new profile if the name is new.
+else
+    handles.params.name = newName;
+    handles.profiles(end+1) = handles.params;
+    handles.profile = numel(handles.profiles);
+    
+    % Update settings menu with new item.
+    set( handles.hProfileMenu, 'Checked','off' );  %uncheck all
+    handles.hProfileMenu(end+1) = uimenu( handles.mnuProfiles, 'Checked','on', ...
+              'Label',handles.params.name, 'Callback',@mnuProfiles_Callback );
+end
+
+% Save the updated profile list.
+% setpref('SPARTAN','gettraces_customProfiles',cp);  %FIXME
+guidata(hObject,handles);
+
+% END FUNCTION mnuSettingsSave_Callback
 
 
 

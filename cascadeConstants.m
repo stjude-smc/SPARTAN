@@ -103,11 +103,11 @@ cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distanc
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
 
 % Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.
-emccdCommon = cmosCommon;
-emccdCommon.photonConversion = 100/3.1;  % 10MHz chipset, gain 4 (3x), 100x EM gain
-emccdCommon.overlap_thresh   = 2.3;      % 
-emccdCommon.nPixelsToSum     = 4;        % optimal SNR
-emccdCommon.nhoodSize        = 1;        % 3x3 area
+% emccdCommon = cmosCommon;
+% emccdCommon.photonConversion = 100/3.1;  % 10MHz chipset, gain 4 (3x), 100x EM gain
+% emccdCommon.overlap_thresh   = 2.3;      % 
+% emccdCommon.nPixelsToSum     = 4;        % optimal SNR
+% emccdCommon.nhoodSize        = 1;        % 3x3 area
 
 
 
@@ -171,93 +171,93 @@ profiles(end+1) = p;
 
 
 
-%------  EMCCD cameras  ------
-p = emccdCommon;
-p.name        = 'EMCCD, Single-channel (Cy3)';
-p.geometry    = 1;
-p.idxFields   = 1; %only one channel
-p.chNames     = {'donor'};
-p.chDesc      = {'Cy3'};
-p.wavelengths = 532;
-p.scaleFluor  = 1;
-profiles(end+1) = p;
-
-
-p.name        = 'EMCCD, Single-channel (Cy5)';
-p.wavelengths = 640;
-p.chDesc      = {'Cy5'};
-profiles(end+1) = p;
-
-
-p = emccdCommon;
-p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5)';
-p.geometry    = 2;
-p.idxFields   = [1 2]; %L/R
-p.chNames     = {'donor','acceptor'};
-p.chDesc      = {'Cy3','Cy5'};
-p.wavelengths = [532 640];
-p.crosstalk   = zeros(2);
-p.crosstalk(1,2) = 0.075;  %donor->acceptor
-p.scaleFluor  = [1 1];
-% Qinsi's correction for uneven sensitivity of the equipment across the 
-% field of view in the acceptor (right) side. Fluorescence intensities are
-% at each point are scaled by the amount calculated by the function.
-% The function values are listed in the same order as the channels above.
-p.biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
-                      @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
-profiles(end+1) = p;
-
-
-p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5, no binning)';
-p.nhoodSize   = 2; %5x5 area
-p.nPixelsToSum = 7;
-profiles(end+1) = p;
-
-
-p = emccdCommon;
-p.name        = 'Quad-View (Cy3/Cy5 only)';
-p.geometry    = 4;
-p.idxFields   = [3 1]; %field order: LL/UL
-p.chNames     = {'donor','acceptor'};
-p.chDesc      = {'Cy3','Cy5'};
-p.wavelengths = [532 640];
-p.crosstalk   = zeros(2);
-p.crosstalk(1,2) = 0.13;   %Cy3->Cy5
-p.scaleFluor  = [1 1];
-profiles(end+1) = p;
-
-
-p = emccdCommon;
-p.name        = 'Quad-View (Cy3/Cy5/Cy7)';
-p.geometry    = 4;
-p.idxFields   = [3 1 2]; % field order: LL/UL/LL
-p.chNames     = {'donor','acceptor','acceptor2'};
-p.chDesc      = {'Cy3','Cy5','Cy7'};
-p.wavelengths = [532 640 730];
-p.crosstalk   = zeros(4);
-p.crosstalk(1,2) = 0.12;   %Cy3->Cy5
-p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
-p.scaleFluor  = [1 1 7];
-profiles(end+1) = p;
-
-
-p.name = 'Quad-View (Cy3/Cy5/Cy7, no binning)';
-p.nhoodSize = 2; %5x5 area
-p.nPixelsToSum = 7;
-profiles(end+1) = p;
-
-
-p = emccdCommon;
-p.name        = 'Quad-View (Cy5/Cy7)';
-p.geometry    = 4;
-p.idxFields   = [1 2]; % field order: LL/UL/LL
-p.chNames     = {'donor','acceptor'};
-p.chDesc      = {'Cy5','Cy7'};
-p.wavelengths = [640 730];
-p.crosstalk   = zeros(2);
-p.crosstalk(1,2) = 0.11;
-p.scaleFluor  = [1 1];
-profiles(end+1) = p;
+% %------  EMCCD cameras  ------
+% p = emccdCommon;
+% p.name        = 'EMCCD, Single-channel (Cy3)';
+% p.geometry    = 1;
+% p.idxFields   = 1; %only one channel
+% p.chNames     = {'donor'};
+% p.chDesc      = {'Cy3'};
+% p.wavelengths = 532;
+% p.scaleFluor  = 1;
+% profiles(end+1) = p;
+% 
+% 
+% p.name        = 'EMCCD, Single-channel (Cy5)';
+% p.wavelengths = 640;
+% p.chDesc      = {'Cy5'};
+% profiles(end+1) = p;
+% 
+% 
+% p = emccdCommon;
+% p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5)';
+% p.geometry    = 2;
+% p.idxFields   = [1 2]; %L/R
+% p.chNames     = {'donor','acceptor'};
+% p.chDesc      = {'Cy3','Cy5'};
+% p.wavelengths = [532 640];
+% p.crosstalk   = zeros(2);
+% p.crosstalk(1,2) = 0.075;  %donor->acceptor
+% p.scaleFluor  = [1 1];
+% % Qinsi's correction for uneven sensitivity of the equipment across the 
+% % field of view in the acceptor (right) side. Fluorescence intensities are
+% % at each point are scaled by the amount calculated by the function.
+% % The function values are listed in the same order as the channels above.
+% p.biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
+%                       @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
+% profiles(end+1) = p;
+% 
+% 
+% p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5, no binning)';
+% p.nhoodSize   = 2; %5x5 area
+% p.nPixelsToSum = 7;
+% profiles(end+1) = p;
+% 
+% 
+% p = emccdCommon;
+% p.name        = 'Quad-View (Cy3/Cy5 only)';
+% p.geometry    = 4;
+% p.idxFields   = [3 1]; %field order: LL/UL
+% p.chNames     = {'donor','acceptor'};
+% p.chDesc      = {'Cy3','Cy5'};
+% p.wavelengths = [532 640];
+% p.crosstalk   = zeros(2);
+% p.crosstalk(1,2) = 0.13;   %Cy3->Cy5
+% p.scaleFluor  = [1 1];
+% profiles(end+1) = p;
+% 
+% 
+% p = emccdCommon;
+% p.name        = 'Quad-View (Cy3/Cy5/Cy7)';
+% p.geometry    = 4;
+% p.idxFields   = [3 1 2]; % field order: LL/UL/LL
+% p.chNames     = {'donor','acceptor','acceptor2'};
+% p.chDesc      = {'Cy3','Cy5','Cy7'};
+% p.wavelengths = [532 640 730];
+% p.crosstalk   = zeros(4);
+% p.crosstalk(1,2) = 0.12;   %Cy3->Cy5
+% p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
+% p.scaleFluor  = [1 1 7];
+% profiles(end+1) = p;
+% 
+% 
+% p.name = 'Quad-View (Cy3/Cy5/Cy7, no binning)';
+% p.nhoodSize = 2; %5x5 area
+% p.nPixelsToSum = 7;
+% profiles(end+1) = p;
+% 
+% 
+% p = emccdCommon;
+% p.name        = 'Quad-View (Cy5/Cy7)';
+% p.geometry    = 4;
+% p.idxFields   = [1 2]; % field order: LL/UL/LL
+% p.chNames     = {'donor','acceptor'};
+% p.chDesc      = {'Cy5','Cy7'};
+% p.wavelengths = [640 730];
+% p.crosstalk   = zeros(2);
+% p.crosstalk(1,2) = 0.11;
+% p.scaleFluor  = [1 1];
+% profiles(end+1) = p;
 
 
 % Set the default settings profile.
