@@ -20,8 +20,12 @@ function varargout = percentTime(varargin)
 
 
 % Default parameter values
-params.truncateLength = Inf;
-params.hideZeroState = true;
+persistent params;
+
+if isempty(params)
+    params.truncateLength = Inf;
+    params.hideZeroState = true;
+end
 
 
 %% Process input arguments

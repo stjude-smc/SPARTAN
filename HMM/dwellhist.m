@@ -33,10 +33,15 @@ function varargout = dwellhist(dwtfilename, inputParams)
 
 %% ---- USER TUNABLE PARAMETERS ----
 
-params.logX = true;
-params.dx = 0.25;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
-params.removeBlinks = true;
-params.normalize = 'state';
+persistent params;
+
+if isempty(params),
+    %FIXME: these should be defined in cascadeConstants?
+    params.logX = true;
+    params.dx = 0.25;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
+    params.removeBlinks = true;
+    params.normalize = 'state';
+end
 
 % Merge options, giving the user's options precedence.
 if nargin>1,

@@ -19,9 +19,12 @@ function varargout = transitionsPerSecond(varargin)
 
 
 % Default parameter values
-params.truncateLength = Inf;
-params.removeZeroState = true;
+persistent params;
 
+if isempty(params)
+    params.truncateLength = Inf;
+    params.removeZeroState = true;
+end
 
 
 %% Process input arguments

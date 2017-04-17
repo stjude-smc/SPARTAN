@@ -22,10 +22,16 @@ function varargout = frethistComparison(varargin)
 
 
 % Define default parameters.
-constants = cascadeConstants();
-params = constants.defaultMakeplotsOptions;
-params.removeBlinks  = false;
-params.calcErrorBars = false;
+% These are persistent across calls to frethistComparison, but if parameters
+% are explicitly passed in (File->New/Open menus, etc), they take precedence.
+persistent params;
+
+if isempty(params)
+    constants = cascadeConstants();
+    params = constants.defaultMakeplotsOptions;
+    params.removeBlinks  = false;
+    params.calcErrorBars = false;
+end
 
 % Default colors, if there aren't too many files.
 colors = [ 0      0      0    ; ...  % black

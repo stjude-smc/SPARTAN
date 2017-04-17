@@ -15,10 +15,11 @@ function varargout = occtime(varargin)
 %   Copyright 2016 Cornell University All Rights Reserved.
 
 
-
-params.nFrames = 300;  %number of frames to show
-params.hideZeroState = true;
-
+persistent params;
+if isempty(params),
+    params.nFrames = 300;  %number of frames to show
+    params.hideZeroState = true;
+end
 
 
 %% Process input arguments
