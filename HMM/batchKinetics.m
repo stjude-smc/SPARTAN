@@ -151,25 +151,37 @@ set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
 % END FUNCTION enableControls
 
 
-function btnLoadModel_Callback(hObject, ~, handles) %#ok<DEFNU>
+function btnLoadModel_Callback(hObject, ~, handles, filename)
 % Executes on button press in btnLoadModel.
 
-if isempty(handles.modelFilename),
-    handles.modelFilename = fullfile(pwd,'*.qmf');
-end
+if nargin<4,
+    if isempty(handles.modelFilename),
+        handles.modelFilename = fullfile(pwd,'*.qmf');
+    end
 
-% Ask the user for a filename
-[fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
-if fname==0, return; end
+    % Ask the user for a filename
+    [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
+    if fname==0, return; end
+    filename = fullfile(p,fname);
+end
 
 % Load the model and show the model properties in the GUI.
 % The model's properties are automatically updated whenever the model is
 % modified in the GUI.
-handles.model = QubModel( fullfile(p,fname) );
+handles.model = QubModel(filename);
 handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
 
 % Enable relevant GUI controls
 enableControls(handles);
+
+% Save in most recent list
+recent = get( findobj('Parent',handles.mnuRecentModels), 'UserData' );
+if ~iscell(recent), recent={recent}; end
+
+if ~any(  cellfun( @(x)strcmp(x,filename), recent)  )
+    uimenu(handles.mnuRecentModels, 'Label',fname, 'UserData',filename, ...
+               'Callback',@mnuRecentModels_Callback);
+end
 
 % Automatically update the parameter table when the model is altered.
 handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
@@ -181,6 +193,13 @@ guidata(hObject, handles);
 lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION btnLoadModel_Callback
+
+
+
+function mnuRecentModels_Callback(hObject,~)
+btnLoadModel_Callback( hObject, [], guidata(hObject), get(hObject,'UserData') );
+% END FUNCTION mnuRecentModels_Callback
+
 
 
 
