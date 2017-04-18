@@ -138,8 +138,8 @@ set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
       handles.mnuSorttraces], 'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
-set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim], ...
-                                                   'Enable',onoff(hasModel) );
+set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
+      handles.btnSaveModel], 'Enable',onoff(hasModel) );
 set( [handles.btnExecute handles.btnExecuteAll handles.mnuExecute ...
       handles.mnuExecuteAll], 'Enable',onoff(hasData&hasModel) );
   
@@ -343,7 +343,7 @@ set( tblFixFret, 'Data', celldata );
 % --- Executes on button press in btnSaveModel.
 function btnSaveModel_Callback(~, ~, handles) %#ok<DEFNU>
 % Save current model to file
-if isfield(handles,'model') || ~isempty(handles.model),
+if isfield(handles,'model') && ~isempty(handles.model),
     handles.modelViewer.save_callback();
 end
 % END FUNCTION btnSaveModel_Callback
