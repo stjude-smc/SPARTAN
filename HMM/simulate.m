@@ -34,12 +34,6 @@
 %   - Simulate donor->accpetor (acceptor->donor) crosstalk. 
 
 
-if nargin<1,
-    simulate_gui;
-    return;
-end
-
-
 % CONSTANTS
 kBleachDonorFactor = 0.5; %donor relative to acceptor bleaching rate.
 
