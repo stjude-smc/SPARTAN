@@ -1,4 +1,4 @@
-function peakLocations = simulateMovie(data,bgMovieFilename,outFilename,params)
+function output = simulateMovie(data, bgMovieFilename, outFilename, inputParams)
 %% simulateMovie   Simulate wide-field smFRET movies from fluorescence data
 % 
 %    simulateMovie( traceData, bgMovieFilename, outputFilename, params )
@@ -7,62 +7,77 @@ function peakLocations = simulateMovie(data,bgMovieFilename,outFilename,params)
 %    Experimental movies can be used as to approximate background noise.
 %    Fluorescence intensities are spread over symmetric 2D Gaussian functions
 %    and placed at random positions within the field-of-view.
-%
-%    simulateMovie( tracesFilename, ... )
-%    Alternatively, a .traces file with fluorescence data can be given.
+%    
+%    TRACES can be a Traces object or the path to a .traces object.
+%    If any filenames are not given, the user will be prompted for them.
 %
 %    Recognized parameters:
 %    - sigmaPSF: standard deviation of symmetric 2D Gaussian point-spread
-%                functions used to distribute fluorescence in movies
-%    - density: number of molecules placed per field.
-%    - grid: place fluorophores on a regular grid if =1.
-%    - randomSeed: seed for pseudorandom number generator.
-%    - edAlignX,edAlignY,edAlignTheta: displacement of the acceptor
-%                relative to donor (in pixels) to simulate misalingment.
+%                   functions used to distribute fluorescence in movies
+%    - density:  number of molecules placed per field.
+%    - grid:     place fluorophores on a regular grid if true.
+%    - alignX,alignY,alignTheta,alignScale: displacement of the acceptor 
+%          relative to the donor (in pixels/degrees) to simulate misalingment.
+%    - edgeBuffer: number of pixels around the edges to avoid placing PSFs.
+%    - aduPhoton:  ADU units per photon conversion in the output movie.
+%
+% See also: simulate, batchKinetics, Movie, Tiff.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 % TODO: choose parameter values like buffer size and the region over which
 % Gaussians are distributed based on the size of the point-spread function.
+% Also, re-implement random seed?
 
 
 %% Parse input parameters
+narginchk(0,4)
 
-% No parameters given; nothing to do but exit.
-assert( nargin>=3, 'Invalid parameter list');
-
-% If a traces filename is given instead of the data load it.
-if ischar(data)
+% Ask for input traces file if necessary.
+if nargin<1 || isempty(data)
+    data = loadTraces;
+    if isempty(data), return; end  %user hit cancel
+    
+elseif ischar(data)
     data = loadTraces(data);
 end
 
-if iscell(bgMovieFilename),
+% Prompt user for background movie file if necessary.
+if nargin<2 || isempty(bgMovieFilename),
+    bgMovieFilename = getFile('*.tif;*.tiff;*.stk', 'Select background movie');
+    if isempty(bgMovieFilename), return; end  %user hit cancel
+
+elseif iscell(bgMovieFilename),
     bgMovieFilename = bgMovieFilename{1};
 end
-if ~( ischar(bgMovieFilename) && exist(bgMovieFilename,'file') )
+if ~exist(bgMovieFilename,'file')
     error('Invalid background movie filename');
+end
+
+% Prompt user for output movie file name.
+if nargin<3 || isempty(outFilename)
+    [f,p] = uiputfile('*.tif','Save movie');
+    if isequal(p,0), return; end  %user hit cancel
+    outFilename = fullfile(p,f);
 end
 
 
 %% Assign default values to parameters not specified.
-% FIXME: if anything, these should be in cascadeConstants.
-defaultParams.sigmaPSF = 0.9;
-defaultParams.randomSeed = 0;
-defaultParams.density = 5500;
-defaultParams.alignX = 0;
-defaultParams.alignY = 0;
-defaultParams.alignTheta = 0;
-defaultParams.aduPhoton = 1;
+% FIXME: should be in cascadeConstants.
+% FIXME: these are specific to sCMOS.
+params.sigmaPSF   = 0.8;
+params.density    = 5500;
+params.alignX     = 0;
+params.alignY     = 0;
+params.alignTheta = 0;
+params.alignScale = 1;
+params.aduPhoton  = 2;
+params.edgeBuffer = 15;  %4+ceil(params.sigmaPSF*8);
+params.grid       = false;
 
 % Parameters actually specified (second argument) take precedence
 if nargin>=4,
-    params = catstruct( defaultParams, params );
-else
-    params = defaultParams;
-end
-
-if ~isfield(params,'edgeBuffer') || isempty(params.edgeBuffer),
-    params.edgeBuffer = 4+ceil(params.sigmaPSF*4);
+    params = mergestruct( params, inputParams );
 end
 
 
@@ -78,7 +93,6 @@ end
 
 
 %% Simulate Wide-field Fluorescence Movies.
-tic;
 
 % --- 1. Load background movie as initial image to which peaks are added.
 movie = Movie.load( bgMovieFilename );
@@ -98,11 +112,11 @@ assert( mod(stkX,2)==0, 'Movie widths must be even!' );
 
 
 % --- 2. Select fluorophore centroid positions randomly.
-border = 20;%ceil(8*params.sigmaPSF);%params.edgeBuffer;
+border = params.edgeBuffer;
 
 % If user requests a regular grid of positions, add some small
 % variability (up to 1 pixel) to approximate random placement.
-if isfield(params,'grid') && ~isempty(params.grid) && params.grid,
+if params.grid,
     % Assign a minimal spacing between peaks (3 std's on each side).
     minSpacing = ceil(8*params.sigmaPSF);
 
@@ -132,9 +146,8 @@ else
 end
 
 % Construct a transformation to mimic field misalignment.
-scale = 1;  %FIXME: should be a parameter.
-sc = scale*cosd(params.alignTheta);
-ss = scale*sind(params.alignTheta);
+sc = params.alignScale * cosd(params.alignTheta);
+ss = params.alignScale * sind(params.alignTheta);
 T = [ sc -ss  0;
       ss  sc  0;
       params.alignX  params.alignY  1];
@@ -147,7 +160,7 @@ acceptorPos(:,[2,1]) = transformPointsForward( tform, ...
                                     donorPos(:,[2,1])-(stkY/2) ) + (stkY/2);
 
 % Save peak locations for later comparison (Dy,Dx,Ay,Ax).
-peakLocations = [donorPos acceptorPos];  %return parameter
+if nargout>0, output=[donorPos acceptorPos]; end
 % figure;
 % scatter( donorPos(:,2), donorPos(:,1), 'bo' ); hold on;
 % scatter( acceptorPos(:,2), acceptorPos(:,1), 'ro' );
@@ -162,7 +175,6 @@ fluor = [data.donor(1:nPeaks/2,1:stkNFrames) ; data.acceptor(1:nPeaks/2,1:stkNFr
 
 % --- 3. Estimate Gaussian PDF for each peak.
 wbh = waitbar(0,'Estimating point-spread functions...'); 
-% tic;
 
 limit = ceil(4*params.sigmaPSF);  %half-width of window
 bins = -limit:limit;  %Pixel edges within window for evaluating 2D Gaussians
@@ -212,13 +224,11 @@ end
 % Normalization
 psfs = psfs*(delta^2)/(2*pi* params.sigmaPSF^2);
 % disp( mean(psfs,3) );
-% disp(toc);
 
 % --- 4. Distribute fluorescence intensities into each PSF
 waitbar(0.15,wbh,'Distributing fluorescence information...');
 
 % Create TIFF tag structure. FIXME: insure these match the movie.
-constants = cascadeConstants();
 tags.ImageLength = movie.nY;
 tags.ImageWidth = movie.nX;
 tags.Photometric = Tiff.Photometric.MinIsBlack;
@@ -226,7 +236,7 @@ tags.BitsPerSample = 16;
 tags.SamplesPerPixel = 1;
 tags.RowsPerStrip = movie.nY;  %one strip per image.
 tags.PlanarConfiguration = Tiff.PlanarConfiguration.Chunky;
-tags.Software = ['simulateMovie (ver. ' constants.version ')'];
+tags.Software = [mfilename ' (' constants.software ')'];
 %tags.ImageDescription = ...  %simulation settings, etc here?
 
 % Generate DateTime tags to get exposure time, etc.
@@ -238,11 +248,11 @@ tags.Software = ['simulateMovie (ver. ' constants.version ')'];
 % Create the TIFF file.
 hTiff = Tiff(outFilename,'w8');  % w=tiff, w8=bigtiff
 
-chunkSize = 100;  %number of frames to process at once.
+chunkSize = stkNFrames; %100;  %number of frames to process at once.
 
 for k=1:chunkSize:stkNFrames,
     % Load the background movie data
-    fidx = k:min(k+chunkSize-1,stkNFrames);
+    fidx = k:min(k+chunkSize-1,stkNFrames);  %frame number in whole movie.
     frames = movie.readFrames(fidx);
     
     % For each peak, add fluorescence onto the frames.
@@ -273,7 +283,7 @@ end
 
 close(hTiff);
 close(wbh);
-disp(toc);
+fprintf('Saved simulated movie to %s.\n', bgMovieFilename);
 
 
 end

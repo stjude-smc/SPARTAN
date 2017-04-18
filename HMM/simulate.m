@@ -1,5 +1,4 @@
- function [dwt,fret,donor,acceptor] =  simulate( ...
-                                dataSize, sampling, model, varargin )
+ function [dwt,data] = simulate( dataSize, sampling, model, varargin )
 % SIMULATE   Simulate smFRET data
 %
 %    [IDL,FRET,DONOR,ACCEPTOR] = SIMULATE( SIZE, FRAMERATE, MODEL, Q )
@@ -14,25 +13,25 @@
 %    and added fluorescence noise (only if specified).
 %
 %    OPTIONAL Parameter values:
-%      'totalIntensity'     ->  for simulated fluorescence trajectories (10000)
+%      'totalIntensity'     ->  for simulated fluorescence trajectories
 %      'stdTotalIntensity'  ->  std of distribution (0)
 %          *** if stdBackground is set, traces will have varying
 %          signal-to-noise ratios! 
 %      'stdPhoton'      ->  noise within fluorescence traces (multiplicitive)
 %      'stdBackground'  ->  background noise (additive)
 %
-%      'randomSeed'     ->  for reproducable results
 %      'kBleach'        ->  rate of acceptor photobleaching (0)
 %  
+%  See also: simulateMovie, batchKinetics, QubModel.
+
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
+
 %  TODO:
+%   - re-implement random seed, if possible.
 %   - Simulate anisotropy noise
-%   - Simulate effect of gamma~=1
 %   - Simulate distribution of gamma across traces (stdGamma)
 %   - Simulate effect of varying quantum yield in each state... 
 %   - Simulate donor->accpetor (acceptor->donor) crosstalk. 
-%
-
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 if nargin<1,
@@ -42,9 +41,7 @@ end
 
 
 % CONSTANTS
-
-%donor bleaching is half as fast as apparent acceptor bleaching
-kBleachDonorFactor = 0.5; 
+kBleachDonorFactor = 0.5; %donor relative to acceptor bleaching rate.
 
 
 %%
@@ -53,88 +50,22 @@ nTraces  = dataSize(1);
 traceLen = dataSize(2);
 framerate = 1/sampling;
 
-mu    = model.mu;
 Q = model.rates;
 p0 = model.p0;
 p0 = p0/sum(p0);
- 
 
-% PARSE OPTIONAL PARAMETER VALUES: initial kinetic parameter values
-optargs = struct( varargin{:} );
-
-if isfield(optargs,'totalIntensity') && ~isempty(optargs.totalIntensity)
-    totalIntensity = optargs.totalIntensity;
-    assert( totalIntensity>=0, 'totalIntensity must be a positive number' );
-else
-    totalIntensity = 10000;
-end
-
-if isfield(optargs,'stdTotalIntensity') && ~isempty(optargs.stdTotalIntensity)
-    stdTotalIntensity = optargs.stdTotalIntensity;
-    assert( stdTotalIntensity>=0, 'stdBackground must be a positive number' );
-else
-    stdTotalIntensity = 0;
-end
-
-
-if isfield(optargs,'stdBackground') && ~isempty(optargs.stdBackground)
-    stdBackground = optargs.stdBackground;
-    assert( stdBackground>=0, 'stdBackground must be a positive number' );
-else
-    stdBackground = 0;
-end
-
-if isfield(optargs,'stdPhoton') && ~isempty(optargs.stdPhoton)
-    stdPhoton = optargs.stdPhoton;
-    assert( stdPhoton>=0, 'stdPhoton must be a positive number' );
-else
-    stdPhoton = 0;
-end
-
-if isfield(optargs,'gamma') && ~isempty(optargs.gamma)
-    gamma = optargs.gamma;
-    assert( gamma>0, 'gamma must be a positive number' );
-else
-    gamma = 1;
-end
-
-if isfield(optargs,'shotNoise') && ~isempty(optargs.shotNoise)
-    shotNoise = optargs.shotNoise;
-    assert( shotNoise==0 | shotNoise==1, 'Shot noise must be true or false' );
-else
-    shotNoise = false;
-end
-
-if isfield(optargs,'emNoise') && ~isempty(optargs.emNoise)
-    emNoise = optargs.shotNoise;
-    assert( emNoise==0 | emNoise==1, 'EM noise must be true or false' );
-    if emNoise
-        error('EM noise simulation not yet supported');
-    end
-else
-    emNoise = false;
-end
-
-%random number generator seed value
-% if isfield(optargs,'randomSeed') && ~isempty(optargs.randomSeed)
-%     randomSeed = optargs.randomSeed;
-% else
-%     randomSeed  = 1272729;
-% end
+% Default parameter values. FIXME: should be in cascadeConstants?
+params = struct('totalIntensity',500, 'stdTotalIntensity',0, 'stdBackground',0, ...
+                'stdPhoton',0, 'gamma',1, 'shotNoise',true, 'emNoise',false, ...
+                'kBleach',0); 
+params = mergestruct( params, struct(varargin{:}) );
 
 % Simulated acceptor photobleaching rate (0 disables).
 % Data will have a FRET lifetime of 1/kBleach, but the exact donor and
 % acceptor lifetimes will be the values that give that apparent rate with
 % the donor bleaching kBleachDonorFactor as fast as the acceptor.
-if isfield(optargs,'kBleach') && ~isempty(optargs.kBleach)
-    kBleach = optargs.kBleach;
-    assert(kBleach~=Inf,'kBleach must be finite');
-else
-    kBleach = 0;
-end
-
-kBleachAcceptor = kBleach/(1+kBleachDonorFactor);
-kBleachDonor    = kBleach - kBleachAcceptor;
+kBleachAcceptor = params.kBleach/(1+kBleachDonorFactor);
+kBleachDonor    = params.kBleach - kBleachAcceptor;
 
 
 %%
@@ -142,18 +73,16 @@ kBleachDonor    = kBleach - kBleachAcceptor;
 simFramerate = 1000; %1000/sec = 1ms frames
 binFactor = round(simFramerate/framerate);
 
-tic;
-
 
 
 %%
 
 % Generate a set of uniform random numbers for choosing states
-wbh = parfor_progressbar(1.1*nTraces,'Simulating state sequences...');
+wbh = parfor_progressbar(1.25*nTraces,'Simulating state sequences...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
-if kBleach > 0,
+if params.kBleach > 0,
     pbTimes = exprnd( 1/kBleachAcceptor, 1,nTraces );
     pbTimes = pbTimes*simFramerate;
 else
@@ -220,7 +149,7 @@ parfor (i=1:nTraces,M)
     
     % Convert states to classes and merge dwells in the same class.
     % Times must be rounded to 1ms time resolution for the .dwt format.
-    [classes,times] = mergedwells( model.class(states), times );
+    [classes,times] = mergedwells( model.class(states), times ); %#ok<PFBNS>
     dwt{i} = [classes round(times)];
     
     if mod(i,20)==0,  %fixme; not very useful with long traces.
@@ -240,7 +169,7 @@ parfor (i=1:nTraces,M)
     trace = zeros( 1,traceLen );
     
     for j=1:numel(times),
-        dwellFretValue = mu( classes(j) );
+        dwellFretValue = model.mu( classes(j) );
         
         % 1. Isolated stretch (shortdwell within one frame).
         % Add the fret value to the current frame as a fraction of how much
@@ -272,11 +201,9 @@ end
 if nargout>1,
     wbh.message = 'Simulating noise...';
 
-% Add read/background noise to fluorescence and recalculate FRET
-% if stdBackground~=0 || stdPhoton ~=0
     % Generate total intensity profile
-    variation = stdTotalIntensity*randn( nTraces,1 );
-    intensity = totalIntensity + variation;
+    variation = params.stdTotalIntensity*randn( nTraces,1 );
+    intensity = params.totalIntensity + variation;
     intensity = repmat( intensity, 1, traceLen );
     
     % Generate noiseless fluorescence traces (variable intensity)
@@ -287,11 +214,11 @@ if nargout>1,
     % for donor and acceptor fluorescence intensities. The factor gamma
     % is a correction for this effect.
     % Not that this alters total fluorescence intensities!
-    donor = (1/gamma)*donor;
+    donor = (1/params.gamma)*donor;
     
     % Simulate donor photobleaching.
     % NOTE: this is not correctly time averaged.
-    if kBleach > 0,
+    if params.kBleach > 0,
         pbTimes = exprnd( 1/kBleachDonor, 1,nTraces );
         pbTimes = round(pbTimes*simFramerate/binFactor);
         pbTimes = min( max(1,pbTimes), traceLen );
@@ -306,17 +233,17 @@ if nargout>1,
     % (and SNR) are roughly the same as if there was not gamma correction.
     nNonZero = sum( donor(:)>0 );
     obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero;
-    donor    = donor*    (totalIntensity/obsIntensity);
-    acceptor = acceptor* (totalIntensity/obsIntensity);
+    donor    = donor*    (params.totalIntensity/obsIntensity);
+    acceptor = acceptor* (params.totalIntensity/obsIntensity);
         
     % Simulate the effect of photophysical noise. Here the variance
     % is propotional to the intensity of the signal.
-    donor    = donor    .*  (1+ stdPhoton*randn(size(donor))    );
-    acceptor = acceptor .*  (1+ stdPhoton*randn(size(acceptor)) );
+    donor    = donor    .*  (1+ params.stdPhoton*randn(size(donor))    );
+    acceptor = acceptor .*  (1+ params.stdPhoton*randn(size(acceptor)) );
         
     % Simulate Poisson shot "noise" or the variance of signal intensity simply
     % due to photon statistics. Note that this also discretizes the data.
-    if shotNoise
+    if params.shotNoise
         donor    = poissrnd(donor);
         acceptor = poissrnd(acceptor);
     end
@@ -324,28 +251,26 @@ if nargout>1,
     % Add background and read noise to fluorescence traces. Here the
     % variance is invariant of the signal.
     alive = donor~=0;
-    donor    = donor    + stdBackground*randn(size(donor));
-    acceptor = acceptor + stdBackground*randn(size(donor));
+    donor    = donor    + params.stdBackground*randn(size(donor));
+    acceptor = acceptor + params.stdBackground*randn(size(donor));
     
     % Recalculate FRET from fluorescence traces
     fret = acceptor./(donor+acceptor);
     fret(~alive) = 0; %set undefined values to zero
     %assert( ~any(isnan( fret(:) )) );
     fret( isnan(fret) ) = 0;
-        
-% If fluorescence noise is not specified, add noise directly to fret
-% and generate perfectly correlated donor/acceptor fluorescence traces.
-% THIS DOES NOT WORK!
-% else
-%     error('Direct FRET simulation not supported');
-    %fret = noiseless_fret + sigma(end)*randn( size(noiseless_fret) );
-    %donor    = (1-fret).*totalIntensity;
-    %acceptor = totalIntensity-donor;
 end
 
 close(wbh);
-disp(toc);
 drawnow;
+
+% Construct output Traces object
+data = TracesFret(nTraces, traceLen);
+data.fret     = fret;
+data.donor    = donor;
+data.acceptor = acceptor;
+data.time     = sampling*1000*(0:traceLen-1);
+data.fileMetadata(1).wavelengths = [532 640];
 
 
 end %FUNCTION simulate

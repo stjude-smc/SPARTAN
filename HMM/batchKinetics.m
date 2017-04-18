@@ -20,9 +20,9 @@ function varargout = batchKinetics(varargin)
 %
 % See also: GUIDE, GUIDATA, GUIHANDLES
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 14-Apr-2017 13:41:03
+% Last Modified by GUIDE v2.5 18-Apr-2017 14:34:19
 
 
 %% GUI Callbacks
@@ -135,7 +135,7 @@ function enableControls(handles)
 
 hasData = ~isempty(handles.dataFilenames);
 set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
-      handles.mnuSorttraces], 'Enable',onoff(hasData) );
+      handles.mnuSorttraces handles.mnuSimMovie], 'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
@@ -581,15 +581,15 @@ if isempty(handles.model), return; end  %model required.
 persistent opt;
 if isempty(opt)
     opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, ...
-                 'snr',20, 'shotNoise',true, 'gamma',1, ...
-                 'totalIntensity',300, 'stdTotalIntensity',100, ...
+                 'snr',30, 'shotNoise',true, 'gamma',1, ...
+                 'totalIntensity',500, 'stdTotalIntensity',100, ...
                  'stdPhoton',0, 'totalTimeOn',20 );
 end
 prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
           'Signal:background noise ratio', 'Shot noise', 'Apparent gamma', ...
           'Intensity (photons)', 'Intensity stdev', ...
           'Excess noise stdev',  'FRET Lifetime (s)'};
-newOpt = settingdlg(opt, fieldnames(opt), prompt);
+newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
 if isempty(newOpt), return; end
 
 % Get output filename from user.
@@ -606,12 +606,7 @@ opt = newOpt;
 newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
 newOpt.kBleach = 1/opt.totalTimeOn;
 
-data = TracesFret(opt.nTraces, opt.nFrames);
-[~, data.fret, data.donor, data.acceptor] = simulate( ...
-         [opt.nTraces, opt.nFrames], opt.sampling/1000, handles.model, newOpt );
-data.time = opt.sampling*( (1:opt.nFrames)-1 );
-data.fileMetadata(1).wavelengths = [532 640];
-
+[~,data] = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
 saveTraces( fullfile(p,f), data );
 
 
@@ -631,6 +626,37 @@ set(handles.figure1,'pointer','arrow');
 set(handles.txtStatus,'String','Finished.'); drawnow;
 
 % END FUNCTION mnuSim_Callback
+
+
+% --------------------------------------------------------------------
+function mnuSimMovie_Callback(~, ~, handles)  %#ok<DEFNU>
+% Executed when the user selects the "Actions->Simulate Movie" menu.
+% Simulates a wide-field fluorescence movie by distributing the fluorescence
+% from each trace in the currently loaded file across pixels in simulated
+% point-spread functions.
+% Here we assume the user wants to use all of the particles!
+
+% Get simulation settings.
+% FIXME: get these from cascadeConstants.
+persistent opt;
+if isempty(opt)
+    opt = struct('sigmaPSF',0.8, 'density',handles.data.nTraces, ...
+                 'aduPhoton',2, 'grid',false, 'alignX',0, 'alignY',0, ...
+                 'alignTheta',0, 'alignScale',1);
+end
+prompt = {'PSF Size (px stdev):', 'Particles to simulate:', ...
+          'ADU to photon conversion', 'Use a regular grid', 'X deviation (px):', ...
+          'Y deviation (px):', 'Rotation (degrees):', 'Scaling factor'};
+newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
+if isempty(newOpt), return; end
+
+newOpt.density = min(handles.data.nTraces, newOpt.density);
+
+% Simulate the movie.
+% (simulateMovie.m will ask for the movie filenames)
+simulateMovie(handles.data, [],[], newOpt);
+
+% END FUNCTION mnuSimMovie_Callback
 
 
 
@@ -702,3 +728,6 @@ out = in;
 out(idx1) = in(idx2);
 out(idx2) = in(idx1);
 %end
+
+
+
