@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 18-Apr-2017 14:34:19
+% Last Modified by GUIDE v2.5 18-Apr-2017 15:45:16
 
 
 %% GUI Callbacks
@@ -181,6 +181,46 @@ guidata(hObject, handles);
 lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION btnLoadModel_Callback
+
+
+
+% --------------------------------------------------------------------
+function mnuLoadIdl_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Load an alternate idealization from file (with conversion from vbFRET, etc.)
+
+idxfile = get(handles.lbFiles,'Value');
+
+dwtfname = getFile( {'*.dwt','QuB Idealization (*.dwt)'; ...
+                  '*.mat','vbFRET Idealization (*.mat)'}, 'Load Idealization' );
+
+% Save changes and update GUI.
+if ~isempty(dwtfname)
+    handles.dwtFilenames{idxfile} = dwtfname;
+    guidata(hObject, handles);
+    lbFiles_Callback(handles.lbFiles, [], handles);
+end
+
+% END FUNCTION mnuLoadIdl_Callback
+
+
+% --------------------------------------------------------------------
+function mnuSaveIdl_Callback(~, ~, handles) %#ok<DEFNU>
+% Save currently-loaded idealization to an alternate file.
+
+idxfile = get(handles.lbFiles,'Value');
+
+[f,p] = uiputfile( {'*.dwt','QuB Idealization (*.dwt)'}, 'Save idealization', ...
+                   handles.dwtFilenames{idxfile} );
+if isequal(f,0), return; end  %user hit cancel
+dwtfname = fullfile(p,f);
+
+% Copy the current idealization file to the new location.
+% (idealizations are never stored only in memory in batchKinetics).
+copyfile( handles.dwtFilenames{idxfile}, dwtfname );
+fprintf('Saved idealization to %s\n',dwtfname);
+
+% END FUNCTION mnuSaveIdl_Callback
+
 
 
 function handles = btnExecute_Callback(hObject, ~, handles)
