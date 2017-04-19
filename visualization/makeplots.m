@@ -58,7 +58,7 @@ if nFiles==0, return; end
 [p,f] = cellfun(@fileparts, dataFilenames, 'UniformOutput',false);
 baseFilenames = fullfile(p,f);
 if numel(varargin)>=2,
-    titles = varargin{1};
+    titles = varargin{2};
     if ischar(titles),
         titles = {titles};
     end

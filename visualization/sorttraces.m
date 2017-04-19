@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 03-Nov-2016 14:56:15
+% Last Modified by GUIDE v2.5 19-Apr-2017 13:54:21
 
 
 % Begin initialization code - DO NOT EDIT
@@ -193,7 +193,8 @@ set( [handles.edCrosstalk2  handles.sldCrosstalk2 handles.edCrosstalk3 ...
       'Enable', onoff(ismember('fret2',data.channelNames)) );
 
 set( [handles.tbLoadIdl handles.mnuLoadIdl handles.tbGettraces ...
-      handles.mnuGettraces handles.mnuZeroMethod], 'Enable','on');
+      handles.mnuGettraces handles.mnuZeroMethod handles.mnuMakeplots ...
+      handles.btnMakeplots], 'Enable','on');
 
 % Reset x-axis label to reflect time or frame-based.
 time = data.time;
@@ -606,7 +607,7 @@ guidata(hObject,handles);
 
 %----------SAVE TRACES----------%
 % --- Executes on button press in btnSave.
-function btnSave_Callback(~, ~, handles) %#ok<DEFNU>
+function binFilenames = btnSave_Callback(~, ~, handles)
 % Save selected traces in a new file for each bin.
 
 [p,f]=fileparts(handles.filename);
@@ -617,10 +618,10 @@ saveState(handles);
 
 % Save selected traces in one file per bin
 binNames = lower( strrep(handles.binNames,' ','_') );  %FIXME: may need to remove other special characters.
+binFilenames = strcat(baseFilename,'_',binNames,'.traces');
 
 for i=1:numel(handles.bins),
-    filename = [baseFilename '_' binNames{i} '.traces'];
-    savePickedTraces( handles, filename, handles.bins{i} );
+    savePickedTraces( handles, binFilenames{i}, handles.bins{i} );
 end
 
 set([handles.tbSave handles.mnuSave], 'Enable','off');
@@ -656,8 +657,7 @@ function savePickedTraces( handles, filename, indexes )
 % Save picked traces and idealizations to file.
 
 [p,f] = fileparts(filename);
-baseFilename = fullfile(p,f);
-dwtfname = [baseFilename '.qub.dwt'];
+dwtfname = [fullfile(p,f) '.qub.dwt'];
 
 % If no traces remain, there is nothing to save. Rather than save an empty file,
 % save nothing and delete any previously saved files.
@@ -975,7 +975,6 @@ else
     output.recalculateFret( adjusted );
 end
 
-
 % END FUNCTION adjustTraces
 
 
@@ -985,16 +984,6 @@ end
 %=========================================================================%
 %===========================   PLOT & PRINT   ============================%
 
-
-%----------PRINT TRACE----------%
-% --- Executes on button press in btnPrint.
-function btnPrint_Callback(~, ~, handles) %#ok<DEFNU>
-% Opens the print system dialog to print the current trace.
-printdlg(handles.figure1);
-
-
-
-%----------PLOT TRACES----------%
 function handles = plotter(handles)
 % Draw traces for current molecule and update displayed stats.
 
@@ -1556,3 +1545,22 @@ legend(handles.axFluor, showhide{state});
 legend(handles.axFret,  showhide{state});
 
 % END FUNCTION btnLegend_ClickedCallback
+
+
+% --------------------------------------------------------------------
+function mnuMakeplots_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Save selected traces and show ensemble plots for each bin.
+% FIXME: "whole file" plot does not reflect any adjustments to the file,
+% including the selection of a new idealization.
+
+binsToShow = ~cellfun(@isempty,handles.bins);
+
+files = btnSave_Callback(hObject,[],handles);
+files = [ handles.filename files(binsToShow) ];
+
+titles = [ 'Whole File' handles.binNames(binsToShow) ];
+makeplots(files, titles);
+
+% END FUNCTION mnuMakeplots_Callback
+
+
