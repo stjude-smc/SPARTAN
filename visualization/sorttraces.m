@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 19-Apr-2017 13:54:21
+% Last Modified by GUIDE v2.5 19-Apr-2017 15:14:47
 
 
 % Begin initialization code - DO NOT EDIT
@@ -1196,14 +1196,17 @@ end
 function btnLoadDWT_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Loads an idealization (.dwt file) for later plotting in plotter().
 
-handles = loadDWT_ex( handles );
+dwtfname = getFile('*.dwt');
+if isempty(dwtfname), return; end  %user hit cancel
+
+handles = loadDWT_ex(handles, dwtfname);
 handles = plotter(handles);
 guidata(hObject,handles);
 
 % END FUNCTION btnLoadDWT_Callback
 
 
-function handles = loadDWT_ex( handles, varargin)
+function handles = loadDWT_ex(handles, dwtfname)
 % This function actually loads the dwell-time information.
 
 time = handles.data.time;
@@ -1213,7 +1216,7 @@ traceLen = handles.data.nFrames;
 
 % Get filename for .dwt file from user and load it.
 % FIXME: suggest a file name (or at least location) automatically).
-[dwt,dwtSampling,offsets,model] = loadDWT( varargin{:} );
+[dwt,dwtSampling,offsets,model] = loadDWT(dwtfname);
 handles.dwtModel = model;
 handles.idl = [];
 
@@ -1504,24 +1507,31 @@ delete(hObject);
 % --------------------------------------------------------------------
 function mnuZeroMethod_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Set method for detecting donor blinks (setting FRET to zero).
+% If multi-color, also allows the user to change the FRET calculation method.
+% FIXME: this could include any other fileMetadata fields...
 
-zeroMethod = handles.data.fileMetadata.zeroMethod;
-current = find( strcmpi(zeroMethod,TracesFret.zeroMethodNames) );
+fields = {'zeroMethod'};
+prompt = {'Donor blink detection method:'};
+types  = { TracesFret.zeroMethodNames };
 
-[sel,ok] = listdlg('PromptString','Method to detect donor blinking and set FRET to zero:', ...
-                   'SelectionMode','single','ListSize',[300 120], ...
-                   'ListString',TracesFret.zeroMethodDesc, ...
-                   'InitialValue',current );
+if isa(handles.data,'TracesFret4'),
+    % FIXME: use full descriptions in dialog.
+    fields{end+1} = 'fretGeometry';
+    prompt{end+1} = 'Multi-color FRET calculation method';
+    types{end+1}  = TracesFret4.fretGeometryNames;
+end
 
-if ok && sel~=current,
+output = settingdlg(handles.data.fileMetadata, fields, prompt, types);
+
+if ~isequal(output, handles.data.fileMetadata)
     set(handles.figure1,'pointer','watch'); drawnow;
     
     % Recalculate FRET with the new mode.
-    handles.data.fileMetadata.zeroMethod = TracesFret.zeroMethodNames{sel};
+    handles.data.fileMetadata = output;
     handles.data.recalculateFret();
     
     % Update GUI controls and redraw current trace.
-    if sel==2,
+    if strcmpi(output.zeroMethod,'threshold')
         handles.fretThreshold(:) = NaN;
     else
         handles.fretThreshold(:) = 0;
@@ -1529,6 +1539,7 @@ if ok && sel~=current,
     guidata(hObject,handles);
     
     editGoTo_Callback(hObject, [], handles);
+    ylabel(handles.axFret, handles.data.fretAxisLabel);
     set(handles.figure1,'pointer','arrow'); drawnow;
 end
 
@@ -1562,5 +1573,3 @@ titles = [ 'Whole File' handles.binNames(binsToShow) ];
 makeplots(files, titles);
 
 % END FUNCTION mnuMakeplots_Callback
-
-
