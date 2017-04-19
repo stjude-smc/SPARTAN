@@ -382,14 +382,12 @@ set([handles.tbSave handles.mnuSave], 'Enable','on');
 function handles = editGoTo_Callback(hObject, ~, handles)
 % Called when user changes the molecule number textbox. Jump to and plot
 % the indicated trace.
-constants = cascadeConstants;
 
 % Get trace ID from GUI
 mol=str2double( get(handles.editGoTo,'String') );
 
 % If trace ID is invalid, reset it to what it was before.
 if isnan(mol) || mol>handles.data.nTraces || mol<1,
-    %disp('WARNING in sorttraces: Invalid trace number. Resetting.');
     set( hObject,'String',num2str(handles.molecule_no) );
     return;
 else
@@ -429,6 +427,7 @@ if strcmpi(handles.data.fileMetadata.zeroMethod,'threshold'),
             total = total + trace.(fluorNames{i});
         end
 
+        constants = cascadeConstants;
         s = handles.stats.lifetime + 5;
         range = s:min(s+constants.NBK,trace.nFrames);
 
@@ -478,32 +477,28 @@ guidata(hObject,handles);
 % END FUNCTION editGoTo_Callback
 
 
-%----------GO BACK TO PREVIOUS MOLECULE----------%
-% --- Executes on button press in btnPrevTop.
-function btnPrevTop_Callback(~, ~, handles)
-% User clicked "previous molecule" button.
-set( handles.editGoTo,'String',num2str(handles.molecule_no-1) );
-editGoTo_Callback( handles.editGoTo, [], handles );
-
-
 
 %----------GO TO NEXT MOLECULE----------%
 % --- Executes on button press in btnNextTop - 'Next Molecule'.
-function btnNextTop_Callback(~, ~, handles)
+function btnNextTop_Callback(~, ~, handles, dir)
 % User clicked "next molecule" button.
-set( handles.editGoTo,'String',num2str(handles.molecule_no+1) );
+set( handles.editGoTo,'String',num2str(handles.molecule_no+dir) );
 editGoTo_Callback( handles.editGoTo, [], handles );
 
 
-
 % --------------------------------------------------------------------
-function mnuBinNext_Callback(hObject, ~, handles) %#ok<DEFNU>
-% User clicked "Next in Bin" context menu
+function mnuBinNext_Callback(hObject, ~, handles, dir) %#ok<DEFNU>
+% User clicked "Next in Bin" or "Prev in Bin" context menu.
+% last argument is positive for "next" and negative for "prev".
 
 % Get index of the next selected molecule in the current bin
 binID = get(hObject,'UserData');
 bin   = sort( handles.bins{binID} );
-next  = bin( find(bin>handles.molecule_no,1,'first') );
+if dir>0
+    next = bin( find(bin>handles.molecule_no,1,'first') );
+else
+    next = bin( find(bin<handles.molecule_no,1,'last') );
+end
 
 % Update GUI elements to display the selected molecule.
 if ~isempty(next),
@@ -512,26 +507,6 @@ if ~isempty(next),
 end
 
 % END FUNCTION mnuBinNext_Callback
-
-
-% --------------------------------------------------------------------
-function mnuBinPrev_Callback(hObject, ~, handles) %#ok<DEFNU>
-% User clicked "Previous in Bin" context menu.
-% FIXME: could be combined with the above with an optional argument.
-
-% Get index of the next selected molecule in the current bin
-binID = get(hObject,'UserData');
-bin   = sort( handles.bins{binID} );
-prev  = bin( find(bin<handles.molecule_no,1,'last') );
-
-% Update GUI elements to display the selected molecule.
-if ~isempty(prev)
-    set( handles.editGoTo,'String',num2str(prev) );
-    editGoTo_Callback( handles.editGoTo, [], handles );
-end
-
-% END FUNCTION mnuBinPrev_Callback
-
 
 
 
@@ -1338,29 +1313,16 @@ function navKeyPress_Callback(hObject, eventdata, handles) %#ok<DEFNU>
 % them into bins. Called when keys are pressed when one of the navigation
 % buttons has active focus.
 
-ch = get(gcf,'CurrentCharacter');
-
-switch ch
+switch get(gcf,'CurrentCharacter')
     case 28, %left arrow key
-    btnPrevTop_Callback( hObject, eventdata, handles ); 
+    btnNextTop_Callback( hObject, eventdata, handles, -1 ); 
     
     case 29, %right arrow key
-    btnNextTop_Callback( hObject, eventdata, handles );
+    btnNextTop_Callback( hObject, eventdata, handles, +1 );
     
-    %case 30, %up arrow key
-    %
-    
-    %case 31, %down arrow key
-    %
-    
-    case 'a',
-        toggleBin( handles, 1 );
-    
-    case 's',
-        toggleBin( handles, 2 );
-    
-    case 'd',
-        toggleBin( handles, 3 );
+    case 'a', toggleBin( handles, 1 );
+    case 's', toggleBin( handles, 2 );
+    case 'd', toggleBin( handles, 3 );
     
     case 'z',  %zoom in on trace
         dt  = diff(handles.data.time(1:2)) / 1000;  %time step in seconds
@@ -1380,9 +1342,6 @@ switch ch
         end
         
         zoom_callback(hObject,[]);
-        
-%     otherwise
-%         disp( double(ch) );
 end
 
 %end function navKeyPress_Callback
