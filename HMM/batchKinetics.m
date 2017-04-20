@@ -140,13 +140,18 @@ set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
 hasModel = ~isempty(handles.model);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
       handles.btnSaveModel], 'Enable',onoff(hasModel) );
-set( [handles.btnExecute handles.btnExecuteAll handles.mnuExecute ...
-      handles.mnuExecuteAll], 'Enable',onoff(hasData&hasModel) );
+set( [handles.btnExecute handles.mnuExecute], 'Enable',onoff(hasData&hasModel) );
   
 isIdealized = any( ~cellfun(@isempty,handles.dwtFilenames) );
 set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
       handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
       handles.btnOccTime handles.mnuViewOccTime], 'Enable',onoff(isIdealized));
+
+isMIL = strcmpi(handles.options.idealizeMethod(1:3),'MIL');
+set( [handles.mnuExecuteAll handles.btnExecuteAll], 'Enable',...
+                                         onoff(hasData & hasModel & ~isMIL) );
+set( [handles.chkUpdateModel handles.tblFixFret], 'Enable',...
+                                         onoff(hasModel & ~isMIL) );
 
 % END FUNCTION enableControls
 
@@ -351,19 +356,14 @@ set(handles.btnExecute,'Enable','on');
 
 % --- Executes on selection change in cboIdealizationMethod.
 function handles = cboIdealizationMethod_Callback(hObject, ~, handles)
-% Idealization options: idealization method combo box
-
 % Update method to use for idealization
+% FIXME: consider getting this value only when needed (execution).
+
 text = get(hObject,'String');
 handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
-% Disable irrelevant controls, including batch mode, which will end up using
-% the last optimal model as the starting point for the next file and not
-% report the result. FIXME once reports are available...
-isMIL = strcmpi(handles.options.idealizeMethod(1:3),'MIL');
-set( [handles.chkUpdateModel handles.tblFixFret handles.mnuExecuteAll ...
-      handles.btnExecuteAll], 'Enable',onoff(~isMIL) );
+enableControls(handles);
 
 % END FUNCTION cboIdealizationMethod_Callback
 
@@ -512,6 +512,9 @@ function handles = lbFiles_Callback(hObject, ~, handles)
 % User selected a file. Show traces in the trace viewer panel.
 % FIXME: could be somewhat faster if plotting one long trace rather than
 % many line objects...
+% sldTraces  Value means the trace to show at the top (first in list),
+%            Max means the Value showing the first traces (starting with 1).
+% sldTracesX Value means the truncation length.
 
 if isempty(handles.dataFilenames), return; end  %no data loaded.
 
@@ -522,9 +525,13 @@ data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
 handles.idl = loadIdl(handles);
 
+% Disable the trace scroll bar when it won't be valid (prevents errors).
+set( handles.sldTraces, 'Enable',onoff(data.nTraces>handles.nTracesToShow) );
+
 enableListener(handles.sldTracesListener, false);
-set(handles.sldTraces,  'Min',0,  'Max',data.nTraces-handles.nTracesToShow, 'Value',data.nTraces-handles.nTracesToShow);
-set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames,    'Value',data.nFrames);
+set(handles.sldTraces,  'Min',min(data.nTraces,handles.nTracesToShow),  ...
+                        'Max',data.nTraces, 'Value',data.nTraces);
+set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames, 'Value',data.nFrames);
 enableListener(handles.sldTracesListener, true);
 
 % Setup axes for plotting traces.
@@ -574,24 +581,31 @@ showTraces(handles);
 
 function showTraces(handles)
 % Update axTraces to show the current subset -- called by sldTraces.
-% FIXME: this will crash if there are less than N traces in the file!
+% i is the index into the lines in the viewer.
+% idx is the index into the traces in the whole file.
+
+% Clear existing data -- necessary if not enough traces to fill viewer.
+set( handles.hFretLine, 'YData',nan(1,handles.data.nFrames) );
+set( handles.hIdlLine,  'YData',nan(1,handles.data.nFrames) );
+set( handles.hTraceLabel, 'String','' );
 
 idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 
-for i=1:handles.nTracesToShow,
+for i=1:handles.nTracesToShow
     idx = i+idxStart;
-    ydata = min(1.15, max(-0.15,handles.data.fret(idx,:)) );
+    if idx>handles.data.nTraces, break; end
+    
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    set( handles.hFretLine(i), 'YData',y_offset+ydata );
+    ydata    = y_offset + min(1.15, max(-0.15,handles.data.fret(idx,:)) );
+    set( handles.hFretLine(i), 'YData',ydata );
     
     if ~isempty(handles.idl)
-        set( handles.hIdlLine(i), 'YData', y_offset+handles.idl(idx,:) );
+        idldata = y_offset + handles.idl(idx,:);
+        set( handles.hIdlLine(i), 'YData',idldata );
     end
     
     set( handles.hTraceLabel(i), 'String',sprintf('%d',idx) );
 end
-
-set(handles.hIdlLine, 'Visible',onoff(~isempty(handles.idl)) );
 
 % END FUNCTION function
 
