@@ -972,34 +972,9 @@ else
     data = handles.trace;
 end
 
-chNames = data.channelNames;
-fluorCh = chNames(data.idxFluor);
-nCh = numel(fluorCh);
-
-
 % Show the molecule location within field of view, if the window is open.
 if ishandle(handles.axFOV),
-    output = strsplit(data.traceMetadata.ids,'#');
-    
-    if strcmp(handles.movieFilename, output{1}),
-        % Get x/y location of current molecule in each fluorescence channel.
-        x = nan(nCh,1);  y = nan(nCh,1);
-        for i=1:nCh,
-            if isfield(data.traceMetadata, [fluorCh{i} '_x']) && ...
-                    isfield(data.traceMetadata, [fluorCh{i} '_y']),
-                x(i) = data.traceMetadata.([fluorCh{i} '_x']);
-                y(i) = data.traceMetadata.([fluorCh{i} '_y']);
-            end
-        end
-        
-        % Draw markers on selection points.
-        delete(findall(handles.axFOV,'type','Line'));
-        viscircles( handles.axFOV, [x y], repmat(3,numel(x),1), 'EdgeColor','w' );
-    else
-        % Close if current molecule is not from the loaded movie.
-        % FIXME: should instead load the new movie and continue seamlessly.
-        close( get(handles.axFOV,'Parent') );
-    end
+    showMovie(handles.axFOV, handles.data, handles.molecule_no);
 end
 
 % Draw molecule location in small panel
@@ -1044,6 +1019,9 @@ if time(1)~=1, %first time is 1 if in frame number (not ms)
 end
 
 cla( handles.axFluor );
+
+chNames = data.channelNames;
+fluorCh = chNames(data.idxFluor);
 
 for c=1:numel(fluorCh),
     trace = data.(fluorCh{c});
@@ -1354,81 +1332,9 @@ function btnGettraces_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Display an image of the field-of-view from the movie that the current trace
 % came from and its physical location in each fluorescence channel. Iterating
 % over traces will then update the molecule location.
-
-
-% Get the filename and movie coordinates of the selected trace.
-m = handles.molecule_no;
-
-if isfield(handles.data.traceMetadata,'ids'),
-    id = handles.data.traceMetadata(m).ids;
-else
-    % TODO: disable the metadata button for visual feedback.
-    disp('No gettraces metadata available for finding the original movie file.');
-    return;
-end
-
-if any( id=='#' ),
-    output = strsplit(id,'#');
-    [movieFilename,~] = deal( output{:} );
-    handles.movieFilename = movieFilename; %base name from IDs.
-else
-    disp('No gettraces metadata available. re-run gettraces!');
-    return;
-end
-
-% Handle IDs that use the trace file name instead of the movie.
-[p,f,e] = fileparts(movieFilename);
-if ~strcmp(e,'.stk') && ~strcmp(e,',tiff') && ~strcmp(e,'.tif'),
-    e = '.tif';
-    movieFilename = fullfile(p,[f e]);
-end
-
-
-% Find the movie data given in metadata, if it exists, plot an image from
-% the first few frames, and indicate the location of the molecule.
-if isempty(handles.axFOV) || ~ishandle(handles.axFOV),    
-    
-    % If the movie file doesn't exist, allow the user to look for it.
-    if ~exist( movieFilename, 'file' ),
-        % First look in the current directory
-        movieFilename = fullfile(pwd, [f e]);
-        
-        if ~exist( movieFilename, 'file' ),
-            [f,p] = uigetfile( '*.tif;*.tiff;*.stk', 'Manually find associated movie file', ...
-                                    movieFilename );
-            movieFilename = fullfile(p,f);
-
-            % Verify the selected file exists.
-            % FIXME: draw a blank background instead of cancelling.
-            if ~ischar(f) || ~exist(movieFilename,'file'),
-                return;
-            end
-        end
-    end
-    
-    figure;
-    handles.axFOV = gca;
-
-    % Load an image from the first 10 frames of the movie.
-    constants = cascadeConstants;
-    params = constants.gettraces_profiles(1); %single color
-    stkData = OpenStk( movieFilename, params );
-    image_t = stkData.stk_top-stkData.background;
-
-    % Display the field of view
-    sort_px = sort(stkData.stk_top(:));
-    val = sort_px( floor(0.98*numel(sort_px)) );
-    imshow( image_t, [0 val], 'Parent',handles.axFOV );
-    colormap(handles.axFOV, gettraces_colormap);
-    
-    zoom(handles.axFOV,'on');
-end
-
-
-% Show molecule location
+handles.axFOV = showMovie(handles.data, handles.molecule_no);
 handles = plotter(handles);
 guidata(hObject,handles);
-
 % end function btnGettraces_Callback
 
 
