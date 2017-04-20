@@ -1084,6 +1084,8 @@ function zoom_callback(hObject, ~)
 % Updates any stats (correlation) calculated over the zoomed region.
 
 handles = guidata(hObject);
+if ~isfield(handles,'data') || isempty(handles.data), return; end  %no file
+
 m = handles.molecule_no;
 
 if handles.adjusted(m),
