@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 18-Apr-2017 15:45:16
+% Last Modified by GUIDE v2.5 19-Apr-2017 20:16:23
 
 
 %% GUI Callbacks
@@ -182,6 +182,7 @@ if ~any(  cellfun( @(x)strcmp(x,filename), recent)  )
     uimenu(handles.mnuRecentModels, 'Label',fname, 'UserData',filename, ...
                'Callback',@mnuRecentModels_Callback);
 end
+set(handles.mnuRecentModels, 'Enable','on');
 
 % Automatically update the parameter table when the model is altered.
 handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
@@ -787,6 +788,3 @@ out = in;
 out(idx1) = in(idx2);
 out(idx2) = in(idx1);
 %end
-
-
-
