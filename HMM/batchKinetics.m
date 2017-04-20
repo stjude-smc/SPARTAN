@@ -358,11 +358,12 @@ text = get(hObject,'String');
 handles.options.idealizeMethod = text{get(hObject,'Value')};
 guidata(hObject, handles);
 
-if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
-    set(handles.chkUpdateModel,'Enable','off');
-else
-    set(handles.chkUpdateModel,'Enable','on');
-end
+% Disable irrelevant controls, including batch mode, which will end up using
+% the last optimal model as the starting point for the next file and not
+% report the result. FIXME once reports are available...
+isMIL = strcmpi(handles.options.idealizeMethod(1:3),'MIL');
+set( [handles.chkUpdateModel handles.tblFixFret handles.mnuExecuteAll ...
+      handles.btnExecuteAll], 'Enable',onoff(~isMIL) );
 
 % END FUNCTION cboIdealizationMethod_Callback
 
@@ -439,29 +440,6 @@ function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
 idxFile  = get(handles.lbFiles,   'Value');
 idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
-
-function btnMakeplots_Callback(~, ~, handles) %#ok<DEFNU>
-makeplots(handles.dataFilenames);
-
-function btnDwellhist_ClickedCallback(~, ~, handles) %#ok<DEFNU>
-if ~isempty(handles.dwtFilenames),
-    dwellhist(handles.dwtFilenames);
-end
-
-function btnPT_ClickedCallback(~, ~, handles) %#ok<DEFNU>
-if ~isempty(handles.dwtFilenames),
-    percentTime(handles.dwtFilenames);
-end
-
-function btnOccTime_ClickedCallback(~, ~, handles) %#ok<DEFNU>
-if ~isempty(handles.dwtFilenames),
-    occtime(handles.dwtFilenames);
-end
-
-function mnuViewTPS_Callback(~, ~, handles) %#ok<DEFNU>
-if ~isempty(handles.dwtFilenames),
-    transitionsPerSecond(handles.dwtFilenames);
-end
 
 
 
@@ -584,7 +562,7 @@ for i=1:handles.nTracesToShow,
 end
 
 ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
-xlabel('Time (s)');
+xlabel(handles.axTraces,'Time (s)');
 set(handles.figure1,'pointer','arrow');
 
 guidata(hObject,handles);
