@@ -551,7 +551,7 @@ for i=1:handles.nTracesToShow,
     % State markers.
     if ~isempty(handles.model) && handles.showStateMarkers,
         colors = 'krbgym';
-        for k=2:handles.model.nStates,
+        for k=2:handles.model.nClasses, %nStates,
             mu = repmat( handles.model.mu(k), 1,2 );
             plot( handles.axTraces, time([1,end]), y_offset+mu, [colors(k) ':'] );
         end
@@ -701,6 +701,7 @@ prompt = {'PSF Size (px stdev):', 'Particles to simulate:', ...
           'Y deviation (px):', 'Rotation (degrees):', 'Scaling factor'};
 newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
 if isempty(newOpt), return; end
+opt = newOpt;
 
 newOpt.density = min(handles.data.nTraces, newOpt.density);
 
