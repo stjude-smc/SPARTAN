@@ -183,7 +183,7 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         
         % Register acceptor side so that it is lined up with the donor.
         % imref2d specifies the center of the image is the origin (0,0).
-        R = imref2d( size(target_t), [-1 1]*nrow/2, [-1 1]*ncol/2 );
+        R = imref2d( size(target_t), [-1 1]*ncol/2, [-1 1]*nrow/2 );
         registered_t{i} = imwarp( target_t,R, newAlign(i).tform,...
                                     'Interp','cubic', 'OutputView',R );
         
