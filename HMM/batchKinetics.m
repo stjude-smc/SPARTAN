@@ -542,6 +542,7 @@ cla(handles.axTraces);
 xlimit = floor(get(handles.sldTracesX,'Value'));
 time = handles.data.time(1:xlimit)/1000;
 xlim( handles.axTraces, [0 time(end)] );
+dt = handles.data.sampling/2/1000; %transition between datapoints.
 
 for i=1:handles.nTracesToShow,
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
@@ -560,7 +561,7 @@ for i=1:handles.nTracesToShow,
     handles.hFretLine(i) = plot( handles.axTraces, time, ...
                               y_offset+zeros(1,xlimit), 'b-' );
 
-    handles.hIdlLine(i)  = plot( handles.axTraces, time, ...
+    handles.hIdlLine(i)  = stairs( handles.axTraces, time-dt, ...
                               y_offset+zeros(1,xlimit), 'r-' );
     
     handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...

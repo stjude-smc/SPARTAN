@@ -1068,7 +1068,8 @@ if ismember('fret2',chNames),
 end
 
 if ~isempty(handles.idlFret),
-    stairs( handles.axFret, time, handles.idlFret(m,:), 'r-', 'LineWidth',1 );
+    dt = handles.data.sampling/2/1000; %transition between datapoints.
+    stairs( handles.axFret, time-dt, handles.idlFret(m,:), 'r-', 'LineWidth',1 );
 end
 
 xlim(handles.axFret, [time(1) time(end)]);
