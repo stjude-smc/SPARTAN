@@ -61,8 +61,8 @@ nStandard = numel(profiles);
 
 if ispref('SPARTAN','gettraces_customProfiles')
     profiles = [profiles getpref('SPARTAN','gettraces_customProfiles')];
-else
-    error('STUB');
+% else
+%     error('STUB');
 end
 
 % Add profiles from cascadeConstants to settings menu.
@@ -76,7 +76,9 @@ end
 % Put customization menu items in the correct spots.
 set(handles.mnuSettingsCustom,'Position',nStandard+1);
 set(handles.mnuSettingsSave,  'Position',nStandard+2);
-set( hMenu(nStandard+1), 'Separator','on' );
+if numel(hMenu)>nStandard
+    set( hMenu(nStandard+1), 'Separator','on' );
+end
 
 handles.profile = constants.gettraces_defaultProfile;  %index to current profile (FIXME: rename)
 set( hMenu(handles.profile), 'Checked','on' );
@@ -801,6 +803,7 @@ if isempty(newName), return; end  %user hit cancel
 newName = newName{1};
 
 % Overwrite if name matches an existing profile, except built-in.
+% FIXME: make this a shortcut to adding a new custom profile?
 if strcmpi( newName, handles.params.name )
     if handles.profile <= nStandard,
         errordlg('Built-in profiles cannot be modified. Alter cascadeConstants.m instead.');
@@ -819,10 +822,15 @@ else
     set( handles.hProfileMenu, 'Checked','off' );  %uncheck all
     handles.hProfileMenu(end+1) = uimenu( handles.mnuProfiles, 'Checked','on', ...
               'Label',handles.params.name, 'Callback',@mnuProfiles_Callback );
+    
+    % If this is the first in the list, add separator.
+    if handles.profile == nStandard+1
+        set( handles.hProfileMenu(end), 'Separator','on' );
+    end
 end
 
 % Save the updated profile list.
-% setpref('SPARTAN','gettraces_customProfiles',cp);  %FIXME
+setpref('SPARTAN','gettraces_customProfiles',handles.profiles(nStandard+1:end));
 guidata(hObject,handles);
 
 % END FUNCTION mnuSettingsSave_Callback
