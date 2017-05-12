@@ -9,22 +9,34 @@ function output = subfield(input, quad)
 %   OUT = subfield(IN,GEO) extracts standard set of sub-fields. GEO can be:
 %   1 (whole field), 2 (L/R), 3 (T/B), or 4 (quadrants).
 
-%   Copyright 2016 Cornell University All Rights Reserved.
+%   Copyright 2016-2017 Cornell University All Rights Reserved.
 
 
 % Process input arguments
 narginchk(2,2);
 nargoutchk(1,1);
 
-% Cell array of strings targeting each field to extract
+% Single string targeting a field to extract
 if ischar(quad),
     output = subfield2(input,quad);
     
-% Single string targeting a field to extract
+% Cell array of strings targeting each field to extract
 elseif iscell(quad)
     output = cell(size(quad));
     for i=1:numel(quad)
         output{i} = subfield2(input,quad{i});
+    end
+    
+    % Truncate fields to the same size (should never happen)
+    sz = cellfun(@size, output, 'Uniform',false);
+    
+    if ~all(  cellfun(@(x)isequal(sz{1},x), sz)  )
+        warning('gettraces:fieldSizeMismatch','Movie cannot be divided into equal-sized subfields. Incorrect channel geometry? Check settings.');
+        
+        szMin = min( cat(1,sz{:}) );
+        for i=1:numel(output)
+            output{i} = output{i}( 1:szMin(1), 1:szMin(2) );
+        end
     end
     
 % Integer specifing geometry. Return pre-defined set of sub-images.
