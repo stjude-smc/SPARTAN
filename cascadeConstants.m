@@ -101,6 +101,7 @@ cmosCommon.overlap_thresh = 3.5; %remove molecules that are w/i X pixels.
 cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
 cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
+cmosCommon.alignment = struct([]);
 
 % Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.
 % emccdCommon = cmosCommon;
