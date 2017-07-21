@@ -364,10 +364,6 @@ for k=1:nFiles,
         histdata = cplotdata(2:end,2:options.contour_length+1)*100;
         pophist = nansum(histdata,2)/options.contour_length;   %normalization
         
-        if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
-            pophist = pophist *N(k)/max(N);
-        end
-        
         histmax(k) = max(max( pophist(fretaxis>0.05) ));
         barh(histax(k), fretaxis, pophist);
         
