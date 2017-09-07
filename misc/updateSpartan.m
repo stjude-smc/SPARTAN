@@ -6,10 +6,13 @@ function output = updateSpartan()
 %   STATUS is true if an update is available and false otherwise.
 %   Checks are made at most once per day.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved. 
+%   Copyright 2007-2017 Cornell University All Rights Reserved. 
 
 DELAY_SHORT = 1;  %days between normal checks
 DELAY_LONG  = 7;  %days before reminding about known updates
+
+COMPILED_ADDR = 'https://www.dropbox.com/sh/lkmst6vrf0nubn8/AAD9LcPqzE5cjr3se4i_x0i5a?dl=0';
+SOURCE_ADDR   = 'https://www.dropbox.com/sh/wlcj8maxvp5pr8f/AADtLYcojAuyE7MJVmKT_q2la?dl=0';
 
 
 % Check the website at most once a day. Otherwise, just return the current
@@ -33,7 +36,7 @@ current = versionEncode(constants.version);
 %% Check online for the latest version.
 fprintf('Checking for updates to SPARTAN... ');
 try
-    latestVerString = urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1');
+    latestVerString = strtrim(urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1'));
     latest = versionEncode(latestVerString);
 catch
     fprintf('Failed. Check the address below instead:\n');
@@ -44,34 +47,31 @@ end
 needsupdate = latest>current;
 if nargout>0, output = needsupdate; end
 if ~needsupdate,
-    fprintf('Up to date. %s > %s\n\n',constants.version,latestVerString);
+    fprintf('Up to date. %s >= %s\n\n',constants.version,latestVerString);
     return;
 else
-    fprintf('New version available: %d.%d.%d\n\n',latest);
+    fprintf('New version available: %s\n\n',latestVerString);
 end
 
 
 %% Ask the user if they want to download now
-a = questdlg( sprintf('New version available (%s). Update now?',strtrim(input)), ...
+a = questdlg( sprintf('New version available (%s). Update now?',latestVerString), ...
               'SPARTAN update', 'Yes','Not now','Stop asking', 'Yes');
 switch a
     case 'Yes'
+        disp('A browser window will open with new SPARTAN version.');
+        disp('If this does not happen, use the address below instead:');
         if isdeployed
             % compiled versions
-            status = web('https://www.dropbox.com/sh/lkmst6vrf0nubn8/AAD9LcPqzE5cjr3se4i_x0i5a?dl=0','-browser');
+            web(COMPILED_ADDR,'-browser');
+            disp(COMPILED_ADDR);
         else
             % source code versions
-            status = web('https://www.dropbox.com/sh/wlcj8maxvp5pr8f/AADtLYcojAuyE7MJVmKT_q2la?dl=0','-browser');
+            web(SOURCE_ADDR,'-browser');
+            disp(SOURCE_ADDR);
         end
-        if status~=0,
-            % Dropbox failed. Try the website instead
-            status = web('http://www.scottcblanchardlab.com/software','-browser');
-            if status~=0,
-                disp('A new version of SPARTAN is available. Check the address below:');
-                disp('http://www.scottcblanchardlab.com/software');
-                disp('');
-            end
-        end
+        fprintf('\nFor more information, go to the following address:\n');
+        fprintf('http://www.scottcblanchardlab.com/software\n\n');
 
     case 'Stop asking'
         checktime = now + Inf;
