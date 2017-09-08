@@ -71,6 +71,7 @@ options.minStates = 1;
 options.maxStates = 5;
 options.maxRestarts = 10;
 options.threshold = 1e-5;
+options.dataField = 'fret';  %which 
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
@@ -304,6 +305,7 @@ end
 handles.idl = loadIdl(handles);
 guidata(hObject,handles);
 showTraces(handles);
+set(handles.hIdlLine,'Visible','on');
 
 enableControls(handles);
 set(handles.figure1,'pointer','arrow');
@@ -480,10 +482,13 @@ end
 function mnuDisplaySettings_Callback(~, ~, handles) %#ok<DEFNU>
 % Change display settings (e.g., number of traces displayed).
 
-opt = struct('nTracesToShow',handles.nTracesToShow, 'showStateMarkers',handles.showStateMarkers);
-prompt = {'Number of traces to show', 'Show model FRET values over traces'};
-opt = settingdlg(opt, fieldnames(opt), prompt);
+opt = struct('dataField',handles.options.dataField,'nTracesToShow',handles.nTracesToShow, 'showStateMarkers',handles.showStateMarkers);
+prompt = {'Data field', 'Number of traces to show', 'Show model FRET values over traces'};
+types = { handles.data.channelNames(handles.data.idxFret), @(x)(x==round(x)&x>0) };  %'total' field inaccessable...
+opt = settingdlg(opt, fieldnames(opt), prompt, types);
+
 if ~isempty(opt),
+    handles.options.dataField = opt.dataField;
     handles.nTracesToShow = opt.nTracesToShow;
     handles.showStateMarkers = opt.showStateMarkers;
     lbFiles_Callback(handles.lbFiles, [], handles);
@@ -558,8 +563,26 @@ for i=1:handles.nTracesToShow,
         end
     end
     
+    % Determine colors for data display
+    dataField = handles.options.dataField;
+    
+    if strcmpi(dataField,'fret'),
+        traceColor='b';
+    elseif strcmpi(dataField,'fret2')
+        traceColor='m';
+    else
+        idxch = find(strcmpi(dataField,data.channelNames) );
+        if ~isempty(idxch) && any(idxch==handles.data.idxFluor) && ...
+                              isfield(data.fileMetadata,'wavelengths')
+            traceColor = Wavelength_to_RGB( data.fileMetadata.wavelengths(idxch) );
+        else
+            traceColor='k';
+        end
+    end
+    
+    % Draw traces, idealizations, and trace number labeles.
     handles.hFretLine(i) = plot( handles.axTraces, time, ...
-                              y_offset+zeros(1,xlimit), 'b-' );
+                              y_offset+zeros(1,xlimit), 'Color',traceColor );
 
     handles.hIdlLine(i)  = stairs( handles.axTraces, time-dt, ...
                               y_offset+zeros(1,xlimit), 'r-' );
@@ -597,7 +620,8 @@ for i=1:handles.nTracesToShow
     if idx>handles.data.nTraces, break; end
     
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    ydata    = y_offset + min(1.15, max(-0.15,handles.data.fret(idx,:)) );
+    ydata = handles.data.(handles.options.dataField)(idx,:);
+    ydata = y_offset + min(1.15, max(-0.15,ydata) );  %clip outliers, position w/i viewer
     set( handles.hFretLine(i), 'YData',ydata );
     
     if ~isempty(handles.idl)

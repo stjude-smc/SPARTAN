@@ -16,23 +16,36 @@ delete('resultTree.mat','bwmodel.qmf');
 % Load data
 data = loadTraces(trcfile);
 
+if isfield(options,'dataField') && isfield(data, options.dataField)
+    input = data.(options.dataField);
+    
+    % Normalize fluorescence intensities to fall in ~[0,1].
+    % FIXME: will not work for transient events.
+    % Additional options may be needed to control this behavior.
+    if isempty(strfind(options.dataField,'fret'))
+        temp = input(:,1:10);
+        input = input / mean(temp(:));
+    end
+else
+    input = data.fret;
+end
+
 % Idealize data using user-specified algorithm...
 switch upper(options.idealizeMethod)
 case upper('Segmental k-means'),
-    [dwt,optModel,LL,offsets] = skm( data.fret, data.sampling, model, skmOptions );
-
+    [dwt,optModel,LL,offsets] = skm( input, data.sampling, model, skmOptions );
 
 case upper('Baum-Welch'),
     skmOptions.seperately = false;  %individual fitting not supported yet.
-    [optModel,LL] = BWoptimize( data.fret, data.sampling, model, skmOptions );
+    [optModel,LL] = BWoptimize( input, data.sampling, model, skmOptions );
 
     % Idealize using optimized parameters
     fretModel = [to_col(optModel.mu) to_col(optModel.sigma)];
-    [dwt,~,offsets] = idealize( data.fret, fretModel, optModel.p0, ...
+    [dwt,~,offsets] = idealize( input, fretModel, optModel.p0, ...
                                         optModel.calcA(data.sampling) );
 
 case upper('ebFRET'),
-    [idl,optModel,LL] = runEbFret(data.fret, model);            
+    [idl,optModel,LL] = runEbFret(input, model);            
     [dwt,offsets] = idlToDwt(idl);
 
 case upper('Thresholding'),
