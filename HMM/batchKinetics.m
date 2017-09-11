@@ -383,6 +383,8 @@ handles.model.sigma    = [data{:,3}];
 handles.model.fixSigma = [data{:,4}];
 
 enableListener(handles.sldTracesListener, true);
+guidata(hObject,handles);
+showTraces(handles);
 
 % END FUNCTION tblFixFret_CellEditCallback
 
@@ -542,7 +544,7 @@ enableListener(handles.sldTracesListener, true);
 % Setup axes for plotting traces.
 % Some code duplication with showTraces().
 cla(handles.axTraces);
-[handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
+[handles.modelLine, handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
 
 xlimit = floor(get(handles.sldTracesX,'Value'));
 time = handles.data.time(1:xlimit)/1000;
@@ -559,7 +561,8 @@ for i=1:handles.nTracesToShow,
         colors = 'krbgym';
         for k=2:handles.model.nClasses, %nStates,
             mu = repmat( handles.model.mu(k), 1,2 );
-            plot( handles.axTraces, time([1,end]), y_offset+mu, [colors(k) ':'] );
+            handles.modelLine(i,k-1) = plot( handles.axTraces, time([1,end]), ...
+                                          y_offset+mu, [colors(k) ':'] );
         end
     end
     
@@ -608,18 +611,27 @@ function showTraces(handles)
 % i is the index into the lines in the viewer.
 % idx is the index into the traces in the whole file.
 
-% Clear existing data -- necessary if not enough traces to fill viewer.
-set( handles.hFretLine, 'YData',nan(1,handles.data.nFrames) );
-set( handles.hIdlLine,  'YData',nan(1,handles.data.nFrames) );
-set( handles.hTraceLabel, 'String','' );
+if ~isempty(handles.model) && handles.showStateMarkers,
+    mu = handles.model.mu;
+    nStates = min( handles.model.nClasses, size(handles.modelLine,2)+1 );
+end
 
 idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
+nToShow = min(handles.nTracesToShow, handles.data.nTraces);
 
-for i=1:handles.nTracesToShow
+for i=1:nToShow
     idx = i+idxStart;
-    if idx>handles.data.nTraces, break; end
-    
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
+    
+    % Redraw model FRET value markers.
+    % FIXME: this only needs to be done when the model is updated.
+    if ~isempty(handles.model) && handles.showStateMarkers,
+        for k=2:nStates,
+            set( handles.modelLine(i,k-1), 'YData',y_offset+mu([k k]) );
+        end
+    end
+    
+    % Redraw FRET and idealization traces
     ydata = handles.data.(handles.options.dataField)(idx,:);
     ydata = y_offset + min(1.15, max(-0.15,ydata) );  %clip outliers, position w/i viewer
     set( handles.hFretLine(i), 'YData',ydata );
@@ -631,6 +643,12 @@ for i=1:handles.nTracesToShow
     
     set( handles.hTraceLabel(i), 'String',sprintf('%d',idx) );
 end
+
+% Clear final lines if there isn't enough data to fill them.
+set( handles.hFretLine(nToShow+1:end), 'YData',nan(1,handles.data.nFrames) );
+set( handles.hIdlLine(nToShow+1:end),  'YData',nan(1,handles.data.nFrames) );
+set( handles.hTraceLabel(nToShow+1:end), 'String','' );
+set( handles.modelLine(nToShow+1:end,:), 'YData',nan(1,2) );
 
 % END FUNCTION function
 
