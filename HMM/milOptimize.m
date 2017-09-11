@@ -46,5 +46,8 @@ LL = result.LL.data;
 delete(tempDwtName);
 delete('.milresult*');
 
+% Round all rates to four significant digits for display
+optModel.rates = round(optModel.rates,4,'significant');
+
 end
 

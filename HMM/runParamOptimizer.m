@@ -77,6 +77,9 @@ else
     outModel = optModel;
 end
 
+% Truncate values to rates to four significant figures for display
+outModel.rates = round(outModel.rates,4,'significant');
+
 % Save the idealization, deleting any previous ones.
 [p,n] = fileparts(trcfile);
 dwtfile = fullfile( p, [n '.dwt'] );
