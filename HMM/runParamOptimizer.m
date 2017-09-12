@@ -5,9 +5,9 @@ function [dwtfile,outModel,LL] = runParamOptimizer(model,trcfile,options)
 skmOptions.maxItr = options.maxItr;
 skmOptions.convLL = 1e-4;
 skmOptions.seperately = options.seperately;
-if skmOptions.seperately,
-    skmOptions.quiet = 1;  %skm  is faster than launching the waitbar
-end
+% if skmOptions.seperately,
+%     skmOptions.quiet = 1;  %skm  is faster than launching the waitbar
+% end
 
 % Remove intermediate files from previous runs.
 warning('off','MATLAB:DELETE:FileNotFound');

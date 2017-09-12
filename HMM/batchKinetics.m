@@ -284,8 +284,14 @@ else
     handles.idl = [];
     set(handles.hIdlLine,'Visible','off');
     
-    [handles.dwtFilenames{idxfile},optModel] = runParamOptimizer(...
+    try
+        [handles.dwtFilenames{idxfile},optModel] = runParamOptimizer(...
                                  handles.model, trcfile, handles.options);
+    catch e
+        set(handles.figure1,'pointer','arrow');
+        set(handles.txtStatus,'String',['Error: ' e.message]);
+        return;
+    end
 end
 
 if get(handles.chkUpdateModel,'Value'),
@@ -701,9 +707,14 @@ opt = newOpt;
 newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
 newOpt.kBleach = 1/opt.totalTimeOn;
 
-[~,data] = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
-saveTraces( fullfile(p,f), data );
-
+try
+    [~,data] = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
+    saveTraces( fullfile(p,f), data );
+catch e
+    set(handles.figure1,'pointer','arrow');
+    set(handles.txtStatus,'String',['Error: ' e.message]);
+    return;
+end
 
 % Load the new simulated file and clear any others loaded.
 handles.dataFilenames = { fullfile(p,f) };

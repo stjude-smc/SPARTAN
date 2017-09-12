@@ -71,6 +71,7 @@ methods
         if exist(this.ipcfile,'file'),
             error('Too many temporary files. Clear out tempdir.');
         end
+        fid = fopen(this.ipcfile,'w'); fclose(fid);  %create file.
     
         % Create a new waitbar 
         this.N = N_init;
@@ -138,6 +139,9 @@ methods
     function iterate(this, Nitr)
     % Update the progress bar by Nitr iterations (or 1 if not specified).
         if nargin<2,  Nitr = 1;  end
+        if ~exist(this.ipcfile,'file'),
+            error('parfor_progressbar:cancelled','Operation cancelled by user');
+        end
     
         fid = fopen(this.ipcfile, 'a');
         fprintf(fid, '%d\n', Nitr);

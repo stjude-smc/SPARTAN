@@ -638,11 +638,19 @@ end
 % traces, and save to file.
 set(handles.figure1,'pointer','watch'); drawnow;
 
-stkData = getappdata(handles.figure1,'stkData');
-if isfield(stkData,'peaks')
-    integrateAndSave(stkData, filename, handles.params);
-else
-    gettraces( stkData, handles.params, filename );
+try
+    stkData = getappdata(handles.figure1,'stkData');
+    if isfield(stkData,'peaks')
+        integrateAndSave(stkData, filename, handles.params);
+    else
+        gettraces( stkData, handles.params, filename );
+    end
+catch e
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        disp('Gettraces: Operation cancelled by user.');
+    else
+        errordlg( ['Error: ' e.message], 'Gettraces' );
+    end
 end
 
 set(handles.figure1,'pointer','arrow'); drawnow;

@@ -188,18 +188,18 @@ while( itr < params.maxItr ),
     
     
     % Display intermediate progress...
-    if ~params.quiet
-        if itr==1,
-            fprintf('%d: %f\n', itr, LL(itr) );
-        else
-            fprintf('%d: %f (%f)\n', itr, LL(itr), LL(itr)-LL(itr-1) );
-            if (LL(end)-LL(end-1))<0,
-                disp('SKM Warning: LL is decreasing...');
-            end
-        end
-        
-        disp( [imu isigma p0 A] );
-    end
+%     if ~params.quiet
+%         if itr==1,
+%             fprintf('%d: %f\n', itr, LL(itr) );
+%         else
+%             fprintf('%d: %f (%f)\n', itr, LL(itr), LL(itr)-LL(itr-1) );
+%             if (LL(end)-LL(end-1))<0,
+%                 disp('SKM Warning: LL is decreasing...');
+%             end
+%         end
+%         
+%         disp( [imu isigma p0 A] );
+%     end
     
     
     % Re-estimate transition probability matrix (kinetic parameters).
@@ -267,9 +267,9 @@ model.p0 = p0;
 model.rates = A / (sampling/1000);
 model.rates(logical(eye(size(A)))) = 0;
 
-if ~params.quiet,
-    fprintf('SKM: Finished after %d iterations with LL=%f\n',itr,LL(end));
-end
+% if ~params.quiet,
+%     fprintf('SKM: Finished after %d iterations with LL=%f\n',itr,LL(end));
+% end
 
 
 

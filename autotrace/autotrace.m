@@ -287,7 +287,18 @@ end
 handles.outfile = fullfile(p, [f '_auto.traces']);
 
 % Calculate trace stats
-[infoStruct,nTracesPerFile] = traceStat(handles.inputfiles);
+try
+    [infoStruct,nTracesPerFile] = traceStat(handles.inputfiles);
+catch e
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        disp('Autotrace: Operation cancelled by user.');
+    else
+        errordlg( ['Error: ' e.message], mfilename );
+    end
+    set(handles.figure1, 'pointer', 'arrow'); drawnow;
+    return;
+end
+
 handles.nTraces = numel( infoStruct );
 handles.nTracesPerFile = nTracesPerFile;
                     

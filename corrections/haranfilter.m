@@ -69,18 +69,27 @@ end
 nTraces = sizeTraces(files);
 wbh = parfor_progressbar( sum(nTraces), 'Filtering fluorescence data...' );
 
-% For each file, filter fluorescence intensity & save result.
-for i=1:numel(files),
-    % Load fluorescence data
-    data = loadTraces( files{i} );
-    
-    % Filter data
-    data = haranfilter_file(data, M,P,windowSizes, wbh);
-    
-    % Save resulting data.
-    [p,f,ext] = fileparts( files{i} );
-    outFilename = fullfile( p, [f '_flt' ext]);
-    saveTraces( outFilename, data );
+try
+    % For each file, filter fluorescence intensity & save result.
+    for i=1:numel(files),
+        % Load fluorescence data
+        data = loadTraces( files{i} );
+
+        % Filter data
+        data = haranfilter_file(data, M,P,windowSizes, wbh);
+
+        % Save resulting data.
+        [p,f,ext] = fileparts( files{i} );
+        outFilename = fullfile( p, [f '_flt' ext]);
+        saveTraces( outFilename, data );
+    end
+catch e
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        disp( [mfilename ': Operation cancelled by user'] );
+        data = [];
+    else
+        rethrow(e);
+    end
 end
 
 close(wbh);
