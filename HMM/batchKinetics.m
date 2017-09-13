@@ -57,7 +57,7 @@ updateSpartan; %check for updates
 handles.output = hObject;
 
 % Set initial internal state of the program
-[handles.modelFilename,handles.model,handles.idl] = deal([]);
+[handles.modelFilename,handles.model,handles.data,handles.idl] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 handles.nTracesToShow = 6;  %number displayed in trace display panel
 handles.showStateMarkers = true;  %show dotted lines for model FRET values
@@ -378,7 +378,8 @@ enableControls(handles);
 
 % --- Executes when entered data in editable cell(s) in tblFixFret.
 function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
-% Update QubModel object with new settings from the table
+% Update QubModel object with new settings from the table.
+% FIXME: avoid triggering many calls to modelUpdate_Callback.
 
 enableListener(handles.sldTracesListener, false);
 
@@ -390,14 +391,14 @@ handles.model.fixSigma = [data{:,4}];
 
 enableListener(handles.sldTracesListener, true);
 guidata(hObject,handles);
-showTraces(handles);
 
 % END FUNCTION tblFixFret_CellEditCallback
 
 
 % --- Executes when the QubModel object is altered.
 function modelUpdate_Callback(tblFixFret,event)
-% Update tblFixFret to reflect current model parameters
+% Update tblFixFret to reflect current model parameters.
+% FIXME: This gets called four times above -- one for each model change.
 
 model = event.Source;
 
@@ -407,6 +408,7 @@ celldata(:,2) = num2cell(model.fixMu);
 celldata(:,3) = num2cell(model.sigma);
 celldata(:,4) = num2cell(model.fixSigma);
 set( tblFixFret, 'Data', celldata );
+showModelLines(guidata(gcbf));
 
 % END FUNCTION modelUpdate_Callback
 
@@ -439,6 +441,7 @@ handles.model.mu = handles.model.mu;  %trigger table update
 
 handles.modelFilename = [];
 guidata(hObject, handles);
+showModelLines(handles);
 
 % END FUNCTION btnSaveModel_Callback
 
@@ -522,12 +525,14 @@ end
 
 % --------------------------------------------------------------------
 function handles = lbFiles_Callback(hObject, ~, handles)
-% User selected a file. Show traces in the trace viewer panel.
-% FIXME: could be somewhat faster if plotting one long trace rather than
-% many line objects...
-% sldTraces  Value means the trace to show at the top (first in list),
+% Callback function for changes to lbFiles data file list.
+% Draws traces from current file in the trace viewer panel.
+% Creates line objects for data plotting, which are updated when the user
+% scrolls or makes other changes by calling showTraces() below.
+% 
+% sldTraces: scrolls vertical list of traces. Value is trace shown at top.
 %            Max means the Value showing the first traces (starting with 1).
-% sldTracesX Value means the truncation length.
+% sldTracesX: Value means the truncation length.
 
 if isempty(handles.dataFilenames), return; end  %no data loaded.
 
@@ -548,30 +553,18 @@ set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames, 'Value',data.nFrames);
 enableListener(handles.sldTracesListener, true);
 
 % Setup axes for plotting traces.
-% Some code duplication with showTraces().
 cla(handles.axTraces);
-[handles.modelLine, handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
+[handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
 
-xlimit = floor(get(handles.sldTracesX,'Value'));
-time = handles.data.time(1:xlimit)/1000;
+time = handles.data.time/1000;
 xlim( handles.axTraces, [0 time(end)] );
-dt = handles.data.sampling/2/1000; %transition between datapoints.
+dt = handles.data.sampling/2/1000; %put idl transitions between FRET datapoints.
 
 for i=1:handles.nTracesToShow,
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
            
     plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' );  %baseline marker
-    
-    % State markers.
-    if ~isempty(handles.model) && handles.showStateMarkers,
-        colors = 'krbgym';
-        for k=2:handles.model.nClasses, %nStates,
-            mu = repmat( handles.model.mu(k), 1,2 );
-            handles.modelLine(i,k-1) = plot( handles.axTraces, time([1,end]), ...
-                                          y_offset+mu, [colors(k) ':'] );
-        end
-    end
-    
+        
     % Determine colors for data display
     dataField = handles.options.dataField;
     
@@ -591,10 +584,10 @@ for i=1:handles.nTracesToShow,
     
     % Draw traces, idealizations, and trace number labeles.
     handles.hFretLine(i) = plot( handles.axTraces, time, ...
-                              y_offset+zeros(1,xlimit), 'Color',traceColor );
+                          y_offset+zeros(1,data.nFrames), 'Color',traceColor );
 
     handles.hIdlLine(i)  = stairs( handles.axTraces, time-dt, ...
-                              y_offset+zeros(1,xlimit), 'r-' );
+                          y_offset+zeros(1,data.nFrames), 'r-' );
     
     handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
                'Parent',handles.axTraces, 'BackgroundColor','w', ...
@@ -607,6 +600,7 @@ set(handles.figure1,'pointer','arrow');
 
 guidata(hObject,handles);
 showTraces(handles);
+showModelLines(handles);  %Draw state markers underneath data
 
 % END FUNCTION lbFiles_Callback
 
@@ -617,25 +611,12 @@ function showTraces(handles)
 % i is the index into the lines in the viewer.
 % idx is the index into the traces in the whole file.
 
-if ~isempty(handles.model) && handles.showStateMarkers,
-    mu = handles.model.mu;
-    nStates = min( handles.model.nClasses, size(handles.modelLine,2)+1 );
-end
-
 idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 nToShow = min(handles.nTracesToShow, handles.data.nTraces);
 
 for i=1:nToShow
     idx = i+idxStart;
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    
-    % Redraw model FRET value markers.
-    % FIXME: this only needs to be done when the model is updated.
-    if ~isempty(handles.model) && handles.showStateMarkers,
-        for k=2:nStates,
-            set( handles.modelLine(i,k-1), 'YData',y_offset+mu([k k]) );
-        end
-    end
     
     % Redraw FRET and idealization traces
     ydata = handles.data.(handles.options.dataField)(idx,:);
@@ -654,12 +635,44 @@ end
 set( handles.hFretLine(nToShow+1:end), 'YData',nan(1,handles.data.nFrames) );
 set( handles.hIdlLine(nToShow+1:end),  'YData',nan(1,handles.data.nFrames) );
 set( handles.hTraceLabel(nToShow+1:end), 'String','' );
-set( handles.modelLine(nToShow+1:end,:), 'YData',nan(1,2) );
 
-% END FUNCTION function
-
+% END FUNCTION showTraces
 
 
+
+function handles = showModelLines(handles)
+% Draw dotted lines to indicate model FRET values in trace viewer panel.
+
+if ~handles.showStateMarkers || isempty(handles.dataFilenames) || isempty(handles.model)
+    return;
+end
+
+% Remove any existing markers without completely clearing the graph.
+delete( findall(handles.axTraces,'Tag','ModelMarker') );
+
+nToShow = min(handles.nTracesToShow, handles.data.nTraces);
+colors = handles.modelViewer.colors;
+time = handles.data.time([1,end])/1000;
+mu = handles.model.mu;
+h = [];
+
+% Redraw model FRET value markers.
+for i=1:nToShow
+    y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
+    
+    for k=2:handles.model.nClasses
+        h(end+1) = plot( handles.axTraces, time, y_offset+mu([k k]), ':', ...
+                         'Color',colors{k}, 'Tag','ModelMarker' );
+    end
+end
+
+uistack(h,'bottom');  %draw markers below data.
+
+% END FUNCTION showModelLines
+
+
+
+% --------------------------------------------------------------------
 function wheelScroll_callback(~, eventData, handles) %#ok<DEFNU>
 % Mouse wheel scrolling moves the trace viewer pane up and down.
 % The event is triggered at the figure level.
@@ -673,6 +686,7 @@ set(handles.sldTraces, 'Value', loc);  %triggers listener, updating viewer.
 
 
 
+% --------------------------------------------------------------------
 function mnuSim_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Simulate traces using current model.
 

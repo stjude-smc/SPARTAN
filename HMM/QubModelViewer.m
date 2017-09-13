@@ -34,7 +34,7 @@ properties (SetAccess=protected, GetAccess=public)
     draggedBox = [];  %state box currently being dragged (if any)
 end
 
-properties (SetAccess=protected, GetAccess=protected)
+properties (SetAccess=protected, GetAccess=public)
     % Display settings
     %                k       r       b     dark g      y       m
     colors     = {[0 0 0],[1 0 0],[0 0 1],[0 0.7 0],[1 1 0],[1 0 1]};  % class colors
