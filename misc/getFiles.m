@@ -12,7 +12,17 @@ function files = getFiles( filter, prompt )
 
 
 persistent filterIndex;
+persistent last;  %file list created on last call to getFiles.
 
+
+% Return the previously requested file list if running 'getFiles -last'.
+if nargin>=1 && strcmpi(filter,'-last')
+    files=last;
+    return;
+end
+
+
+%%
 files = {};
 
 if nargin<2,
@@ -47,3 +57,5 @@ while 1,
         filter = [ filter(filterIndex,:); filter(ind~=filterIndex,:) ];
     end
 end
+
+last = files;
