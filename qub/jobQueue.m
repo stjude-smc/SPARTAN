@@ -82,7 +82,7 @@ while( ~all( [queue.isDone] ) )
             % Launch the command listed in this unit.
             system( commands{unitID} );
             queue(unitID).isRunning = 1;
-            disp( sprintf('Started job #%d: %s',unitID,commands{unitID}) );
+            fprintf('Started job #%d: %s\n',unitID,commands{unitID});
         end
 
     end

@@ -1,48 +1,27 @@
-# Makefile to compile libqubtree, which includes functions for reading and 
-# saving QuB-format files. The source code was provided by SUNY Buffalo.
-# Although this makes both static and dynamic libraries, it is best to use the
-# static library because sometimes the dynamic one isn't found.
-CC = gcc
-CCFLAGS = 
-CCP = g++
-CCPFLAGS = -fPIC -Iinclude -Wno-deprecated
-#-O2
-LN = g++
+CCP = g++-4.7
+CCPFLAGS = -fPIC -Wno-deprecated -O2
+LN = g++-4.7
 LNFLAGS = -shared -fPIC -lpthread -g
-OBJ = obj
-
-OBJS =  ${OBJ}/QUB_QTR_Impl.o \
-	${OBJ}/StringsInterned.o \
-	${OBJ}/istream_readline.o \
-	${OBJ}/QUB_Tree.o \
-	${OBJ}/QTR_NodeFunc.o \
-	${OBJ}/QUB_Tree_text.o
-
-LIBRARY = .
 
 
-default: ${LIBRARY}/libqubtree_static.a ${LIBRARY}/libqubtree.so
+OBJ_DIR = obj
+OUT_DIR= ../qubsuite
 
-${LIBRARY}/libqubtree_static.a: ${OBJS}
-	ar rcs libqubtree_static.a ${OBJS}
+SRCS = $(wildcard *.cpp)
+OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
 
-${LIBRARY}/libqubtree.so: ${OBJS}
-	${LN} ${LNFLAGS} -o $@ ${OBJS}
+
+default: $(OUT_DIR)/libqubtree.a
+
+$(OUT_DIR)/libqubtree.a: $(OBJS)
+	ar rcs $@ $(OBJS)
+
+$(OUT_DIR)/libqubtree.so: $(OBJS)
+	$(LN) $(LNFLAGS) -o $@ $(OBJS)
+
+$(OBJ_DIR)/%.o: %.cpp
+	$(CCP) $(CCPFLAGS) -c -o $@ $^
 
 clean:
-	rm -f ${OBJ}/* ${LIBRARY}/libqubtree_static.a ${LIBRARY}/libqubtree.so
-
-
-${OBJ}/QUB_QTR_Impl.o: QUB_QTR_Impl.cpp QUB_QTR_Impl.h StringsInterned.h
-	${CCP} ${CCPFLAGS} -c QUB_QTR_Impl.cpp -o ${OBJ}/QUB_QTR_Impl.o
-${OBJ}/StringsInterned.o: StringsInterned.cpp StringsInterned.h
-	${CCP} ${CCPFLAGS} -c StringsInterned.cpp -o ${OBJ}/StringsInterned.o
-${OBJ}/istream_readline.o: istream_readline.cpp istream_readline.h
-	${CCP} ${CCPFLAGS} -c istream_readline.cpp -o ${OBJ}/istream_readline.o
-${OBJ}/QUB_Tree.o: QUB_Tree.cpp QUB_Tree.h QUB_QTR_Impl.h
-	${CCP} ${CCPFLAGS} -c QUB_Tree.cpp -o ${OBJ}/QUB_Tree.o
-${OBJ}/QTR_NodeFunc.o: QTR_NodeFunc.cpp QTR_NodeFunc.h QUB_Tree.h QUB_QTR_Impl.h
-	${CCP} ${CCPFLAGS} -c QTR_NodeFunc.cpp -o ${OBJ}/QTR_NodeFunc.o
-${OBJ}/QUB_Tree_text.o: QUB_Tree_text.cpp QUB_Tree.h QUB_QTR_Impl.h istream_readline.h
-	${CCP} ${CCPFLAGS} -c QUB_Tree_text.cpp -o ${OBJ}/QUB_Tree_text.o
+	rm -f $(OBJ_DIR)/* $(OUT_DIR)/libqubtree.a $(OUT_DIR)/libqubtree.so
 

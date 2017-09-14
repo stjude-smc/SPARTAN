@@ -1,3 +1,21 @@
+/* Copyright 1998-2011 Research Foundation State University of New York */
+
+/* This file is part of QuB.                                            */
+
+/* QuB is free software; you can redistribute it and/or modify          */
+/* it under the terms of the GNU General Public License as published by */
+/* the Free Software Foundation, either version 3 of the License, or    */
+/* (at your option) any later version.                                  */
+
+/* QuB is distributed in the hope that it will be useful,               */
+/* but WITHOUT ANY WARRANTY; without even the implied warranty of       */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        */
+/* GNU General Public License for more details.                         */
+
+/* You should have received a copy of the GNU General Public License,   */
+/* named LICENSE.txt, in the QuB program directory.  If not, see        */
+/* <http://www.gnu.org/licenses/>.                                      */
+
 #include "notemplatewarning.h"
 
 #ifdef _USRDLL
@@ -222,6 +240,7 @@ QUB_Tree QUB_Tree::appendChild( string name ){
 		--lastChild;
 
 		child = QTR_CreateChild( impl, lastChild->getImpl(), name.c_str() );
+		QTR_DECREF( child.getImpl() );
 	}
 	return child;
 }
@@ -239,6 +258,7 @@ QUB_Tree QUB_Tree::appendClone( QUB_Tree orig, bool deep ){
 		--lastChild;
 
 		clone = QTR_InsertClone( impl, lastChild->getImpl(), orig.getImpl(), deep );
+		QTR_DECREF( clone.getImpl() );
 	}
 	return clone;
 }
@@ -258,8 +278,10 @@ QUB_Tree QUB_Tree::insertChild( QUB_Tree newchild ){
 
 QUB_Tree QUB_Tree::insertClone( QUB_Tree orig, bool deep ){
 	QUB_Tree clone;
-	if ( impl )
+	if ( impl ) {
 		clone = QTR_InsertClone( impl, 0, orig.getImpl(), deep );
+		QTR_DECREF( clone.getImpl() );
+	}
 	return clone;
 }
 
@@ -279,8 +301,10 @@ QUB_Tree QUB_Tree::insertChild( QUB_Tree after, QUB_Tree newchild ){
 QUB_Tree QUB_Tree::insertClone( QUB_Tree after, QUB_Tree orig, bool deep )
 {
 	QUB_Tree clone;
-	if ( impl )
+	if ( impl ) {
 		clone = QTR_InsertClone( impl, after.getImpl(), orig.getImpl(), deep );
+		QTR_DECREF( clone.getImpl() );
+	}
 	return clone;
 }
 
@@ -391,11 +415,12 @@ void QUB_Tree::setPreload( bool pl ) {
 }
 
 void QUB_Tree::setChanged( bool ch ) {
-	if ( impl )
+	if ( impl ) {
 		if ( ch )
 			QTR_Changed( impl );
 		else
 		    QTR_SetFlag( impl, QTR_FLAG_CHANGED, 0 );
+	}
 }
 
 int QUB_Tree::lock( int timeoutMS )

@@ -1,3 +1,21 @@
+/* Copyright 1998-2011 Research Foundation State University of New York */
+
+/* This file is part of QuB.                                            */
+
+/* QuB is free software; you can redistribute it and/or modify          */
+/* it under the terms of the GNU General Public License as published by */
+/* the Free Software Foundation, either version 3 of the License, or    */
+/* (at your option) any later version.                                  */
+
+/* QuB is distributed in the hope that it will be useful,               */
+/* but WITHOUT ANY WARRANTY; without even the implied warranty of       */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        */
+/* GNU General Public License for more details.                         */
+
+/* You should have received a copy of the GNU General Public License,   */
+/* named LICENSE.txt, in the QuB program directory.  If not, see        */
+/* <http://www.gnu.org/licenses/>.                                      */
+
 #ifdef _USRDLL
   #define _QTR_
 #endif
@@ -6,11 +24,13 @@
 
 #include "QUB_QTR_Impl.h"
 #include <set>
-#include <AutoMutex.h>
+#include "AutoMutex.h"
 #include "StringsInterned.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <iostream>
+#include <string.h>
 
 #define IMIN(a,b) ((a) < (b) ? (a) : (b))  
 #define IMAX(a,b) ((a) > (b) ? (a) : (b))  
@@ -172,9 +192,6 @@ void CAutoMutexHolder :: unlock() {
 	//todoc
 	int QTR_MoveData( QTR_Impl *impl, QTR_File *from, QTR_File *to );
 
-	//todoc
-	int QTR_ImitateData( QTR_Impl *impl, QTR_Impl *other );
-	
 	//----- Set fileStart = 0 in impl and all its descendants.
 	void QTR_ClearFileStarts( QTR_Impl *impl );
 	
@@ -206,11 +223,13 @@ QTR_Impl * New_QTR_Impl(int iRefs) {
 	impl->refs = iRefs;			// if 0, don't return a new ref, just leave one with parent
 	impl->loadStart = impl->loadEnd = QTR_LOAD_NONE;
 	impl->dataMem = 0;
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return impl;
 	}
 
 //------------------------------------------------------------------------------
 void QTR_Free( QTR_Impl *impl ) {
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	if ( impl==NULL || impl->parent!=NULL )
 		return;
 	
@@ -239,6 +258,7 @@ int QTR_Read( QTR_Impl *impl ) {	// using file/root and fileStart
 		memset(&(impl->ondisk), 0, sizeof(QTR_OnDisk));
 		return -1;
 	}
+	/* minimum paranoia since QUBIO can put garbage anywhere in reserved
         for ( int i=0; i<QTR_NRSV-1; ++i ) {
 	  // stop before reserved[NRSV-1] because GEM's QF.cpp seems to corrupt this byte
 	  if ( impl->ondisk.reserved[i] ) {
@@ -246,6 +266,7 @@ int QTR_Read( QTR_Impl *impl ) {	// using file/root and fileStart
 		return -1;
 	  }
 	}
+	*/
 
 	//----- Clear existing name 
 	if ( impl->name ) {
@@ -298,6 +319,7 @@ int QTR_Read( QTR_Impl *impl ) {	// using file/root and fileStart
 			}
 		}
 	}
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return 0;
 }
 
@@ -457,7 +479,9 @@ int QTR_MoveData( QTR_Impl *impl, QTR_File *from, QTR_File *to ){
 }
 
 //-----------------------------------------------------------------------------
-int QTR_ImitateData( QTR_Impl *impl, QTR_Impl *other ){
+extern "C" QTR_API int QTR_ImitateData( QTR_Impl *impl, QTR_Impl *other ){
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
+  //cerr << "other: " << other << "\tdata: " << other->data << endl;
 	QTR_SetFlag( impl, QTR_FLAG_PRELOAD, QTR_Flag( other, QTR_FLAG_PRELOAD ) );
 
 	if ( ! other->ondisk.dataCount )
@@ -628,6 +652,7 @@ void QTR_Stat(QTR_Impl *impl) {
 
 //-----------------------------------------------------------------------------
 QTR_API int QTR_INCREF( QTR_Impl *impl ){
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	QTR_Lock( impl, -1 );
 	int iRefs = ++impl->refs;
 	QTR_Unlock( impl );
@@ -636,6 +661,7 @@ QTR_API int QTR_INCREF( QTR_Impl *impl ){
 
 //-----------------------------------------------------------------------------
 QTR_API int QTR_DECREF( QTR_Impl *impl ){
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	QTR_Lock( impl, -1 );
 	int refsRemaining = --impl->refs;
 	// QTR_Stat(impl);
@@ -661,12 +687,13 @@ QTR_API QTR_Impl * QTR_Create( const char *name ){
 		namesInterned = new StringsInterned;
 
 	QTR_Impl * impl = New_QTR_Impl(1);
-	impl->ondisk.nameLen = name ? strlen(name) : 0;
+	impl->ondisk.nameLen = name ? min((size_t)255, strlen(name)) : 0;
 	impl->name           = namesInterned->get( name ? name : "" ); // new char[ impl->ondisk.nameLen + 1 ];
 	//impl->m_mutex        = new CAutoMutexHolder( true );
 	impl->m_mutex          = new AutoMutexHolder( new AutoMutex );
 	impl->root           = impl;
 
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return impl;
 }
 
@@ -696,6 +723,7 @@ QTR_API QTR_Impl * QTR_Clone( QTR_Impl *other, int deep ){
 
 	QTR_Unlock( other );
 
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return impl;
 }
 
@@ -746,6 +774,7 @@ QTR_API QTR_Impl * QTR_Open( const char *path, int readOnly ){
 
 	QTR_MarkClean( impl );
 
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return impl;
     } catch (...) {
         if ( impl )
@@ -756,6 +785,7 @@ QTR_API QTR_Impl * QTR_Open( const char *path, int readOnly ){
 
 //-----------------------------------------------------------------------------
 QTR_API void QTR_Close( QTR_Impl *impl ){
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	if ( impl->file ) {
 		QTR_Lock( impl, -1 );
 
@@ -924,7 +954,7 @@ QTR_API int QTR_SaveAsTemp( QTR_Impl *impl ){
 //-----------------------------------------------------------------------------
 QTR_API QTR_Impl *  QTR_CreateChild( QTR_Impl *parent, QTR_Impl *presib, const char *name ){
 	QTR_Impl * impl = New_QTR_Impl(0);
-	impl->ondisk.nameLen = name ? strlen(name) : 0;
+	impl->ondisk.nameLen = name ? min((size_t)255, strlen(name)) : 0;
 	impl->m_mutex          = new AutoMutexHolder(0); // , impl);
 	impl->name           = namesInterned->get( name ? name : "" ); // new char[ impl->ondisk.nameLen + 1 ];
 
@@ -935,6 +965,7 @@ QTR_API QTR_Impl *  QTR_CreateChild( QTR_Impl *parent, QTR_Impl *presib, const c
 	QTR_Unlock( impl );
 	QTR_Unlock( parent );
 
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return impl;
 }
 
@@ -973,6 +1004,7 @@ QTR_API QTR_Impl * QTR_InsertClone( QTR_Impl *parent, QTR_Impl *presib, QTR_Impl
 	QTR_Unlock( parent );
 	QTR_Unlock( other );
 
+	//cerr << "parent: " << parent << "\tdata: " << parent->data << endl;
 	return impl;
 }
 
@@ -1089,7 +1121,7 @@ QTR_API void QTR_SetName( QTR_Impl *impl, const char *name ) {
 
 	QTR_Lock( impl, -1 );
 
-	int newNameLen = strlen(name);
+	int newNameLen = min((size_t)255, strlen(name));
 	if ( impl->ondisk.nameLen < newNameLen )
 		impl->fileStart = 0; // force re-location in file to a spot with enough space
 
@@ -1170,6 +1202,7 @@ QTR_API int QTR_SetupData( QTR_Impl *impl, QTR_DataType dtype, unsigned int size
 
 	QTR_Unlock( impl );
 
+	//cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	return (count == impl->ondisk.dataCount) ? 0 : -1;
 }
 
@@ -1185,6 +1218,7 @@ QTR_API int QTR_SetupStringData( QTR_Impl *impl, int count ) {
 
 //-----------------------------------------------------------------------------
 QTR_API int QTR_ResizeData( QTR_Impl *impl, unsigned int newnr ){
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	unsigned int prevnr = impl->ondisk.dataCount;
 	if ( prevnr == newnr )
 		return 0;
@@ -1277,6 +1311,7 @@ QTR_API int QTR_ResizeData( QTR_Impl *impl, unsigned int newnr ){
 
 //-----------------------------------------------------------------------------
 QTR_API int QTR_ClearData( QTR_Impl *impl ){
+  //cerr << "impl: " << impl << "\tdata: " << impl->data << endl;
 	if ( ! impl->ondisk.dataCount )
 		return 0;
 
@@ -1416,12 +1451,12 @@ QTR_API int QTR_UnloadRows( QTR_Impl *impl, int doWrite ){
 QTR_API unsigned int QTR_GetRows( QTR_Impl *impl, void *buf, unsigned int first, unsigned int last ){
 	QTR_Lock( impl, -1 );
 
-	if ( first < 0 )							first = 0;
-	if ( first >= impl->ondisk.dataCount )		first = impl->ondisk.dataCount - 1;
+	//if ( first < 0 )							first = 0;
+	if ( first >= impl->ondisk.dataCount )		first = impl->ondisk.dataCount ? (impl->ondisk.dataCount - 1) : QTR_LOAD_NONE;
 	if ( last < first )							last = first;
-	if ( last >= impl->ondisk.dataCount )		last = impl->ondisk.dataCount - 1;
+	if ( last >= impl->ondisk.dataCount )		last = impl->ondisk.dataCount ? (impl->ondisk.dataCount - 1) : QTR_LOAD_NONE;
 
-	if ( first < 0 ) { // (no data)
+	if ( first == QTR_LOAD_NONE ) { // (no data)
 		QTR_Unlock( impl );
 		return 0;
 	}
@@ -1486,12 +1521,12 @@ QTR_API unsigned int QTR_GetRows( QTR_Impl *impl, void *buf, unsigned int first,
 QTR_API unsigned int QTR_SetRows( QTR_Impl *impl, const void *buf, unsigned int first, unsigned int last ){
 	QTR_Lock( impl, -1 );
 
-	if ( first < 0 )							first = 0;
-	if ( first >= impl->ondisk.dataCount )		first = impl->ondisk.dataCount - 1;
+	//if ( first < 0 )							first = 0;
+	if ( first >= impl->ondisk.dataCount )		first = impl->ondisk.dataCount ? (impl->ondisk.dataCount - 1) : QTR_LOAD_NONE;
 	if ( last < first )							last = first;
-	if ( last >= impl->ondisk.dataCount )		last = impl->ondisk.dataCount - 1;
+	if ( last >= impl->ondisk.dataCount )		last = impl->ondisk.dataCount ? (impl->ondisk.dataCount - 1) : QTR_LOAD_NONE;
 
-	if ( first < 0 ) { // (no data)
+	if ( first == QTR_LOAD_NONE ) { // (no data)
 		QTR_Unlock( impl );
 		return 0;
 	}

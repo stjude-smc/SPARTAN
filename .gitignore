@@ -1,5 +1,10 @@
+.gitignore
 *~
 *.pdb
 *.asv
 *.a
-qub/qubtree/obj/*
+qub/qubsuite
+qub/qubopt
+qub/qubtree
+qub/miltreeiface
+

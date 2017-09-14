@@ -7,19 +7,18 @@ function [optModel,LL] = milOptimize(dwtfname, model, options)
 narginchk(2,3);
 
 % Remove photobleached (last zero-state) dwell, which confuses MIL.
+% FIXME: this should be an option or somehow be more user controllable.
 [dwt,sampling,offsets,fret_model] = loadDWT(dwtfname);
 for j=1:numel(dwt),
-    states = dwt{j}(1:end-1,1);
-    
-    if numel(states)>0 && states(end)==1,
+    if size(dwt{j},1)>1 && dwt{j}(end,1)==1,
         dwt{j} = dwt{j}(1:end-1,:);
     end
 end
-dwt = dwt( ~cellfun(@isempty,dwt) );
 
-% Save all inputs for MIL to file.
+% Save all inputs for MIL to file, excluding empty traces.
 tempDwtName = [tempname '.dwt'];
-saveDWT( tempDwtName, dwt, offsets, fret_model, sampling );
+sel = ~cellfun(@isempty,dwt);
+saveDWT( tempDwtName, dwt(sel), offsets(sel), fret_model, sampling );
 
 mfname = 'bwmodel.qmf';
 delete(mfname);

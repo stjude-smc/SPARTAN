@@ -472,7 +472,7 @@ switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
     
     case 'MI'  %MIL
         prompt = {'Max iterations:'};  %'Dead time (frames):'
-        fields = {'maxIter'};  %'deadTime'
+        fields = {'maxItr'};  %'deadTime'
         
     otherwise
         return;

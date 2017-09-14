@@ -1,3 +1,21 @@
+/* Copyright 1998-2011 Research Foundation State University of New York */
+
+/* This file is part of QuB.                                            */
+
+/* QuB is free software; you can redistribute it and/or modify          */
+/* it under the terms of the GNU General Public License as published by */
+/* the Free Software Foundation, either version 3 of the License, or    */
+/* (at your option) any later version.                                  */
+
+/* QuB is distributed in the hope that it will be useful,               */
+/* but WITHOUT ANY WARRANTY; without even the implied warranty of       */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        */
+/* GNU General Public License for more details.                         */
+
+/* You should have received a copy of the GNU General Public License,   */
+/* named LICENSE.txt, in the QuB program directory.  If not, see        */
+/* <http://www.gnu.org/licenses/>.                                      */
+
 #ifndef QUB_TREE_H
 #define QUB_TREE_H
 
@@ -18,6 +36,13 @@
 using namespace std;
 
 #include "istream_readline.h"
+
+#ifdef __GNUC__
+#define QUBTREE_VAR_NOT_USED __attribute__ ((unused))
+#else
+#define QUBTREE_VAR_NOT_USED
+#endif
+
 
 #define QTR_ITER_END -1
 
@@ -179,13 +204,13 @@ class QTR_API QUB_Tree
 	double dataAsDouble( double def=0.0, int r=0, int c=0 );
 
 	template <class T>
-	T& dataAs( int i, T dummy ) { // T must match dataType and i = r*ncol + c must be loaded
+	T& dataAs( int i, T QUBTREE_VAR_NOT_USED dummy ) { // T must match dataType and i = r*ncol + c must be loaded
 		T *dat = (T *) data();
 		return dat[i - loadedFirst() * dataCols()];
 	}
 
 	template <class T>
-	T& dataAs( int r, int c, T dummy ) { // T must match dataType and r,c must be loaded
+	T& dataAs( int r, int c, T QUBTREE_VAR_NOT_USED dummy ) { // T must match dataType and r,c must be loaded
 		T *dat = (T *) data();
 		return dat[ (r - loadedFirst()) * dataCols() + c ];
 	}

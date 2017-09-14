@@ -1,14 +1,138 @@
-The C/C++ files in this directory are for compiling MEX functions for loading
-and saving QuB files -- specifically .qmf model files. To recompile the MEX
-files, you will need to first compile the qubtree library in the qubtree
-directory a Makefile and Visual Studio project files are there for compiling on
-Linux/Unix/MacOSX and Windows, respectively. Once this is done, run 
-qub_compile_mex.m from within matlab in this directory. The new MEX files will
-be placed in the "binary" directory.
+OVERVIEW
+========
+
+This folder contains source code for functions needed for loading/saving
+QuB-format files and running optimizations functions implemented in QuB.
+This includes qub_loadTree and qub_saveTree mex functions and the miltreeiface
+executable that runs the MIL rate optimizer separately from MATLAB.
+(jobQueue is a wrapper for executing external programs like miltreeiface.)
+The compiled binaries for these functions should be in the "binary" directory
+of the SPARTAN source code, rather than anywhere in this directory.
 
 
 
+GENERAL COMPILATION NOTES FOR QUB SOURCE CODE
+=============================================
 
+QuB Express (version 1.12.6, 2017-01-24) source code was obtained from the 
+following address Sept. 2017. I used QuB Express because the relevant functions
+were the easiest to extract from the rest of the source code.
+
+  https://qub.mandelics.com/sources.html
+
+The source code required a few minor adjustments to support modern compilers.
+These have already been made to the source code provided with SPARTAN.
+See the note at the end of this document for details.
+
+Included are two libraries containing QuB source code needed to load/save QuB-
+format files (qubtree) and optimization routines for running MIL (qubopt).
+Both are compiled as static libraries to minimize potential issues with finding
+dynamic libraries at runtime in the MATLAB environment. When compiled, the static
+library files and miltreeiface executable are output to the "qubsuite" directory.
+
+Dependencies are as follows:
+
+miltreeiface.exe
+ - qubopt
+   - qubtree
+qub_loadTree.mex
+ - qubtree
+qub_saveTree.mex
+ - qubtree
+
+The compile everything, first follow the instructions below for your specific
+platform, then execute the following command in the MATLAB command prompt from
+the qub directory. This will create the platform-specific mex files.
+
+  >> qubtree_compile_mex.m
+
+(This requires the MATLAB compiler module and that you have already run
+ mex -setup and selected the appropriate compiler. Note that MATLAB2015a
+ requires gcc 4.7.x on Linux).
+
+
+COMPILING ON WINDOWS
+====================
+
+Prerequisites: Visual Studio 2015, Windows SDK (?)
+
+Windows binaries were compiled with Visual Studio Community 2015, targeting
+VC++14 / Windows 8.1 SDK / 64-bit / Release version.
+
+The MIL projects require BOOST and GSL, which were added using NuGet.
+The NuGet version of GSL (GNU Scientific Library) requires VC14 or higher, so
+I had to use VS2015 to compile these projects.
+
+MATLAB 2015a (currently the primary target of all binary builds for SPARTAN)
+does not directly support revent versions of Visual Studio. To compile with
+VS 2015, I used the following procedure to install new mexopt files.
+
+  http://kaba.hilvi.org/homepage/blog/vs2015_in_matlab_2015/vs_2015_in_matlab_2015.htm
+
+Load the solution in each directory and compile in the following order:
+1) qubtree
+2) qubopt
+3) miltreeiface
+
+Copy the qubsuite/miltreeiface.exe file to the ../binary directory.
+Finally, run the qubtree_compile_mex function in MATLAB to make the MEX files.
+
+
+
+COMPILING ON LINUX AND MAC
+==========================
+
+I compiled with gcc version 4.7 on Ubuntu 16.04 (AMD64).
+
+Prerequisites: g++-4.7, libboost-dev, libgsl0-dev.
+
+  $ sudo apt-get install g++-4.7 libboost-dev libgsl0-dev
+
+To compile, simply enter the "qub" directory and run the following commands:
+
+  $ make
+
+This will compile the libqubtree.a, libqubopt.a, and miltreeiface (executable)
+in the qubsuite directory, and copy miltreeiface to the binary directory.
+
+You will the Makefiles and qubtree_compile_mex both force g++-4.7. This is
+because MATLAB 2015a (the target platform) does not support any other toolset.
+
+
+KNOWN ISSUES
+============
+
+MIL is slower and requires more iterations on Windows than Linux?
+
+
+
+ADJUSTMENTS TO ORIGINAL QUB SOURCE CODE REQUIRED FOR COMPILATION
+================================================================
+
+The source code required a few minor adjustments to support modern compilers.
+These are provided here to assist in migrating future versions of QuB for use
+with SPARTAN. I did not bother fixing the many compiler errors due to the use
+of depricated functions, etc.
+
+1) Add the following define wherever <hash_map> is #include'd.
+
+	#define _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS 1
+
+2) Add a forward definition for QUB_Idl_ReadDWT() to mil_eval_tree.h. This 
+   allows miltreeiface to access this function.
+
+3) For Visual Studio projects, retarget to VS 2015 and insure the toolset is
+   VC14. Adjust input header and libraries directories to appropriate locations,
+   remove any extraneous references. Same with output target. Also make sure
+   the output format is .lib (static).
+
+4) For static compilation of libraries, remove QTR_DLLEXPORT (etc) lines
+    from QUB_QTR_Impl.h etc. The __declspec lines will throw errors.
+
+*) Other changes are likely required, depending on the compiler version.
+
+All questions about QuB should be directed to:
+ Christopher Nicolai <nicolaitanes@gmail.com>
 
 
 

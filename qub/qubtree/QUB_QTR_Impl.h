@@ -1,27 +1,49 @@
+/* Copyright 1998-2011 Research Foundation State University of New York */
+
+/* This file is part of QuB.                                            */
+
+/* QuB is free software; you can redistribute it and/or modify          */
+/* it under the terms of the GNU General Public License as published by */
+/* the Free Software Foundation, either version 3 of the License, or    */
+/* (at your option) any later version.                                  */
+
+/* QuB is distributed in the hope that it will be useful,               */
+/* but WITHOUT ANY WARRANTY; without even the implied warranty of       */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the        */
+/* GNU General Public License for more details.                         */
+
+/* You should have received a copy of the GNU General Public License,   */
+/* named LICENSE.txt, in the QuB program directory.  If not, see        */
+/* <http://www.gnu.org/licenses/>.                                      */
+
 #ifndef QUB_QTR_IMPL_H
 #define QUB_QTR_IMPL_H
+
+#define _SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS 1
 
 //
 // Define API decoration for direct importing of DLL references.
 //
 
-#if defined(_WIN32)
-#define QTR_DLLEXPORT __declspec(dllexport)
-#define QTR_DLLIMPORT __declspec(dllimport)
-#else
+//#if defined(_WIN32)
+//#define QTR_DLLEXPORT __declspec(dllexport)
+//#define QTR_DLLIMPORT __declspec(dllimport)
+//#else
 #define QTR_DLLEXPORT
 #define QTR_DLLIMPORT
-#endif
+//#endif
 
+/*
 #if !defined(_QTR_)
 #define QTR_API QTR_DLLIMPORT
 #else
 #define QTR_API QTR_DLLEXPORT
 #endif
+*/
+#define QTR_API 
 
 #include <stdio.h>
 #include <string>
-#include <cstring>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -99,6 +121,9 @@ class CAutoMutexHolder {
 
 //=============================================================================
 //----- Header for each tree node on disk.
+
+#pragma pack(1)
+
 typedef struct {
 	unsigned char flags[3]; //*
 	unsigned char dataType; //*
@@ -145,7 +170,12 @@ typedef struct QTR_Impl {
 	} QTR_Impl;
 
 
+#pragma pack(0)
+
+#ifdef __cplusplus
 extern "C" {
+#endif
+
 QTR_API char *         QTR_LookupName( const char *name ); // get the canonical interned char * for quick comparison instead of strcmp
 
 	// Locked increment of refcount.  Returns new refcount.
@@ -208,7 +238,15 @@ QTR_API unsigned int   QTR_ToBufferSize( QTR_Impl *impl );
 QTR_API unsigned int   QTR_ToBuffer( QTR_Impl *impl, char *buffer );
 QTR_API QTR_Impl *     QTR_FromBuffer( const char *buffer );
 
+QTR_API int            QTR_ImitateData( QTR_Impl *impl, QTR_Impl *other );
+	
 
+
+#ifdef __cplusplus
 }
+#endif
+
+typedef QTR_Impl * (*QTR_Callback)(QTR_Impl *);
+
 
 #endif

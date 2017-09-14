@@ -41,10 +41,10 @@ model.data = 'Initial';
 
 
 %----- Load configuration settings
-if isfield(options,'maxIter')
-    maxIter = options.maxIter;
+if isfield(options,'maxItr')
+    maxIter = options.maxItr;
 else
-    maxIter = 100;
+    maxIter = 50;
 end
 
 config.ModelFile = model;
@@ -103,15 +103,6 @@ for i=1:nDwtFiles,
     % Setup and run the MIL interface shell command
     commands{i} = sprintf('"%s" .milconfig.qtr "%s" "%s"', ...
                           milFilename, dwtFilenames{i}, outputFiles{i} );
-
-    % For UNIX/Linux systems, the locations of the supporting QuB
-    % shared libraries must be explicitly specified, even though
-    % they are in the same location as the executable. Windows
-    % does not have this problem.
-    if isunix
-        milPath = fileparts(milFilename);
-        commands{i} = ['LD_LIBRARY_PATH="' milPath '" ' commands{i}];
-    end
 end
 
 % Run the job queue
