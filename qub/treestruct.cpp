@@ -206,7 +206,7 @@ mxArray* treeToStruct( QUB_Tree node, int depth )
         //mexPrintf("%s%d* %s (%d)\n", pattern, depth, childName.c_str(), nTwins);
         
         mxArray* twins = mxCreateStructMatrix(nTwins,1, 0, NULL);
-        if( twins<=0 )
+        if( twins<=(void*)0 )
             mexErrMsgTxt("can't alloc twins"); 
         
         //for each twin node, compile all fields into a single structure
@@ -227,7 +227,7 @@ mxArray* treeToStruct( QUB_Tree node, int depth )
                 
                 mxArray* field = mxDuplicateArray( mxGetFieldByNumber(twin,0,newFid) );
                 
-                if( field<=0 )
+                if( field<=(void*)0 )
                     mexErrMsgTxt("invalid field..."); 
                 
                 //mexPrintf(" %d*     test %d %d %d\n",depth,fid,tci_i,mxGetNumberOfFields(field));

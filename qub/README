@@ -54,17 +54,19 @@ the qub directory. This will create the platform-specific mex files.
 COMPILING ON WINDOWS
 ====================
 
-Prerequisites: Visual Studio 2015, Windows SDK (?)
+Prerequisites: Visual Studio 2015 with the Windows SDK.
 
 Windows binaries were compiled with Visual Studio Community 2015, targeting
 VC++14 / Windows 8.1 SDK / 64-bit / Release version.
 
 The MIL projects require BOOST and GSL, which were added using NuGet.
 The NuGet version of GSL (GNU Scientific Library) requires VC14 or higher, so
-I had to use VS2015 to compile these projects.
+I had to use VS2015 to compile these projects. These are located in subdirectories
+labeled "packages". If they are zipped, you must unzip them before opening the
+project files.
 
 MATLAB 2015a (currently the primary target of all binary builds for SPARTAN)
-does not directly support revent versions of Visual Studio. To compile with
+does not directly support recent versions of Visual Studio. To compile with
 VS 2015, I used the following procedure to install new mexopt files.
 
   http://kaba.hilvi.org/homepage/blog/vs2015_in_matlab_2015/vs_2015_in_matlab_2015.htm
@@ -82,21 +84,25 @@ Finally, run the qubtree_compile_mex function in MATLAB to make the MEX files.
 COMPILING ON LINUX AND MAC
 ==========================
 
-I compiled with gcc version 4.7 on Ubuntu 16.04 (AMD64).
-
-Prerequisites: g++-4.7, libboost-dev, libgsl0-dev.
+Linux pre-compiled binaries were made on Ubuntu 16.04, AMD64. To support MATLAB
+version 2015a, you will need gcc version 4.7. To install this and the other 
+required libraries (boost and gsl), run the following command:
 
   $ sudo apt-get install g++-4.7 libboost-dev libgsl0-dev
 
-To compile, simply enter the "qub" directory and run the following commands:
+One Mac OS X, you must install XCode (version 7) and Homebrew. To
+install the gsl and boost libraries with Homebrew, use the following command:
+
+  $ brew install gsl boost
+
+On both platforms, compile using the following command in the 'qub' directory:
 
   $ make
 
 This will compile the libqubtree.a, libqubopt.a, and miltreeiface (executable)
 in the qubsuite directory, and copy miltreeiface to the binary directory.
 
-You will the Makefiles and qubtree_compile_mex both force g++-4.7. This is
-because MATLAB 2015a (the target platform) does not support any other toolset.
+Finally, run the command aboe to make the mex files.
 
 
 KNOWN ISSUES

@@ -75,11 +75,13 @@ qub_saveTree( config,'.milconfig.qtr','Properties' );
 
 % Find the MIL interface program, verify there's only one
 if ismac
-    error('Macs are not yet supported.');
+    milFilename = locate('*miltreeiface_mac');
 elseif isunix,
-    milFilename = locate('miltreeiface');
+    milFilename = locate('*miltreeiface_linux');
 elseif ispc
-    milFilename = locate('miltreeiface.exe');
+    milFilename = locate('*miltreeiface.exe');
+else
+    error('Platform not supported');
 end
 
 if numel(milFilename)<1,
