@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 19-Apr-2017 20:16:23
+% Last Modified by GUIDE v2.5 22-Sep-2017 18:14:05
 
 
 %% GUI Callbacks
@@ -453,7 +453,18 @@ function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
 idxFile  = get(handles.lbFiles,   'Value');
 idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
+% END FUNCTION
 
+
+function mnuDwellhist_Callback(~, ~, handles) %#ok<DEFNU>
+% Draw dwell-time distributions, with model fits.
+if ~isempty(handles.model)
+    params.meanDwellTime = 1./[handles.model.rates(2,3) handles.model.rates(3,2)];
+else
+    params = struct([]);
+end
+dwellhist(handles.dwtFilenames, params);
+% END FUNCTION
 
 
 % =========================  SETTINGS DIALOGS  ========================= %

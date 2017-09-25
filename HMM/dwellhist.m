@@ -6,6 +6,11 @@ function varargout = dwellhist(dwtfilename, inputParams)
 %   array with files in rows and states in columns size=[nFiles,nStates].
 %   The X are the bin edges in seconds.
 %
+%   [X,HIST,FITS] = dwellhist(...) also calculates fit lines (FITS) for each 
+%   state using the mean dwell time parameters provided in the optional 
+%   parameter meanDwellTime (see below). One column in FITS per state.
+%   Bins are the same as for histograms.
+%
 %   dwellhist() prompts the user for a list of files.
 %
 %   dwellhist(...,PARAMS) give optional parameters in struct PARAMS:
@@ -18,13 +23,15 @@ function varargout = dwellhist(dwtfilename, inputParams)
 %                      multi- exponential distributions (default=true).
 %                      See Sigworth and Sine (1987), Biophys J 50, p. 1047-1054.
 %
-%      'dx':           Log-scale time axis bin size. default=0.2.
+%      'dx':           Log-scale time axis bin size. default=0.4.
 %
 %      'normalize':    log-scale histogram normalization method:
 %                      'off'   - raw dwell counts, no normalization.
 %                      'state' - each state; sum of each histogram=1. (default)
 %                      'file'  - all states; sum of all histograms per file=1.
 %                      'time'  - dwell counts per second of observation time
+%
+%      'meanDwellTime': mean dwell-time model parameters for fit lines, one per state
 %
 %   See also: dwellplots, lifetime_exp, loadDwelltimes, removeBlinks.
 
@@ -38,7 +45,7 @@ persistent params;
 if isempty(params),
     %FIXME: these should be defined in cascadeConstants?
     params.logX = true;
-    params.dx = 0.25;  %log-scale bin width (0.1=25%, 0.2=60%, 0.5=3-fold, 1=10-fold)
+    params.dx = 0.4;
     params.removeBlinks = true;
     params.normalize = 'state';
 end
@@ -125,12 +132,12 @@ if ~params.logX,
 else
     % Create a log time axis with a fixed number of bins.
     % histcounts uses bin edges of E(k) <= X(i) < E(k+1).
-    dwellaxis = log10(sampling):params.dx:log10(maxTime*3);
+    dwellaxis = log(sampling):params.dx:log(maxTime*3);
     
     % Force the bins edges to be exact intervals of the time resolution.
     % The histogram will better sample the discrete nature of the data.
     maxFrames = ceil(maxTime*3/sampling);
-    fullaxis = log10( (1:maxFrames)*sampling )';
+    fullaxis = log( (1:maxFrames)*sampling )';
     dwellaxis = unique( nearestBin(dwellaxis, fullaxis) );
 %     dwellaxis = unique( floor(fullaxis/sampling)*sampling );
     
@@ -140,7 +147,29 @@ else
 end
 
 
-%% Calculate histograms
+%% Calculate distribution fit lines
+% Parameter values are provided by batchKinetics (final optimized model).
+% Full normalization is done in the next section.
+fits = zeros( numel(dwellaxis), nStates );
+
+if isfield(params,'meanDwellTime')
+    for state=1:nStates,
+        if params.logX,
+            z = dwellaxis - log( params.meanDwellTime(state) );
+            e = exp( z - exp(z) );
+            fits(:,state) = e/sum(e);
+        else
+            e = exppdf(dwellaxis, params.meanDwellTime(state));  %FIXME: zero state!
+            fits(:,state) = e/max(e);
+        end
+    end
+else
+    if nargout==3, warning('meanDwellTime parameter missing for making fit lines'); end
+end
+
+
+
+%% Calculate histograms and optional fit lines
 histograms = cell(nFiles,nStates);
 
 for file=1:nFiles,
@@ -158,19 +187,23 @@ for file=1:nFiles,
         
         % Make log-scale Sine-Sigworth plot (linear ordinate).
         else
-            counts = histc( log10(dwellc)', dwellaxis );
+            counts = histc( log(dwellc)', dwellaxis );
             histdata = counts./dlx;  %normalize by log-space bin size
             histdata = histdata/sum(histdata);  %normalize to 1
             
             switch params.normalize
                 case {'none','off'}  %raw dwell counts
-                    histdata = histdata*ndwells(state);
+                    normFact = ndwells(state);
                 case 'state'  %fraction of counts in each bin for this state
-                    histdata = 100*histdata;
+                    normFact = 100;
                 case 'file'  %fraction of counts in each bin across entire file
-                    histdata = 100*histdata *ndwells(state)/sum(ndwells);
+                    normFact = 100*ndwells(state)/sum(ndwells);
                 case 'time'  %fraction of dwells per total observation time
-                    histdata = histdata*ndwells(state)/sum(totalTime(file,:));
+                    normFact = ndwells(state)/sum(totalTime(file,:));
+            end
+            histdata = normFact * histdata;
+            if file==1,
+                fits(:,state) = normFact * fits(:,state);
             end
         end
         
@@ -181,10 +214,10 @@ end
 
 % Combine histograms into a matrix for saving.
 if params.logX,
-    dwellaxis = 10.^dwellaxis;
+    dwellaxis = exp(dwellaxis);
 end
 
-output = {dwellaxis,histograms,meanTime};
+output = {dwellaxis,histograms,fits};
 [varargout{1:nargout}] = output{1:nargout};
 
 

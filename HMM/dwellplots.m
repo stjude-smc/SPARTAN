@@ -11,7 +11,7 @@ function dwellplots(varargin)
 %
 %   See also: dwellhist, lifetime_exp, loadDwelltimes, removeBlinks.
 
-%   Copyright 2007-2016 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 % FIXME: if targetting other axes, this will alter the menus...
 
@@ -34,20 +34,29 @@ names = trimtitles(dwtfilename);
 
 % Calculate histograms
 set(hFig,'pointer','watch'); drawnow;
-[dwellaxis,histograms] = dwellhist(dwtfilename,params);
+[dwellaxis,histograms,fits] = dwellhist(dwtfilename,params);
 
 
 
 %% Display survival plots, one state per panel.
 
 % Find a good zoom axis range for viewing all of the histograms.
-% if params.logX,
-    xmax = dwellaxis(end);
-% else
-%     xmax = 4* max(meanTime(:));
-% end
 h = [histograms{:}];
 ymax = 1.1*max(h(:));
+
+if params.logX,
+    xmax = dwellaxis(end);
+else
+    xmax = dwellaxis(  find( sum(h>0.005,2), 1, 'last' )  );
+end
+
+% If expected mean dwell times provided, show them as fit lines.
+% Here, calculate normalization constants and change histogram line style.
+if isfield(params,'meanDwellTime')
+    lineStyle = 'b.';
+else
+    lineStyle = 'b-';
+end
 
 % Choose ordinate label based on normalization
 if params.logX
@@ -63,9 +72,12 @@ if params.logX
         otherwise
             error('Invalid normalization setting');
     end
+else
+    ordinate = 'Dwell Survival (%)';
 end
 
-% Draw survival plots
+
+% Draw survival plots and fit lines, if model parameters given.
 [~,nStates] = size(histograms);
 ax = zeros(nStates,1);
 
@@ -73,21 +85,27 @@ for state=1:nStates,
     ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
 
     if params.logX,
-        semilogx( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
-        ylabel(ax(state), ordinate);
+        semilogx( ax(state), dwellaxis, [histograms{:,state}], lineStyle, 'LineWidth',2 );
     else
-        plot( ax(state), dwellaxis, [histograms{:,state}], '-', 'LineWidth',2 );
-        ylabel(ax(state), 'Dwell Survival (%)');
-    end
-    if state==nStates,
-        xlabel(ax(state), 'Time (s)');
+        plot( ax(state), dwellaxis, [histograms{:,state}], lineStyle, 'LineWidth',2 );
     end
     
+    ylabel(ax(state), ordinate);
     xlim( ax(state), [dwellaxis(1) xmax] );
     ylim( ax(state), [0 ymax] );
     title(ax(state), sprintf('State %d',state) );
 end
 
+% Draw fit lines
+if isfield(params,'meanDwellTime')
+    for state=1:nStates,
+        hold( ax(state), 'on' );
+        plot( ax(state), dwellaxis, fits(:,state), 'r-' );
+        hold( ax(state), 'off' );
+    end
+end
+
+xlabel(ax(end), 'Time (s)');
 legend(ax(end), names);
 linkaxes(ax,'xy');
 
