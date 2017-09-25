@@ -224,20 +224,14 @@ else
 end
 
 % Get a list of all raw traces files under the current directory.
-% FIXME: for now keeping this not recursive by default.
 trace_files = regexpdir(datapath,'^.*\.rawtraces$', recursive);
 
 if numel(trace_files)==0,
     return;
 end
-
 trace_files = {trace_files.name};
 
-
 % For each file in the user-selected directory
-% FIXME: consider avoiding passing handles this way.
-% wbh = waitbar(0,'Batch mode progress');
-
 for i=1:numel(trace_files)
     
     % If running in the automatic mode, skip already-processed files.
@@ -254,17 +248,15 @@ for i=1:numel(trace_files)
     % Load traces and calculate statistics.
     % (this calls PickTraces_Callback, which saves GUI data).
     handles = OpenTracesBatch( hObject, handles );
-    
-    %waitbar((i-0.5)/numel(trace_files),wbh);
 
     % Save picked traces to a new _auto.txt file.
-    disp( handles.outfile );
-    SaveTraces( handles.outfile, handles );
-
-    %waitbar(i/numel(trace_files),wbh);
+    if handles.picked_mols > 0
+        disp( handles.outfile );
+        SaveTraces( handles.outfile, handles );
+    else
+        disp('No files to save, skipping');
+    end
 end
-
-% close(wbh);
 
 % END FUNCTION btnGo_Callback
 
@@ -487,11 +479,9 @@ set(handles.MoleculesPicked,'String', ...
             sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
 
 % If at least one trace is picked, turn some buttons on.
-if handles.picked_mols > 0
-    set( [handles.mnuFileSave handles.tbFileSave handles.mnuViewPlots ...
-          handles.tbViewPlots handles.mnuViewTraces handles.tbViewTraces ...
-          handles.mnuFileSaveProp], 'Enable','on');
-end
+set( [handles.mnuFileSave handles.tbFileSave handles.mnuViewPlots ...
+      handles.tbViewPlots handles.mnuViewTraces handles.tbViewTraces ...
+      handles.mnuFileSaveProp], 'Enable',onoff(handles.picked_mols>0) );
 
 % Update trace statistic histograms for traces passing selection criteria.
 for i=1:length(handles.cboNames),
