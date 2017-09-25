@@ -52,10 +52,10 @@ end
 
 % If expected mean dwell times provided, show them as fit lines.
 % Here, calculate normalization constants and change histogram line style.
-if isfield(params,'model')
+if isfield(params,'model') && ~isempty(params.model)
     lineStyle = 'b.';
 else
-    lineStyle = 'b-';
+    lineStyle = '-';
 end
 
 % Choose ordinate label based on normalization
@@ -97,7 +97,7 @@ for state=1:nStates,
 end
 
 % Draw fit lines
-if isfield(params,'model')
+if isfield(params,'model') && ~isempty(params.model)
     for state=1:nStates,
         hold( ax(state), 'on' );
         plot( ax(state), dwellaxis, fits(:,state), 'r-' );

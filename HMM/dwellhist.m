@@ -176,8 +176,6 @@ if isfield(params,'model') && ~isempty(params.model)
             fits(:,state) = e/max(e);
         end
     end
-else
-    if nargout==3, warning('meanDwellTime input parameter missing for making fit lines'); end
 end
 
 

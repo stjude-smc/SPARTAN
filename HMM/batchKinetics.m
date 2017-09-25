@@ -144,9 +144,10 @@ set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
 set( [handles.btnExecute handles.mnuExecute], 'Enable',onoff(hasData&hasModel) );
   
 isIdealized = any( ~cellfun(@isempty,handles.dwtFilenames) );
-set( [handles.btnDwellhist handles.mnuDwellhist handles.btnPT ...
-      handles.mnuViewPercentTime handles.mnuViewTPS handles.btnViewTPS...
-      handles.btnOccTime handles.mnuViewOccTime], 'Enable',onoff(isIdealized));
+set( [handles.btnDwellhist handles.btnDwellhist2 handles.mnuDwellhist ...
+      handles.mnuDwellhist2 handles.btnPT handles.mnuViewPercentTime ...
+      handles.mnuViewTPS handles.btnViewTPS handles.btnOccTime ...
+      handles.mnuViewOccTime], 'Enable',onoff(isIdealized));
 
 isMIL = strcmpi(handles.options.idealizeMethod(1:3),'MIL');
 set( [handles.mnuExecuteAll handles.btnExecuteAll], 'Enable',...
@@ -456,13 +457,16 @@ sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
 % END FUNCTION
 
 
-function mnuDwellhist_Callback(~, ~, handles) %#ok<DEFNU>
+function mnuDwellhist_Callback(~, ~, handles, showFits) %#ok<DEFNU>
 % Draw dwell-time distributions, with model fits.
-if ~isempty(handles.model)
+if nargin<4, showFits=false; end
+
+if ~isempty(handles.model) && showFits
     params.model = handles.model;
-    dwellhist(handles.dwtFilenames, params);
+    dwellhist(handles.dwtFilenames(1), params);
 else
-    dwellhist(handles.dwtFilenames);
+    params.model = [];
+    dwellhist(handles.dwtFilenames, params);
 end
 
 
