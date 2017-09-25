@@ -77,6 +77,7 @@ if numel(dwtfilename)==0, return; end
 % If there are no outputs requested, display instead.
 if nargout==0,
     dwellplots(dwtfilename,params);
+    return;
 end
 
 
@@ -152,19 +153,31 @@ end
 % Full normalization is done in the next section.
 fits = zeros( numel(dwellaxis), nStates );
 
-if isfield(params,'meanDwellTime')
+if isfield(params,'model') && ~isempty(params.model)
+    % Calculate mean dwells times, optionally removing zero-state paths.
+    rates = params.model.rates;
+    
+    if isfield(params,'removeBlinks') && params.removeBlinks
+        rates = rates(2:end,2:end);
+    end
+    
+    tau = zeros(nStates,1);
+    for i=1:nStates,
+        tau(i) = 1 ./ sum( rates(i,:) );
+    end
+    
     for state=1:nStates,
         if params.logX,
-            z = dwellaxis - log( params.meanDwellTime(state) );
+            z = dwellaxis - log( tau(state) );
             e = exp( z - exp(z) );
             fits(:,state) = e/sum(e);
         else
-            e = exppdf(dwellaxis, params.meanDwellTime(state));  %FIXME: zero state!
+            e = exppdf(dwellaxis, tau(state));
             fits(:,state) = e/max(e);
         end
     end
 else
-    if nargout==3, warning('meanDwellTime parameter missing for making fit lines'); end
+    if nargout==3, warning('meanDwellTime input parameter missing for making fit lines'); end
 end
 
 

@@ -459,11 +459,13 @@ sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
 function mnuDwellhist_Callback(~, ~, handles) %#ok<DEFNU>
 % Draw dwell-time distributions, with model fits.
 if ~isempty(handles.model)
-    params.meanDwellTime = 1./[handles.model.rates(2,3) handles.model.rates(3,2)];
+    params.model = handles.model;
+    dwellhist(handles.dwtFilenames, params);
 else
-    params = struct([]);
+    dwellhist(handles.dwtFilenames);
 end
-dwellhist(handles.dwtFilenames, params);
+
+
 % END FUNCTION
 
 

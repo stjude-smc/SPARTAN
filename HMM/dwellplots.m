@@ -47,12 +47,12 @@ ymax = 1.1*max(h(:));
 if params.logX,
     xmax = dwellaxis(end);
 else
-    xmax = dwellaxis(  find( sum(h>0.005,2), 1, 'last' )  );
+    xmax = dwellaxis(  find( sum(h>0.01,2), 1, 'last' )  );
 end
 
 % If expected mean dwell times provided, show them as fit lines.
 % Here, calculate normalization constants and change histogram line style.
-if isfield(params,'meanDwellTime')
+if isfield(params,'model')
     lineStyle = 'b.';
 else
     lineStyle = 'b-';
@@ -97,7 +97,7 @@ for state=1:nStates,
 end
 
 % Draw fit lines
-if isfield(params,'meanDwellTime')
+if isfield(params,'model')
     for state=1:nStates,
         hold( ax(state), 'on' );
         plot( ax(state), dwellaxis, fits(:,state), 'r-' );
