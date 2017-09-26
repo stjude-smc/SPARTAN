@@ -630,6 +630,10 @@ function traceLabel_Callback(hObject, ~)
 % Executes when user clicks on trace number text in trace viewer panel.
 % Togger whether the exclude/include the trace in analysis.
 
+% Avoid changing state if the user intended to right-click.
+% FIXME: ideally this should make the context menu come up instead. How?
+if ~strcmpi( get(gcf,'SelectionType'), 'normal' ), return; end
+    
 handles = guidata(hObject);
 idxTrace = get(hObject,'UserData');
 handles.options.exclude(idxTrace) = ~handles.options.exclude(idxTrace);
