@@ -647,22 +647,25 @@ function showTraces(handles)
 
 idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
 nToShow = min(handles.nTracesToShow, handles.data.nTraces);
+traceColor = [0 0 1; 0.6 0.6 1];
+idlColor = [1 0 0; 1 0.6 0.6];
 
 for i=1:nToShow
     idx = i+idxStart;
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
+    ex = handles.options.exclude(idx);
     
     % Redraw FRET and idealization traces
     ydata = handles.data.(handles.options.dataField)(idx,:);
     ydata = y_offset + min(1.15, max(-0.15,ydata) );  %clip outliers, position w/i viewer
-    set( handles.hFretLine(i), 'YData',ydata );
+    set( handles.hFretLine(i), 'YData',ydata, 'Color',traceColor(ex+1,:) );
     
     if ~isempty(handles.idl)
         idldata = y_offset + handles.idl(idx,:);
-        set( handles.hIdlLine(i), 'YData',idldata );
+        set( handles.hIdlLine(i), 'YData',idldata, 'Color',idlColor(ex+1,:) );
     end
     
-    if handles.options.exclude(idx)
+    if ex
         set( handles.hTraceLabel(i), 'String','Excluded', 'UserData',idx );
     else
         set( handles.hTraceLabel(i), 'String',sprintf('%d',idx), 'UserData',idx );
