@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 22-Sep-2017 18:14:05
+% Last Modified by GUIDE v2.5 26-Sep-2017 14:20:59
 
 
 %% GUI Callbacks
@@ -136,7 +136,8 @@ function enableControls(handles)
 
 hasData = ~isempty(handles.dataFilenames);
 set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
-      handles.mnuSorttraces handles.mnuSimMovie], 'Enable',onoff(hasData) );
+      handles.mnuSorttraces handles.mnuSimMovie handles.mnuIncludeAll ...
+      handles.mnuExcludeAll], 'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
@@ -635,7 +636,14 @@ handles.options.exclude(idxTrace) = ~handles.options.exclude(idxTrace);
 guidata(hObject,handles);
 
 showTraces(handles);
+% END FUNCTION
 
+
+function mnuIncludeAll_Callback(hObject, ~, handles, value) %#ok<DEFNU>
+% Include or exclude all traces in trace viewer.
+handles.options.exclude(:) = value;
+guidata(hObject,handles);
+showTraces(handles);
 % END FUNCTION
 
 
@@ -666,10 +674,11 @@ for i=1:nToShow
     end
     
     if ex
-        set( handles.hTraceLabel(i), 'String','Excluded', 'UserData',idx );
+        traceLabel = sprintf('%d (Excluded)',idx);
     else
-        set( handles.hTraceLabel(i), 'String',sprintf('%d',idx), 'UserData',idx );
+        traceLabel = sprintf('%d',idx);
     end
+    set( handles.hTraceLabel(i), 'String',traceLabel, 'UserData',idx );
 end
 
 % Clear final lines if there isn't enough data to fill them.
