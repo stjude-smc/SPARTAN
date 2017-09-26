@@ -65,7 +65,7 @@ handles.showStateMarkers = true;  %show dotted lines for model FRET values
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
 options.deadTime = 0.5;
-options.seperately = 1; %SKM: analyze each trace individually
+options.seperately = true; %SKM: analyze each trace individually
 options.maxItr = 100;
 options.minStates = 1;
 options.maxStates = 5;
@@ -559,6 +559,7 @@ idxFile = get(hObject,'Value');
 data = loadTraces( handles.dataFilenames{idxFile} );
 handles.data = data;
 handles.idl = loadIdl(handles);
+handles.options.exclude = false(data.nTraces,1);
 
 % Disable the trace scroll bar when it won't be valid (prevents errors).
 set( handles.sldTraces, 'Enable',onoff(data.nTraces>handles.nTracesToShow) );
@@ -608,7 +609,8 @@ for i=1:handles.nTracesToShow,
     
     handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
                'Parent',handles.axTraces, 'BackgroundColor','w', ...
-               'HorizontalAlignment','right', 'VerticalAlignment','bottom' );
+               'HorizontalAlignment','right', 'VerticalAlignment','bottom', ...
+               'ButtonDownFcn',@traceLabel_Callback );
 end
 
 ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
@@ -620,6 +622,21 @@ showTraces(handles);
 showModelLines(handles);  %Draw state markers underneath data
 
 % END FUNCTION lbFiles_Callback
+
+
+
+function traceLabel_Callback(hObject, ~)
+% Executes when user clicks on trace number text in trace viewer panel.
+% Togger whether the exclude/include the trace in analysis.
+
+handles = guidata(hObject);
+idxTrace = get(hObject,'UserData');
+handles.options.exclude(idxTrace) = ~handles.options.exclude(idxTrace);
+guidata(hObject,handles);
+
+showTraces(handles);
+
+% END FUNCTION
 
 
 
@@ -645,7 +662,11 @@ for i=1:nToShow
         set( handles.hIdlLine(i), 'YData',idldata );
     end
     
-    set( handles.hTraceLabel(i), 'String',sprintf('%d',idx) );
+    if handles.options.exclude(idx)
+        set( handles.hTraceLabel(i), 'String','Excluded', 'UserData',idx );
+    else
+        set( handles.hTraceLabel(i), 'String',sprintf('%d',idx), 'UserData',idx );
+    end
 end
 
 % Clear final lines if there isn't enough data to fill them.

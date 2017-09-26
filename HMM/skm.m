@@ -29,7 +29,7 @@ function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
 %
 %   See also: QubModel, idealize, forward_viterbi.
 
-%   Copyright 2007-2016 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 
 
@@ -70,32 +70,33 @@ if isfield(params,'convGrad')
 end
 
 
+[nTraces,nFrames] = size(data);
+
 % Ensure input falls within a reasonable range for FRET data.
 data(data>10) = 10;
 data(data<-1) = -1;
 
+% Remove manually excluded traces
+data = data(~params.exclude,:);
+offsets = nFrames*((1:nTraces)-1);
+offsets = offsets(~params.exclude);
+nTraces = size(data,1);
 
 
 %% Run the SKM algorithm
-
-[nTraces,nFrames] = size(data);
-
-% Here we have several choices.
 % If params.seperately = 
 % NO:  Optimize all the data together and return a single model.
 % YES: Optimize each trace individually, returning a model array
 %      and a single idealization combining all results.
-
 if params.seperately,
-    constants = cascadeConstants;
-    
     if ~params.quiet,
-        wbh = parfor_progressbar(nTraces,'Idealizing traces separately,..');
+        wbh = parfor_progressbar(nTraces,'Idealizing traces separately...');
     else
         wbh = [];
     end
     
     % Use multi-process execution only for large datasets.
+    constants = cascadeConstants;
     if nTraces*nFrames > 1e5 && constants.enable_parfor,
         pool = gcp;
         M = pool.NumWorkers;
@@ -118,13 +119,11 @@ if params.seperately,
             wbh.iterate(10);
         end
     end
-    
     if ~isempty(wbh), close(wbh); end
     
-    offsets = nFrames*((1:nTraces)-1);
 else
     % Optimize a single model and idealize all data using this model.
-    [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params);
+    [dwt,model,LL] = runSKM(data, sampling, initialModel, params);
 end
 
 
