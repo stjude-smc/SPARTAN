@@ -16,9 +16,11 @@ function [dwells,sampling,offsets,model] = loadDWT(dwtfname)
 %   MODEL is a cell array with each element having a matrix in which 
 %   each row is the mean FRET values and noise stdev for each state class.
 %
+%   NOTE: empty idealizations (with no dwells) will not be loaded.
+%
 %   See also: saveDWT.
 
-%   Copyright 2007-2016 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 
 
@@ -70,6 +72,13 @@ for s=1:nTraces,
     data = sscanf( block, '%f' );
     dwells{segid(s)} = [data(1:2:end)+1 data(2:2:end)/sampling];
 end
+
+
+% Remove empty dwells.
+sel = ~cellfun(@isempty,dwells);
+dwells = dwells(sel);
+offsets = offsets(sel);
+if nModels>1, model=model(sel); end
 
 
 end
