@@ -73,7 +73,7 @@ params = constants.gettracesDefaultParams;
 if nargin>=2,
     userParams = varargin{2};
     % FIXME: verify all required parameter settings are given!    
-    params = catstruct( params, userParams );
+    params = mergestruct( params, userParams );
 end
 
 

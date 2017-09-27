@@ -69,7 +69,7 @@ end
 
 % Other options (passed as a structure)
 if numel(varargin)>=3,
-    defaults = catstruct( defaults, varargin{3}, 'sorted' );
+    defaults = orderfields(  mergestruct( defaults, varargin{3} )  );
 end
 
 defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];

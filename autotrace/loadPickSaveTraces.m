@@ -81,7 +81,7 @@ if nargin>2,
     
     % Merge default options and those specified by the user.
     % The user's options will override any existing defaults.
-    options = catstruct( options, vopt );
+    options = mergestruct( options, vopt );
 end
 
 

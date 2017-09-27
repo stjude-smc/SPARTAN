@@ -36,7 +36,7 @@ params.plotFits = true;
 
 % Merge options, giving the user's options precedence.
 if nargin>1,
-    params = catstruct( params, inputParams );
+    params = mergestruct( params, inputParams );
 end
 
 

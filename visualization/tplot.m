@@ -31,14 +31,14 @@ options = constants.defaultMakeplotsOptions;
 
 if numel(args)==2,
     assert( isstruct(args{2}) );
-    options = catstruct( options, args{2} );
+    options = mergestruct( options, args{2} );
 
 elseif numel(args)>2,
     args = args(2:end);
     assert( iscell(args) & mod(numel(args),2)==0, ...
             'Incorrect format for optional arguments list' );
     vopt = struct(args{:});
-    options = catstruct( options, vopt );
+    options = mergestruct( options, vopt );
 end
 
 
