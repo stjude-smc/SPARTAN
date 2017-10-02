@@ -57,7 +57,7 @@ updateSpartan; %check for updates
 handles.output = hObject;
 
 % Set initial internal state of the program
-[handles.modelFilename,handles.model,handles.data,handles.idl] = deal([]);
+[handles.model,handles.data,handles.idl] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 handles.nTracesToShow = 6;  %number displayed in trace display panel
 handles.showStateMarkers = true;  %show dotted lines for model FRET values
@@ -164,12 +164,8 @@ function btnLoadModel_Callback(hObject, ~, handles, filename)
 % Executes on button press in btnLoadModel.
 
 if nargin<4,
-    if isempty(handles.modelFilename),
-        handles.modelFilename = fullfile(pwd,'*.qmf');
-    end
-
     % Ask the user for a filename
-    [fname,p] = uigetfile( handles.modelFilename, 'Select a QuB model file...' );
+    [fname,p] = uigetfile( fullfile(pwd,'*.qmf'), 'Select a QuB model file...' );
     if fname==0, return; end
     filename = fullfile(p,fname);
 end
@@ -442,7 +438,6 @@ handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
                         @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
 handles.model.mu = handles.model.mu;  %trigger table update
 
-handles.modelFilename = [];
 guidata(hObject, handles);
 showModelLines(handles);
 
