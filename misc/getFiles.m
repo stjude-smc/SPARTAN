@@ -16,7 +16,7 @@ persistent last;  %file list created on last call to getFiles.
 
 
 % Return the previously requested file list if running 'getFiles -last'.
-if nargin>=1 && strcmpi(filter,'-last')
+if nargin>=1 && ischar(filter) && strcmpi(filter,'-last')
     files=last;
     return;
 end
