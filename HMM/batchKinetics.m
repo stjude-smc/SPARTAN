@@ -22,10 +22,10 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 02-Oct-2017 14:31:55
+% Last Modified by GUIDE v2.5 02-Oct-2017 18:16:14
 
 
-%% GUI Callbacks
+%% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -57,10 +57,8 @@ updateSpartan; %check for updates
 handles.output = hObject;
 
 % Set initial internal state of the program
-[handles.model,handles.data,handles.idl] = deal([]);
+[handles.model] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
-handles.nTracesToShow = 6;  %number displayed in trace display panel
-handles.showStateMarkers = true;  %show dotted lines for model FRET values
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
 options.bootstrapN = 1;
@@ -77,7 +75,6 @@ handles.options = options;
 % Update GUI to reflect these default settings. MIL not supported on Macs
 methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'};
 if isempty(which('ebfret.analysis.hmm.vbayes')), methods(3)=[]; end
-if ismac, methods(end)=[]; end
 
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
@@ -85,13 +82,7 @@ handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handle
 constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
-% Trace viewer pane callbacks
-handles.sldTracesListener(1) = addlistener( handles.sldTraces, 'Value', ...
-          'PostSet',@(h,e)showTraces(guidata(e.AffectedObject))  );
-
-handles.sldTracesListener(2) = addlistener( handles.sldTracesX, 'Value', ...
-          'PostSet',@(h,e)sldTracesX_Callback(h,e,guidata(e.AffectedObject))  );
-
+handles.traceViewer = TraceListViewer(handles.axTraces, handles.sldTraces, handles.sldTracesX);
 hold(handles.axTraces,'on');
 box(handles.axTraces,'on');
 guidata(hObject,handles);
@@ -109,9 +100,11 @@ varargout{1} = handles.output;
 
 
 
-%% =======================  CALLBACK FUNCTIONS  ======================= %%
 
-function btnLoadData_Callback(~, ~, handles) %#ok<DEFNU>
+
+%% ----------------------  LOAD/SAVE DATA CALLBACKS  ---------------------- %%
+
+function btnLoadData_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Executes on button press in btnLoadData.
 
 % Prompt use for location to save file in...
@@ -123,6 +116,7 @@ set(handles.lbFiles, 'Value',1, 'String',names);
 
 % Look for .dwt files if data were already analyzed.
 handles.dwtFilenames = findDwt(handles.dataFilenames);
+guidata(hObject,handles);
 
 % Update GUI, showing the first file
 lbFiles_Callback(handles.lbFiles, [], handles);
@@ -131,14 +125,14 @@ enableControls(handles);
 % END FUNCTION btnLoadData_Callback
 
 
+
 function enableControls(handles)
 % Enable or disable toolbar buttons and menus according to current state.
 
 hasData = ~isempty(handles.dataFilenames);
 set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
-      handles.mnuSorttraces handles.mnuSimMovie handles.mnuIncludeAll ...
-      handles.mnuExcludeAll handles.mnuLoadSelList handles.mnuSaveSelList], ...
-      'Enable',onoff(hasData) );
+      handles.mnuSorttraces handles.mnuSimMovie], 'Enable',onoff(hasData) );
+set( allchild(handles.mnuFileList), 'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
@@ -156,60 +150,10 @@ set( [handles.mnuExecuteAll handles.btnExecuteAll], 'Enable',...
                                          onoff(hasData & hasModel & ~isMIL) );
 set( [handles.chkUpdateModel handles.tblFixFret], 'Enable',...
                                          onoff(hasModel & ~isMIL) );
-
 % END FUNCTION enableControls
 
 
-function btnLoadModel_Callback(hObject, ~, handles, filename)
-% Executes on button press in btnLoadModel.
 
-if nargin<4,
-    % Ask the user for a filename
-    [fname,p] = uigetfile( fullfile(pwd,'*.qmf'), 'Select a QuB model file...' );
-    if fname==0, return; end
-    filename = fullfile(p,fname);
-end
-
-% Load the model and show the model properties in the GUI.
-% The model's properties are automatically updated whenever the model is
-% modified in the GUI.
-handles.model = QubModel(filename);
-handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
-
-% Enable relevant GUI controls
-enableControls(handles);
-
-% Save in most recent list
-recent = get( findobj('Parent',handles.mnuRecentModels), 'UserData' );
-if ~iscell(recent), recent={recent}; end
-
-if ~any(  cellfun( @(x)strcmp(x,filename), recent)  )
-    uimenu(handles.mnuRecentModels, 'Label',fname, 'UserData',filename, ...
-               'Callback',@mnuRecentModels_Callback);
-end
-set(handles.mnuRecentModels, 'Enable','on');
-
-% Automatically update the parameter table when the model is altered.
-handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
-                        @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
-handles.model.mu = handles.model.mu;  %trigger table update
-
-guidata(hObject, handles);
-
-lbFiles_Callback(handles.lbFiles, [], handles);
-
-% END FUNCTION btnLoadModel_Callback
-
-
-
-function mnuRecentModels_Callback(hObject,~)
-btnLoadModel_Callback( hObject, [], guidata(hObject), get(hObject,'UserData') );
-% END FUNCTION mnuRecentModels_Callback
-
-
-
-
-% --------------------------------------------------------------------
 function mnuLoadIdl_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Load an alternate idealization from file (with conversion from vbFRET, etc.)
 
@@ -228,7 +172,7 @@ end
 % END FUNCTION mnuLoadIdl_Callback
 
 
-% --------------------------------------------------------------------
+
 function mnuSaveIdl_Callback(~, ~, handles) %#ok<DEFNU>
 % Save currently-loaded idealization to an alternate file.
 
@@ -241,56 +185,198 @@ dwtfname = fullfile(p,f);
 
 % Copy the current idealization file to the new location.
 % (idealizations are never stored only in memory in batchKinetics).
-copyfile( handles.dwtFilenames{idxfile}, dwtfname );
-fprintf('Saved idealization to %s\n',dwtfname);
+if ~strcmp( handles.dwtFilenames{idxfile}, dwtfname )
+    copyfile( handles.dwtFilenames{idxfile}, dwtfname );
+    fprintf('Saved idealization to %s\n',dwtfname);
+end
 
 % END FUNCTION mnuSaveIdl_Callback
 
 
 
+
+
+
+%% ------------------  MODEL LOAD/SAVE/EDIT CALLBACKS  ------------------ %%
+
+function btnLoadModel_Callback(hObject, ~, handles, filename)
+% Executes on button press in btnLoadModel.
+% FIXME: allow QubModelViewer to be updated, rather than recreated.
+
+if nargin<4,
+    % Ask the user for a filename
+    [fname,p] = uigetfile( fullfile(pwd,'*.qmf'), 'Select a QuB model file...' );
+    if fname==0, return; end
+    filename = fullfile(p,fname);
+end
+
+% Load the model and show the model properties in the GUI.
+% The model's properties are automatically updated whenever the model is
+% modified in the GUI.
+handles.model = QubModel(filename);
+handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
+handles.traceViewer.model = handles.model;
+
+% Save in most recent list
+addRecent(handles.mnuRecentModels, filename);
+
+% Automatically update the parameter table when the model is altered.
+handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
+                        @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
+handles.model.mu = handles.model.mu;  %trigger listener updates
+
+enableControls(handles);
+guidata(hObject, handles);
+
+% END FUNCTION btnLoadModel_Callback
+
+
+
+function mnuRecentModels_Callback(hObject,~)
+btnLoadModel_Callback( hObject, [], guidata(hObject), get(hObject,'UserData') );
+% END FUNCTION mnuRecentModels_Callback
+
+
+
+function addRecent(hMenu, filename)
+% Add a newly loaded/saved model file to the "Recent" menu list.
+recent = get( findobj('Parent',hMenu), 'UserData' );
+if ~iscell(recent), recent={recent}; end
+
+if ~any(  cellfun( @(x)strcmp(x,filename), recent)  )
+    [~,f,e] = fileparts(filename);
+    uimenu(hMenu, 'Label',[f e], 'UserData',filename, ...
+               'Callback',@mnuRecentModels_Callback);
+end
+set(hMenu, 'Enable','on');
+%end function addRecent
+
+
+
+function btnNewModel_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Create a new model with two states and display it. See btnLoadModel_Callback.
+% FIXME: allow QubModelViewer to be updated, rather than recreated.
+
+handles.model = QubModel(2);
+handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
+handles.traceViewer.model = handles.model;
+
+% Automatically update the parameter table when the model is altered.
+handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
+                        @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
+handles.model.mu = handles.model.mu;  %trigger listener updates
+
+enableControls(handles);
+guidata(hObject, handles);
+
+% END FUNCTION btnNewModel_Callback
+
+
+
+function btnSaveModel_Callback(~, ~, handles) %#ok<DEFNU>
+% Save current model to file
+if isfield(handles,'model') && ~isempty(handles.model),
+    handles.modelViewer.save_callback();
+    addRecent(handles.mnuRecentModels, handles.model.filename);
+end
+% END FUNCTION btnSaveModel_Callback
+
+
+
+function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
+% tblFixFret was altered. Update current QubModel to match.
+enableListener(handles.modelUpdateListener, false);
+
+data = get(hObject,'Data');
+handles.model.mu       = [data{:,1}];
+handles.model.fixMu    = [data{:,2}];
+handles.model.sigma    = [data{:,3}];
+handles.model.fixSigma = [data{:,4}];
+
+enableListener(handles.modelUpdateListener, true);
+handles.traceViewer.showModelLines();
+guidata(hObject,handles);
+
+% END FUNCTION tblFixFret_CellEditCallback
+
+
+
+function modelUpdate_Callback(tblFixFret,event)
+% Called whenever current QubModel is altered. Updates tblFixFret to match.
+model = event.Source;
+
+celldata = num2cell(false(model.nClasses,4));
+celldata(:,1) = num2cell(model.mu);
+celldata(:,2) = num2cell(model.fixMu);
+celldata(:,3) = num2cell(model.sigma);
+celldata(:,4) = num2cell(model.fixSigma);
+set( tblFixFret, 'Data', celldata );
+
+handles = guidata(tblFixFret);
+handles.traceViewer.showModelLines();
+
+% END FUNCTION modelUpdate_Callback
+
+
+
+
+
+
+%% -------------------------  EXECUTE ANALYSIS  ------------------------- %%
+
 function handles = btnExecute_Callback(hObject, ~, handles)
 % Run the data analysis pipeline with user-specified data & model.
 
 % Verify data and model have been specified by user in GUI.
-idxfile = get(handles.lbFiles,'Value');
+idxfile  = get(handles.lbFiles,'Value');
 trcfile  = handles.dataFilenames{idxfile};
-dwtfname = handles.dwtFilenames{idxfile};
+
+
+% Get options from traceViewer
+options = handles.options;
+options.dataField = handles.traceViewer.dataField;
+options.exclude = handles.traceViewer.exclude;
 
 % Verify external modules installed
-if strcmpi(handles.options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hmm.vbayes'))
+if strcmpi(options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hmm.vbayes'))
     errordlg('ebFRET not found. Check your path.',mfilename);
     disp('Go to https://ebfret.github.io/ to download ebFRET, then add to the MATLAB path.');
     return;
 end
 
 % Run the analysis algorithms...
-% FIXME: ideally we want idl (or dwt) returned directly for speed.
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
-if strcmpi(handles.options.idealizeMethod(1:3),'MIL')
+if strcmpi(options.idealizeMethod(1:3),'MIL')
+    dwtfname = handles.dwtFilenames{idxfile};
+    
     if isempty(dwtfname) || ~exist(dwtfname,'file'),
         errordlg('Traces must be idealized before running MIL');
         set(handles.figure1,'pointer','arrow');
         return;
     end
     
-    optModel = milOptimize(dwtfname, handles.model, handles.options);
+    optModel = milOptimize(dwtfname, handles.model, options);
     handles.model.rates = optModel.rates;
     handles.modelViewer.redraw();
 else
-    % Clear current idealization (FIXME also delete .dwt?)
-    handles.idl = [];
-    set(handles.hIdlLine,'Visible','off');
+    % Clear current idealization (FIXME: also delete .dwt?)
+    handles.traceViewer.idl = [];
+    handles.traceViewer.showTraces();
     
     try
-        [handles.dwtFilenames{idxfile},optModel] = runParamOptimizer(...
-                                 handles.model, trcfile, handles.options);
+        [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
     catch e
         set(handles.figure1,'pointer','arrow');
+        errordlg(['Error: ' e.message]);
         set(handles.txtStatus,'String',['Error: ' e.message]);
         return;
     end
+    
+    handles.dwtFilenames{idxfile} = dwtfname;
+    handles.traceViewer.idl = loadIdl(dwtfname, handles.traceViewer.data);
+    handles.traceViewer.showTraces();
 end
 
 if get(handles.chkUpdateModel,'Value'),
@@ -299,53 +385,27 @@ if get(handles.chkUpdateModel,'Value'),
     handles.model.sigma = optModel.sigma;
     handles.model.p0    = optModel.p0;
     handles.modelViewer.redraw();
+    handles.traceViewer.showModelLines();
 end
 
-% Save results to file for later processing by the user.
-% save('resultTree.mat','resultTree');
-% qub_saveTree(resultTree,resultFilename);
-% qub_saveTree(resultTree.milResults(1).ModelFile,'result.qmf','ModelFile');
-
-% Load and draw idealization, show traces, and update toolbar/menu state.
-handles.idl = loadIdl(handles);
 guidata(hObject,handles);
-showTraces(handles);
-set(handles.hIdlLine,'Visible','on');
-
 enableControls(handles);
 set(handles.figure1,'pointer','arrow');
-set(handles.txtStatus,'String','Finished'); %drawnow;
+set(handles.txtStatus,'String','Finished');
 
 % END FUNCTION btnExecute_Callback
+
 
 
 function btnExecuteAll_Callback(~, ~, handles) %#ok<DEFNU>
 % Analyize each loaded file in sequence (batch mode).
 for i=1:numel(handles.dataFilenames),
     set(handles.lbFiles,'Value',i);
-    handles = lbFiles_Callback(handles.lbFiles, [], handles);
+    lbFiles_Callback(handles.lbFiles, [], handles);
     handles = btnExecute_Callback(handles.btnExecute, [], handles);
 end
 % END FUNCTION btnExecuteAll_Callback
 
-
-function idl = loadIdl(handles)
-% Returns the idealization for the currently selected file
-
-dwtfname = handles.dwtFilenames{ get(handles.lbFiles,'Value') };
-
-if ~isempty(dwtfname) && exist(dwtfname,'file'),
-    [dwt,~,offsets,model] = loadDWT(dwtfname);
-    idl = dwtToIdl(dwt, offsets, handles.data.nFrames, handles.data.nTraces);
-    
-    assert( size(model,2)==2 );
-    fretValues = [NaN; model(:,1)];
-    idl = fretValues( idl+1 );
-else
-    idl = [];
-end
-
-% END FUNCTION loadIdl
 
 
 function btnStop_Callback(~, ~, handles) %#ok<DEFNU>
@@ -357,422 +417,8 @@ set(handles.btnExecute,'Enable','on');
 
 
 
+%% -------------------------  SIMULATE DATA  ------------------------- %%
 
-%% Other GUI Callbacks
-%  ========================================================================
-
-% --- Executes on selection change in cboIdealizationMethod.
-function handles = cboIdealizationMethod_Callback(hObject, ~, handles)
-% Update method to use for idealization
-% FIXME: consider getting this value only when needed (execution).
-
-text = get(hObject,'String');
-handles.options.idealizeMethod = text{get(hObject,'Value')};
-guidata(hObject, handles);
-
-enableControls(handles);
-
-% END FUNCTION cboIdealizationMethod_Callback
-
-
-% --- Executes when entered data in editable cell(s) in tblFixFret.
-function tblFixFret_CellEditCallback(hObject, ~, handles) %#ok<DEFNU>
-% Update QubModel object with new settings from the table.
-% FIXME: avoid triggering many calls to modelUpdate_Callback.
-
-enableListener(handles.sldTracesListener, false);
-
-data = get(hObject,'Data');
-handles.model.mu       = [data{:,1}];
-handles.model.fixMu    = [data{:,2}];
-handles.model.sigma    = [data{:,3}];
-handles.model.fixSigma = [data{:,4}];
-
-enableListener(handles.sldTracesListener, true);
-guidata(hObject,handles);
-
-% END FUNCTION tblFixFret_CellEditCallback
-
-
-% --- Executes when the QubModel object is altered.
-function modelUpdate_Callback(tblFixFret,event)
-% Update tblFixFret to reflect current model parameters.
-% FIXME: This gets called four times above -- one for each model change.
-
-model = event.Source;
-
-celldata = num2cell(false(model.nClasses,4));
-celldata(:,1) = num2cell(model.mu);
-celldata(:,2) = num2cell(model.fixMu);
-celldata(:,3) = num2cell(model.sigma);
-celldata(:,4) = num2cell(model.fixSigma);
-set( tblFixFret, 'Data', celldata );
-showModelLines(guidata(gcbf));
-
-% END FUNCTION modelUpdate_Callback
-
-
-% --- Executes on button press in btnSaveModel.
-function btnSaveModel_Callback(~, ~, handles) %#ok<DEFNU>
-% Save current model to file
-if isfield(handles,'model') && ~isempty(handles.model),
-    handles.modelViewer.save_callback();
-end
-% END FUNCTION btnSaveModel_Callback
-
-
-% --- Executes on button press in btnSaveModel.
-function btnNewModel_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Create a new model object.
-% FIXME: this shares some code with btnLoadModel.
-
-% Create a new model with two states and display it.
-handles.model = QubModel(2);
-handles.modelViewer = QubModelViewer(handles.model, handles.axModel);
-
-% Enable relevant GUI controls
-enableControls(handles);
-
-% Automatically update the parameter table when the model is altered.
-handles.modelUpdateListener = addlistener(handles.model,'UpdateModel', ...
-                        @(s,e)modelUpdate_Callback(handles.tblFixFret,e) );
-handles.model.mu = handles.model.mu;  %trigger table update
-
-guidata(hObject, handles);
-showModelLines(handles);
-
-% END FUNCTION btnSaveModel_Callback
-
-
-% ========================  PLOTTING FUNCTIONS  ======================== %
-% Executed when plotting menu or toolbar buttons are clicked.
-
-function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
-idxFile  = get(handles.lbFiles,   'Value');
-idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
-sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
-% END FUNCTION
-
-
-function mnuDwellhist_Callback(~, ~, handles, showFits) %#ok<DEFNU>
-% Draw dwell-time distributions, with model fits.
-if nargin<4, showFits=false; end
-
-if ~isempty(handles.model) && showFits
-    params.model = handles.model;
-    dwellhist(handles.dwtFilenames(1), params);
-else
-    params.model = [];
-    dwellhist(handles.dwtFilenames, params);
-end
-
-
-% END FUNCTION
-
-
-% =========================  SETTINGS DIALOGS  ========================= %
-
-function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Change idealization settings
-
-switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
-    case {'SE','BA'}  %SKM, Baum-Welch
-        prompt = {'Analyze traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
-        fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
-    
-    case {'VB','EB'}  %vb/ebFRET
-        prompt = {'Min states','Max states','Max restarts:','Max iterations:','Convergence'};
-        fields = {'minStates', 'maxStates', 'maxRestarts',  'maxItr',         'threshold'};
-    
-    case 'MI'  %MIL
-        prompt = {'Max iterations:'};  %'Dead time (frames):'
-        fields = {'maxItr'};  %'deadTime'
-        
-    otherwise
-        return;
-end
-
-options = settingdlg(handles.options, fields, prompt);
-if ~isempty(options),
-    handles.options = options;
-    guidata(hObject,handles);
-end
-
-% END FUNCTION mnuIdlSettings_Callback
-
-
-
-% ========================  TRACE VIEWER PANEL  ======================== %
-
-function mnuDisplaySettings_Callback(~, ~, handles) %#ok<DEFNU>
-% Change display settings (e.g., number of traces displayed).
-
-opt = struct('dataField',handles.options.dataField,'nTracesToShow',handles.nTracesToShow, 'showStateMarkers',handles.showStateMarkers);
-prompt = {'Data field', 'Number of traces to show', 'Show model FRET values over traces'};
-types = { handles.data.channelNames(handles.data.idxFret), @(x)(x==round(x)&x>0) };  %'total' field inaccessable...
-opt = settingdlg(opt, fieldnames(opt), prompt, types);
-
-if ~isempty(opt),
-    handles.options.dataField = opt.dataField;
-    handles.nTracesToShow = opt.nTracesToShow;
-    handles.showStateMarkers = opt.showStateMarkers;
-    lbFiles_Callback(handles.lbFiles, [], handles);
-end
-
-% END FUNCTION mnuDisplaySettings_Callback
-
-
-function sldTracesX_Callback(~, ~, handles)
-% User adjusted the trace view slider -- show a different subset of traces.
-
-xlimit = floor(get(handles.sldTracesX,'Value'));
-set( handles.axTraces, 'XLim',[0 handles.data.time(xlimit)/1000] );
-
-for i=1:handles.nTracesToShow,
-    p = get(handles.hTraceLabel(i), 'Position');
-    p(1) = 0.98*handles.data.time(xlimit)/1000;
-    set( handles.hTraceLabel(i), 'Position',p );
-end
-
-% END FUNCTION sldTraces_Callback
-
-
-% --------------------------------------------------------------------
-function handles = lbFiles_Callback(hObject, ~, handles)
-% Callback function for changes to lbFiles data file list.
-% Draws traces from current file in the trace viewer panel.
-% Creates line objects for data plotting, which are updated when the user
-% scrolls or makes other changes by calling showTraces() below.
-% 
-% sldTraces: scrolls vertical list of traces. Value is trace shown at top.
-%            Max means the Value showing the first traces (starting with 1).
-% sldTracesX: Value means the truncation length.
-
-if isempty(handles.dataFilenames), return; end  %no data loaded.
-
-set(handles.figure1,'pointer','watch');
-
-idxFile = get(hObject,'Value');
-data = loadTraces( handles.dataFilenames{idxFile} );
-handles.data = data;
-handles.idl = loadIdl(handles);
-handles.options.exclude = false(data.nTraces,1);
-
-% Disable the trace scroll bar when it won't be valid (prevents errors).
-set( handles.sldTraces, 'Enable',onoff(data.nTraces>handles.nTracesToShow) );
-
-enableListener(handles.sldTracesListener, false);
-set(handles.sldTraces,  'Min',min(data.nTraces,handles.nTracesToShow),  ...
-                        'Max',data.nTraces, 'Value',data.nTraces);
-set(handles.sldTracesX, 'Min',10, 'Max',data.nFrames, 'Value',data.nFrames);
-enableListener(handles.sldTracesListener, true);
-
-% Setup axes for plotting traces.
-cla(handles.axTraces);
-[handles.hFretLine, handles.hIdlLine, handles.hTraceLabel] = deal([]);
-
-time = handles.data.time/1000;
-xlim( handles.axTraces, [0 time(end)] );
-dt = handles.data.sampling/2/1000; %put idl transitions between FRET datapoints.
-
-for i=1:handles.nTracesToShow,
-    y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-           
-    plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:', 'HitTest','off' );  %baseline marker
-        
-    % Determine colors for data display
-    dataField = handles.options.dataField;
-    
-    if strcmpi(dataField,'fret'),
-        traceColor='b';
-    elseif strcmpi(dataField,'fret2')
-        traceColor='m';
-    else
-        idxch = find(strcmpi(dataField,data.channelNames) );
-        if ~isempty(idxch) && any(idxch==handles.data.idxFluor) && ...
-                              isfield(data.fileMetadata,'wavelengths')
-            traceColor = Wavelength_to_RGB( data.fileMetadata.wavelengths(idxch) );
-        else
-            traceColor='k';
-        end
-    end
-    
-    % Draw traces, idealizations, and trace number labeles.
-    handles.hFretLine(i) = plot( handles.axTraces, time, ...
-                          y_offset+zeros(1,data.nFrames), 'Color',traceColor, ...
-                          'HitTest','off');
-
-    handles.hIdlLine(i)  = stairs( handles.axTraces, time-dt, ...
-                          y_offset+zeros(1,data.nFrames), 'r-', 'HitTest','off' );
-    
-    handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
-               'Parent',handles.axTraces, 'BackgroundColor','w', ...
-               'HorizontalAlignment','right', 'VerticalAlignment','bottom', ...
-               'ButtonDownFcn',@traceLabel_Callback, ...
-               'UIContextMenu',handles.mnuTraceViewer);
-end
-
-ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
-xlabel(handles.axTraces,'Time (s)');
-set(handles.figure1,'pointer','arrow');
-
-guidata(hObject,handles);
-showTraces(handles);
-showModelLines(handles);  %Draw state markers underneath data
-
-% END FUNCTION lbFiles_Callback
-
-
-
-function traceLabel_Callback(hObject, ~)
-% Executes when user clicks on trace number text in trace viewer panel.
-% Togger whether the exclude/include the trace in analysis.
-
-% Avoid changing state if the user intended to right-click for context menu.
-if strcmpi( get(gcf,'SelectionType'), 'alt' ), return; end
-    
-handles = guidata(hObject);
-idxTrace = get(hObject,'UserData');
-handles.options.exclude(idxTrace) = ~handles.options.exclude(idxTrace);
-guidata(hObject,handles);
-
-showTraces(handles);
-% END FUNCTION
-
-
-function mnuIncludeAll_Callback(hObject, ~, handles, value) %#ok<DEFNU>
-% Include or exclude all traces in trace viewer.
-handles.options.exclude(:) = value;
-guidata(hObject,handles);
-showTraces(handles);
-% END FUNCTION
-
-
-function mnuLoadSelList_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Load text file listing which traces to include for analysis.
-
-idxFile = get(handles.lbFiles, 'Value');
-[p,f] = fileparts( handles.dataFilenames{idxFile} );
-fname = getFile( fullfile(p,[f '_sel.txt']), 'Load selection list' );
-
-if ~isempty(fname)
-    fid = fopen(fname,'r');
-    idx = fscanf(fid, '%d');
-    fclose(fid);
-    handles.options.exclude(:) = true;
-    handles.options.exclude(idx) = false;
-    guidata(hObject,handles);
-    showTraces(handles);
-end
-
-%END FUNCTION
-
-
-function mnuSaveSelList_Callback(~, ~, handles) %#ok<DEFNU>
-% Save text file listing which traces to include for analysis.
-
-idxFile = get(handles.lbFiles, 'Value');
-[p,f] = fileparts( handles.dataFilenames{idxFile} );
-[f,p] = uiputfile( fullfile(p,[f '_sel.txt']), 'Save selection list' );
-if isequal(f,0), return; end  %user hit cancel
-
-fid = fopen( fullfile(p,f), 'w');
-fprintf( fid, '%d ', find(~handles.options.exclude) );
-fclose(fid);
-
-%END FUNCTION
-
-
-
-function showTraces(handles)
-% Update axTraces to show the current subset -- called by sldTraces.
-% i is the index into the lines in the viewer.
-% idx is the index into the traces in the whole file.
-
-idxStart = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
-nToShow = min(handles.nTracesToShow, handles.data.nTraces);
-traceColor = [0 0 1; 0.6 0.6 1];
-idlColor = [1 0 0; 1 0.6 0.6];
-
-for i=1:nToShow
-    idx = i+idxStart;
-    y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    ex = handles.options.exclude(idx);
-    
-    % Redraw FRET and idealization traces
-    ydata = handles.data.(handles.options.dataField)(idx,:);
-    ydata = y_offset + min(1.15, max(-0.15,ydata) );  %clip outliers, position w/i viewer
-    set( handles.hFretLine(i), 'YData',ydata, 'Color',traceColor(ex+1,:) );
-    
-    if ~isempty(handles.idl)
-        idldata = y_offset + handles.idl(idx,:);
-        set( handles.hIdlLine(i), 'YData',idldata, 'Color',idlColor(ex+1,:) );
-    end
-    
-    if ex
-        traceLabel = sprintf('%d (Excluded)',idx);
-    else
-        traceLabel = sprintf('%d',idx);
-    end
-    set( handles.hTraceLabel(i), 'String',traceLabel, 'UserData',idx );
-end
-
-% Clear final lines if there isn't enough data to fill them.
-set( handles.hFretLine(nToShow+1:end), 'YData',nan(1,handles.data.nFrames) );
-set( handles.hIdlLine(nToShow+1:end),  'YData',nan(1,handles.data.nFrames) );
-set( handles.hTraceLabel(nToShow+1:end), 'String','' );
-
-% END FUNCTION showTraces
-
-
-
-function handles = showModelLines(handles)
-% Draw dotted lines to indicate model FRET values in trace viewer panel.
-
-if ~handles.showStateMarkers || isempty(handles.dataFilenames) || isempty(handles.model)
-    return;
-end
-
-% Remove any existing markers without completely clearing the graph.
-delete( findall(handles.axTraces,'Tag','ModelMarker') );
-
-nToShow = min(handles.nTracesToShow, handles.data.nTraces);
-colors = handles.modelViewer.colors;
-time = handles.data.time([1,end])/1000;
-mu = handles.model.mu;
-h = [];
-
-% Redraw model FRET value markers.
-for i=1:nToShow
-    y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
-    
-    for k=2:handles.model.nClasses
-        h(end+1) = plot( handles.axTraces, time, y_offset+mu([k k]), ':', ...
-                         'Color',colors{k}, 'Tag','ModelMarker', 'HitTest','off' ); %#ok<AGROW>
-    end
-end
-
-uistack(h,'bottom');  %draw markers below data.
-
-% END FUNCTION showModelLines
-
-
-
-% --------------------------------------------------------------------
-function wheelScroll_callback(~, eventData, handles) %#ok<DEFNU>
-% Mouse wheel scrolling moves the trace viewer pane up and down.
-% The event is triggered at the figure level.
-
-loc = get(handles.sldTraces, 'Value')-3*eventData.VerticalScrollCount;
-loc = min( loc, get(handles.sldTraces,'Max') );
-loc = max( loc, get(handles.sldTraces,'Min') );
-set(handles.sldTraces, 'Value', loc);  %triggers listener, updating viewer.
-
-% END FUNCTION wheelScroll_callback
-
-
-
-% --------------------------------------------------------------------
 function mnuSim_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Simulate traces using current model.
 
@@ -834,7 +480,7 @@ set(handles.txtStatus,'String','Finished.'); drawnow;
 % END FUNCTION mnuSim_Callback
 
 
-% --------------------------------------------------------------------
+
 function mnuSimMovie_Callback(~, ~, handles)  %#ok<DEFNU>
 % Executed when the user selects the "Actions->Simulate Movie" menu.
 % Simulates a wide-field fluorescence movie by distributing the fluorescence
@@ -846,7 +492,7 @@ function mnuSimMovie_Callback(~, ~, handles)  %#ok<DEFNU>
 % FIXME: get these from cascadeConstants.
 persistent opt;
 if isempty(opt)
-    opt = struct('sigmaPSF',0.8, 'density',handles.data.nTraces, ...
+    opt = struct('sigmaPSF',0.8, 'density',handles.traceViewer.data.nTraces, ...
                  'aduPhoton',2, 'grid',false, 'alignX',0, 'alignY',0, ...
                  'alignTheta',0, 'alignScale',1);
 end
@@ -857,17 +503,68 @@ newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
 if isempty(newOpt), return; end
 opt = newOpt;
 
-newOpt.density = min(handles.data.nTraces, newOpt.density);
+newOpt.density = min(handles.traceViewer.data.nTraces, newOpt.density);
 
-% Simulate the movie.
-% (simulateMovie.m will ask for the movie filenames)
-simulateMovie(handles.data, [],[], newOpt);
+% Simulate the movie (simulateMovie.m will ask for the movie filenames)
+simulateMovie(handles.traceViewer.data, [],[], newOpt);
 
 % END FUNCTION mnuSimMovie_Callback
 
 
 
-% --------------------------------------------------------------------
+
+
+
+%% ---------------------   FILE LIST CALLBACKS   --------------------- %%
+
+function handles = lbFiles_Callback(hObject, ~, handles)
+% Callback function for changes to lbFiles data file list.
+% Draws traces from current file in the trace viewer panel.
+
+if isempty(handles.dataFilenames),
+    % No files loaded. Clear trace viewer.
+    handles.traceViewer.data = [];
+    handles.traceViewer.idl  = [];
+    handles.traceViewer.dataFilename = '';
+else
+    set(handles.figure1,'pointer','watch');
+    
+    idxFile = get(hObject,'Value');
+    datafname = handles.dataFilenames{idxFile};
+    dwtfname  = handles.dwtFilenames{idxFile};
+    data = loadTraces( datafname );
+    
+    handles.traceViewer.dataFilename = datafname;
+    handles.traceViewer.data = data;
+    handles.traceViewer.idl = loadIdl(dwtfname, data);
+    
+    set(handles.figure1,'pointer','arrow');
+end
+
+handles.traceViewer.redraw();
+
+% END FUNCTION lbFiles_Callback
+
+
+
+function idl = loadIdl(dwtfname, data)
+% Returns the idealization for the currently selected file
+
+if ~isempty(dwtfname) && exist(dwtfname,'file'),
+    [dwt,~,offsets,model] = loadDWT(dwtfname);
+    idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+    
+    assert( size(model,2)==2 );
+    fretValues = [NaN; model(:,1)];
+    idl = fretValues( idl+1 );
+else
+    idl = [];
+end
+
+% END FUNCTION loadIdl
+
+
+
 function mnuFileRemove_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Close currently-selected file in GUI list.
 
@@ -880,18 +577,13 @@ names = get(handles.lbFiles,'String');
 names(idxfile) = [];
 set(handles.lbFiles,'String',names, 'Value',max(1,idxfile-1));
 
-% Update GUI.
-if numel(names)>0
-    lbFiles_Callback(handles.lbFiles, [], handles);
-else
-    cla(handles.axTraces);
-    enableControls(handles);
-end
+enableControls(handles);
+lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION mnuFileRemove_Callback
 
 
-% --------------------------------------------------------------------
+
 function mnuFileRemoveAll_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Close all open files.
 
@@ -900,13 +592,13 @@ handles.dwtFilenames = {};
 set(handles.lbFiles, 'String',{}, 'Value',1);
 guidata(hObject,handles);
 
-cla(handles.axTraces);
 enableControls(handles);
+lbFiles_Callback(handles.lbFiles, [], handles);
 
 % END FUNCTION mnuFileRemoveAll_Callback
 
 
-% --------------------------------------------------------------------
+
 function mnuFileUp_Callback(hObject, ~, handles, inc) %#ok<DEFNU>
 % Move currently-selected file up in the GUI list.
 % The last parameter specifies the direction to move (+1 up, -1 down).
@@ -916,22 +608,97 @@ names   = get(handles.lbFiles,'String');
 idxfile = get(handles.lbFiles,'Value');  %currently selected file.
 idxnew  = idxfile+inc;  %new position after move.
 idxnew  = max(1, min(numel(names),idxnew) );  %can't move past the end
+idxswap = [idxfile idxnew];
 
-handles.dataFilenames = swap( handles.dataFilenames, idxfile, idxnew );
-handles.dwtFilenames  = swap( handles.dwtFilenames,  idxfile, idxnew );
+handles.dataFilenames(idxswap) = handles.dataFilenames(flip(idxswap));
+handles.dwtFilenames(idxswap)  = handles.dwtFilenames(flip(idxswap));
 guidata(hObject,handles);
 
 % Reorder within listbox control
-names = swap( names, idxfile, idxnew );
+names(idxswap) = names(flip(idxswap));
 set(handles.lbFiles, 'String',names, 'Value',idxnew);
 
 % END FUNCTION mnuFileUp_Callback
 
 
 
-function out = swap(in, idx1, idx2)
-% Swap elements in a matrix by index.
-out = in;
-out(idx1) = in(idx2);
-out(idx2) = in(idx1);
-%end
+
+
+
+
+%% ------------------------  PLOTTING FUNCTIONS  ------------------------ %%
+% Executed when plotting menu or toolbar buttons are clicked.
+
+function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
+idxFile  = get(handles.lbFiles,   'Value');
+idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
+sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
+% END FUNCTION
+
+
+
+function mnuDwellhist_Callback(~, ~, handles, showFits) %#ok<DEFNU>
+% Draw dwell-time distributions, with model fits.
+if nargin<4, showFits=false; end
+
+if ~isempty(handles.model) && showFits
+    params.model = handles.model;
+    dwellhist(handles.dwtFilenames(1), params);
+else
+    params.model = [];
+    dwellhist(handles.dwtFilenames, params);
+end
+% END FUNCTION
+
+
+
+
+
+
+
+%% ------------------------  SETTINGS DIALOGS  ------------------------ %%
+
+function handles = cboIdealizationMethod_Callback(hObject, ~, handles)
+% Update method to use for idealization
+% FIXME: consider getting this value only when needed (execution).
+
+text = get(hObject,'String');
+handles.options.idealizeMethod = text{get(hObject,'Value')};
+guidata(hObject, handles);
+
+enableControls(handles);
+
+% END FUNCTION cboIdealizationMethod_Callback
+
+
+
+function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Change idealization settings
+
+switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
+    case {'SE','BA'}  %SKM, Baum-Welch
+        prompt = {'Analyze traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
+        fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
+    
+    case {'VB','EB'}  %vb/ebFRET
+        prompt = {'Min states','Max states','Max restarts:','Max iterations:','Convergence'};
+        fields = {'minStates', 'maxStates', 'maxRestarts',  'maxItr',         'threshold'};
+    
+    case 'MI'  %MIL
+        prompt = {'Max iterations:'};  %'Dead time (frames):'
+        fields = {'maxItr'};  %'deadTime'
+        
+    otherwise
+        return;
+end
+
+options = settingdlg(handles.options, fields, prompt);
+if ~isempty(options),
+    handles.options = options;
+    guidata(hObject,handles);
+end
+
+% END FUNCTION mnuIdlSettings_Callback
+
+
+

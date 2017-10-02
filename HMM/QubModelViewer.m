@@ -34,7 +34,7 @@ properties (SetAccess=protected, GetAccess=public)
     draggedBox = [];  %state box currently being dragged (if any)
 end
 
-properties (SetAccess=protected, GetAccess=public)
+properties (GetAccess=public, Constant)
     % Display settings
     %                k       r       b     dark g      y       m
     colors     = {[0 0 0],[1 0 0],[0 0 1],[0 0.7 0],[1 1 0],[1 0 1]};  % class colors
@@ -76,7 +76,7 @@ methods
     if nargin>=2
         assert( isscalar(target) && ishghandle(target) );  %isgraphics(varargin{1},'axes')
         this.ax = target;
-        hf = gcf;  %FIXME: get(axes,'Parent')?
+        hf = ancestor(target,'figure');
     else
         hf = figure;
         this.ax = axes('Parent',hf);
@@ -90,8 +90,10 @@ methods
     
     if ~isempty(this.model.filename)
         [~,f] = fileparts(this.model.filename);
-        title(this.ax, f, 'interpreter', 'none');
+    else
+        f = 'New unsaved model';
     end
+    title(this.ax, f, 'interpreter', 'none');
     
     end %constructor
     
