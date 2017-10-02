@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 26-Sep-2017 14:20:59
+% Last Modified by GUIDE v2.5 02-Oct-2017 14:31:55
 
 
 %% GUI Callbacks
@@ -137,7 +137,8 @@ function enableControls(handles)
 hasData = ~isempty(handles.dataFilenames);
 set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
       handles.mnuSorttraces handles.mnuSimMovie handles.mnuIncludeAll ...
-      handles.mnuExcludeAll], 'Enable',onoff(hasData) );
+      handles.mnuExcludeAll handles.mnuLoadSelList handles.mnuSaveSelList], ...
+      'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
@@ -582,7 +583,7 @@ dt = handles.data.sampling/2/1000; %put idl transitions between FRET datapoints.
 for i=1:handles.nTracesToShow,
     y_offset = 1.18*(handles.nTracesToShow-i) +0.2;
            
-    plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:' );  %baseline marker
+    plot( handles.axTraces, time([1,end]), y_offset+[0 0], 'k:', 'HitTest','off' );  %baseline marker
         
     % Determine colors for data display
     dataField = handles.options.dataField;
@@ -603,15 +604,17 @@ for i=1:handles.nTracesToShow,
     
     % Draw traces, idealizations, and trace number labeles.
     handles.hFretLine(i) = plot( handles.axTraces, time, ...
-                          y_offset+zeros(1,data.nFrames), 'Color',traceColor );
+                          y_offset+zeros(1,data.nFrames), 'Color',traceColor, ...
+                          'HitTest','off');
 
     handles.hIdlLine(i)  = stairs( handles.axTraces, time-dt, ...
-                          y_offset+zeros(1,data.nFrames), 'r-' );
+                          y_offset+zeros(1,data.nFrames), 'r-', 'HitTest','off' );
     
     handles.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
                'Parent',handles.axTraces, 'BackgroundColor','w', ...
                'HorizontalAlignment','right', 'VerticalAlignment','bottom', ...
-               'ButtonDownFcn',@traceLabel_Callback );
+               'ButtonDownFcn',@traceLabel_Callback, ...
+               'UIContextMenu',handles.mnuTraceViewer);
 end
 
 ylim(handles.axTraces,[0 1.2*handles.nTracesToShow]);
@@ -630,9 +633,8 @@ function traceLabel_Callback(hObject, ~)
 % Executes when user clicks on trace number text in trace viewer panel.
 % Togger whether the exclude/include the trace in analysis.
 
-% Avoid changing state if the user intended to right-click.
-% FIXME: ideally this should make the context menu come up instead. How?
-if ~strcmpi( get(gcf,'SelectionType'), 'normal' ), return; end
+% Avoid changing state if the user intended to right-click for context menu.
+if strcmpi( get(gcf,'SelectionType'), 'alt' ), return; end
     
 handles = guidata(hObject);
 idxTrace = get(hObject,'UserData');
@@ -649,6 +651,41 @@ handles.options.exclude(:) = value;
 guidata(hObject,handles);
 showTraces(handles);
 % END FUNCTION
+
+
+function mnuLoadSelList_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Load text file listing which traces to include for analysis.
+
+idxFile = get(handles.lbFiles, 'Value');
+[p,f] = fileparts( handles.dataFilenames{idxFile} );
+fname = getFile( fullfile(p,[f '_sel.txt']), 'Load selection list' );
+
+if ~isempty(fname)
+    fid = fopen(fname,'r');
+    idx = fscanf(fid, '%d');
+    fclose(fid);
+    handles.options.exclude(:) = true;
+    handles.options.exclude(idx) = false;
+    guidata(hObject,handles);
+    showTraces(handles);
+end
+
+%END FUNCTION
+
+
+function mnuSaveSelList_Callback(~, ~, handles) %#ok<DEFNU>
+% Save text file listing which traces to include for analysis.
+
+idxFile = get(handles.lbFiles, 'Value');
+[p,f] = fileparts( handles.dataFilenames{idxFile} );
+[f,p] = uiputfile( fullfile(p,[f '_sel.txt']), 'Save selection list' );
+if isequal(f,0), return; end  %user hit cancel
+
+fid = fopen( fullfile(p,f), 'w');
+fprintf( fid, '%d ', find(~handles.options.exclude) );
+fclose(fid);
+
+%END FUNCTION
 
 
 
@@ -716,7 +753,7 @@ for i=1:nToShow
     
     for k=2:handles.model.nClasses
         h(end+1) = plot( handles.axTraces, time, y_offset+mu([k k]), ':', ...
-                         'Color',colors{k}, 'Tag','ModelMarker' );
+                         'Color',colors{k}, 'Tag','ModelMarker', 'HitTest','off' ); %#ok<AGROW>
     end
 end
 
