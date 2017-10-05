@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 17-Apr-2017 11:29:13
+% Last Modified by GUIDE v2.5 05-Oct-2017 18:53:19
 
 
 % Begin initialization code - DO NOT EDIT
@@ -631,7 +631,7 @@ if prompt,
     [p,f] = fileparts(filename);
     [f,p] = uiputfile('*.traces', 'Save traces as:', fullfile(p,[f '.rawtraces']));
     if f==0, return; end
-    params.outFilename = fullfile(p,f);
+    handles.params.outFilename = fullfile(p,f);
 end
 
 % Integrate fluorophore point-spread functions, generate fluorescence
@@ -889,6 +889,26 @@ end
 
 % Display the dialog.
 msgbox( output, 'MetaMorph metadata' );
+
+% END FUNCTION btnMetadata_Callback
+
+
+
+function mnuTirfProfile_Callback(~, ~, handles) %#ok<DEFNU>
+% Executes when the "View->Illumination Profile" menu is clicked.
+% FIXME: no direct way to get the output filename, or to know whether it has
+% been saved? For now just guess.
+
+[p,f] = fileparts(handles.stkfile);
+outname = fullfile(p,[f '.rawtraces']);
+if exist(outname,'file'),
+    tirfProfile(outname);
+else
+    disp('No .rawtraces file. Save one first to get a profile');
+end
+
+% END FUNCTION mnuTirfProfile_Callback
+
 
 
 
@@ -1197,3 +1217,6 @@ function updateFileTimer(~,~,hObject,targetDir)
 % movies that may have appeared on the path.
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
+
+
+
