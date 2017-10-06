@@ -32,15 +32,15 @@ else
     error('Invalid input. Must be a filename or Traces object');
 end
 
-if nargin<2,
-    bins = round(linspace(1,1024,25));  %FIXME: actual size?
-end
-
 
 
 %% Calculate intensity profiles
 x = [data.traceMetadata.donor_x];
 y = [data.traceMetadata.donor_y];
+
+if nargin<2,
+    bins = round(linspace(1,max(x)-min(x),25));
+end
 
 % stats = traceStat(data);
 % t = [stats.t];
@@ -73,25 +73,21 @@ figure;
 subplot(2,2,1);
 plot( binCenters, profile(:,1) );
 title('X profile');
-xlim([0 1024]);
 ylim([0 1.05*max(profile(:))])
 
 subplot(2,2,2);
 plot( binCenters, profile(:,2) );
 title('Y profile');
-xlim([0 1024]);
 ylim([0 1.05*max(profile(:))])
 
 subplot(2,2,3);
 plot( binCenters, N(:,1) );
 title('Number of Molecules');
-xlim([0 1024]);
 ylim([0 1.05*max(N(:))])
 
 subplot(2,2,4);
 plot( binCenters, N(:,2) );
 title('Number of Molecules');
-xlim([0 1024]);
 ylim([0 1.05*max(N(:))])
 
 

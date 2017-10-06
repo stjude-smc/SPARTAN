@@ -757,13 +757,18 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
+% All options for fluorescence channel identifiers. See subfield_mask.m.
+% FIXME: ideally this should be the natural field name (e.g., 'acceptor').
+fopt = { {''}, {'','L','R'}, {'','T','B'}, {'','TL','TR','BL','BR'} };
+fopt = fopt{ handles.params.geometry };
+
 prompt = {'Name:','Threshold (0 for auto):', 'Integration window size (px):', ...
           'Minimum separation (px):', 'ADU/photon conversion:', ...
           'Donor blink detection method:', 'Integration neighbhorhood (px):', ...
           'Background trace field'};
 fields = {'name','don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
           'photonConversion', 'zeroMethod', 'nhoodSize','bgTraceField'};
-types = {[],[],[],[],[],{'off','threshold','skm'},[],[]};
+types = {[],[],[],[],[],{'off','threshold','skm'},[],fopt};
 params = settingdlg(handles.params,fields,prompt,types);
 if isempty(params), return; end
 
