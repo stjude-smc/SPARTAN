@@ -191,39 +191,32 @@ high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
-% Hide any old axes.
-if isfield(handles,'ax'),
-    for i=1:numel(handles.ax)
-        cla(handles.ax(i));
-        title(handles.ax(i), '');
-    end
-end
-
 % Create axes for sub-fields
+delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 ax = [];
 fields = subfield(stkData.stk_top-stkData.background, handles.params.geometry);
-spopt = {'Parent',handles.panView};
+spopt = {handles.panView, 'XTickLabel','', 'YTickLabel','', 'Units','normalized'};
 
 switch handles.params.geometry
 case 1,  %---- Single-Channel (full-chip)
-    handles.axTotal = subplot( 1,1,1, spopt{:}, 'Position',[0.2 0 0.6 0.95] );
+    handles.axTotal = axes( spopt{:}, 'Position',[0.02 0 0.95 0.95] );
     
 case 2,  %---- Dual-Channel (L/R)
-    ax(1) = subplot( 1,3,1, spopt{:}, 'Position',[0.025 0 0.3 0.95] );
-    ax(2) = subplot( 1,3,2, spopt{:}, 'Position',[0.350 0 0.3 0.95] );
-    handles.axTotal = subplot( 1,3,3, spopt{:}, 'Position',[0.675 0 0.3 0.95] );
+    ax(1)           = axes( spopt{:}, 'Position',[0      0     0.325  0.95] );
+    ax(2)           = axes( spopt{:}, 'Position',[0.335  0     0.325  0.95] );
+    handles.axTotal = axes( spopt{:}, 'Position',[0.67   0     0.325  0.95] );
     
 case 3,  %---- Dual-Channel (T/B)
-    ax(1) = subplot( 2,3,2, spopt{:}, 'Position',[0.05  0.5   0.45 0.45] );
-    ax(2) = subplot( 2,3,5, spopt{:}, 'Position',[0.05  0.025 0.45 0.45] );
-    handles.axTotal = subplot( 2,3,3, spopt{:}, 'Position',[0.55 0.25 0.45 0.45] );
+    ax(1)           = axes( spopt{:}, 'Position',[0.02   0.51  0.48   0.47] );
+    ax(2)           = axes( spopt{:}, 'Position',[0.02   0     0.48   0.47] );
+    handles.axTotal = axes( spopt{:}, 'Position',[0.51   0.25  0.48   0.47] );
     
 case 4,  %---- Quad-Channel (TL/TR/BL/BR)
-    ax(1) = subplot( 2,3,1, spopt{:}, 'Position',[0.025 0.5   0.3 0.45] );
-    ax(2) = subplot( 2,3,2, spopt{:}, 'Position',[0.35  0.5   0.3 0.45] );
-    ax(4) = subplot( 2,3,5, spopt{:}, 'Position',[0.35  0.025 0.3 0.45] );
-    ax(3) = subplot( 2,3,4, spopt{:}, 'Position',[0.025 0.025 0.3 0.45] );
-    handles.axTotal = subplot( 2,3,3, spopt{:}, 'Position',[0.7 0.25 0.3 0.45] );
+    ax(1)           = axes( spopt{:}, 'Position',[0.0    0.5   0.325  0.47] );
+    ax(2)           = axes( spopt{:}, 'Position',[0.335  0.5   0.325  0.47] );
+    ax(4)           = axes( spopt{:}, 'Position',[0.335  0     0.325  0.47] );
+    ax(3)           = axes( spopt{:}, 'Position',[0      0     0.325  0.47] );
+    handles.axTotal = axes( spopt{:}, 'Position',[0.67   0.25  0.325  0.47] );
 otherwise
     error('Invalid imaging geometry');
 end
@@ -240,7 +233,7 @@ if handles.params.geometry>1,
         set(ax(i),'UserData',i);
     end
     setAxTitles(handles);
-    linkaxes( [ax handles.axTotal] );
+    linkaxes( [to_row(ax) handles.axTotal] );
 end
 
 % Show total fluorescence channel
