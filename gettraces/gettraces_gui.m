@@ -641,8 +641,10 @@ try
 catch e
     if strcmpi(e.identifier,'parfor_progressbar:cancelled')
         disp('Gettraces: Operation cancelled by user.');
-    else
+    elseif ~cascadeConstants('debug')
         errordlg( ['Error: ' e.message], 'Gettraces' );
+    else
+        rethrow(e);
     end
 end
 

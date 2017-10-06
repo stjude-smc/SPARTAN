@@ -1,17 +1,30 @@
-function output = cascadeConstants()
+function output = cascadeConstants(fname)
 %cascadeConstants  Parameter values used throughout SPARTAN.
 %
 %   const = cascadeConstants() is a struct of parameters.
 
-%   Copyright 2007-2016 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 
 % Cached for faster execution. Automatically reset if file is modified.
 persistent constants;
-if ~isempty(constants),
-    output = constants;
-    return;
+if isempty(constants),
+    constants = makeConstants();
 end
+
+% If requested, grab just a specific field
+if nargin>0
+    output = constants.(fname);
+else
+    output = constants;
+end
+
+end %function cascadeConstants
+
+
+
+
+function constants = makeConstants()
 
 % Random number will change whenever the file is updated
 constants.tstamp = now();
@@ -19,6 +32,8 @@ constants.tstamp = now();
 % Version info displayed in title bars
 constants.version = '3.4.0';
 constants.software = ['Cornell SPARTAN ' constants.version];
+
+constants.debug = true; %if true, throw errors and print debug info at prompt.
 
 
 
@@ -389,4 +404,6 @@ constants.nProcessors = feature('numCores');
 constants.enable_parfor = constants.nProcessors>1 & ~isdeployed;
 
 
-output = constants;
+end  %function makeConstants
+
+

@@ -369,9 +369,14 @@ else
         [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
     catch e
         set(handles.figure1,'pointer','arrow');
-        errordlg(['Error: ' e.message]);
         set(handles.txtStatus,'String',['Error: ' e.message]);
-        return;
+        
+        if ~cascadeConstants('debug')
+            errordlg(['Error: ' e.message]);
+            return;
+        else
+            rethrow(e);
+        end
     end
     
     handles.dwtFilenames{idxfile} = dwtfname;

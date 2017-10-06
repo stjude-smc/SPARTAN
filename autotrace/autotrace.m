@@ -267,7 +267,7 @@ end
 function handles = OpenTracesBatch( hObject, handles )
 % Calculate and display trace statistics for the current list of files.
 
-set(handles.figure1, 'pointer', 'watch'); drawnow;
+set(handles.figure1, 'pointer','watch'); drawnow;
 
 % Clear out old data to save memory.
 if isappdata(handles.figure1,'infoStruct') %if data previously loaded.
@@ -284,10 +284,12 @@ try
 catch e
     if strcmpi(e.identifier,'parfor_progressbar:cancelled')
         disp('Autotrace: Operation cancelled by user.');
-    else
+    elseif ~cascadeConstants('debug')
         errordlg( ['Error: ' e.message], mfilename );
+    else
+        rethrow(e);
     end
-    set(handles.figure1, 'pointer', 'arrow'); drawnow;
+    set(handles.figure1, 'pointer','arrow'); drawnow;
     return;
 end
 
