@@ -32,7 +32,7 @@ function varargout = crosstalkcorrect(input, varargin)
 
 
 % Check input arguments
-narginchk(0,3);
+narginchk(0,2);
 nargoutchk(0,2);
 
 if nargin<1 || isempty(input),
