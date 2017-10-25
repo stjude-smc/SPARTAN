@@ -71,15 +71,17 @@ end
 
 
 [nTraces,nFrames] = size(data);
+offsets = nFrames*((1:nTraces)-1);
 
 % Ensure input falls within a reasonable range for FRET data.
 data(data>10) = 10;
 data(data<-1) = -1;
 
 % Remove manually excluded traces
-data = data(~params.exclude,:);
-offsets = nFrames*((1:nTraces)-1);
-offsets = offsets(~params.exclude);
+if isfield(params,'exclude')
+    data = data(~params.exclude,:);
+    offsets = offsets(~params.exclude);
+end
 nTraces = size(data,1);
 
 

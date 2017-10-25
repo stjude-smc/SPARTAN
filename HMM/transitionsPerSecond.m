@@ -117,6 +117,8 @@ end
 
 
 %% Display the result.
+cax = newplot(hFig);
+
 nStates = size(meanTPS,2);
 if ~strcmpi(params.errorbars,'none')
     errorbar( cax, repmat(1:nFiles,nStates,1)', meanTPS, stdTPS/2 );
