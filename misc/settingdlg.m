@@ -72,7 +72,7 @@ end
 NumQuest = numel(Prompt);
 
 if numel(types) < NumQuest,
-    types{numel(types)+1:NumQuest} = [];  %fill trailing missing values
+    [types{numel(types)+1:NumQuest}] = deal([]);  %fill trailing missing values
 end
 
 
