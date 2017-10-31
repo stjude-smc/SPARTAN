@@ -36,24 +36,6 @@ function varargout = dyediag(varargin)  %fnames, inputParams)
 
 
 
-%% Create new figure or use one provided by user as first argument
-nargoutchk(0,3);
-[varargout{1:nargout}] = deal([]);
-
-if ishandle(varargin{1}),
-    hfig = varargin{1};
-    varargin = varargin(2:end);
-    clf(hfig);
-else
-    hfig = figure( 'Name',sprintf('Dye Diagnostics (ver. %s)',cascadeConstants('version')),...
-                   'Units','normalized', 'Position', [0.16 0.29 0.67 0.4] );
-    %fixme: this will create a window even if the input is empty because
-    %the user hit cancel.
-end
-set(hfig, 'pointer','watch'); drawnow;
-
-
-
 %% Set default parameter values
 persistent params;
 
@@ -83,6 +65,17 @@ end
 
 
 %% Process input arguments
+nargoutchk(0,3);
+[varargout{1:nargout}] = deal([]);
+
+% Check for initial figure target argument
+if nargin>0 && ishandle(varargin{1}),
+    hfig = varargin{1};
+    varargin = varargin(2:end);
+else
+    hfig = [];
+end
+
 switch numel(varargin)
     case 0
         fnames = getFileGroups('*.rawtraces');
@@ -98,7 +91,17 @@ end
 nFiles = numel(fnames);  %number of file groups/conditions.
 if isempty(fnames), return; end
 
+% Create new figure if none given.
+if isempty(hfig)
+    hfig = figure( 'Name',sprintf('Dye Diagnostics (ver. %s)',cascadeConstants('version')),...
+                   'Units','normalized', 'Position', [0.16 0.29 0.67 0.4] );
+else
+    clf(hfig);
+end
+set(hfig, 'pointer','watch'); drawnow;
 
+
+%% Calculate photophysical properties and display them
 model = params.model;
 model.fixSigma = [1 0];
 skmParams.seperately = 1;
@@ -127,7 +130,6 @@ max_t = 0;
 max_snr = 0;
 
 
-%%
 for i=1:nFiles,
     %-------------------------------------------------------------
     % 1) Load data from each file and combine into one large dataset.
@@ -408,13 +410,8 @@ cb = @(~,~)settingdlg(params,fields,prompt,{}, @dyediag,{hfig,fnames});
 
 defaultFigLayout( hfig, @(~,~)dyediag(getFileGroups('*.rawtraces'),params), ...
                         @(~,~)dyediag(hfig,getFileGroups('*.rawtraces'),params), ...
-                        {@exportTxt,txtout}, ...
-       {'Change settings...',cb; ...
-        %'Reset settings',@(~,~)dwellplots(hFig,dwtfilename) ...  %FIXME!
-        %'Copy output',{@clipboardmat,output}
-       }  );
+                        {@exportTxt,txtout}, {'Change settings...',cb}  );
 
-% output = [to_col(dwellaxis) horzcat(histograms{:})];
 outargs = {output,errors,hfig};
 [varargout{1:nargout}] = outargs{1:nargout};
 
