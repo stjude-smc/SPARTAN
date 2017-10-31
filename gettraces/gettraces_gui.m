@@ -453,10 +453,10 @@ end
 
 % Fraction of molecules close enough for PSFs to overlap (overcrowding).
 percentOverlap = stkData.fractionOverlapped*100;
+c = max(0,min(1, (percentOverlap-40)/10 ));
 
-set(  handles.txtOverlapStatus, 'String', ...
-      sprintf('Molecules rejected: %0.0f%%', percentOverlap)  );
-set( handles.txtOverlapStatus, 'ForegroundColor', (percentOverlap>30)*[0.9 0 0] );
+set(  handles.txtOverlapStatus, 'ForegroundColor', c*[0.9 0 0], ...
+       'String', sprintf('Molecules rejected: %0.0f%%', percentOverlap)  );
 
 
 % Fraction of overlapping integration windows (also overcrowding).
