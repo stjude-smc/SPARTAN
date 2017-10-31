@@ -1207,14 +1207,24 @@ end
 
 function stopFileTimer(~,~,hObject)
 % Called on error during timer callback or when the timer is stopped.
-handles = guidata(hObject);
-set(handles.mnuBatchOverwrite,'Checked','off');
+if ishandle(hObject)
+    handles = guidata(hObject);
+    set(handles.mnuBatchOverwrite,'Checked','off');
+end
 % END FUNCTION stopFileTimer
 
 
 function updateFileTimer(~,~,hObject,targetDir)
 % This function runs each time the timer is fired, looking for any new
 % movies that may have appeared on the path.
+
+if ~ishandle(hObject),
+fileTimer = timerfind('Name','gettraces_fileTimer');
+    stop(fileTimer);
+    delete(fileTimer);
+    return;
+end
+
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
 

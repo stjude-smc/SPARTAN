@@ -664,8 +664,10 @@ end %if
 function stopFileTimer(~,~,hObject)
 % This function is called when there is an error during the timer callback
 % or when the timer is stopped.
-handles = guidata(hObject);
-set(handles.mnuAutoBatch,'Checked','off');
+if ishandle(hObject)
+    handles = guidata(hObject);
+    set(handles.mnuAutoBatch,'Checked','off');
+end
 
 % END FUNCTION stopFileTimer
 
@@ -674,6 +676,12 @@ function updateFileTimer(~,~,hObject,targetDir)
 % This function runs each time the timer is fired, looking for any new
 % movies that may have appeared on the path.
 
+if ~ishandle(hObject),
+    fileTimer = timerfind('Name','autotrace_fileTimer');
+    stop(fileTimer);
+    delete(fileTimer);
+    return;
+end
 handles = guidata(hObject);
 
 % Kill the timer if the directory is inaccessible
