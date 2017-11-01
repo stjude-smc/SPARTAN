@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 01-Nov-2017 13:23:16
+% Last Modified by GUIDE v2.5 01-Nov-2017 16:16:19
 
 
 % Begin initialization code - DO NOT EDIT
@@ -308,6 +308,8 @@ for i=startFrame:stkData.movie.nFrames
     if strcmpi(state,'Play'), return; end
 end
 
+set(handles.btnPlay,'String','Play');
+
 % END FUNCTION btnPlay_Callback
 
 
@@ -549,7 +551,7 @@ for i=1:size(eff,1),
 end
 
 set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',mean(decay)) );
-set( handles.txtPSFWidth, 'ForegroundColor', (mean(decay)>handles.params.nPixelsToSum)*[0.9 0 0] );
+set( handles.txtPSFWidth, 'ForegroundColor', (mean(decay)>handles.params.nPixelsToSum-1)*[0.9 0 0] );
 
 
 
@@ -909,49 +911,53 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in btnMetadata.
-function btnMetadata_Callback(hObject, ~, handles)  %#ok<DEFNU>
+function btnMetadata_Callback(~, ~, handles)  %#ok<DEFNU>
 % Display a simple diaglog with the MetaMorph metadata for the first frame.
 
 stkData = getappdata(handles.figure1,'stkData');
+if isempty(stkData), return; end  %disable button?
 
-if isempty(stkData) || ~isfield(stkData.movie.header,'MM')
-    if isfield( stkData.movie.header,'ImageDescription' ),
-        msgbox( stkData.movie.header.ImageDescription, 'ImageDescription' );
-    else
-        % This movie doesn't have any metadata
-        set( hObject, 'Enable','off' );
+% MetaMorph specific metadata
+if isfield(stkData.movie.header,'MM')
+    metadata = stkData.movie.header.MM(1);
+    if isfield( stkData.movie.header, 'MM_wavelength' ),
+        wv = stkData.movie.header.MM_wavelength;
+        metadata.MM_wavelength = wv(wv>100);
     end
-    return;
+    
+% Generic TIFF format metadata
+else
+    metadata = stkData.movie.header;
 end
 
-% Grab extra MetaMorph fields outside the MM struct.
-metadata = stkData.movie.header.MM(1);
-
-if isfield( stkData.movie.header, 'MM_wavelength' ),
-    wv = stkData.movie.header.MM_wavelength;
-    metadata.MM_wavelength = wv(wv>100);
-end
-
-% Convert structure data into text to display.
+% Display metadata fields as a list in a message box.
 fields = fieldnames(metadata);
-flen = max( cellfun(@numel,fields) );
-nFields = numel(fields);
+output = {};
 
-output = cell( nFields, 1 );
-
-for i=1:nFields, %for each field
+for i=1:numel(fields),
     fname = fields{i};
-    data  = metadata.(fname);
+    data = metadata.(fname);
+    if isempty(data), continue; end
+    if strcmpi(fname,'DateTime'), continue; end  % Ignore frame-specific fields
     
-    if isnumeric(data),
+    % Truncate long text fields
+    if isnumeric(data)
         data = num2str(data);
+    else
+        idxline = find(data==newline,1,'first');
+        if ~isempty(idxline),
+            data = data(1:idxline-1);
+        end
+    end
+    if numel(data)>70
+        data = [data(1:70) ' ...'];
     end
     
-    output{i} = sprintf( ['%' num2str(flen) 's:  %s'], fname, data );
+    output{end+1} = sprintf( '%s:  %s', fname, data ); %#ok
+    disp( output{end} );
 end
 
-% Display the dialog.
-msgbox( output, 'MetaMorph metadata' );
+msgbox( output, 'Movie metadata' );
 
 % END FUNCTION btnMetadata_Callback
 
@@ -959,8 +965,8 @@ msgbox( output, 'MetaMorph metadata' );
 
 function mnuTirfProfile_Callback(~, ~, handles) %#ok<DEFNU>
 % Executes when the "View->Illumination Profile" menu is clicked.
-% FIXME: no direct way to get the output filename, or to know whether it has
-% been saved? For now just guess.
+% FIXME: consider directly integration only from stk_top instead.
+% This would not require saving traces, which takes a long time.
 
 [p,f] = fileparts(handles.stkfile);
 outname = fullfile(p,[f '.rawtraces']);
@@ -1290,7 +1296,3 @@ end
 
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
-
-
-
-
