@@ -17,7 +17,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 05-Oct-2017 18:53:19
+% Last Modified by GUIDE v2.5 01-Nov-2017 13:23:16
 
 
 % Begin initialization code - DO NOT EDIT
@@ -67,7 +67,7 @@ end
 
 % Add profiles from cascadeConstants to settings menu.
 for i=1:numel(profiles),
-    if i<=numel(constants.gettraces_profiles), pos=i; else pos=i+2; end
+    if i<=numel(constants.gettraces_profiles), pos=i; else, pos=i+2; end
     
     hMenu(i) = uimenu(handles.mnuProfiles, 'Label',profiles(i).name, ...
                       'Position',pos, 'Callback',@mnuProfiles_Callback); %#ok<AGROW>
@@ -179,8 +179,10 @@ end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 [stkData] = gettraces( filename, handles.params );
-setappdata(handles.figure1,'stkData', stkData);
+setappdata(handles.figure1,'stkData',stkData);
 
+set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
+     'SliderStep',[1/stkData.movie.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 % low = min(min(stkData.stk_top));
@@ -221,20 +223,23 @@ otherwise
     error('Invalid imaging geometry');
 end
 
-handles.ax = ax;
-guidata(hObject,handles);
-
 % Show fluorescence fields for all channels
+handles.ax = ax;
+handles.himshow = [];
+
 if handles.params.geometry>1,
     for i=1:numel(fields),
         h = imshow( fields{i}, [0 val], 'Parent',ax(i) );
         set(h,'UIContextMenu',handles.mnuImage);
         colormap(ax(i),handles.colortable);
         set(ax(i),'UserData',i);
+        handles.himshow(i) = h;
     end
     setAxTitles(handles);
     linkaxes( [to_row(ax) handles.axTotal] );
 end
+
+guidata(hObject,handles);
 
 % Show total fluorescence channel
 total = sum( cat(3,fields{:}), 3);
@@ -248,6 +253,62 @@ set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on
 set([handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs],'Enable','off');
 
 %end function OpenStk
+
+
+
+% --- Executes on slider movement.
+function sldScrub_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Allows user to scroll through the movie
+
+% Stop any currently playing movies.
+set(handles.btnPlay,'String','Play');
+
+% Read frame of the movie
+stkData  = getappdata(handles.figure1,'stkData');
+idxFrame = round( get(hObject,'Value') );
+frame  = double( stkData.movie.readFrame(idxFrame) );
+fields = subfield(frame-stkData.background, handles.params.geometry);
+
+for i=1:numel(fields)
+    set( handles.himshow(i), 'CData',fields{i} );
+end
+
+% END FUNCTION sldScrub_Callback
+
+
+
+% --- Executes on button press in btnPlay.
+function btnPlay_Callback(~, ~, handles) %#ok<DEFNU>
+% Play movie
+
+% Clicking when the button is labeled 'stop' causes the loop below to terminate.
+if strcmpi( get(handles.btnPlay,'String') ,'Play' )
+    set(handles.btnPlay,'String','Stop');
+else
+    set(handles.btnPlay,'String','Play');
+    return;
+end
+
+stkData = getappdata(handles.figure1,'stkData');
+startFrame = round( get(handles.sldScrub,'Value') );
+
+for i=startFrame:stkData.movie.nFrames
+    frame  = double( stkData.movie.readFrame(i) );
+    fields = subfield(frame-stkData.background, handles.params.geometry);
+    
+    for f=1:numel(fields)
+        set( handles.himshow(f), 'CData',fields{f} );
+    end
+    
+    set(handles.sldScrub,'Value',i);
+    drawnow;
+    
+    % Terminate early if the user clicks the 'Stop' button.
+    state = get(handles.btnPlay,'String');
+    if strcmpi(state,'Play'), return; end
+end
+
+% END FUNCTION btnPlay_Callback
 
 
 
@@ -651,6 +712,8 @@ end
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION mnuFileSave_Callback
+
+
 
 
 
@@ -1227,6 +1290,7 @@ end
 
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
+
 
 
 
