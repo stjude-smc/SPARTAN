@@ -213,12 +213,6 @@ parfor (i=1:nPeaks,M)
             psfs(yy,xx,i) = sum( val(:) );
         end
     end
-
-    % Update waitbar
-%     if mod(i,300)==0,
-%         waitbar(0.15*i/nPeaks,wbh);
-%         drawnow;
-%     end
 end
 
 % Normalization
@@ -248,23 +242,33 @@ tags.Software = [mfilename ' (' constants.software ')'];
 % Create the TIFF file.
 hTiff = Tiff(outFilename,'w8');  % w=tiff, w8=bigtiff
 
-chunkSize = stkNFrames; %100;  %number of frames to process at once.
+tic;
+
+chunkSize = 1;  %number of frames to process at once.
+pxrange = (-limit:limit);
+selAll = data.total>50;
 
 for k=1:chunkSize:stkNFrames,
     % Load the background movie data
     fidx = k:min(k+chunkSize-1,stkNFrames);  %frame number in whole movie.
     frames = movie.readFrames(fidx);
+    % or gaussian noise background frame if no bg movie given.
+    
+    % Only add noise to regions where the donor is alive.
+    % Helps speed up the poissrnd step, which is very slow.
+    sel = selAll(:,k);
     
     % For each peak, add fluorescence onto the frames.
     % bsxfun multiplies the fluorescence (f) into each pixel of the PSF (psfs).
     % poissrnd simulates shot noise from these values (must be in photons!)
-    f = reshape( fluor(:,fidx), [1 nPeaks chunkSize] );
+    fluorpsfs = bsxfun( @times, psfs, reshape(fluor(:,fidx),[1 1 nPeaks]) );
+    fluorpsfs(sel) = poissrnd(fluorpsfs(sel));
+    fluorpsfs = uint16( params.aduPhoton*fluorpsfs );
     
     for i=1:nPeaks,
-        yl = origins(i,1)+(-limit:limit);
-        xl = origins(i,2)+(-limit:limit);
-        fluorframes = poissrnd(  bsxfun( @times, psfs(:,:,i), f(1,i,:) )  );
-        frames(yl,xl,:) = frames(yl,xl,:) + uint16(params.aduPhoton*fluorframes);
+        yl = origins(i,1)+pxrange;
+        xl = origins(i,2)+pxrange;
+        frames(yl,xl) = frames(yl,xl) + fluorpsfs(:,:,i);
     end
 
     % Write the finished frame to disk.
@@ -278,13 +282,15 @@ for k=1:chunkSize:stkNFrames,
     end
 
     % Update waitbar
-    waitbar(0.15+0.85*(k/stkNFrames),wbh);
+    if mod(k,10)==0
+        waitbar(0.15+0.85*(k/stkNFrames),wbh);
+    end
 end
 
 close(hTiff);
 close(wbh);
 fprintf('Saved simulated movie to %s.\n', bgMovieFilename);
-
+disp(toc);
 
 end
 
