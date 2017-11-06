@@ -84,22 +84,22 @@ methods
             % Process time axis information.
             try
                 if isfield( info,'ExposureTime' )
-                    % No explicit time axis is available, but we can
-                    % reconstruct an approximate one using the exposure time.
-                    % This field is specific to the LabVIEW software.
+                    % This tag is specific to Blanchard Lab LabVIEW software.
+                    % It has highest priority because it is the least ambiguous
+                    % (see below).
                     ms = info(1).ExposureTime*1000;
                     firstTime(i) = 0 + sum( obj.nFramesPerMovie(1:i-1) )*ms;
                     times{i} = firstTime(i) + (0:numel(info)-1)*ms;
 
                 elseif isfield( info,'DateTime' )
+                    % NOTE: for most acquisition implementations, these
+                    % timestamps are for the time transfered from the camera
+                    % to the computer and may not actually be that valuable.
                     dot = strfind( info(1).DateTime, '.' );
                     if isempty(dot)
                         disp('Warning: DateTime field does not have millisecond precision');
 
                     else
-                        % NOTE: for most acquisition implementations, these
-                        % timestamps are for the time transfered from the camera
-                        % to the computer and may not actually be that valuable.
                         % This is hacky because ms time is variable width with
                         % MetaMorph and because each call to datenum is slow.
                         tcell = {info.DateTime};
@@ -176,8 +176,8 @@ methods
             % Time in frames
             obj.timeAxis = obj.timestamps;
         else
-            dt = round( 10*median(timediff) )/10; %time resolution in ms
-            obj.timeAxis = 0:dt:(dt*obj.nFrames-1);
+            dt = median(timediff); %time resolution in ms
+            obj.timeAxis = dt*(0:obj.nFrames-1);
             
             % Verify the timestamps are continuous. If files from distinct
             % movies are spliced together, they will have big jumps. This is a
