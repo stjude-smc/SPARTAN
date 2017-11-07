@@ -50,7 +50,7 @@ constants = cascadeConstants();
 set( handles.figure1, 'Name', ['gettraces - ' constants.software] );
 
 % Load colormap for image viewer
-handles.colortable = gettraces_colormap();
+set( handles.figure1, 'Colormap',gettraces_colormap() );
 
 % Choose default command line output for gettraces
 handles.output = hObject;
@@ -82,7 +82,6 @@ end
 
 handles.profile = constants.gettraces_defaultProfile;  %index to current profile (FIXME: rename)
 set( hMenu(handles.profile), 'Checked','on' );
-
 
 
 % Context menus for field-specific settings (names, wavelength, etc).
@@ -195,60 +194,65 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 % Create axes for sub-fields
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
-ax = [];
 fields = subfield(stkData.stk_top-stkData.background, handles.params.geometry);
-spopt = {handles.panView, 'XTickLabel','', 'YTickLabel','', 'Units','normalized'};
+nFields = numel(fields);
 
 switch handles.params.geometry
 case 1,  %---- Single-Channel (full-chip)
-    handles.axTotal = axes( spopt{:}, 'Position',[0.02 0 0.95 0.95] );
+    ax = [];
+    handles.axTotal = axes( handles.panView, 'Position',[0.02 0 0.95 0.95] );
     
 case 2,  %---- Dual-Channel (L/R)
-    ax(1)           = axes( spopt{:}, 'Position',[0      0     0.325  0.95] );
-    ax(2)           = axes( spopt{:}, 'Position',[0.335  0     0.325  0.95] );
-    handles.axTotal = axes( spopt{:}, 'Position',[0.67   0     0.325  0.95] );
+    ax(1)           = axes( handles.panView, 'Position',[0     0    0.325 0.95] );
+    ax(2)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.95] );
+    handles.axTotal = axes( handles.panView, 'Position',[0.67  0    0.325 0.95] );
     
 case 3,  %---- Dual-Channel (T/B)
-    ax(1)           = axes( spopt{:}, 'Position',[0.02   0.51  0.48   0.47] );
-    ax(2)           = axes( spopt{:}, 'Position',[0.02   0     0.48   0.47] );
-    handles.axTotal = axes( spopt{:}, 'Position',[0.51   0.25  0.48   0.47] );
+    ax(1)           = axes( handles.panView, 'Position',[0.02  0.51 0.48  0.47] );
+    ax(2)           = axes( handles.panView, 'Position',[0.02  0    0.48  0.47] );
+    handles.axTotal = axes( handles.panView, 'Position',[0.51  0.25 0.48  0.47] );
     
 case 4,  %---- Quad-Channel (TL/TR/BL/BR)
-    ax(1)           = axes( spopt{:}, 'Position',[0.0    0.5   0.325  0.47] );
-    ax(2)           = axes( spopt{:}, 'Position',[0.335  0.5   0.325  0.47] );
-    ax(4)           = axes( spopt{:}, 'Position',[0.335  0     0.325  0.47] );
-    ax(3)           = axes( spopt{:}, 'Position',[0      0     0.325  0.47] );
-    handles.axTotal = axes( spopt{:}, 'Position',[0.67   0.25  0.325  0.47] );
+    ax(1)           = axes( handles.panView, 'Position',[0.0   0.5  0.325 0.47] );
+    ax(2)           = axes( handles.panView, 'Position',[0.335 0.5  0.325 0.47] );
+    ax(4)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.47] );
+    ax(3)           = axes( handles.panView, 'Position',[0     0    0.325 0.47] );
+    handles.axTotal = axes( handles.panView, 'Position',[0.67  0.25 0.325 0.47] );
 otherwise
     error('Invalid imaging geometry');
 end
 
 % Show fluorescence fields for all channels
-handles.ax = ax;
+axopt = {'YDir','reverse', 'Color',get(gcbf,'Color'), 'Visible','off'};
 handles.himshow = [];
+handles.ax = ax;
 
 if handles.params.geometry>1,
-    for i=1:numel(fields),
-        h = imshow( fields{i}, [0 val], 'Parent',ax(i) );
-        set(h,'UIContextMenu',handles.mnuImage);
-        colormap(ax(i),handles.colortable);
+    for i=1:nFields,
+        handles.himshow(i) = image( ax(i), fields{i}, 'CDataMapping','scaled' );
         set(ax(i),'UserData',i);
-        handles.himshow(i) = h;
     end
-    setAxTitles(handles);
     linkaxes( [to_row(ax) handles.axTotal] );
+    set( ax, 'CLim',[0 val], axopt{:} );
 end
-
-guidata(hObject,handles);
 
 % Show total fluorescence channel
 total = sum( cat(3,fields{:}), 3);
-h = imshow( total, [0 val*2], 'Parent',handles.axTotal );
-set(h,'UIContextMenu',handles.mnuImage);
-colormap(handles.axTotal,handles.colortable);
-title(handles.axTotal,'Total Intensity', 'FontSize',10);
+handles.himshow(end+1) = image( handles.axTotal, total, 'CDataMapping','scaled' );
+set(handles.axTotal, 'CLim',[0 val*2], axopt{:} );
 
-set(handles.figure1,'pointer','arrow');
+if abs(log2( size(total,2)/size(total,1) )) < 1
+    % For roughly symmetric movies, allows for better window resizing.
+    axis( [ax handles.axTotal], 'image' );  %adjust axes size to match image
+else
+    % Allows for better zooming of narrow (high time resolution) movie.
+    axis( [ax handles.axTotal], 'equal' );  %keep the axes size fixed.
+end
+set( handles.himshow, 'UIContextMenu',handles.mnuImage );
+setAxTitles(handles);
+
+guidata(hObject,handles);
+set( handles.figure1, 'pointer','arrow');
 set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
 set([handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs],'Enable','off');
 
@@ -446,9 +450,8 @@ val = get(handles.scaleSlider,'value');
 minimum = get(handles.scaleSlider,'min');
 val = max(val,minimum+1);
 
-imshow( stkData.total_t, [minimum*2 val*2], 'Parent',handles.axTotal );
-colormap( handles.axTotal, handles.colortable );
-title( handles.axTotal, 'Total Intensity' );
+set( handles.himshow(end), 'CData',stkData.total_t );
+set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 
 
 % If no alignment data given (for example in single-channel recordings),
@@ -1076,9 +1079,11 @@ for i=1:numel(fields)
 
     title(handles.ax(fields(i)), ...
           sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},fields(i)), ...
-          'BackgroundColor',chColor, 'FontSize',10, ...
+          'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
           'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
 end
+
+title(handles.axTotal,'Total Intensity', 'FontSize',10, 'Visible','on');
 
 % END FUNCTION setTitles
 
