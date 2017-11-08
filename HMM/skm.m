@@ -148,6 +148,14 @@ if params.zeroEnd,
         
         dwt{i} = [states times];
     end
+else
+    for i=1:nTraces
+        states = dwt{i}(:,1);
+        
+        if numel(states)>0 && states(end)==1
+            dwt{i}(end,:) = [];
+        end
+    end
 end
 
 
