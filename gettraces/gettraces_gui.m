@@ -434,14 +434,27 @@ if ~isfield(handles, 'stkfile')
     return;
 end
 set(handles.tblAlignment, 'Data',{}, 'RowName',{});
-
 set(handles.figure1,'pointer','watch'); drawnow;
 
+% Clear any existing selection markers from previous calls.
+delete(findobj(handles.figure1,'type','line'));
+
 % Locate single molecules
-stkData = getappdata(handles.figure1,'stkData');
-stkData = getPeaks(stkData, handles.params);
-stkData = getIntegrationWindows(stkData, handles.params);
-setappdata(handles.figure1,'stkData',stkData);
+try
+    stkData = getappdata(handles.figure1,'stkData');
+    stkData = getPeaks(stkData, handles.params);
+    stkData = getIntegrationWindows(stkData, handles.params);
+    setappdata(handles.figure1,'stkData',stkData);
+    
+catch e
+    set(handles.figure1,'pointer','arrow'); drawnow;
+    if ~cascadeConstants('debug')
+        errordlg( ['Error: ' e.message], 'Gettraces' );
+    else
+        rethrow(e);
+    end
+    return;
+end
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -600,9 +613,6 @@ style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
 
 stkData = getappdata(handles.figure1,'stkData');
 [nrow,ncol] = size(stkData.stk_top);
-
-% Clear any existing selection markers from previous calls.
-delete(findobj(handles.figure1,'type','line'));
     
 if handles.params.geometry==2, %dual-channel, L/R
     % Assign each spot to the corresponding field image.
@@ -1071,18 +1081,19 @@ for i=1:numel(handles.ax),
 end
 
 % Create new titles
-p = handles.params;
-fields = p.idxFields;
+if numel(handles.ax)>0
+    p = handles.params;
+    fields = p.idxFields;
 
-for i=1:numel(fields)
-    chColor = Wavelength_to_RGB(p.wavelengths(i));
+    for i=1:numel(fields)
+        chColor = Wavelength_to_RGB(p.wavelengths(i));
 
-    title(handles.ax(fields(i)), ...
-          sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},fields(i)), ...
-          'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
-          'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
+        title(handles.ax(fields(i)), ...
+              sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},fields(i)), ...
+              'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
+              'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
+    end
 end
-
 title(handles.axTotal,'Total Intensity', 'FontSize',10, 'Visible','on');
 
 % END FUNCTION setTitles

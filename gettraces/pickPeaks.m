@@ -32,7 +32,7 @@ nMol = size(centroids,1);
 
 % Detect maxima that are very close together and probably have overlapping
 % point-spread functions.
-if overlap_thresh==0 || nMol==0,
+if overlap_thresh==0 || nMol<2
     boolRejected = false(1,nMol);  %no overlap rejection.
 else
     [~,dist] = knnsearch( centroids, centroids, 'k',2 );

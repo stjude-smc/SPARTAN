@@ -182,7 +182,7 @@ methods
             % Verify the timestamps are continuous. If files from distinct
             % movies are spliced together, they will have big jumps. This is a
             % warning because sometimes movies are shuttered, giving big jumps.
-            if any(timediff<0.1) || any(timediff>3*dt),
+            if any(timediff==0) || any(timediff>3*dt),
                 warning('Movie_TIFF:discontinuousTimestamps', ...
                         'Timestamps are not continuous. This can happen if files from multiple movies are mixed!');
                 disp(  [ min(diff(obj.timestamps)) max(diff(obj.timestamps)) ]  );
