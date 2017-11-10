@@ -25,7 +25,13 @@ function integrateAndSave(stkData, stk_fname, params)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-constants = cascadeConstants;
+
+if nargin<3
+    params = stkData.params;
+else
+    stkData.params = params;
+end
+
 movie = stkData.movie;
 nFrames = movie.nFrames;
 quiet = params.quiet;
@@ -88,7 +94,7 @@ end
 
 % Parallelize very large TIFF movies, where disk access is quick compared to
 % image processing. 
-if nTraces*nFrames/2000 > 1500 && constants.enable_parfor && isa(movie,'Movie_TIFF'),
+if nTraces*nFrames/2000 > 1500 && cascadeConstants('enable_parfor') && isa(movie,'Movie_TIFF'),
     % Processing large TIFF movies is CPU limited. Use parfor to parallelize.
     pool = gcp;
     M = pool.NumWorkers;

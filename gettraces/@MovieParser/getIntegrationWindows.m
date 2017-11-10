@@ -8,6 +8,11 @@ function stkData = getIntegrationWindows(stkData, params)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
+if nargin>=2
+    stkData.params = params;
+else
+    params = stkData.params;
+end
 
 stk_top = stkData.stk_top-stkData.background;
 Npeaks = size(stkData.peaks,1);
@@ -33,6 +38,8 @@ stkData.bgMask(idxs) = false;
 idxs = findRegions(stk_top, stkData.rejectedPicks, params.nPixelsToSum, ...
                                                    params.nhoodSize);
 stkData.bgMask(idxs) = false;
+
+stkData.stage = 3;
 
 end %function getIntegrationWindows
 

@@ -177,7 +177,7 @@ if isappdata(handles.figure1,'stkData')
 end
 set(handles.figure1,'pointer','watch'); drawnow;
 
-[stkData] = gettraces( filename, handles.params );
+stkData = MovieParser( filename, handles.params );  %does not draw from gettraces params!
 setappdata(handles.figure1,'stkData',stkData);
 
 set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
@@ -471,7 +471,7 @@ set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 % don't display any status messages.
 set( handles.txtAlignWarning, 'Visible','off' );
 
-if ~isfield(stkData,'alignStatus') || isempty(stkData.alignStatus),
+if isempty(stkData.alignStatus),
     set(handles.panAlignment, 'Visible','off', 'ForegroundColor', [0 0 0]);
     handles.alignment = [];
     
@@ -709,11 +709,7 @@ set(handles.figure1,'pointer','watch'); drawnow;
 
 try
     stkData = getappdata(handles.figure1,'stkData');
-    if isfield(stkData,'peaks')
-        integrateAndSave(stkData, filename, handles.params);
-    else
-        gettraces( stkData, handles.params, filename );
-    end
+    integrateAndSave(stkData, filename, handles.params);
 catch e
     if strcmpi(e.identifier,'parfor_progressbar:cancelled')
         disp('Gettraces: Operation cancelled by user.');
@@ -853,8 +849,7 @@ params = settingdlg(handles.params,fields,prompt,types);
 if isempty(params), return; end
 
 % Update profile name
-constants = cascadeConstants;
-nStandard = numel(constants.gettraces_profiles);
+nStandard = numel( cascadeConstants('gettraces_profiles') );
 
 if handles.profile < nStandard  && ~strcmpi(params.name,handles.params.name)
     % Standard profile's name was modified, so we assume they want to create a
@@ -880,8 +875,7 @@ setpref('SPARTAN','gettraces_customProfiles',handles.profiles(nStandard+1:end));
 function mnuSettingsSave_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Save current settings as a new imaging profile in the Settings menu.
 
-constants = cascadeConstants;
-nStandard = numel(constants.gettraces_profiles);
+nStandard = numel( cascadeConstants('gettraces_profiles') );
 
 % Ask for the new name
 newName = inputdlg('New profile name:', mfilename, 1, {handles.params.name});

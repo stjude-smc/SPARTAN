@@ -28,10 +28,13 @@ function stkData = getPeaks(stkData, params)
 %    rejectedPicks = locations of peaks that will not be considered because
 %            they are too close to a neighbor.
 %    rejectedTotalPicks = rejected peaks in total intensity image.
-% 
 
-constants = cascadeConstants;
-image_t = stkData.stk_top - stkData.background;
+
+if nargin>=2
+    stkData.params = params;
+else
+    params = stkData.params;
+end
 
 
 % If the threshold for detecting intensity peaks is not given, calculate it
@@ -39,7 +42,7 @@ image_t = stkData.stk_top - stkData.background;
 % FIXME: This must be recalcualted after software alignment, if applicable.
 if ~params.don_thresh
     if ~isfield(params,'thresh_std')
-        thresh_std = constants.gettracesThresholdStd;
+        thresh_std = cascadeConstants('gettracesThresholdStd');
     else
         thresh_std = params.thresh_std;
     end
@@ -65,6 +68,7 @@ nCh = numel(channelNames);  %# of channels TO USE.
 
 
 % Define each channel's dimensions and sum fields together.
+image_t = stkData.stk_top - stkData.background;
 fields = subfield(image_t, params.geometry);
 allFields = cat(3, fields{:});
 
@@ -262,6 +266,13 @@ stkData.fractionOverlapped = size(stkData.rejectedTotalPicks,1) / nPicked;
 stkData.total_t = total_t;
 stkData.alignStatus = align;
 stkData.peaks = picks;
+stkData.params = params;
+
+
+% Reset any stale data from later steps
+stkData.stage = 2;
+[stkData.regionIdx,stkData.integrationEfficiency,stkData.fractionWinOverlap,stkData.bgMask] = deal([]);
+    
 
 end %function getPeaks
 
