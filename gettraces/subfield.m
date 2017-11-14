@@ -44,19 +44,19 @@ elseif ischar(quad),
 
     % Fields are stitched side-by-side. Each frame has all channels.
     else
-        input = input.readFrames(frameIdx);
-        [nrow,ncol,~] = size(input);
+        image = input.readFrames(frameIdx);
+        [nrow,ncol,~] = size(image);
         switch quad
-            case 'L',   output = input( :, 1:floor(ncol/2), : );
-            case 'R',   output = input( :, floor(ncol/2)+1:end, : );
+            case 'L',   output = image( :, 1:floor(ncol/2), : );
+            case 'R',   output = image( :, floor(ncol/2)+1:end, : );
 
-            case 'T',   output = input( 1:floor(nrow/2), :, : );
-            case 'B',   output = input( floor(nrow/2)+1:end, :, : );
+            case 'T',   output = image( 1:floor(nrow/2), :, : );
+            case 'B',   output = image( floor(nrow/2)+1:end, :, : );
 
-            case 'TL',  output = input( 1:floor(nrow/2), 1:floor(ncol/2), : );
-            case 'TR',  output = input( 1:floor(nrow/2), floor(ncol/2)+1:end, : );
-            case 'BL',  output = input( floor(nrow/2)+1:end, 1:floor(ncol/2), : );
-            case 'BR',  output = input( floor(nrow/2)+1:end, floor(ncol/2)+1:end, : );
+            case 'TL',  output = image( 1:floor(nrow/2), 1:floor(ncol/2), : );
+            case 'TR',  output = image( 1:floor(nrow/2), floor(ncol/2)+1:end, : );
+            case 'BL',  output = image( floor(nrow/2)+1:end, 1:floor(ncol/2), : );
+            case 'BR',  output = image( floor(nrow/2)+1:end, floor(ncol/2)+1:end, : );
 
             otherwise, error('Invalid subfield string %s',quad);
         end

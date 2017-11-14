@@ -112,23 +112,15 @@ traces = zeros(nTraces,nFrames,nCh,'single');
 % end
 
 idx = stkData.regionIdx;  %pixel, peak(chId:nCh:end).
-bg = single( cat(3,stkData.background{:}) );
-nPx = params.nPixelsToSum;
+bg = cellfun( @single, stkData.background, 'Uniform',false );
 fnames = stkData.fnames;
 
-% parfor (k=1:nFrames, M)
-for k=1:nFrames
-    % NOTE: 25% faster by converting to int16, with no change to sCMOS data.
-    % But EMCCD have slight differences due to 15-bit overflows?
-    
+parfor (k=1:nFrames, M)
+    % For each channel in each frame, subtract background and integrate
+    % intensity of each PSF.
     for c=1:nCh
-        frame = subfield(movie,fnames{c},k) - bg(:,:,c); %#ok<PFBNS>
-
-        if nPx>1,
-            traces(:,k,c) = sum( frame(idx{c}) ); %#ok<PFBNS>
-        else
-            traces(:,k,c) = frame(idx{c});
-        end
+        frame = subfield(movie,fnames{c},k) - bg{c}; %#ok<PFBNS>
+        traces(:,k,c) = sum( frame(idx{c}), 1 ); %#ok<PFBNS>
     end
     
     % FIXME!!!
