@@ -6,39 +6,44 @@ function stkData = getIntegrationWindows(stkData, params)
 % To minimize the contribution of nearby molecules, the molecules closest to the
 % peak center are added first and progressively out to the edge.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 if nargin>=2
     stkData.params = params;
 else
     params = stkData.params;
 end
+nPx = params.nPixelsToSum;
+hw  = params.nhoodSize;
 
-stk_top = stkData.stk_top-stkData.background;
+stk_top = stkData.stk_top;
 Npeaks = size(stkData.peaks,1);
 
 % Define regions over which to integrate each peak
-[idxs,eff] = findRegions(stk_top, stkData.peaks, params.nPixelsToSum, ...
-                                                 params.nhoodSize);
-stkData.regionIdx = idxs;
-stkData.integrationEfficiency = eff;
+[stkData.integrationEfficiency,stkData.regionIdx,stkData.bgMask] = deal( cell(size(stk_top)) );
 
-% Give a warning for any empty neighborhoods (eff is NaN)
-if any(isnan(eff(:))),
-    warning('gettraces:getIntegrationWindows:NaN','Empty integration windows found. Zero-value field?');
-end
+for i=1:numel(stk_top)
+    [idxs,eff] = findRegions(stk_top{i}, stkData.peaks(:,:,i), nPx, hw);
+    stkData.regionIdx{i} = idxs;
+    stkData.integrationEfficiency{i} = eff;
+
+    % Give a warning for any empty neighborhoods (eff is NaN)
+    if any(isnan(eff(:))),
+        warning('gettraces:getIntegrationWindows:NaN','Empty integration windows found. Zero-value field?');
+    end
+
+    % For each peak, get the fraction of re-used pixels.
+    nUsed = diff( find([true;diff(sort(idxs(:)))~=0;true]) );
+    stkData.fractionWinOverlap(i) = sum(nUsed>1) /Npeaks /nPx;
     
-% For each peak, get the fraction of re-used pixels.
-nUsed = diff( find([true;diff(sort(idxs(:)))~=0;true]) );
-stkData.fractionWinOverlap = sum(nUsed>1) /Npeaks /params.nPixelsToSum;
+    % Create a mask of background areas (no PSF intensity)
+    stkData.bgMask{i} = true( size(stk_top{i}) );
+    stkData.bgMask{i}(idxs) = false;
+    idxRej = findRegions(stk_top{i}, stkData.rejectedPicks(:,:,i), nPx, hw);
+    stkData.bgMask{i}(idxRej) = false;
+end
 
-% Create a mask of background areas (no PSF intensity)
-stkData.bgMask = true( size(stk_top) );
-stkData.bgMask(idxs) = false;
-idxs = findRegions(stk_top, stkData.rejectedPicks, params.nPixelsToSum, ...
-                                                   params.nhoodSize);
-stkData.bgMask(idxs) = false;
-
+stkData.integrationEfficiency = vertcat(stkData.integrationEfficiency{:});
 stkData.stage = 3;
 
 end %function getIntegrationWindows

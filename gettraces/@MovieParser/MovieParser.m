@@ -22,14 +22,15 @@ properties (GetAccess=public, SetAccess=protected)
     background;          % Estimated background image from first 10 frames
     endBackground;       % Last 10 frames, total fluorescence intensity
     fields;              % stk_top fields for each fluorescence channel
+    fnames;              % Cell array of text descriptors of channel locations
     
     % Picked molecules from getPeaks()
     total_t;             % Registered, total intensity image used for picking
-    peaks;               % Molecule locations in all fields
-    total_peaks;         % Molecule locations in the total intensity image
-    rejectedPicks;       %
-    rejectedTotalPicks;  % Locations of molecules with overlapping PSFs
-    fractionOverlapped;  % Fraction rejected of total
+    peaks;               % Molecule locations in all fields (molID,dim,channel)
+    total_peaks;         % ... in total intensity image
+    rejectedPicks;       % Locations of molecules with overlapping PSFs
+    rejectedTotalPicks;  % ... in total intensity image
+    fractionOverlapped;  % Fraction of molecules rejected due to overlapping PSFs
     alignStatus;         % Alignment strct: dx, dy, theta, sx, sy, abs_dev, tform, quality
     
     % Integration windows from getIntegrationWindows()

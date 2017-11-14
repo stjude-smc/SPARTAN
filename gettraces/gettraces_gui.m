@@ -570,24 +570,13 @@ set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',mean(decay)) );
 set( handles.txtPSFWidth, 'ForegroundColor', (mean(decay)>handles.params.nPixelsToSum-1)*[0.9 0 0] );
 
 
-
-%----- Graphically show peak centers
-handles.x = stkData.peaks(:,1);
-handles.y = stkData.peaks(:,2);
-handles.total_x = stkData.total_peaks(:,1);
-handles.total_y = stkData.total_peaks(:,2);
-
-handles.rx = stkData.rejectedPicks(:,1);
-handles.ry = stkData.rejectedPicks(:,2);
-handles.rtotal_x = stkData.rejectedTotalPicks(:,1);
-handles.rtotal_y = stkData.rejectedTotalPicks(:,2);
-
+% Graphically show peak centers
 highlightPeaks( handles );
 
 % Update GUI controls
-handles.num = numel(handles.total_x);
+handles.num = size(stkData.peaks,1);
 set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
-                                    numel(handles.rtotal_x)+handles.num) );
+                      size(stkData.rejectedPicks,1)+handles.num) );
 
 set( [handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs ...
                                      handles.mnuHidePeaks], 'Enable','on');
@@ -601,72 +590,23 @@ guidata(hObject,handles);
 
 function highlightPeaks(handles)
 % Draw circles around each selected fluorescence spot.
-    
-% Parameters for drawing circles around each detected molecule.
-style1 = {'LineStyle','none','marker','o','color','w'};
-style2 = {'LineStyle','none','marker','o','color','y'};
 
-% Parameters for overlapped molecules that won't actually be recorded.
-% These are darker to de-emphasize them, but yet still be visible.
-style1b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.4]};
-style2b = {'LineStyle','none','marker','o','color',[0.4,0.4,0.0]};
-
+style = {'LineStyle','none','marker','o'};
 stkData = getappdata(handles.figure1,'stkData');
-[nrow,ncol] = size(stkData.stk_top);
-    
-if handles.params.geometry==2, %dual-channel, L/R
-    % Assign each spot to the corresponding field image.
-    indL  = find( handles.x<=(ncol/2) );
-    indR  = find( handles.x> (ncol/2) );
-    rindL = find( handles.rx<=(ncol/2) );
-    rindR = find( handles.rx> (ncol/2) );
-    
-    % Draw markers on selection points (donor side)
-    axes(handles.ax(1));
-    line( handles.x(indL),   handles.y(indL),   style1{:},  'Parent',handles.ax(1) );
-    line( handles.rx(rindL), handles.ry(rindL), style1b{:}, 'Parent',handles.ax(1) );
 
-    % Draw markers on selection points (acceptor side)
-    axes(handles.ax(2));
-    line( handles.x(indR)-(ncol/2),   handles.y(indR),   style1{:},  'Parent',handles.ax(2) );
-    line( handles.rx(rindR)-(ncol/2), handles.ry(rindR), style1b{:}, 'Parent',handles.ax(2) );
-    
-elseif handles.params.geometry==3, %dual-channel, T/B
-    error('STUB');
-    
-elseif handles.params.geometry==4, %quad-channel
-    % Assign each spot to a quadrant. FIXME: can this be a loop?
-    indUL = find( handles.x<=(ncol/2) & handles.y<=(nrow/2) );
-    indLL = find( handles.x<=(ncol/2) & handles.y> (nrow/2) );
-    indLR = find( handles.x> (ncol/2) & handles.y> (nrow/2) );
-    indUR = find( handles.x> (ncol/2) & handles.y<=(nrow/2) );
-    
-    rindUL = find( handles.rx<=(ncol/2) & handles.ry<=(nrow/2) );
-    rindLL = find( handles.rx<=(ncol/2) & handles.ry> (nrow/2) );
-    rindLR = find( handles.rx> (ncol/2) & handles.ry> (nrow/2) );
-    rindUR = find( handles.rx> (ncol/2) & handles.ry<=(nrow/2) );
-    
-    axes(handles.ax(1));
-    line( handles.x(indUL),   handles.y(indUL),   style1{:},  'Parent',handles.ax(1)  );
-    line( handles.rx(rindUL), handles.ry(rindUL), style1b{:}, 'Parent',handles.ax(1) );
-    
-    axes(handles.ax(3));
-    line( handles.x(indLL),   handles.y(indLL)-(nrow/2),   style1{:},  'Parent',handles.ax(3)  );
-    line( handles.rx(rindLL), handles.ry(rindLL)-(nrow/2), style1b{:}, 'Parent',handles.ax(3) );
-    
-    axes(handles.ax(4));
-    line( handles.x(indLR)-(ncol/2),   handles.y(indLR)-(nrow/2),   style1{:},  'Parent',handles.ax(4)  );
-    line( handles.rx(rindLR)-(ncol/2), handles.ry(rindLR)-(nrow/2), style1b{:}, 'Parent',handles.ax(4) );
-    
-    axes(handles.ax(2));
-    line( handles.x(indUR)-(ncol/2),   handles.y(indUR),   style1{:},  'Parent',handles.ax(2)  );
-    line( handles.rx(rindUR)-(ncol/2), handles.ry(rindUR), style1b{:}, 'Parent',handles.ax(2) );
+% FIXME: axes indexes may not be the same as channel indexes????
+for i=1:size(stkData.peaks,3)
+    line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
+            style{:}, 'color','w', 'Parent',handles.ax(i) );
+    line( stkData.rejectedPicks(:,1,i), stkData.rejectedPicks(:,2,i), ...
+            style{:}, 'color',[0.4,0.4,0.4], 'Parent',handles.ax(i) );
 end
 
 % Draw markers on selection points (total intensity composite image).
-axes(handles.axTotal);
-line( handles.total_x,  handles.total_y,  style2{:},  'Parent',handles.axTotal  );
-line( handles.rtotal_x, handles.rtotal_y, style2b{:}, 'Parent',handles.axTotal );
+line( stkData.total_peaks(:,1), stkData.total_peaks(:,2), ...
+        style{:}, 'color','y',  'Parent',handles.axTotal );
+line( stkData.rejectedTotalPicks(:,1), stkData.rejectedTotalPicks(:,2), ...
+        style{:}, 'color',[0.4,0.4,0.0], 'Parent',handles.axTotal );
 
 % end function highlightPeaks
 

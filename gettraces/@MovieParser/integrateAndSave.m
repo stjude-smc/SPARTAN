@@ -36,18 +36,12 @@ movie = stkData.movie;
 nFrames = movie.nFrames;
 quiet = params.quiet;
 
-% Get x,y coordinates of picked peaks
-peaks = stkData.peaks;
-Npeaks = size(peaks,1);
-x = peaks(:,1);
-y = peaks(:,2);
-
 
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
 chNames = params.chNames( ~cellfun(@isempty,params.chNames) );
 nCh = numel(chNames);
-nTraces = Npeaks/nCh;
+nTraces = size(stkData.peaks,1);
 
 dataNames = chNames;
 
@@ -106,38 +100,43 @@ end
 % Create a trace for each molecule across the entire movie.
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
-traces = zeros(Npeaks,nFrames,'single');
+traces = zeros(nTraces,nFrames,nCh,'single');
 
-doBgTrace = isfield(params,'bgTraceField') && ~isempty(params.bgTraceField);
-if doBgTrace,
-    bgTrace = zeros(nFrames,1,'single');
-    bgMask = imerode(stkData.bgMask, ones(3));  %avoid PSF tails
-    bgMask = bgMask & subfield_mask(bgMask, params.bgTraceField);
-else
-    bgMask = [];
-end
+% doBgTrace = isfield(params,'bgTraceField') && ~isempty(params.bgTraceField);
+% if doBgTrace,
+%     bgTrace = zeros(nFrames,1,'single');
+%     bgMask = imerode(stkData.bgMask, ones(3));  %avoid PSF tails
+%     bgMask = bgMask & subfield_mask(bgMask, params.bgTraceField);
+% else
+%     bgMask = [];
+% end
 
 idx = stkData.regionIdx;  %pixel, peak(chId:nCh:end).
-bg = single(stkData.background);
+bg = single( cat(3,stkData.background{:}) );
 nPx = params.nPixelsToSum;
+fnames = stkData.fnames;
 
-parfor (k=1:nFrames, M)
+% parfor (k=1:nFrames, M)
+for k=1:nFrames
     % NOTE: 25% faster by converting to int16, with no change to sCMOS data.
     % But EMCCD have slight differences due to 15-bit overflows?
-    frame = single(movie.readFrame(k)) - bg; %#ok<PFBNS>
     
-    if nPx>1,
-        traces(:,k) = sum( frame(idx) );
-    else
-        traces(:,k) = frame(idx);
+    for c=1:nCh
+        frame = subfield(movie,fnames{c},k) - bg(:,:,c); %#ok<PFBNS>
+
+        if nPx>1,
+            traces(:,k,c) = sum( frame(idx{c}) ); %#ok<PFBNS>
+        else
+            traces(:,k,c) = frame(idx{c});
+        end
     end
     
-    if doBgTrace,
-        bgTrace(k) = mean( frame(bgMask) );
-    end
+    % FIXME!!!
+%     if doBgTrace,
+%         bgTrace(k) = mean( frame(bgMask) );
+%     end
     
-    % Update waitbar. Using mod speeds up the loop, but isn't ideal because
-    % indexes are executed somewhat randomly. Reasonably accurate despite this.
+    % Update waitbar roughly every 10 frames
     if mod(k,10)==0 && ~quiet,
         wbh.iterate(10); %#ok<PFBNS>
     end
@@ -146,9 +145,9 @@ if ~quiet,
     wbh.message = 'Correcting traces and calculating FRET...';
 end
 
-if doBgTrace,
-    data.fileMetadata.bgTrace = bgTrace;
-end
+% if doBgTrace,
+%     data.fileMetadata.bgTrace = bgTrace;
+% end
 
 % Convert fluorescence to arbitrary units to photon counts.
 if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
@@ -161,7 +160,7 @@ end
 
 % Add trace data to the Traces output object
 for i=1:nCh,
-    data.(chNames{i}) = traces(i:nCh:end,:);
+    data.(chNames{i}) = traces(:,:,i);
 end
 
 
@@ -175,7 +174,9 @@ end
 if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
     for i=1:nCh,
         chName = data.channelNames{i};
-        corr = params.biasCorrection{i}( x(i:nCh:end), y(i:nCh:end) );
+        x = stkData.peaks(:,1,i);
+        y = stkData.peaks(:,2,i);
+        corr = params.biasCorrection{i}(x,y);
         data.(chName) = data.(chName)  ./  repmat( corr, [1 nFrames] );
     end
 end
@@ -197,13 +198,12 @@ data.fileMetadata.chDesc = params.chDesc;
 
 
 % -- Save the locations of the picked peaks for later lookup.
-tempx = num2cell(x);
-tempy = num2cell(y);
-
 for i=1:nCh,
     ch = data.channelNames{i};
-    [data.traceMetadata.([ch '_x'])] = tempx{i:nCh:end};
-    [data.traceMetadata.([ch '_y'])] = tempy{i:nCh:end};
+    x = num2cell( stkData.peaks(:,1,i) );
+    y = num2cell( stkData.peaks(:,2,i) );
+    [data.traceMetadata.([ch '_x'])] = x{:};
+    [data.traceMetadata.([ch '_y'])] = y{:};
 end
 
 

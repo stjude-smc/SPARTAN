@@ -1,4 +1,4 @@
-function [picks,rejects] = translatePeaks( total_picks, fieldSize, quadrant, tform )
+function [picks,rejects] = translatePeaks( total_picks, fieldSize, tform )
 % Predict peak locations for a specific fluorescence field given the
 % locations of the peaks in the total fluorescence intensity image.
 % This involves translating the image into the target quadrant and 
@@ -31,19 +31,16 @@ function [picks,rejects] = translatePeaks( total_picks, fieldSize, quadrant, tfo
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
-assert( nargin>=3 & size(total_picks,2)==2 );
-
+% Check input arguments
+narginchk(2,3);
+nargoutchk(1,2);
+assert( size(total_picks,2)==2 );
 
 % Define the size of the field-of-view.
 nrow = fieldSize(1);
-if numel(fieldSize)>1,
-    ncol = fieldSize(2);
-else
-    ncol = fieldSize(1);
-end
+ncol = fieldSize(2);
 
-
-if nargin>3 && ~isempty(tform),
+if ~isempty(tform),
     % Apply transformation to the peak locations.
     % We have to first center the peak locations at (0,0) so the rotation is
     % about the center of the image, then put it back afterward.
@@ -60,24 +57,24 @@ else
 end
 
 
-% Translate into target field
-switch quadrant
-    case 1,
-        % UL. nothing to do.
-        
-    case 2,
-        picks(:,1) = picks(:,1) + ncol; % UR x
-
-    case 3,
-        picks(:,2) = picks(:,2) + nrow; % LL y
-        
-    case 4,
-        picks(:,1) = picks(:,1) + ncol; % LR x
-        picks(:,2) = picks(:,2) + nrow; % LR y
-        
-    otherwise
-        error('Invalid quadrant. Must be 1-4.');
-end
+% % Translate into target field
+% switch quadrant
+%     case 1,
+%         % UL. nothing to do.
+%         
+%     case 2,
+%         picks(:,1) = picks(:,1) + ncol; % UR x
+% 
+%     case 3,
+%         picks(:,2) = picks(:,2) + nrow; % LL y
+%         
+%     case 4,
+%         picks(:,1) = picks(:,1) + ncol; % LR x
+%         picks(:,2) = picks(:,2) + nrow; % LR y
+%         
+%     otherwise
+%         error('Invalid quadrant. Must be 1-4.');
+% end
 
 
 

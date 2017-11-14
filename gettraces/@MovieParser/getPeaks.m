@@ -54,7 +54,8 @@ if ~params.don_thresh
     endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
     params.don_thresh = thresh_std*std( endBG_lowerHalf );
 else
-    params.don_thresh = params.don_thresh-mean2(stkData.background);
+    bg = cat(3, stkData.background{:});
+    params.don_thresh = params.don_thresh-mean2(bg);
 end
 
 
@@ -68,9 +69,8 @@ nCh = numel(channelNames);  %# of channels TO USE.
 
 
 % Define each channel's dimensions and sum fields together.
-image_t = stkData.stk_top - stkData.background;
-fields = subfield(image_t, params.geometry);
-allFields = cat(3, fields{:});
+image_t = stkData.stk_top;
+allFields = cat(3, image_t{:});
 
 % Sum fields to get a total intensity image for finding molecules.
 % For now, we assume everything is aligned. FIXME: if an alignment file is
@@ -79,27 +79,17 @@ total_t = sum( allFields(:,:,quadrants), 3 );
 [nrow,ncol] = size(total_t); %from now on, this is the size of subfields.
 
 
-
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
 [total_picks,rejected] = pickPeaks( total_t, params.don_thresh, ...
                                      params.nhoodSize, params.overlap_thresh );
-nPicked = size(total_picks,1);
-
 assert( all(total_picks(:))>0, 'bad peak locations' );
 
 
-% Predict the locations of peaks in all channels.
+% Initially, assume molecules are in exactly the same spot in every channel.
 if params.geometry==1,
     picks = total_picks;
-
-elseif params.geometry>1,
-    % For each channel, predict peak locations as straight translations 
-    % from the peak locations in the total intensity image.
-    picks = zeros(nCh*nPicked, 2);
-    
-    for i=1:nCh,  
-        picks(i:nCh:end,:) = translatePeaks( total_picks, size(total_t), quadrants(i) );
-    end
+else
+    picks = repmat( total_picks, [1 1 nCh] );
 end
 
 %%%%% Estimation of misalignment (for dual or multi-color)
@@ -109,30 +99,29 @@ quality = zeros(nCh,1);
 
 if params.geometry>1 && numel(picks)>0,
     % Refine peak locations and how much they deviate. This helps determine
-    % if realignment is needed. FIXME: this could be improved (?) by using
-    % centroid locations for translatePeaks above?
-    refinedPicks = getCentroids( image_t, picks, params.nhoodSize );
-    r_mod = [ mod(refinedPicks(:,1),ncol) mod(refinedPicks(:,2),nrow) ];
+    % if realignment is needed.
+    refinedPicks = zeros( size(picks) );
+    for i=1:nCh
+        refinedPicks(:,:,i) = getCentroids( image_t{i}, picks(:,:,i), params.nhoodSize );
+    end
     residuals = refinedPicks-picks;
     
     % For each channel, find a crude alignment using control points. This
     % helps determine if software alignment is needed.
-    d = r_mod(indD:nCh:end,:);  %donor (reference) points
     donor_t = allFields( :,:, params.idxFields(indD) ); %target field to align to
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
         
         % Calculate mean deviations from donor->acceptor fields.
-        dev = residuals(i:nCh:end,:)-residuals(indD:nCh:end,:);
+        dev = residuals(:,:,i)-residuals(:,:,indD);   %ios this right????
         abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
 
         % Use the picked peak locations to create a simple transformation
         % (including translation, rotation, and scaling) from donor to
         % each of the other fields.
-        a = r_mod(i:nCh:end,:);
-
-        tform = fitgeotrans( d(~rejected,:), a(~rejected,:), 'NonreflectiveSimilarity' );
+        tform = fitgeotrans( refinedPicks(~rejected,:,indD), refinedPicks(~rejected,:,i), ...
+                                                'NonreflectiveSimilarity' );
         ss = tform.T(2,1);
         sc = tform.T(1,1);
         scale = sqrt(ss*ss + sc*sc);
@@ -145,6 +134,8 @@ if params.geometry>1 && numel(picks)>0,
 
         align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), 'theta',theta, ...
                 'sx',scale, 'sy',scale, 'abs_dev',abs_dev, 'quality',quality(i) );
+            
+        % FIXME: this should only be called for the 'no alignment' method.
     end
 end
 
@@ -217,34 +208,31 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         % For each channel, predict peak locations as straight translations 
         % from the peak locations in the total intensity image.
         nPicked = size(total_picks,1);
-        picks = zeros( nCh*nPicked, 2 );
-        remove = zeros( nPicked,1 );
+        picks  = zeros( nPicked, 2, nCh );
+        remove = false( nPicked,1 );
 
         for i=1:nCh,
-            [picks(i:nCh:end,:),r] = translatePeaks( total_picks, ...
-                                 size(total_t), quadrants(i), tform{i} );
+            [picks(:,:,i),r] = translatePeaks( total_picks,  size(total_t), tform{i} );
             remove = remove | r;
         end
         
         % Remove peaks that were moved outside the field boundries in at
         % least one of the fields due to the software alignment.
-        total_picks  = total_picks(~remove,:);
-        rejected     = rejected(~remove);
-        nPicked = size(total_picks,1);
-
-        % Remove molecules if the peaks in any field are out of range.
-        z = repmat( remove', [nCh,1] ); z = z(:);
-        picks = picks(~z,:);
-
-
+        total_picks = total_picks(~remove,:,:);
+        rejected    = rejected(~remove);
+        picks       = picks(~remove,:,:);
+        
         %---- 4. Re-estimate coordinates of acceptor-side peaks to verify alignment.
         % Then normalize so that the "expected" location of each peak is (0,0).
         % The rmsd is then the distance between each channel and the donor.
-        refinedPicks = getCentroids( image_t, picks, params.nhoodSize );
-        residuals = refinedPicks-picks; 
+        refinedPicks = zeros( size(picks) );
+        for i=1:nCh
+            refinedPicks(:,:,i) = getCentroids( image_t{i}, picks(:,:,i), params.nhoodSize );
+        end
+        residuals = refinedPicks-picks;
         
         for i=1:nCh,
-            dev = residuals(i:nCh:end,:)-residuals(indD:nCh:end,:);
+            dev = residuals(:,:,i)-residuals(:,:,indD);
             dev = dev(~rejected,:);  %remove overlapped peaks.
             newAlign(i).abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
             newAlign(i).quality = quality(i);
@@ -254,24 +242,21 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
 end
 
 % Save output
-stkData.rejectedTotalPicks = total_picks(rejected,:);
-stkData.total_peaks = total_picks(~rejected,:);
+stkData.rejectedTotalPicks = total_picks( rejected,: );
+stkData.total_peaks        = total_picks( ~rejected,: );
+stkData.rejectedPicks = picks( rejected,:,: );
+stkData.peaks         = picks( ~rejected,:,: );
 
-good = repmat( ~rejected, [nCh,1] ); good=logical(good(:));
-stkData.rejectedPicks = picks( ~good,: );
-picks = picks( good,: );
-
-stkData.fractionOverlapped = size(stkData.rejectedTotalPicks,1) / nPicked;
-
+stkData.fractionOverlapped = sum(rejected)/numel(rejected);
 stkData.total_t = total_t;
 stkData.alignStatus = align;
-stkData.peaks = picks;
 stkData.params = params;
 
 
 % Reset any stale data from later steps
 stkData.stage = 2;
-[stkData.regionIdx,stkData.integrationEfficiency,stkData.fractionWinOverlap,stkData.bgMask] = deal([]);
+[stkData.regionIdx, stkData.integrationEfficiency, stkData.fractionWinOverlap, ...
+ stkData.bgMask] = deal([]);
     
 
 end %function getPeaks
