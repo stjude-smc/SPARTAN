@@ -185,7 +185,8 @@ set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 % low = min(min(stkData.stk_top));
-sort_px = sort(stkData.stk_top(:));
+stk_top = cat(3,stkData.fields{:});
+sort_px = sort(stk_top(:));  %FIXME
 val = sort_px( floor(0.98*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 
@@ -194,8 +195,6 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 % Create axes for sub-fields
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
-fields = subfield(stkData.stk_top-stkData.background, handles.params.geometry);
-nFields = numel(fields);
 
 switch handles.params.geometry
 case 1,  %---- Single-Channel (full-chip)
@@ -228,8 +227,8 @@ handles.himshow = [];
 handles.ax = ax;
 
 if handles.params.geometry>1,
-    for i=1:nFields,
-        handles.himshow(i) = image( ax(i), fields{i}, 'CDataMapping','scaled' );
+    for i=1:numel(stkData.stk_top),
+        handles.himshow(i) = image( ax(i), stkData.stk_top{i}, 'CDataMapping','scaled' );
         set(ax(i),'UserData',i);
     end
     linkaxes( [to_row(ax) handles.axTotal] );
@@ -237,7 +236,7 @@ if handles.params.geometry>1,
 end
 
 % Show total fluorescence channel
-total = sum( cat(3,fields{:}), 3);
+total = sum( cat(3,stkData.stk_top{:}), 3);
 handles.himshow(end+1) = image( handles.axTotal, total, 'CDataMapping','scaled' );
 set(handles.axTotal, 'CLim',[0 val*2], axopt{:} );
 
@@ -270,8 +269,9 @@ set(handles.btnPlay,'String','Play');
 % Read frame of the movie
 stkData  = getappdata(handles.figure1,'stkData');
 idxFrame = round( get(hObject,'Value') );
-frame  = double( stkData.movie.readFrame(idxFrame) );
-fields = subfield(frame-stkData.background, handles.params.geometry);
+
+fields = subfield( stkData.movie, handles.params.geometry, idxFrame );
+fields = cellfun( @minus, fields, stkData.background, 'Uniform',false );
 
 for i=1:numel(fields)
     set( handles.himshow(i), 'CData',fields{i} );
@@ -297,8 +297,8 @@ stkData = getappdata(handles.figure1,'stkData');
 startFrame = round( get(handles.sldScrub,'Value') );
 
 for i=startFrame:stkData.movie.nFrames
-    frame  = double( stkData.movie.readFrame(i) );
-    fields = subfield(frame-stkData.background, handles.params.geometry);
+    fields = subfield( stkData.movie, handles.params.geometry, i );
+    fields = cellfun( @minus, fields, stkData.background, 'Uniform',false );
     
     for f=1:numel(fields)
         set( handles.himshow(f), 'CData',fields{f} );

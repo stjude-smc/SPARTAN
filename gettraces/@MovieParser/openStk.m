@@ -20,7 +20,15 @@ this.movie = movie;
 % to use for finding molecules.
 nFrames = movie.nFrames;
 averagesize = min([10 nFrames]);
-this.stk_top = mean( movie.readFrames(1:averagesize), 3);
+% this.stk_top = mean( movie.readFrames(1:averagesize), 3);
+
+% Extract individual fluorescence fields
+this.fields = subfield( this.movie, params.geometry, 1:averagesize );
+this.fields = cellfun( @(x)mean(x,3), this.fields, 'Uniform',false );
+this.nChannels = numel(this.fields);
+
+% Background subtracted version 
+this.stk_top = cellfun( @minus, stkData.fields, stkData.background, 'Uniform',false );
 
 % Create an estimated background image by:
 % 1. Divide the image into den*den squares
@@ -31,26 +39,29 @@ this.stk_top = mean( movie.readFrames(1:averagesize), 3);
 % at least 3x the size of the width (not std) of the PSF. This is difficult
 % to generalize just from the size of the frame.
 den = 6;
-this.params.bgBlurSize = den;
-temp = zeros( floor(movie.nY/den), floor(movie.nX/den) );
+this.params.bgBlurSize = den;  %FIXME
+this.background = cell( size(this.fields) );
+szField = size(this.fields{1});
+temp = zeros( floor(szField/den) );  %movie.nY,nX
 
-for i=1:size(temp,1),
-    for j=1:size(temp,2),
-        sort_temp = this.stk_top(den*(i-1)+1:den*i,den*(j-1)+1:den*j);
-        sort_temp = sort( sort_temp(:) );
+for f=1:numel(this.fields)
+    
+    for i=1:size(temp,1),
+        for j=1:size(temp,2),
+            sort_temp = this.fields{f}(den*(i-1)+1:den*i,den*(j-1)+1:den*j);
+            sort_temp = sort( sort_temp(:) );
 
-        temp(i,j) = sort_temp( den );  % get the 1/den % smallest value
+            temp(i,j) = sort_temp( den );  %get the 1/den % smallest value
+        end
     end
+    
+    % Rescale the image back to the actual size
+    this.background{f} = imresize(temp, szField, 'bicubic');
 end
 
-% Rescale the image back to the actual size
-this.background = imresize(temp, [movie.nY movie.nX], 'bicubic');
-
 % Background image from the last few frames, used for picking threshold.
-endFrames = double( movie.readFrames(nFrames-11:nFrames-1) );
-fields = subfield(endFrames, this.params.geometry);
-this.endBackground = sum( cat(4,fields{:}), 4 );
-this.nChannels = numel(fields);
+endFields = subfield(movie, this.params.geometry, nFrames-11:nFrames-1);
+this.endBackground = sum( cat(4,endFields{:}), 4 );  %fixme: cell array instead??
         
 % Reset any stale data from later steps
 this.stage = 1;

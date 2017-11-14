@@ -21,6 +21,7 @@ properties (GetAccess=public, SetAccess=protected)
     stk_top;             % Sum of the first 10 frames (fields separate).
     background;          % Estimated background image from first 10 frames
     endBackground;       % Last 10 frames, total fluorescence intensity
+    fields;              % stk_top fields for each fluorescence channel
     
     % Picked molecules from getPeaks()
     total_t;             % Registered, total intensity image used for picking
