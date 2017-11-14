@@ -100,20 +100,20 @@ end
 % Create a trace for each molecule across the entire movie.
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
+fnames = stkData.fnames;
+
+doBgTrace = isfield(params,'bgTraceField') && ~isempty(params.bgTraceField);
+if doBgTrace,
+    bgTrace = zeros(nFrames,1,'single');
+    bgFieldIdx = find( cellfun(@(x)strcmpi(x,params.bgTraceField),fnames), 1,'first' );
+    bgMask = stkData.bgMask{bgFieldIdx};
+else
+    [bgTrace,bgFieldIdx,bgMask] = deal([]);
+end
+
 traces = zeros(nTraces,nFrames,nCh,'single');
-
-% doBgTrace = isfield(params,'bgTraceField') && ~isempty(params.bgTraceField);
-% if doBgTrace,
-%     bgTrace = zeros(nFrames,1,'single');
-%     bgMask = imerode(stkData.bgMask, ones(3));  %avoid PSF tails
-%     bgMask = bgMask & subfield_mask(bgMask, params.bgTraceField);
-% else
-%     bgMask = [];
-% end
-
 idx = stkData.regionIdx;  %pixel, peak(chId:nCh:end).
 bg = cellfun( @single, stkData.background, 'Uniform',false );
-fnames = stkData.fnames;
 
 parfor (k=1:nFrames, M)
     % For each channel in each frame, subtract background and integrate
@@ -121,12 +121,12 @@ parfor (k=1:nFrames, M)
     for c=1:nCh
         frame = subfield(movie,fnames{c},k) - bg{c}; %#ok<PFBNS>
         traces(:,k,c) = sum( frame(idx{c}), 1 ); %#ok<PFBNS>
-    end
     
-    % FIXME!!!
-%     if doBgTrace,
-%         bgTrace(k) = mean( frame(bgMask) );
-%     end
+        % Sum intensity from background regions
+        if doBgTrace && c==bgFieldIdx
+            bgTrace(k) = mean( frame(bgMask) );
+        end
+    end
     
     % Update waitbar roughly every 10 frames
     if mod(k,10)==0 && ~quiet,
@@ -137,9 +137,9 @@ if ~quiet,
     wbh.message = 'Correcting traces and calculating FRET...';
 end
 
-% if doBgTrace,
-%     data.fileMetadata.bgTrace = bgTrace;
-% end
+if doBgTrace,
+    data.fileMetadata.bgTrace = bgTrace;
+end
 
 % Convert fluorescence to arbitrary units to photon counts.
 if isfield(params,'photonConversion') && ~isempty(params.photonConversion),

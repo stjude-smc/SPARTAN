@@ -37,10 +37,13 @@ for i=1:numel(stk_top)
     stkData.fractionWinOverlap(i) = sum(nUsed>1) /Npeaks /nPx;
     
     % Create a mask of background areas (no PSF intensity)
-    stkData.bgMask{i} = true( size(stk_top{i}) );
-    stkData.bgMask{i}(idxs) = false;
+    bgMask = true( size(stk_top{i}) );
+    bgMask(idxs) = false;
     idxRej = findRegions(stk_top{i}, stkData.rejectedPicks(:,:,i), nPx, hw);
-    stkData.bgMask{i}(idxRej) = false;
+    bgMask(idxRej) = false;
+    
+    % Remove PSF tails
+    stkData.bgMask{i} = imerode(bgMask, ones(3));
 end
 
 stkData.integrationEfficiency = vertcat(stkData.integrationEfficiency{:});
