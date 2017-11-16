@@ -31,7 +31,22 @@ if nargin<3 || isempty(tform)
     % Nothing to do if no transform provided
     return;
 
-elseif isstruct(tform)
+elseif isnumeric(tform) || ischar(tform)
+    % Translate into target field
+    switch quadrant
+        case {1,'L','UL'}  %nothing to do.
+        case {2,'R','UR'}
+                picks(:,1) = picks(:,1) + ncol;
+        case {3,'B','BL'}
+            picks(:,2) = picks(:,2) + nrow; % LL y
+        case {4,'BR'}
+            picks(:,1) = picks(:,1) + ncol; % LR x
+            picks(:,2) = picks(:,2) + nrow; % LR y
+        otherwise
+            error('Invalid quadrant');
+    end
+    
+else
     % Apply transformation to the peak locations.
     % We have to first center the peak locations at (0,0) so the rotation is
     % about the center of the image, then put it back afterward.
@@ -42,20 +57,6 @@ elseif isstruct(tform)
     % Mark any peaks that now fall outside the field limits.
     rejects = picks(:,1)<3      | picks(:,2)<3       | ...
               picks(:,1)>ncol-2 | picks(:,2)>nrow-2;
-          
-elseif isnumeric(tform)
-    % Translate into target field
-    switch quadrant
-        case 1,  % UL. nothing to do.
-        case 2,  picks(:,1) = picks(:,1) + ncol; % UR x
-        case 3,  picks(:,2) = picks(:,2) + nrow; % LL y
-        case 4,
-            picks(:,1) = picks(:,1) + ncol; % LR x
-            picks(:,2) = picks(:,2) + nrow; % LR y
-
-        otherwise
-            error('Invalid quadrant. Must be 1-4.');
-    end
 end
 
 

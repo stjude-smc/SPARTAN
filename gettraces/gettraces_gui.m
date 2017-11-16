@@ -184,10 +184,9 @@ set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
      'SliderStep',[1/stkData.movie.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-% low = min(min(stkData.stk_top));
-stk_top = cat(3,stkData.fields{:});
-sort_px = sort(stk_top(:));  %FIXME
-val = sort_px( floor(0.98*numel(sort_px)) );
+stk_top = cat(3,stkData.stk_top{:});
+sort_px = sort(stk_top(:));
+val = 2*sort_px( floor(0.99*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 
 set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
@@ -595,7 +594,7 @@ style = {'LineStyle','none','marker','o'};
 stkData = getappdata(handles.figure1,'stkData');
 
 % FIXME: axes indexes may not be the same as channel indexes????
-for i=1:size(stkData.peaks,3)
+for i=1:numel(handles.ax)
     line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
             style{:}, 'color','w', 'Parent',handles.ax(i) );
     line( stkData.rejectedPicks(:,1,i), stkData.rejectedPicks(:,2,i), ...

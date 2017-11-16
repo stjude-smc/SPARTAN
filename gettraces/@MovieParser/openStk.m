@@ -16,37 +16,28 @@ end
 this.params = params;
 this.movie = movie;
 
-% Average the first 10 frames of the movie to create an image (stk_top)
-% to use for finding molecules.
+% Average the first 10 frames to create an image for finding molecules.
 nFrames = movie.nFrames;
 averagesize = min([10 nFrames]);
 
-% Extract individual fluorescence fields
-[this.fields,this.fnames] = subfield( this.movie, params.geometry, 1:averagesize );
-this.fields = cellfun( @(x)mean(x,3), this.fields, 'Uniform',false );
-this.nChannels = numel(this.fields);
-% Create an estimated background image by:
-% 1. Divide the image into den*den squares
-% 2. For each square, find the fifth lowest number
-% 3. Rescaling these values back to the original image size
-% 
-% *** den should be much larger than the PSF size. A good rule of thumb is
-% at least 3x the size of the width (not std) of the PSF. This is difficult
-% to generalize just from the size of the frame.
-den = 6;
-this.params.bgBlurSize = den;  %FIXME
-this.background = cell( size(this.fields) );
-szField = size(this.fields{1});
+[fields,this.fnames] = subfield( this.movie, params.geometry, 1:averagesize );
+fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
+
+% Create an estimated background image by sampling the lowest 15-20% of 
+% values in each 6x6 area in the image and interpolating values in between.
+% The block size (den) should be at least 3x the PSF width.
+den = 6;  %this.params.bgBlurSize  %FIXME
+this.background = cell( size(fields) );
+szField = size(fields{1});
 temp = zeros( floor(szField/den) );
 
-for f=1:numel(this.fields)
-    
+for f=1:numel(fields)
+    % Divide image into 6x6 squares and find 1/6th lowest value in each.
     for i=1:size(temp,1),
         for j=1:size(temp,2),
-            sort_temp = this.fields{f}(den*(i-1)+1:den*i,den*(j-1)+1:den*j);
+            sort_temp = fields{f}(den*(i-1)+(1:den), den*(j-1)+(1:den));
             sort_temp = sort( sort_temp(:) );
-
-            temp(i,j) = sort_temp( den );  %get the 1/den % smallest value
+            temp(i,j) = sort_temp( den );
         end
     end
     
@@ -54,15 +45,25 @@ for f=1:numel(this.fields)
     this.background{f} = imresize(temp, szField, 'bicubic');
 end
 
-% Background subtracted version 
-this.stk_top = cellfun( @minus, this.fields, this.background, 'Uniform',false );
+% Substract background image
+this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 
-% Background image from the last few frames, used for picking threshold.
+% Use the lowest quartile of intensities from the end of the movie to estimate
+% the fundamental level of background noise in each channel.
+% This is used in getPeaks for automatically choosing a picking threshold.
 endFields = subfield(movie, this.params.geometry, nFrames-11:nFrames-1);
-this.endBackground = sum( cat(4,endFields{:}), 4 );  %fixme: cell array instead??
+endBG = sum( cat(4,endFields{:}), 4 );
+endBG = sort(endBG(:));
+this.endBackground = endBG( 1:floor(numel(endBG)*0.75) );
+
+%this.stdbg = zeros( numel(fields),1 );
+% for f=1:numel(endFields)  %better version
+%     sort_temp = sort( endFields{f}(:) );
+%     sort_temp = sort_temp( 1:floor(numel(sort_temp)*0.75) );
+%     this.stdbg(f) = std(sort_temp);
+% end
         
 % Reset any stale data from later steps
-this.stage = 1;
 [this.total_t, this.peaks, this.total_peaks, this.rejectedTotalPicks,...
  this.fractionOverlapped, this.alignStatus, this.regionIdx,...
  this.integrationEfficiency, this.fractionWinOverlap, this.bgMask] = deal([]);

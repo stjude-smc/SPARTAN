@@ -23,9 +23,10 @@ nargoutchk(1,2);
 % Single string targeting a field to extract
 if isempty(quad)
     output = single( input.readFrames(frameIdx) );
-        
-elseif ischar(quad),
+    return;
+end
 
+if ischar(quad),
     if quad(1)=='S'||quad(1)=='I'
         idx = sscanf(quad(2:end),'%d/%d');
         assert(idx(2)>idx(1) & idx(2)<=4 & idx(1)>0);
@@ -67,7 +68,7 @@ elseif ischar(quad),
 % Integer specifing geometry. Return pre-defined set of sub-images.
 elseif isnumeric(quad)
     switch quad
-        case 1,  quad = {};
+        case 1,  quad = {''};
         case 2,  quad = {'L','R'};
         case 3,  quad = {'T','B'};
         case 4,  quad = {'TL','TR','BL','BR'};

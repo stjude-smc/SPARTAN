@@ -64,13 +64,12 @@ if drawMovie
 
     % Load an image from the first 10 frames of the movie.
     constants = cascadeConstants;
-    stkData = OpenStk( movieFilename, constants.gettraces_profiles(1) );  %single-color
-    image = stkData.stk_top - stkData.background;
+    stkData = MovieParser( movieFilename, constants.gettraces_profiles(1) );  %single-color
 
     % Display the field of view
     sort_px = sort(stkData.stk_top(:));
     val = sort_px( floor(0.98*numel(sort_px)) );
-    imshow( image, [0 val], 'Parent',axFOV );
+    imshow( stkData.stk_top{1}, [0 val], 'Parent',axFOV );
     colormap(axFOV, gettraces_colormap);
     
     zoom(axFOV,'on');

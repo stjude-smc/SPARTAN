@@ -39,23 +39,14 @@ end
 
 % If the threshold for detecting intensity peaks is not given, calculate it
 % automatically from the std of background regions at the end of the movie.
-% FIXME: This must be recalcualted after software alignment, if applicable.
 if ~params.don_thresh
     if ~isfield(params,'thresh_std')
         thresh_std = cascadeConstants('gettracesThresholdStd');
     else
         thresh_std = params.thresh_std;
     end
-
-    % Calculate threshold from variance in background intensity at end of movie.
-    % FIXME: this does not work well when background levels change during the
-    % movie, for example with injection of Cy5-labeled tRNA.
-    endBG = sort( stkData.endBackground(:) );
-    endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
-    params.don_thresh = thresh_std*std( endBG_lowerHalf );
-else
-    bg = cat(3, stkData.background{:});
-    params.don_thresh = params.don_thresh-mean2(bg);
+    params.don_thresh = thresh_std*std( stkData.endBackground );
+%     params.don_thresh = thresh_std*mean(stkData.stdbg);  %improved version
 end
 
 
@@ -68,14 +59,11 @@ channelNames = params.chNames;
 nCh = numel(channelNames);  %# of channels TO USE.
 
 
-% Define each channel's dimensions and sum fields together.
-image_t = stkData.stk_top;
-allFields = cat(3, image_t{:});
-
 % Sum fields to get a total intensity image for finding molecules.
 % For now, we assume everything is aligned. FIXME: if an alignment file is
 % loaded, there's no need to check first.
-total_t = sum( allFields(:,:,quadrants), 3 );
+fields = stkData.stk_top;
+total_t = sum( cat(3,fields{quadrants}), 3 );
 [nrow,ncol] = size(total_t); %from now on, this is the size of subfields.
 
 
@@ -102,13 +90,13 @@ if params.geometry>1 && numel(picks)>0,
     % if realignment is needed.
     refinedPicks = zeros( size(picks) );
     for i=1:nCh
-        refinedPicks(:,:,i) = getCentroids( image_t{i}, picks(:,:,i), params.nhoodSize );
+        refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
     end
     residuals = refinedPicks-picks;
     
     % For each channel, find a crude alignment using control points. This
     % helps determine if software alignment is needed.
-    donor_t = allFields( :,:, params.idxFields(indD) ); %target field to align to
+    donor_t = fields{ params.idxFields(indD) }; %target field to align to
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
@@ -129,7 +117,7 @@ if params.geometry>1 && numel(picks)>0,
 
         % Measure the "quality" of the alignment as the magnitude increase in
         % score compared to a "random" alignment.
-        target_t = allFields(:,:,params.idxFields(i));
+        target_t = fields{params.idxFields(i)};
         quality(i) =  weberQuality(donor_t,target_t,0.7*params.don_thresh);
 
         align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), 'theta',theta, ...
@@ -158,12 +146,12 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
     newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     tform = cell(nCh,1);
     
-    donor_t = allFields( :,:, params.idxFields(indD) ); %target field to align to
+    donor_t = fields{params.idxFields(indD)}; %target field to align to
     total_t = donor_t;
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
-        target_t = allFields(:,:,params.idxFields(i));
+        target_t = fields{params.idxFields(i)};
         
         % Search for an optimal alignment of the selected field vs donor.
         % tform moves the acceptor field to be aligned with the donor.
@@ -227,7 +215,7 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         % The rmsd is then the distance between each channel and the donor.
         refinedPicks = zeros( size(picks) );
         for i=1:nCh
-            refinedPicks(:,:,i) = getCentroids( image_t{i}, picks(:,:,i), params.nhoodSize );
+            refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
         end
         residuals = refinedPicks-picks;
         
@@ -254,7 +242,6 @@ stkData.params = params;
 
 
 % Reset any stale data from later steps
-stkData.stage = 2;
 [stkData.regionIdx, stkData.integrationEfficiency, stkData.fractionWinOverlap, ...
  stkData.bgMask] = deal([]);
     

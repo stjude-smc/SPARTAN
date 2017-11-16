@@ -13,15 +13,12 @@ classdef MovieParser < handle
 
 
 properties (GetAccess=public, SetAccess=protected)
-    stage = 0;           % 1=openStk, 2=getPeaks, 3=getIntegrationWindows
-    
     % Basic data available when movie is first loaded in openStk()
-    nChannels;           % Number of fluorescence channels??
     movie;               % Movie_TIFF or Movie_STK object
-    stk_top;             % Sum of the first 10 frames (fields separate).
-    background;          % Estimated background image from first 10 frames
+    stk_top;             % Sum of the first 10 frames (cell array of fields).
+    background;          % Estimated background image from first 10 frames  (cell array of fields)
     endBackground;       % Last 10 frames, total fluorescence intensity
-    fields;              % stk_top fields for each fluorescence channel
+    %stdbg;              % stdev of background noise at the end of movie (last 10 frames)
     fnames;              % Cell array of text descriptors of channel locations
     
     % Picked molecules from getPeaks()

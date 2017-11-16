@@ -46,7 +46,6 @@ for i=1:numel(stk_top)
 end
 
 stkData.integrationEfficiency = vertcat(stkData.integrationEfficiency{:});
-stkData.stage = 3;
 
 end %function getIntegrationWindows
 
