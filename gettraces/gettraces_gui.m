@@ -624,29 +624,23 @@ delete(findobj(handles.figure1,'type','line'));
 % --- Executes on button press in mnuFileSave.
 function mnuFileSave_Callback(~, ~, handles, prompt)
 
-if nargin<4, prompt=false; end
-
-if iscell(handles.stkfile),
-    filename = handles.stkfile{1};
-else
-    filename = handles.stkfile;
-end
-
-% Remove file extension for multi-part movies.
-filename = regexprep(filename,'-file[0-9]*.[A-Za-z0-9]*$','');
+% Create output file name
+filename = handles.stkfile;
+if iscell(filename), filename=filename{1}; end
+[p,f] = fileparts(filename);
+f = regexprep(f,'-file[0-9]*$',''); %remove multi-part TIFF extension
+filename = fullfile(p,[f '.rawtraces']);
 
 % Prompt user for target filename, if called from the "File->Save As" menu.
-if prompt,
-    [p,f] = fileparts(filename);
-    [f,p] = uiputfile('*.traces', 'Save traces as:', fullfile(p,[f '.rawtraces']));
-    if f==0, return; end
-    handles.params.outFilename = fullfile(p,f);
+if nargin>=4 && prompt
+    [f,p] = uiputfile('*.traces', 'Save traces as:', filename);
+    if f==0, return; end  %user hit cancel
+    filename = fullfile(p,f);
 end
 
-% Integrate fluorophore point-spread functions, generate fluorescence
-% traces, and save to file.
 set(handles.figure1,'pointer','watch'); drawnow;
 
+% Integrate fluorophore PSFs into fluorescence traces and save to file.
 try
     stkData = getappdata(handles.figure1,'stkData');
     integrateAndSave(stkData, filename, handles.params);

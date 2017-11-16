@@ -1,82 +1,62 @@
-function [picks,rejects] = translatePeaks( total_picks, fieldSize, tform )
-% Predict peak locations for a specific fluorescence field given the
-% locations of the peaks in the total fluorescence intensity image.
-% This involves translating the image into the target quadrant and 
-% applying a transformation for software alignment.
+function [picks,rejects] = translatePeaks( picks, fieldSize, tform )
+% translatePeaks  apply transformations to peak locations
 %
-%     picks  = splitPeaks( total_picks, fieldSize, quadrant, [tform] )
+%    PEAKS = translatePeaks(PEAKS, SZ, TFORM) applies the transformation TFORM
+%    (from maketform) to the matrix PEAKS (x coordinates in first column, y in
+%    second), centered around an image of size SZ (nY,nX). Any transformed peak
+%    locations that fall outside the image are removed automatically.
 %
-%     total_picks = peak locations in total intensity imge ([x1,y1;x2,y2;...])
+%    [PEAKS,REJ] = translatePeaks(PEAKS, SZ, TFORM) also returns a logical 
+%    array marking transformed peaks that were removed because they fell
+%    outside the image boundaries.
 %
-%     fieldSize = [nrow,ncol] size of field-of-view.
-%
-%     quadrant = defines which area of the full field-of-view to
-%         translate the peak locations to. For 2-color, 1=left, 2=right.
-%         For four-color, 1=UL,2=UR,3=LL,4=LR.
-%
-%     tform  = transformation (from maketform) to apply to the peak
-%         locations to correct for misalignment. This may place some peaks
-%         outside of the range! Such peaks are given in "rejects" output.
-%         This parameter is optional.
-%
-%     picks   = peak locations for all fields, with the locations for each
-%         each field interleaved (ch1_mol1,ch2_mol1,ch3_mol1,ch1_mol2,ch2_mol2,...).
-%         First column is x, second column is y coordinate.
-% 
-%     rejects = list of peak locations (by index into the total_picks
-%         input array) that are projected outside the range of the field
-%         because of the software alignment applied. These
-%
+%    PEAKS = translatePeaks(PEAKS, SZ, QUAD) directly translates the peak
+%    locations to neighboring fields in a side-by-side montaged image.
+%    Possible values: 1=UL (no translation), 2=UR, 3=BL, 4=BR.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 
 % Check input arguments
 narginchk(2,3);
 nargoutchk(1,2);
-assert( size(total_picks,2)==2 );
+assert( size(picks,2)==2 );
 
 % Define the size of the field-of-view.
 nrow = fieldSize(1);
 ncol = fieldSize(2);
+rejects = false( size(picks,1),1 );
 
-if ~isempty(tform),
+if nargin<3 || isempty(tform)
+    % Nothing to do if no transform provided
+    return;
+
+elseif isstruct(tform)
     % Apply transformation to the peak locations.
     % We have to first center the peak locations at (0,0) so the rotation is
     % about the center of the image, then put it back afterward.
     % Peak (maxima) locations must be integers, so they are rounded.
-    picks = transformPointsInverse(  tform,  [total_picks(:,1)-(ncol/2) total_picks(:,2)-(nrow/2)]  );
+    picks = transformPointsInverse(  tform,  [picks(:,1)-(ncol/2) picks(:,2)-(nrow/2)]  );
     picks = round( [picks(:,1)+(ncol/2) picks(:,2)+(nrow/2) ] );
     
     % Mark any peaks that now fall outside the field limits.
     rejects = picks(:,1)<3      | picks(:,2)<3       | ...
               picks(:,1)>ncol-2 | picks(:,2)>nrow-2;
-else
-    picks = total_picks;
-    rejects = false( size(picks,1),1 );
+          
+elseif isnumeric(tform)
+    % Translate into target field
+    switch quadrant
+        case 1,  % UL. nothing to do.
+        case 2,  picks(:,1) = picks(:,1) + ncol; % UR x
+        case 3,  picks(:,2) = picks(:,2) + nrow; % LL y
+        case 4,
+            picks(:,1) = picks(:,1) + ncol; % LR x
+            picks(:,2) = picks(:,2) + nrow; % LR y
+
+        otherwise
+            error('Invalid quadrant. Must be 1-4.');
+    end
 end
-
-
-% % Translate into target field
-% switch quadrant
-%     case 1,
-%         % UL. nothing to do.
-%         
-%     case 2,
-%         picks(:,1) = picks(:,1) + ncol; % UR x
-% 
-%     case 3,
-%         picks(:,2) = picks(:,2) + nrow; % LL y
-%         
-%     case 4,
-%         picks(:,1) = picks(:,1) + ncol; % LR x
-%         picks(:,2) = picks(:,2) + nrow; % LR y
-%         
-%     otherwise
-%         error('Invalid quadrant. Must be 1-4.');
-% end
-
-
 
 
 end  %function splitPeaks

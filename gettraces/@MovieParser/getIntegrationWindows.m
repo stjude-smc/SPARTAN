@@ -42,8 +42,7 @@ for i=1:numel(stk_top)
     idxRej = findRegions(stk_top{i}, stkData.rejectedPicks(:,:,i), nPx, hw);
     bgMask(idxRej) = false;
     
-    % Remove PSF tails
-    stkData.bgMask{i} = imerode(bgMask, ones(3));
+    stkData.bgMask{i} = imerode(bgMask, ones(3));  % Remove PSF tails
 end
 
 stkData.integrationEfficiency = vertcat(stkData.integrationEfficiency{:});
