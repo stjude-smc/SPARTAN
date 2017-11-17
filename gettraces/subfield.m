@@ -45,7 +45,7 @@ if ischar(quad),
 
     % Fields are stitched side-by-side. Each frame has all channels.
     else
-        image = input.readFrames(frameIdx);
+        image = double( input.readFrames(frameIdx) );
         [nrow,ncol,~] = size(image);
         switch quad
             case 'L',   output = image( :, 1:floor(ncol/2), : );
@@ -63,8 +63,6 @@ if ischar(quad),
         end
     end
 
-    output = single(output);
-
 % Integer specifing geometry. Return pre-defined set of sub-images.
 elseif isnumeric(quad)
     switch quad
@@ -76,6 +74,8 @@ elseif isnumeric(quad)
 end
     
 % Cell array of strings targeting each field to extract
+% FIXME: this is slower than necessary since it involves reading the same frame
+% many times.
 if iscell(quad)
     output = cell(size(quad));
     for i=1:numel(quad)

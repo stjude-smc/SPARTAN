@@ -51,10 +51,13 @@ this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 % Use the lowest quartile of intensities from the end of the movie to estimate
 % the fundamental level of background noise in each channel.
 % This is used in getPeaks for automatically choosing a picking threshold.
-endFields = subfield(movie, this.params.geometry, nFrames-11:nFrames-1);
-endBG = sum( cat(4,endFields{:}), 4 );
-endBG = sort(endBG(:));
-this.endBackground = endBG( 1:floor(numel(endBG)*0.75) );
+% endFields = subfield(movie, this.params.geometry, nFrames-11:nFrames-1);
+% endBG = sum( cat(4,endFields{:}), 4 );
+% endBG = sort(endBG(:));
+% this.endBackground = endBG( 1:floor(numel(endBG)*0.75) );
+
+fields = subfield(movie, params.geometry, nFrames-11:nFrames-1);
+this.endBackground = sum( cat(4,fields{:}), 4 );
 
 %this.stdbg = zeros( numel(fields),1 );
 % for f=1:numel(endFields)  %better version

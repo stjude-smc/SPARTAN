@@ -31,7 +31,7 @@ end
 badPicks = isnan(centroids);
 if any( badPicks(:) ),
     centroids(badPicks) = picks(badPicks);
-    warning('gettraces:getCentroids:NaN','NaN values found when searching for centroids (%d, %.0f%%). This can happen when a field is empty (zero). Using input molecule locations instead for these molecules.', ...
+    error('gettraces:getCentroids:NaN','NaN values found when searching for centroids (%d, %.0f%%). This can happen when a field is empty (zero). Using input molecule locations instead for these molecules.', ...
             sum(badPicks(:)), 100*sum(badPicks(:))/numel(badPicks) );
 end
 

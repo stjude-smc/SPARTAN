@@ -22,8 +22,9 @@ Npeaks = size(stkData.peaks,1);
 % Define regions over which to integrate each peak
 [stkData.integrationEfficiency,stkData.regionIdx,stkData.bgMask] = deal( cell(size(stk_top)) );
 
-for i=1:numel(stk_top)
-    [idxs,eff] = findRegions(stk_top{i}, stkData.peaks(:,:,i), nPx, hw);
+for i=1:size(stkData.peaks,3)
+    field = stk_top{ params.idxFields(i) };
+    [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
     stkData.integrationEfficiency{i} = eff;
 
@@ -37,9 +38,9 @@ for i=1:numel(stk_top)
     stkData.fractionWinOverlap(i) = sum(nUsed>1) /Npeaks /nPx;
     
     % Create a mask of background areas (no PSF intensity)
-    bgMask = true( size(stk_top{i}) );
+    bgMask = true( size(field) );
     bgMask(idxs) = false;
-    idxRej = findRegions(stk_top{i}, stkData.rejectedPicks(:,:,i), nPx, hw);
+    idxRej = findRegions(field, stkData.rejectedPicks(:,:,i), nPx, hw);
     bgMask(idxRej) = false;
     
     stkData.bgMask{i} = imerode(bgMask, ones(3));  % Remove PSF tails

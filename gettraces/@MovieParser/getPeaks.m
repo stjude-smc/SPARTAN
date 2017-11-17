@@ -45,8 +45,16 @@ if ~params.don_thresh
     else
         thresh_std = params.thresh_std;
     end
-    params.don_thresh = thresh_std*std( stkData.endBackground );
-%     params.don_thresh = thresh_std*mean(stkData.stdbg);  %improved version
+%     params.don_thresh = thresh_std*std( stkData.endBackground );
+% %     params.don_thresh = thresh_std*mean(stkData.stdbg);  %improved version
+
+    % Calculate threshold from variance in background intensity at end of movie.
+    % FIXME: this does not work well when background levels change during the
+    % movie, for example with injection of Cy5-labeled tRNA.
+    endBG = sort( stkData.endBackground(:) );
+    endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
+    params.don_thresh = thresh_std*std( endBG_lowerHalf );
+    fprintf('thresh %f = %f * %f\n\n',params.don_thresh,thresh_std,std( endBG_lowerHalf ));
 end
 
 
@@ -54,7 +62,6 @@ end
 % as they will appear in the output data (donor,acceptor). params.idxFields and
 % quadrants identify the physical position of each channel on the camera chip.
 % When looking into the image, use idxFields.
-quadrants = params.idxFields;
 channelNames = params.chNames;
 nCh = numel(channelNames);  %# of channels TO USE.
 
@@ -62,9 +69,8 @@ nCh = numel(channelNames);  %# of channels TO USE.
 % Sum fields to get a total intensity image for finding molecules.
 % For now, we assume everything is aligned. FIXME: if an alignment file is
 % loaded, there's no need to check first.
-fields = stkData.stk_top;
-total_t = sum( cat(3,fields{quadrants}), 3 );
-[nrow,ncol] = size(total_t); %from now on, this is the size of subfields.
+fields = stkData.stk_top(params.idxFields);
+total_t = sum( cat(3,fields{:}), 3 );
 
 
 %---- 1. Pick molecules as peaks of intensity from summed (D+A) image)
@@ -85,47 +91,47 @@ align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'quality'
 indD = find( strcmp(channelNames,'donor') ); %donor channel to align to.
 quality = zeros(nCh,1);
 
-if params.geometry>1 && numel(picks)>0,
-    % Refine peak locations and how much they deviate. This helps determine
-    % if realignment is needed.
-    refinedPicks = zeros( size(picks) );
-    for i=1:nCh
-        refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
-    end
-    residuals = refinedPicks-picks;
-    
-    % For each channel, find a crude alignment using control points. This
-    % helps determine if software alignment is needed.
-    donor_t = fields{ params.idxFields(indD) }; %target field to align to
-    
-    for i=1:nCh,
-        if i==indD, continue; end %don't try to align donor to itself.
-        
-        % Calculate mean deviations from donor->acceptor fields.
-        dev = residuals(:,:,i)-residuals(:,:,indD);   %ios this right????
-        abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
-
-        % Use the picked peak locations to create a simple transformation
-        % (including translation, rotation, and scaling) from donor to
-        % each of the other fields.
-        tform = fitgeotrans( refinedPicks(~rejected,:,indD), refinedPicks(~rejected,:,i), ...
-                                                'NonreflectiveSimilarity' );
-        ss = tform.T(2,1);
-        sc = tform.T(1,1);
-        scale = sqrt(ss*ss + sc*sc);
-        theta = atan2(ss,sc)*180/pi;
-
-        % Measure the "quality" of the alignment as the magnitude increase in
-        % score compared to a "random" alignment.
-        target_t = fields{params.idxFields(i)};
-        quality(i) =  weberQuality(donor_t,target_t,0.7*params.don_thresh);
-
-        align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), 'theta',theta, ...
-                'sx',scale, 'sy',scale, 'abs_dev',abs_dev, 'quality',quality(i) );
-            
-        % FIXME: this should only be called for the 'no alignment' method.
-    end
-end
+% if params.geometry>1 && numel(picks)>0,
+%     % Refine peak locations and how much they deviate. This helps determine
+%     % if realignment is needed.
+%     refinedPicks = zeros( size(picks) );
+%     for i=1:nCh
+%         refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
+%     end
+%     residuals = refinedPicks-picks;
+%     
+%     % For each channel, find a crude alignment using control points. This
+%     % helps determine if software alignment is needed.
+%     donor_t = fields{indD}; %target field to align to
+%     
+%     for i=1:nCh,
+%         if i==indD, continue; end %don't try to align donor to itself.
+%         
+%         % Calculate mean deviations from donor->acceptor fields.
+%         dev = residuals(:,:,i)-residuals(:,:,indD);   %ios this right????
+%         abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
+% 
+%         % Use the picked peak locations to create a simple transformation
+%         % (including translation, rotation, and scaling) from donor to
+%         % each of the other fields.
+%         tform = fitgeotrans( refinedPicks(~rejected,:,indD), refinedPicks(~rejected,:,i), ...
+%                                                 'NonreflectiveSimilarity' );
+%         ss = tform.T(2,1);
+%         sc = tform.T(1,1);
+%         scale = sqrt(ss*ss + sc*sc);
+%         theta = atan2(ss,sc)*180/pi;
+% 
+%         % Measure the "quality" of the alignment as the magnitude increase in
+%         % score compared to a "random" alignment.
+%         target_t = fields{i};
+%         quality(i) =  weberQuality(donor_t,target_t,0.7*params.don_thresh);
+% 
+%         align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), 'theta',theta, ...
+%                 'sx',scale, 'sy',scale, 'abs_dev',abs_dev, 'quality',quality(i) );
+%             
+%         % FIXME: this should only be called for the 'no alignment' method.
+%     end
+% end
 
 
 %%%%% Optional software alignment algorithm (for dual-color only!)
@@ -146,12 +152,12 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
     newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     tform = cell(nCh,1);
     
-    donor_t = fields{params.idxFields(indD)}; %target field to align to
+    donor_t = fields{indD};  %target field to align to
     total_t = donor_t;
     
     for i=1:nCh,
         if i==indD, continue; end %don't try to align donor to itself.
-        target_t = fields{params.idxFields(i)};
+        target_t = fields{i};
         
         % Search for an optimal alignment of the selected field vs donor.
         % tform moves the acceptor field to be aligned with the donor.
@@ -166,6 +172,7 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         
         % Register acceptor side so that it is lined up with the donor.
         % imref2d specifies the center of the image is the origin (0,0).
+        [nrow,ncol] = size(total_t); %from now on, this is the size of subfields.
         R = imref2d( size(target_t), [-1 1]*ncol/2, [-1 1]*nrow/2 );
         registered_t{i} = imwarp( target_t,R, newAlign(i).tform,...
                                     'Interp','cubic', 'OutputView',R );
@@ -215,7 +222,8 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         % The rmsd is then the distance between each channel and the donor.
         refinedPicks = zeros( size(picks) );
         for i=1:nCh
-            refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
+            field = fields{i};
+            refinedPicks(:,:,i) = getCentroids( field, picks(:,:,i), params.nhoodSize );
         end
         residuals = refinedPicks-picks;
         

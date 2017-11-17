@@ -439,21 +439,21 @@ set(handles.figure1,'pointer','watch'); drawnow;
 delete(findobj(handles.figure1,'type','line'));
 
 % Locate single molecules
-try
+% try
     stkData = getappdata(handles.figure1,'stkData');
     stkData = getPeaks(stkData, handles.params);
     stkData = getIntegrationWindows(stkData, handles.params);
     setappdata(handles.figure1,'stkData',stkData);
     
-catch e
-    set(handles.figure1,'pointer','arrow'); drawnow;
-    if ~cascadeConstants('debug')
-        errordlg( ['Error: ' e.message], 'Gettraces' );
-    else
-        rethrow(e);
-    end
-    return;
-end
+% catch e
+%     set(handles.figure1,'pointer','arrow'); drawnow;
+%     if ~cascadeConstants('debug')
+%         errordlg( ['Error: ' e.message], 'Gettraces' );
+%     else
+%         rethrow(e);
+%     end
+%     return;
+% end
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -594,11 +594,15 @@ style = {'LineStyle','none','marker','o'};
 stkData = getappdata(handles.figure1,'stkData');
 
 % FIXME: axes indexes may not be the same as channel indexes????
-for i=1:numel(handles.ax)
-    line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
-            style{:}, 'color','w', 'Parent',handles.ax(i) );
-    line( stkData.rejectedPicks(:,1,i), stkData.rejectedPicks(:,2,i), ...
-            style{:}, 'color',[0.4,0.4,0.4], 'Parent',handles.ax(i) );
+if handles.params.geometry>1
+    for i=1:size(stkData.peaks,3)
+        ax = handles.ax( handles.params.idxFields(i) );
+
+        line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
+                style{:}, 'color','w', 'Parent',ax );
+        line( stkData.rejectedPicks(:,1,i), stkData.rejectedPicks(:,2,i), ...
+                style{:}, 'color',[0.4,0.4,0.4], 'Parent',ax );
+    end
 end
 
 % Draw markers on selection points (total intensity composite image).

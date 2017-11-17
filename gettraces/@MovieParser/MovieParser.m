@@ -14,6 +14,7 @@ classdef MovieParser < handle
 
 properties (GetAccess=public, SetAccess=protected)
     % Basic data available when movie is first loaded in openStk()
+    % Images (stk_top, background, fnames) are ALL fields, even unused ones.
     movie;               % Movie_TIFF or Movie_STK object
     stk_top;             % Sum of the first 10 frames (cell array of fields).
     background;          % Estimated background image from first 10 frames  (cell array of fields)
@@ -31,6 +32,7 @@ properties (GetAccess=public, SetAccess=protected)
     alignStatus;         % Alignment strct: dx, dy, theta, sx, sy, abs_dev, tform, quality
     
     % Integration windows from getIntegrationWindows()
+    % Each is a cell array, one per assigned channel.
     regionIdx;              % X,Y coordinates of each integration window
     integrationEfficiency;  % Estimated fraction of intensity collected
     fractionWinOverlap;     % Fraction of pixels used by multiple molecules
