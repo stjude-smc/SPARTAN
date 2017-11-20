@@ -100,7 +100,7 @@ end
 
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
-fnames = stkData.fnames;
+fnames = stkData.fnames(params.idxFields);
 
 if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
     bgTrace = zeros(nFrames,1,'single');
@@ -109,11 +109,10 @@ if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
 else
     [bgTrace,bgFieldIdx,bgMask] = deal([]);
 end
-
+tic;
 traces = zeros(nTraces,nFrames,nCh,'single');
 idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
-% bg = cellfun( @single, stkData.background, 'Uniform',false );
-bg = stkData.background;
+bg = cellfun( @single, stkData.background, 'Uniform',false );
 
 parfor (k=1:nFrames, M)
     for c=1:nCh
@@ -133,7 +132,7 @@ parfor (k=1:nFrames, M)
         iterate(wbh,10);
     end
 end
-
+disp(toc);
 
 %% Apply corrections and calculate FRET
 if ~quiet,

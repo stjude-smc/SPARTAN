@@ -22,9 +22,6 @@ function align = icpalign( ref_img, target_img, params )
 
 [nrow,ncol] = size(ref_img);
 assert( all(size(ref_img)==size(target_img)) );
-% disp(params);
-disp( sum(ref_img(:)) );
-disp( sum(target_img(:)) );
 
 % 1) Detect beads as brights spots above background.
 % A lower threshold is used to better detect dim channels (Cy7).
