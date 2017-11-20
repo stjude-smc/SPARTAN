@@ -22,7 +22,7 @@ nargoutchk(1,2);
 
 % Single string targeting a field to extract
 if isempty(quad)
-    output = single( input.readFrames(frameIdx) );
+    output = input.readFrames(frameIdx);
     return;
 end
 

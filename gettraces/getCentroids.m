@@ -13,25 +13,33 @@ end
 
 nMol = size(picks,1);
 centroids = zeros(nMol,2);
+win = -nhood:nhood;
+blocks = zeros(numel(win)^2,nMol);
 
+% Extract a window region around the molecule.
 for i=1:nMol,
-    % Extract a window region around the molecule.
-    x_window = picks(i,1) + (-nhood:+nhood);
-    y_window = picks(i,2) + (-nhood:+nhood);
-    block = image_t( y_window, x_window );
-    block = block./sum(block(:));
-    
-    % Calculate an intensity-weighted average position of molecule w/i window.
-    centroids(i,1) = sum( x_window .* sum(block,1)  );
-    centroids(i,2) = sum( y_window .* sum(block,2)' );
+    block = image_t( picks(i,2)+win, picks(i,1)+win );
+    blocks(:,i) = block(:);
 end
+
+% Substract the minimum of each block so the floor is near zero
+blocks = bsxfun(@minus, blocks, min(blocks) );  %blocks-min(blocks)
+t = sum(blocks);
+
+% Calculate center of mass for each peak within its local window
+[ii,jj]=ndgrid(win); ii=ii(:); jj=jj(:);
+centroids(:,1) = sum( bsxfun(@times, jj, blocks) )./t;   %sum( (jj.*blocks) )./t;
+centroids(:,2) = sum( bsxfun(@times, ii, blocks) )./t;   %sum( (ii.*blocks) )./t;
+
+% Add above deviations to peak locations to get centroids
+centroids = centroids + picks;
 
 % NaN values may appear for regions that are entirely black (zero) due to
 % division by zero. Replace these values with the input and give a warning.
 badPicks = isnan(centroids);
 if any( badPicks(:) ),
     centroids(badPicks) = picks(badPicks);
-    error('gettraces:getCentroids:NaN','NaN values found when searching for centroids (%d, %.0f%%). This can happen when a field is empty (zero). Using input molecule locations instead for these molecules.', ...
+    warning('gettraces:getCentroids:NaN','NaN values found when searching for centroids (%d, %.0f%%). This can happen when a field is empty (zero). Using input molecule locations instead for these molecules.', ...
             sum(badPicks(:)), 100*sum(badPicks(:))/numel(badPicks) );
 end
 

@@ -112,7 +112,8 @@ end
 
 traces = zeros(nTraces,nFrames,nCh,'single');
 idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
-bg = cellfun( @single, stkData.background, 'Uniform',false );
+% bg = cellfun( @single, stkData.background, 'Uniform',false );
+bg = stkData.background;
 
 parfor (k=1:nFrames, M)
     for c=1:nCh
@@ -139,6 +140,10 @@ if ~quiet,
     wbh.message = 'Correcting traces and calculating FRET...';
 end
 
+if ~isempty(bgTrace),
+    data.fileMetadata.bgTrace = bgTrace;
+end
+
 % Convert fluorescence to arbitrary units to photon counts.
 if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
     traces = traces./params.photonConversion;
@@ -160,8 +165,13 @@ if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
         x = stkData.peaks(:,1,i);
         y = stkData.peaks(:,2,i);
         corr = params.biasCorrection{i}(x,y);
-        data.(chName) = bsxfun( @rdivide, data.(chName), corr );  %TESTME
+        data.(chName) = data.(chName)  ./  repmat( corr, [1 nFrames] );
+        %data.(chName) = bsxfun( @rdivide, data.(chName), corr );  %TESTME
     end
+end
+
+if isfield(params,'zeroMethod'),
+    data.fileMetadata.zeroMethod = params.zeroMethod;
 end
 
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
@@ -176,16 +186,8 @@ if ~quiet,
     wbh.message = 'Saving traces...';
 end
 
-if ~isempty(bgTrace),
-    data.fileMetadata.bgTrace = bgTrace;
-end
-
 data.fileMetadata.wavelengths = params.wavelengths;
 data.fileMetadata.chDesc = params.chDesc;
-
-if isfield(params,'zeroMethod'),
-    data.fileMetadata.zeroMethod = params.zeroMethod;
-end
 
 % Save molecule locations of the picked peaks for later lookup.
 for i=1:nCh,

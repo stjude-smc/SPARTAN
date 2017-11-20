@@ -20,9 +20,10 @@ stk_top = stkData.stk_top;
 Npeaks = size(stkData.peaks,1);
 
 % Define regions over which to integrate each peak
-[stkData.integrationEfficiency,stkData.regionIdx,stkData.bgMask] = deal( cell(size(stk_top)) );
+nCh = size(stkData.peaks,3);
+[stkData.integrationEfficiency,stkData.regionIdx,stkData.bgMask] = deal( cell(size(nCh,1)) );
 
-for i=1:size(stkData.peaks,3)
+for i=1:nCh
     field = stk_top{ params.idxFields(i) };
     [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;

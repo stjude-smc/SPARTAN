@@ -45,16 +45,12 @@ if ~params.don_thresh
     else
         thresh_std = params.thresh_std;
     end
-%     params.don_thresh = thresh_std*std( stkData.endBackground );
-% %     params.don_thresh = thresh_std*mean(stkData.stdbg);  %improved version
 
     % Calculate threshold from variance in background intensity at end of movie.
     % FIXME: this does not work well when background levels change during the
     % movie, for example with injection of Cy5-labeled tRNA.
-    endBG = sort( stkData.endBackground(:) );
-    endBG_lowerHalf = endBG( 1:floor(numel(endBG)*0.75) );
-    params.don_thresh = thresh_std*std( endBG_lowerHalf );
-    fprintf('thresh %f = %f * %f\n\n',params.don_thresh,thresh_std,std( endBG_lowerHalf ));
+    params.don_thresh = thresh_std*std( stkData.endBackground );
+%     params.don_thresh = thresh_std*mean(stkData.stdbg);  %improved version
 end
 
 
@@ -222,14 +218,12 @@ if params.geometry>1 && params.alignMethod>1 && numel(picks)>0,
         % The rmsd is then the distance between each channel and the donor.
         refinedPicks = zeros( size(picks) );
         for i=1:nCh
-            field = fields{i};
-            refinedPicks(:,:,i) = getCentroids( field, picks(:,:,i), params.nhoodSize );
+            refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
         end
         residuals = refinedPicks-picks;
         
         for i=1:nCh,
-            dev = residuals(:,:,i)-residuals(:,:,indD);
-            dev = dev(~rejected,:);  %remove overlapped peaks.
+            dev = residuals(~rejected,:,i); %-residuals(~rejected,:,indD);
             newAlign(i).abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
             newAlign(i).quality = quality(i);
         end
