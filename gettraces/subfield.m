@@ -45,7 +45,7 @@ if ischar(quad),
 
     % Fields are stitched side-by-side. Each frame has all channels.
     else
-        image = double( input.readFrames(frameIdx) );
+        image = input.readFrames(frameIdx);
         [nrow,ncol,~] = size(image);
         switch quad
             case 'L',   output = image( :, 1:floor(ncol/2), : );

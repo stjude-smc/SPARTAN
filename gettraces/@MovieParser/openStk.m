@@ -29,7 +29,7 @@ fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
 den = 6;  %this.params.bgBlurSize  %FIXME
 this.background = cell( size(fields) );
 szField = size(fields{1});
-temp = zeros( floor(szField/den) );
+temp = zeros( floor(szField/den), 'single' );
 
 for f=1:numel(fields)
     % Divide image into 6x6 squares and find 1/6th lowest value in each.

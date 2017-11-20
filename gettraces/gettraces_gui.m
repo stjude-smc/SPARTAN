@@ -270,6 +270,7 @@ stkData  = getappdata(handles.figure1,'stkData');
 idxFrame = round( get(hObject,'Value') );
 
 fields = subfield( stkData.movie, handles.params.geometry, idxFrame );
+fields = cellfun( @single, fields, 'Uniform',false );
 fields = cellfun( @minus, fields, stkData.background, 'Uniform',false );
 
 for i=1:numel(fields)
@@ -297,6 +298,7 @@ startFrame = round( get(handles.sldScrub,'Value') );
 
 for i=startFrame:stkData.movie.nFrames
     fields = subfield( stkData.movie, handles.params.geometry, i );
+    fields = cellfun( @single, fields, 'Uniform',false );
     fields = cellfun( @minus, fields, stkData.background, 'Uniform',false );
     
     for f=1:numel(fields)
@@ -439,21 +441,21 @@ set(handles.figure1,'pointer','watch'); drawnow;
 delete(findobj(handles.figure1,'type','line'));
 
 % Locate single molecules
-% try
+try
     stkData = getappdata(handles.figure1,'stkData');
     stkData = getPeaks(stkData, handles.params);
     stkData = getIntegrationWindows(stkData, handles.params);
     setappdata(handles.figure1,'stkData',stkData);
     
-% catch e
-%     set(handles.figure1,'pointer','arrow'); drawnow;
-%     if ~cascadeConstants('debug')
-%         errordlg( ['Error: ' e.message], 'Gettraces' );
-%     else
-%         rethrow(e);
-%     end
-%     return;
-% end
+catch e
+    set(handles.figure1,'pointer','arrow'); drawnow;
+    if ~cascadeConstants('debug')
+        errordlg( ['Error: ' e.message], 'Gettraces' );
+    else
+        rethrow(e);
+    end
+    return;
+end
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -769,6 +771,7 @@ guidata(hObject,handles);
 function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
+
 
 % All options for fluorescence channel identifiers. See subfield_mask.m.
 % FIXME: ideally this should be the natural field name (e.g., 'acceptor').

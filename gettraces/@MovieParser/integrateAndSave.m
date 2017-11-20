@@ -101,23 +101,25 @@ end
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
 fnames = stkData.fnames(params.idxFields);
+[bgTrace,bgFieldIdx,bgMask] = deal([]);
 
 if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
-    bgTrace = zeros(nFrames,1,'single');
     bgFieldIdx = find( cellfun(@(x)strcmpi(x,params.bgTraceField),fnames), 1,'first' );
-    bgMask = stkData.bgMask{bgFieldIdx};
-else
-    [bgTrace,bgFieldIdx,bgMask] = deal([]);
+    if isempty(bgFieldIdx)
+        warning('Background trace field must be an active field');
+    else
+        bgTrace = zeros(nFrames,1,'single');
+        bgMask = stkData.bgMask{bgFieldIdx};
+    end
 end
-tic;
-traces = zeros(nTraces,nFrames,nCh,'single');
+
+traces = zeros(nTraces,nFrames,nCh, stkData.movie.precision);
 idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
-bg = cellfun( @single, stkData.background, 'Uniform',false );
 
 parfor (k=1:nFrames, M)
     for c=1:nCh
         % Extract subfield from this frame and subtract background image
-        frame = subfield(movie,fnames{c},k) - bg{c};   %#ok<PFBNS>
+        frame = subfield(movie,fnames{c},k);   %#ok<PFBNS>
         
         % Sum intensity within the integration window of each PSF
         traces(:,k,c) = sum( frame(idx{c}), 1 );       %#ok<PFBNS>
@@ -132,7 +134,14 @@ parfor (k=1:nFrames, M)
         iterate(wbh,10);
     end
 end
-disp(toc);
+
+% Subtract local background
+traces = single(traces);
+for c=1:nCh
+    bgt = sum( stkData.background{c}(idx{c}), 1);
+    traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
+end
+
 
 %% Apply corrections and calculate FRET
 if ~quiet,
