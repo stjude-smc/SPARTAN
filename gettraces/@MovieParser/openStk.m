@@ -30,12 +30,13 @@ den = 6;  %this.params.bgBlurSize  %FIXME
 this.background = cell( size(fields) );
 szField = size(fields{1});
 temp = zeros( floor(szField/den), 'single' );
+win = 1:den;
 
 for f=1:numel(fields)
     % Divide image into 6x6 squares and find 1/6th lowest value in each.
     for i=1:size(temp,1),
         for j=1:size(temp,2),
-            sort_temp = fields{f}(den*(i-1)+(1:den), den*(j-1)+(1:den));
+            sort_temp = fields{f}(den*(i-1)+win, den*(j-1)+win);
             sort_temp = sort( sort_temp(:) );
             temp(i,j) = sort_temp( den );
         end
@@ -65,7 +66,7 @@ this.endBackground = endBG( 1:floor(numel(endBG)*0.75) );
         
 % Reset any stale data from later steps
 [this.total_t, this.peaks, this.total_peaks, this.rejectedTotalPicks,...
- this.fractionOverlapped, this.alignStatus, this.regionIdx,...
+ this.fractionOverlapped, this.alignStatus, this.regionIdx, this.psfWidth, ...
  this.integrationEfficiency, this.fractionWinOverlap, this.bgMask] = deal([]);
              
 end %FUNCTION OpenStk

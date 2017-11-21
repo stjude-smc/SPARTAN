@@ -32,11 +32,12 @@ properties (GetAccess=public, SetAccess=protected)
     alignStatus;         % Alignment strct: dx, dy, theta, sx, sy, abs_dev, tform, quality
     
     % Integration windows from getIntegrationWindows()
-    % Each is a cell array, one per assigned channel.
     regionIdx;              % X,Y coordinates of each integration window
-    integrationEfficiency;  % Estimated fraction of intensity collected
-    fractionWinOverlap;     % Fraction of pixels used by multiple molecules
     bgMask;                 % Logical mask of pixels used for summing background fluorescence
+    
+    integrationEfficiency;  % Estimated fraction of intensity collected
+    psfWidth;               % Average number of pixels to integrate 70% of total intensity
+    fractionWinOverlap;     % Fraction of pixels used by multiple molecules
 end
 
 properties (GetAccess=public, SetAccess=public)

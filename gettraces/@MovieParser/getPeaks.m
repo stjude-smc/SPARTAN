@@ -205,7 +205,7 @@ stkData.params = params;
 
 % Reset any stale data from later steps
 [stkData.regionIdx, stkData.integrationEfficiency, stkData.fractionWinOverlap, ...
- stkData.bgMask] = deal([]);
+ stkData.bgMask, stkData.psfWidth] = deal([]);
     
 
 end %function getPeaks

@@ -512,13 +512,10 @@ else
 
     % Color the text to draw attention to it if the alignment is bad.
     % FIXME: this should depend on the nhood/window size. 1 px may be small.
-    % FIXME: try to color individual rows according to degree of misalignment,
-    % for example using HTML tags in text (rg, <html><b><font color='red',
-    % or color="#FF00FF"). <center> tag might also be useful.
-    if any( [a.abs_dev] > 0.25 ),
-        d = max( [a.abs_dev] );
-        set( handles.tblAlignment, 'ForegroundColor', [(3/2)*min(2/3,d) 0 0] );
-        set( handles.panAlignment, 'ForegroundColor', min(1,d*[1 0 0]) );
+    if any( [a.abs_dev] > 0.35 ),
+        d = min(1, 1.75*(max([a.abs_dev])-0.2) );
+        set( handles.tblAlignment, 'ForegroundColor', d*[1 0 0] );
+        set( handles.panAlignment, 'ForegroundColor', d*[1 0 0] );
     else
         set( handles.tblAlignment, 'ForegroundColor', [0 0 0] );
         set( handles.panAlignment, 'ForegroundColor', [0 0 0] );
@@ -541,8 +538,6 @@ set(  handles.txtOverlapStatus, 'ForegroundColor', c*[0.9 0 0], ...
 
 % Fraction of overlapping integration windows (also overcrowding).
 percentWinOverlap = mean(stkData.fractionWinOverlap*100);
-% percentTracesWinOverlap = 100*sum(stkData.fractionWinOverlap>0)/numel(stkData.fractionWinOverlap);
-
 set(  handles.txtWindowOverlap, 'String', ...
       sprintf('Residual win. overlap: %0.1f%%', percentWinOverlap)  );
 set( handles.txtWindowOverlap, 'ForegroundColor', (percentWinOverlap>10)*[0.9 0 0] );
@@ -551,24 +546,15 @@ set( handles.txtWindowOverlap, 'ForegroundColor', (percentWinOverlap>10)*[0.9 0 
 % Get (approximate) average fraction of fluorescence collected within the
 % integration window of each molecule. Set the text color to red where the
 % intensity is not well collected at the current integration window size.
-eff = 100*stkData.integrationEfficiency(:,handles.params.nPixelsToSum);
-eff = nanmean(eff);
+eff = stkData.integrationEfficiency;
 set(  handles.txtIntegrationStatus, 'String', ...
       sprintf('Intensity collected: %0.0f%% ', eff)  );
 set( handles.txtIntegrationStatus, 'ForegroundColor', (eff<70)*[0.9 0 0] );
 
 
 % Estimate the peak width from pixel intensity distribution.
-eff = stkData.integrationEfficiency;
-eff = eff( ~any(isnan(eff')), : );  %ignore NaN values, which can happen in with empty fields.
-decay = zeros( size(eff,1), 1 ); %number pixels to integrate to get 70% intensity integrated.
-
-for i=1:size(eff,1),
-    decay(i) = find( eff(i,:)>=0.7, 1, 'first' );%default 3-color channel assignments.
-end
-
-set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',mean(decay)) );
-set( handles.txtPSFWidth, 'ForegroundColor', (mean(decay)>handles.params.nPixelsToSum-1)*[0.9 0 0] );
+set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',stkData.psfWidth) );
+set( handles.txtPSFWidth, 'ForegroundColor', (stkData.psfWidth>handles.params.nPixelsToSum-1)*[0.9 0 0] );
 
 
 % Graphically show peak centers

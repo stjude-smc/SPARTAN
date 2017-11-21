@@ -15,19 +15,18 @@ else
 end
 nPx = params.nPixelsToSum;
 hw  = params.nhoodSize;
-
-stk_top = stkData.stk_top;
 Npeaks = size(stkData.peaks,1);
 
 % Define regions over which to integrate each peak
 nCh = size(stkData.peaks,3);
-[stkData.integrationEfficiency,stkData.regionIdx,stkData.bgMask] = deal( cell(size(nCh,1)) );
+[stkData.regionIdx,stkData.bgMask] = deal( cell(size(nCh,1)) );
+intEff = 0;
 
 for i=1:nCh
-    field = stk_top{ params.idxFields(i) };
+    field = stkData.stk_top{ params.idxFields(i) };
     [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
-    stkData.integrationEfficiency{i} = eff;
+    intEff = intEff + eff;
 
     % Give a warning for any empty neighborhoods (eff is NaN)
     if any(isnan(eff(:))),
@@ -47,7 +46,15 @@ for i=1:nCh
     stkData.bgMask{i} = imerode(bgMask, ones(3));  % Remove PSF tails
 end
 
-stkData.integrationEfficiency = vertcat(stkData.integrationEfficiency{:});
+% Calculate the fraction of total fluorescence intensity captured by summing
+% the nPx most intense pixels ("integration efficiency").
+intEff = bsxfun(@minus, intEff, min(intEff));   %avoid negative values
+intEff = cumsum(intEff);
+intEff = bsxfun(@rdivide, intEff, max(intEff));  %normalize
+stkData.integrationEfficiency = 100*nanmean( intEff(nPx,:) );
+
+% Estimate PSF size as number of pixels to get ~70% of total intensity.
+stkData.psfWidth = mean( sum(intEff<0.7)+1 );
 
 end %function getIntegrationWindows
 
@@ -58,28 +65,28 @@ function [idxs,eff] = findRegions(stk_top, peaks, nPx, hw)
 
 Npeaks = size(peaks,1);
 squarewidth = 1+2*hw;   % width of neighborhood to examine.
-eff  = zeros(Npeaks,squarewidth^2);  %integration efficiency
+eff  = zeros(squarewidth^2, Npeaks);  %integration efficiency
 idxs = zeros(nPx, Npeaks);
+win = 1:squarewidth;
+peaks = peaks-hw-1;  %peak location relative to window edges
 
 for m=1:Npeaks
     x = peaks(m,1);
     y = peaks(m,2);
     
     % Get a window of pixels around the intensity maximum (peak).
-    nhood = stk_top( y+(-hw:hw), x+(-hw:hw) );
-    center = sort( nhood(:), 'descend' );
+    nhood = stk_top( y+win, x+win );
+    sortpx = sort( nhood(:), 'descend' );
     
     % Estimate fraction of PSF in window vs neighborhood (fraction collected).
-    if nargout>1,
-        eff(m,:) = cumsum( center/sum(center) )';
-    end
+    if nargout>1, eff(:,m)=sortpx; end
     
     % Find the nPx most intense pixels.
-    [A,B] = find( nhood>=center(nPx), nPx );
+    [A,B] = find( nhood>=sortpx(nPx), nPx );
     
     % Convert to coordinates in the full FOV image and save linear indices.
     %idxs(:,m) = sub2ind( size(stk_top), A+y-hw-1, B+x-hw-1 );
-    idxs(:,m) = (A+y-hw-1) + ((B+x-hw-1)-1).*size(stk_top,1);
+    idxs(:,m) = (A+y) + ((B+x)-1).*size(stk_top,1);
 end
 
 end %FUNCTION findRegions
