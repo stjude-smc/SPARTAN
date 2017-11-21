@@ -18,8 +18,7 @@ properties (GetAccess=public, SetAccess=protected)
     movie;               % Movie_TIFF or Movie_STK object
     stk_top;             % Sum of the first 10 frames (cell array of fields).
     background;          % Estimated background image from first 10 frames  (cell array of fields)
-    endBackground;       % Last 10 frames, total fluorescence intensity
-    %stdbg;              % stdev of background noise at the end of movie (last 10 frames)
+    stdbg;               % stdev of background noise at the end of movie (last 10 frames)
     fnames;              % Cell array of text descriptors of channel locations
     
     % Picked molecules from getPeaks()

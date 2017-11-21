@@ -60,9 +60,12 @@ profiles = constants.gettraces_profiles;
 nStandard = numel(profiles);
 
 if ispref('SPARTAN','gettraces_customProfiles')
-    profiles = [profiles getpref('SPARTAN','gettraces_customProfiles')];
-% else
-%     error('STUB');
+    try
+        profiles = [profiles getpref('SPARTAN','gettraces_customProfiles')];
+    catch
+        warning('Save profiles struct have differing fields and cannot be used');
+        rmpref('SPARTAN','gettraces_customProfiles');
+    end
 end
 
 % Add profiles from cascadeConstants to settings menu.

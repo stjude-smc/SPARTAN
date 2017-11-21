@@ -53,8 +53,8 @@ if ~params.don_thresh
     end
 
     % Calculate threshold from variance in background intensity at end of movie.
-    params.don_thresh = thresh_std*std( stkData.endBackground );
-%     params.don_thresh = thresh_std*mean(stkData.stdbg);  %improved version
+    params.don_thresh = thresh_std*stkData.stdbg;
+%     params.don_thresh = thresh_std*mean(stkData.stdbg(params.idxFields));  %improved version
 end
 
 

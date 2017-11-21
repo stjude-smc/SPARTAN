@@ -26,19 +26,20 @@ fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
 % Create an estimated background image by sampling the lowest 15-20% of 
 % values in each 6x6 area in the image and interpolating values in between.
 % The block size (den) should be at least 3x the PSF width.
-den = 6;  %this.params.bgBlurSize  %FIXME
+den = this.params.bgBlurSize;
 this.background = cell( size(fields) );
 szField = size(fields{1});
-temp = zeros( floor(szField/den), 'single' );
+temp = zeros( floor(szField/den) );
 win = 1:den;
+partition = round( 0.167*(den^2) );  %index of sorted pixel to use 
 
 for f=1:numel(fields)
-    % Divide image into 6x6 squares and find 1/6th lowest value in each.
+    % Divide image into den-x-den squares and find 16% lowest value in each.
     for i=1:size(temp,1),
         for j=1:size(temp,2),
             sort_temp = fields{f}(den*(i-1)+win, den*(j-1)+win);
             sort_temp = sort( sort_temp(:) );
-            temp(i,j) = sort_temp( den );
+            temp(i,j) = sort_temp( partition );
         end
     end
     
@@ -55,13 +56,15 @@ this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 endFields = subfield(movie, this.params.geometry, nFrames-11:nFrames-1);
 endBG = sum( cat(4,endFields{:}), 4 );
 endBG = sort(endBG(:));
-this.endBackground = endBG( 1:floor(numel(endBG)*0.75) );
+endBG = endBG( 1:floor(numel(endBG)*0.75) );
+this.stdbg = std(endBG);
 
-%this.stdbg = zeros( numel(fields),1 );
+% Improved version that requires a different threshold
+% this.stdbg = zeros( numel(fields),1 );
 % for f=1:numel(endFields)  %better version
 %     sort_temp = sort( endFields{f}(:) );
 %     sort_temp = sort_temp( 1:floor(numel(sort_temp)*0.75) );
-%     this.stdbg(f) = std(sort_temp);
+%     this.stdbg(f) = std( double(sort_temp) );
 % end
         
 % Reset any stale data from later steps
