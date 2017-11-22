@@ -30,7 +30,7 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.5.0';
+constants.version = '3.5.1';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
 constants.debug = false; %if true, throw errors and print debug info at prompt.
