@@ -223,7 +223,7 @@ otherwise
 end
 
 % Show fluorescence fields for all channels
-axopt = {'YDir','reverse', 'Color',get(gcbf,'Color'), 'Visible','off'};
+axopt = {'YDir','reverse', 'Color',get(handles.figure1,'Color'), 'Visible','off'};
 handles.himshow = [];
 handles.ax = ax;
 
