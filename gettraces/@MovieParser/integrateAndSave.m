@@ -101,15 +101,11 @@ tic;
 % fnames = stkData.fnames(params.idxFields);
 [bgTrace,bgFieldIdx,bgMask] = deal([]);
 
-% if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
-%     bgFieldIdx = find( cellfun(@(x)strcmpi(x,params.bgTraceField),fnames), 1,'first' );
-%     if isempty(bgFieldIdx)
-%         warning('Background trace field must be an active field');
-%     else
-%         bgTrace = zeros(nFrames,1,'single');
-%         bgMask = stkData.bgMask{bgFieldIdx};
-%     end
-% end
+if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
+    bgFieldIdx = params.bgTraceField;
+    bgTrace = zeros(nFrames,1,'single');
+    bgMask = stkData.bgMask{bgFieldIdx};
+end
 
 % Get a list of field locations (channels) to integrate.
 geo = params.geometry;

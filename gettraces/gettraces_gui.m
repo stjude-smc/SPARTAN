@@ -198,28 +198,24 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 % Create axes for sub-fields
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
+axopt = {'Visible','off'};
 
 switch numel(idxFields)
-case 1                       %---- Single-Channel (full-chip)
+case 1
     ax = [];
-    handles.axTotal = axes( handles.panView, 'Position',[0.02 0 0.95 0.95] );
+    handles.axTotal = axes( handles.panView, 'Position',[0.02 0 0.95 0.95], axopt{:} );
     
-case 2    %---- Dual-Channel (L/R)
-    ax(1)           = axes( handles.panView, 'Position',[0     0    0.325 0.95] );
-    ax(2)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.95] );
-    handles.axTotal = axes( handles.panView, 'Position',[0.67  0    0.325 0.95] );
+case 2
+    ax(1)           = axes( handles.panView, 'Position',[0     0    0.325 0.95], axopt{:} );  %L
+    ax(2)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.95], axopt{:} );  %R
+    handles.axTotal = axes( handles.panView, 'Position',[0.67  0    0.325 0.95], axopt{:} );
     
-% elseif sz(1)==2 && sz(2)==1    %---- Dual-Channel (T/B)
-%     ax(1)           = axes( handles.panView, 'Position',[0.02  0.51 0.48  0.47] );
-%     ax(2)           = axes( handles.panView, 'Position',[0.02  0    0.48  0.47] );
-%     handles.axTotal = axes( handles.panView, 'Position',[0.51  0.25 0.48  0.47] );
-    
-case {3,4}     %---- Quad-Channel (TL/TR/BL/BR)
-    ax(1)           = axes( handles.panView, 'Position',[0.0   0.5  0.325 0.47] );  %TL
-    ax(2)           = axes( handles.panView, 'Position',[0     0    0.325 0.47] );  %BL
-    ax(3)           = axes( handles.panView, 'Position',[0.335 0.5  0.325 0.47] );  %TR
-    ax(4)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.47] );  %BR
-    handles.axTotal = axes( handles.panView, 'Position',[0.67  0.25 0.325 0.47] );
+case {3,4}
+    ax(1)           = axes( handles.panView, 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
+    ax(2)           = axes( handles.panView, 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
+    ax(3)           = axes( handles.panView, 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
+    ax(4)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
+    handles.axTotal = axes( handles.panView, 'Position',[0.67  0.25 0.325 0.47], axopt{:} );
     
 otherwise
     error('Invalid field geometry');
@@ -233,10 +229,9 @@ handles.ax = ax;
 if ~isempty(ax)
     for i=1:numel(stkData.stk_top),
         handles.himshow(i) = image( ax(i), stkData.stk_top{i}, 'CDataMapping','scaled' );
-        set(ax(i),'UserData',i);
+        set(ax(i), 'UserData',i, 'CLim',[0 val], axopt{:});
     end
     linkaxes( [to_row(ax) handles.axTotal] );
-    set( ax, 'CLim',[0 val], axopt{:} );
 end
 
 % Show total fluorescence channel
@@ -763,22 +758,26 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
-error('FIXME');
-
 % All options for fluorescence channel identifiers. See subfield_mask.m.
 % FIXME: ideally this should be the natural field name (e.g., 'acceptor').
-fopt = { {''}, {'','L','R'}, {'','T','B'}, {'','TL','TR','BL','BR'} };
-fopt = fopt{ handles.params.geometry };
-
+nCh = numel(handles.params.chNames);
+fopt = cellfun(@num2str, num2cell(1:nCh), 'uniform',false);
+fopt = [{''} fopt];
 prompt = {'Name:','Threshold (0 for auto):', 'Integration window size (px):', ...
           'Minimum separation (px):', 'ADU/photon conversion:', ...
           'Donor blink detection method:', 'Integration neighbhorhood (px):', ...
           'Background trace field'};
 fields = {'name','don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
           'photonConversion', 'zeroMethod', 'nhoodSize','bgTraceField'};
-types = {[],[],[],[],[],{'off','threshold','skm'},[],fopt};
+isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
+isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
+types = {[],[],isInt,isNum,isNum,{'off','threshold','skm'},isInt,fopt};
 params = settingdlg(handles.params,fields,prompt,types);
-if isempty(params), return; end
+if isempty(params), return; end  %user hit cancel
+
+if ~isempty(params.bgTraceField),
+    params.bgTraceField = str2double(params.bgTraceField);
+end
 
 % Update profile name
 nStandard = numel( cascadeConstants('gettraces_profiles') );
