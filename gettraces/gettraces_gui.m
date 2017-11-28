@@ -187,7 +187,8 @@ set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
      'SliderStep',[1/stkData.movie.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-stk_top = cat(3,stkData.stk_top{:});
+idxFields = find(handles.params.geometry);
+stk_top = cat(3,stkData.stk_top{idxFields});
 sort_px = sort(stk_top(:));
 val = 2*sort_px( floor(0.99*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
@@ -198,29 +199,30 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 % Create axes for sub-fields
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 
-switch handles.params.geometry
-case 1,  %---- Single-Channel (full-chip)
+switch numel(idxFields)
+case 1                       %---- Single-Channel (full-chip)
     ax = [];
     handles.axTotal = axes( handles.panView, 'Position',[0.02 0 0.95 0.95] );
     
-case 2,  %---- Dual-Channel (L/R)
+case 2    %---- Dual-Channel (L/R)
     ax(1)           = axes( handles.panView, 'Position',[0     0    0.325 0.95] );
     ax(2)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.95] );
     handles.axTotal = axes( handles.panView, 'Position',[0.67  0    0.325 0.95] );
     
-case 3,  %---- Dual-Channel (T/B)
-    ax(1)           = axes( handles.panView, 'Position',[0.02  0.51 0.48  0.47] );
-    ax(2)           = axes( handles.panView, 'Position',[0.02  0    0.48  0.47] );
-    handles.axTotal = axes( handles.panView, 'Position',[0.51  0.25 0.48  0.47] );
+% elseif sz(1)==2 && sz(2)==1    %---- Dual-Channel (T/B)
+%     ax(1)           = axes( handles.panView, 'Position',[0.02  0.51 0.48  0.47] );
+%     ax(2)           = axes( handles.panView, 'Position',[0.02  0    0.48  0.47] );
+%     handles.axTotal = axes( handles.panView, 'Position',[0.51  0.25 0.48  0.47] );
     
-case 4,  %---- Quad-Channel (TL/TR/BL/BR)
-    ax(1)           = axes( handles.panView, 'Position',[0.0   0.5  0.325 0.47] );
-    ax(2)           = axes( handles.panView, 'Position',[0.335 0.5  0.325 0.47] );
-    ax(4)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.47] );
-    ax(3)           = axes( handles.panView, 'Position',[0     0    0.325 0.47] );
+case {3,4}     %---- Quad-Channel (TL/TR/BL/BR)
+    ax(1)           = axes( handles.panView, 'Position',[0.0   0.5  0.325 0.47] );  %TL
+    ax(2)           = axes( handles.panView, 'Position',[0     0    0.325 0.47] );  %BL
+    ax(3)           = axes( handles.panView, 'Position',[0.335 0.5  0.325 0.47] );  %TR
+    ax(4)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.47] );  %BR
     handles.axTotal = axes( handles.panView, 'Position',[0.67  0.25 0.325 0.47] );
+    
 otherwise
-    error('Invalid imaging geometry');
+    error('Invalid field geometry');
 end
 
 % Show fluorescence fields for all channels
@@ -228,7 +230,7 @@ axopt = {'YDir','reverse', 'Color',get(handles.figure1,'Color'), 'Visible','off'
 handles.himshow = [];
 handles.ax = ax;
 
-if handles.params.geometry>1,
+if ~isempty(ax)
     for i=1:numel(stkData.stk_top),
         handles.himshow(i) = image( ax(i), stkData.stk_top{i}, 'CDataMapping','scaled' );
         set(ax(i),'UserData',i);
@@ -238,7 +240,7 @@ if handles.params.geometry>1,
 end
 
 % Show total fluorescence channel
-total = sum( cat(3,stkData.stk_top{:}), 3);
+total = sum( cat(3,stkData.stk_top{idxFields}), 3);
 handles.himshow(end+1) = image( handles.axTotal, total, 'CDataMapping','scaled' );
 set(handles.axTotal, 'CLim',[0 val*2], axopt{:} );
 
@@ -272,12 +274,12 @@ set(handles.btnPlay,'String','Play');
 stkData  = getappdata(handles.figure1,'stkData');
 idxFrame = round( get(hObject,'Value') );
 
-fields = subfield( stkData.movie, handles.params.geometry, idxFrame );
-fields = cellfun( @single, fields, 'Uniform',false );
-fields = cellfun( @minus, fields, stkData.background, 'Uniform',false );
+allgeo = true( size(handles.params.geometry) );
+fields = subfield( stkData.movie, allgeo, idxFrame );
 
-for i=1:numel(fields)
-    set( handles.himshow(i), 'CData',fields{i} );
+for f=1:numel(fields)
+    field = single(fields{f}) - stkData.background{f};
+    set( handles.himshow(f), 'CData',field );
 end
 
 % END FUNCTION sldScrub_Callback
@@ -298,14 +300,14 @@ end
 
 stkData = getappdata(handles.figure1,'stkData');
 startFrame = round( get(handles.sldScrub,'Value') );
+allgeo = true( size(handles.params.geometry) );
 
 for i=startFrame:stkData.movie.nFrames
-    fields = subfield( stkData.movie, handles.params.geometry, i );
-    fields = cellfun( @single, fields, 'Uniform',false );
-    fields = cellfun( @minus, fields, stkData.background, 'Uniform',false );
+    fields = subfield( stkData.movie, allgeo, i );
     
     for f=1:numel(fields)
-        set( handles.himshow(f), 'CData',fields{f} );
+        field = single(fields{f}) - stkData.background{f};
+        set( handles.himshow(f), 'CData',field );
     end
     
     set(handles.sldScrub,'Value',i);
@@ -441,7 +443,7 @@ set(handles.tblAlignment, 'Data',{}, 'RowName',{});
 set(handles.figure1,'pointer','watch'); drawnow;
 
 % Clear any existing selection markers from previous calls.
-delete(findobj(handles.figure1,'type','line'));
+delete(findobj(handles.figure1,'type','line')); drawnow;
 
 % Locate single molecules
 try
@@ -583,11 +585,11 @@ function highlightPeaks(handles)
 
 style = {'LineStyle','none','marker','o'};
 stkData = getappdata(handles.figure1,'stkData');
+idxField = find(handles.params.geometry);
 
-% FIXME: axes indexes may not be the same as channel indexes????
-if handles.params.geometry>1
+if ~isscalar(handles.params.geometry)
     for i=1:size(stkData.peaks,3)
-        ax = handles.ax( handles.params.idxFields(i) );
+        ax = handles.ax( idxField(i) );
 
         line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
                 style{:}, 'color','w', 'Parent',ax );
@@ -682,7 +684,7 @@ set( handles.scaleSlider, 'Value',val );
 set( handles.scaleSlider, 'max',maximum );
 set( handles.ax, 'CLim',[minimum val] );
 
-if handles.params.geometry==1, %Single-channel recordings
+if isscalar(handles.params.geometry)  %Single-channel recordings
     set( handles.axTotal, 'CLim',[minimum val] );
 else
     set( handles.axTotal, 'CLim',[minimum*2 val*2] );
@@ -739,7 +741,7 @@ set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMeth
 
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
-isMultiColor = numel(handles.params.idxFields)>1;
+isMultiColor = ~isscalar(handles.params.geometry);
 set( [handles.mnuAlign handles.btnCrosstalk handles.btnScaleAcceptor], ...
                        'Enable',onoff(isMultiColor) );
 set( handles.tblAlignment, 'Visible',onoff(isMultiColor) );
@@ -761,6 +763,7 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
+error('FIXME');
 
 % All options for fluorescence channel identifiers. See subfield_mask.m.
 % FIXME: ideally this should be the natural field name (e.g., 'acceptor').
@@ -998,6 +1001,8 @@ end
 function setAxTitles(handles)
 % Set axes titles from imaging profile settings, including colors.
 
+idxFields = find(handles.params.geometry);
+
 % Clear any existing titles
 for i=1:numel(handles.ax),
     title(handles.ax(i),'');
@@ -1006,15 +1011,14 @@ end
 % Create new titles
 if numel(handles.ax)>0
     p = handles.params;
-    fields = p.idxFields;
+    
+    for i=1:numel(idxFields)  %i is channel index
+        chColor = Wavelength_to_RGB( p.wavelengths(i) );
 
-    for i=1:numel(fields)
-        chColor = Wavelength_to_RGB(p.wavelengths(i));
-
-        title(handles.ax(fields(i)), ...
-              sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},fields(i)), ...
-              'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
-              'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
+        title( handles.ax( idxFields(i) ), ...
+               sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},i), ...
+               'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
+               'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
     end
 end
 title(handles.axTotal,'Total Intensity', 'FontSize',10, 'Visible','on');
@@ -1033,7 +1037,7 @@ function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Change software alignment mode and re-pick molecules.
 % 1=off, 2=load from file, 3=Auto (ICP), 4=memorize (keep using).
 
-assert(handles.params.geometry>1);
+assert( ~isscalar(handles.params.geometry) );
 sel = get(hObject,'Position');  %position within the menu, 1=top.
 
 % Load alignment from file, if requested.
@@ -1077,7 +1081,7 @@ function btnSaveAlignment_Callback(~, ~, handles)  %#ok<DEFNU>
 % Save current software alignment settings (which may be set to do nothing
 % at all) to file so they can be reloaded later.
 
-assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && handles.params.geometry>1 );
+assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && ~isscalar(handles.params.geometry) );
 
 [p,f] = fileparts(handles.stkfile);
 alignfile = fullfile( p, [f '_align.mat'] );

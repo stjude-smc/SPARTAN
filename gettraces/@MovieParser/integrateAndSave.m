@@ -42,7 +42,7 @@ end
 movie = stkData.movie;
 quiet = params.quiet;
 nTraces = size(stkData.peaks,1);
-nFrames = movie.nFrames;
+nFrames = stkData.nFrames;
 
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
@@ -57,9 +57,6 @@ if ismember('donor',dataNames)
     end
     if ismember('acceptor2',dataNames),
         dataNames = [dataNames 'fret2'];
-    end
-    
-    if params.geometry==4
         data = TracesFret4(nTraces,nFrames,dataNames);
     else
         data = TracesFret(nTraces,nFrames,dataNames);
@@ -97,36 +94,40 @@ if nTraces*nFrames/2000 > 1500 && cascadeConstants('enable_parfor') && isa(movie
 else
     M = 0;  %use GUI thread
 end
+tic;
 
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
-fnames = stkData.fnames(params.idxFields);
+% fnames = stkData.fnames(params.idxFields);
 [bgTrace,bgFieldIdx,bgMask] = deal([]);
 
-if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
-    bgFieldIdx = find( cellfun(@(x)strcmpi(x,params.bgTraceField),fnames), 1,'first' );
-    if isempty(bgFieldIdx)
-        warning('Background trace field must be an active field');
-    else
-        bgTrace = zeros(nFrames,1,'single');
-        bgMask = stkData.bgMask{bgFieldIdx};
-    end
-end
+% if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
+%     bgFieldIdx = find( cellfun(@(x)strcmpi(x,params.bgTraceField),fnames), 1,'first' );
+%     if isempty(bgFieldIdx)
+%         warning('Background trace field must be an active field');
+%     else
+%         bgTrace = zeros(nFrames,1,'single');
+%         bgMask = stkData.bgMask{bgFieldIdx};
+%     end
+% end
 
+% Get a list of field locations (channels) to integrate.
+geo = params.geometry;
 traces = zeros(nTraces,nFrames,nCh, stkData.movie.precision);
 idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
 parfor (k=1:nFrames, M)
+% for k=1:nFrames
+    % Retrieve next frame and separate fluorescence channels
+    frame = subfield(movie, geo, k);
+    
     for c=1:nCh
-        % Extract subfield from this frame and subtract background image
-        frame = subfield(movie,fnames{c},k);   %#ok<PFBNS>
-        
         % Sum intensity within the integration window of each PSF
-        traces(:,k,c) = sum( frame(idx{c}), 1 );       %#ok<PFBNS>
+        traces(:,k,c) = sum( frame{c}(idx{c}), 1 );       %#ok<PFBNS>
     
         % Sum intensity from background regions
         if ~isempty(bgFieldIdx) && c==bgFieldIdx
-            bgTrace(k) = mean( frame(bgMask) );
+            bgTrace(k) = mean( frame{c}(bgMask) );
         end
     end
     
@@ -137,10 +138,12 @@ end
 
 % Subtract local background
 traces = single(traces);
+bg = stkData.background( find(geo) );
 for c=1:nCh
-    bgt = sum( stkData.background{c}(idx{c}), 1);
+    bgt = sum( bg{c}(idx{c}), 1);
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
 end
+disp(toc);
 
 
 %% Apply corrections and calculate FRET

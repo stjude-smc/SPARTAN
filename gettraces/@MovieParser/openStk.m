@@ -17,10 +17,11 @@ this.params = params;
 this.movie = movie;
 
 % Average the first 10 frames to create an image for finding molecules.
-nFrames = movie.nFrames;
-averagesize = min([10 nFrames]);
+this.nFrames = movie.nFrames / size(params.geometry,3);  %accounts for channels stacked as separate frames
+averagesize = min([10 this.nFrames]);
 
-[fields,this.fnames] = subfield( this.movie, params.geometry, 1:averagesize );
+geoall = true( size(params.geometry) );  %use all fields, not just selected ones
+fields = subfield( this.movie, geoall, 1:averagesize );
 fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
 
 % Create an estimated background image by sampling the lowest 15-20% of 
@@ -53,7 +54,9 @@ this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 % Use the lowest quartile of intensities from the end of the movie to estimate
 % the fundamental level of background noise in each channel.
 % This is used in getPeaks for automatically choosing a picking threshold.
-endFields = subfield(movie, this.params.geometry, nFrames-11:nFrames-1);
+% FIXME: in future, get std from each field separately, otherwise difference in
+% the background level (bias) dominate. SEE NEXT SECTION
+endFields = subfield(movie, geoall, this.nFrames-11:this.nFrames-1);
 endBG = sum( cat(4,endFields{:}), 4 );
 endBG = sort(endBG(:));
 endBG = endBG( 1:floor(numel(endBG)*0.75) );

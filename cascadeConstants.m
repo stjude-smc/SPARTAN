@@ -137,8 +137,7 @@ clear p; clear profiles
 %------  sCMOS cameras  -------
 p = cmosCommon;
 p.name         = 'sCMOS, Single-channel (Cy3)';
-p.geometry     = 1;
-p.idxFields    = 1; %only one channel
+p.geometry     = true(1,1);
 p.chNames      = {'donor'};
 p.chDesc       = {'Cy3'};
 p.wavelengths  = 532;
@@ -147,8 +146,7 @@ profiles(1)    = p;
 
 
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, L/R)';
-p.geometry    = 2;
-p.idxFields   = [1 2]; %L/R
+p.geometry    = true(1,2);
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
@@ -157,14 +155,13 @@ p.crosstalk(1,2) = 0.115;  %donor->acceptor (no bandpass filters!)
 p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, U/D)';
-p.geometry    = 3;
+p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, sequential)';
+p.geometry    = true(1,1,2);
 profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy2/3/5)';
-p.geometry    = 4;
-p.idxFields   = [3 1 2]; % field order: LL, UL,UR.
+p.geometry    = logical( [1 1; 1 0] );  % field order: UL,UR,LL.
 p.chNames     = {'factor','donor','acceptor'};
 p.chDesc      = {'Cy2','Cy3','Cy5'};
 p.wavelengths = [473 532 640];
@@ -176,8 +173,7 @@ profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
-p.geometry    = 4;
-p.idxFields   = [1 2 4]; % field order: UL,UR,LR.
+p.geometry    = logical( [1 1; 0 1] );  % field order: UL,UR,LL.
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
 p.wavelengths = [532 640 730];

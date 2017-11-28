@@ -1,99 +1,62 @@
-function [output,quad] = subfield(input, quad, frameIdx)
+function output = subfield(input, quad, frameIdx)
 %SUBFIELD  Extract image subfields designated by a string
 %
-%   OUT = subfield(IN,STR) extracts a sub-fields from the image matrix IN
-%   as described in STR, which can be empty (whole field), L (left), R (right),
-%   T (top), B (bottom), TL, TR, BL, or BR. If STR is a cell array, OUT will
-%   be a cell array with a subfield associated with each cell in STR.
+%   OUT = subfield(MOVIE,QUAD,FRAMES) loads the frame numbers specified in
+%   FRAMES and divides these images into equal-sized subregions where the shape
+%   of the logical array QUAD identifies along which dimensions to divide the
+%   images. The binary values in QUAD define which subregions to return in the
+%   cell array OUT.
 %   
-%   OUT = subfield(IN,GEO) extracts standard set of sub-fields. GEO can be:
-%   1 (whole field), 2 (L/R), 3 (T/B), or 4 (quadrants).
+%   EXAMPLES:
+%     If QUAD is logical([1 0; 1 0]), images are split in four regions  
+%     and the upper-left and lower-left quadrants are returned in OUT.
+%   
+%     If QUAD is true(1,1,3), there are three fluorescence channels that 
+%     are stacked sequentially in the movie, rather than side-by-side.
 
 %   Copyright 2016-2017 Cornell University All Rights Reserved.
 
 
 % Process input arguments
-narginchk(3,3);
-nargoutchk(1,2);
-% assert( isa(input,'Movie_TIFF') || isa(input,'Movie_STK'), 'Invalid movie input' );  %why do they not both inheret Movie?
-% if ~isnumeric(frameIdx) || ~isvector(frameIdx) || any(frameIdx<1|frameIdx>input.nFrames),
-%     error('Invalid frame index');
-% end
+narginchk(2,3);
+if nargin<3, frameIdx=1; end
+assert( isa(input,'Movie_TIFF') || isa(input,'Movie_STK'), 'Invalid input' );
 
-% Single string targeting a field to extract
-if isempty(quad)
-    output = input.readFrames(frameIdx);
-    return;
-end
+szQuad = size(quad);
+assert( numel(szQuad)<=3, 'Invalid dimensions of subfield indexing matrix' );
 
-if ischar(quad),
-    if quad(1)=='S'||quad(1)=='I'
-        idx = sscanf(quad(2:end),'%d/%d');
-        assert(idx(2)>idx(1) & idx(2)<=4 & idx(1)>0);
-        nFrames = input.nFrames/idx(2);
-
-        % Fields are pasted sequentially in time
-        if quad(1)=='S'
-            frameIdx = frameIdx + nFrames*(idx(1)-1);
-
-        % Fields are interleaved
-        elseif quad(1)=='I'
-            chFrames = idx(1):idx(2):input.nFrames;
-            frameIdx = chFrames(frameIdx);
-        end
-        output = input.readFrames(frameIdx); 
-
-    % Fields are stitched side-by-side. Each frame has all channels.
-    else
-        image = input.readFrames(frameIdx);
-        [nrow,ncol,~] = size(image);
-        switch quad
-            case 'L',   output = image( :, 1:floor(ncol/2), : );
-            case 'R',   output = image( :, floor(ncol/2)+1:end, : );
-
-            case 'T',   output = image( 1:floor(nrow/2), :, : );
-            case 'B',   output = image( floor(nrow/2)+1:end, :, : );
-
-            case 'TL',  output = image( 1:floor(nrow/2), 1:floor(ncol/2), : );
-            case 'TR',  output = image( 1:floor(nrow/2), floor(ncol/2)+1:end, : );
-            case 'BL',  output = image( floor(nrow/2)+1:end, 1:floor(ncol/2), : );
-            case 'BR',  output = image( floor(nrow/2)+1:end, floor(ncol/2)+1:end, : );
-
-            otherwise, error('Invalid subfield string %s',quad);
-        end
-    end
-
-% Integer specifing geometry. Return pre-defined set of sub-images.
-elseif isnumeric(quad)
-    switch quad
-        case 1,  quad = {''};
-        case 2,  quad = {'L','R'};
-        case 3,  quad = {'T','B'};
-        case 4,  quad = {'TL','TR','BL','BR'};
-    end
-end
-    
-% Cell array of strings targeting each field to extract
-% FIXME: this is slower than necessary since it involves reading the same frame
-% many times.
-if iscell(quad)
-    output = cell(size(quad));
-    for i=1:numel(quad)
-        output{i} = subfield(input,quad{i},frameIdx);
+% Fluorescence channels are stacked in sequential frames (not interleaved)
+if numel(szQuad)>2
+    if any(szQuad(1:2)>1)
+        error('Sub-fields must be arranged either side-by-side OR stacked, not both');
     end
     
-    % Truncate fields to the same size (should never happen)
-    sz = cellfun(@size, output, 'Uniform',false);
+    nFrames = input.nFrames/szQuad(3);  %number of actual time units in movie
+    assert( nFrames==floor(nFrames), 'Unexpected number of frames for chosen stacked geometry' )
     
-    if ~all(  cellfun(@(x)isequal(sz{1},x), sz)  )
-        warning('gettraces:fieldSizeMismatch','Movie cannot be divided into equal-sized subfields. Incorrect channel geometry? Check settings.');
-        
-        szMin = min( cat(1,sz{:}) );
-        for i=1:numel(output)
-            output{i} = output{i}( 1:szMin(1), 1:szMin(2) );
-        end
+    output = cell( szQuad(3), 1 );
+    for i=1:numel(output)
+        output{i} = input.readFrames( frameIdx + (i-1)*nFrames );
     end
+    
+% Fluorescence channels are stiched side-by-side within each frame
+else
+    input = input.readFrames(frameIdx);
+
+    % Determine number and size of subfields
+    [nr,nc] = size(quad);
+    [imr,imc,imf] = size(input);
+    idx = [imr,imc] ./ [nr,nc];  %subdivision size in each dimension
+
+    if ~all(idx==floor(idx))
+        error('Movie cannot be divided into equal-sized subfields. Incorrect geometry?');
+    end
+
+    % Divide image into equal-sized subregions
+    C = mat2cell( input, repmat(idx(1),nr,1), repmat(idx(2),nc,1), imf );
+    output = C(quad);  %Select requested subfields
 end
+
 
 end %FUNCTION subfield
 

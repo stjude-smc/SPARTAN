@@ -63,13 +63,13 @@ nCh = numel(params.chNames);
 quality = zeros(nCh,1);
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'quality',{});
 indD = find( strcmp(params.chNames,'donor') ); %donor channel to align to.
-fields = stkData.stk_top(params.idxFields);
+fields = stkData.stk_top( find(params.geometry) );
 
 
 
 %% Single color or no multicolor without software alignment
 
-if params.alignMethod==1 || params.geometry==1
+if params.alignMethod==1 || isscalar(params.geometry)
     % Sum intensity from all channels without alignment
     total = sum( cat(3,fields{:}), 3 );
     
@@ -83,7 +83,7 @@ end
 
 %% Estimate local misalignment with software alignment is disabled.
 
-if params.alignMethod==1 && params.geometry>1  % && numel(picks)>0,
+if params.alignMethod==1 && ~isscalar(params.geometry)  % && numel(picks)>0,
     
     % Measure apparent deviation from perfect alignment
     refinedPicks = zeros( size(picks) );
@@ -122,7 +122,7 @@ end
 %% Apply software alignment, if requested.
 % alignMethod: 1=disable, 2=auto (ICP), 3=load from file, 4=memorize.
 
-if params.geometry>1 && params.alignMethod>1 % && numel(picks)>0,
+if ~isscalar(params.geometry) && params.alignMethod>1 % && numel(picks)>0,
     
     newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     

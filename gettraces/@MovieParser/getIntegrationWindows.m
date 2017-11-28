@@ -21,9 +21,10 @@ Npeaks = size(stkData.peaks,1);
 nCh = size(stkData.peaks,3);
 [stkData.regionIdx,stkData.bgMask] = deal( cell(size(nCh,1)) );
 intEff = 0;
+idxField = find(params.geometry);
 
 for i=1:nCh
-    field = stkData.stk_top{ params.idxFields(i) };
+    field = stkData.stk_top{ idxField(i) };
     [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
     intEff = intEff + eff;

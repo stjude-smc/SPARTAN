@@ -19,7 +19,7 @@ properties (GetAccess=public, SetAccess=protected)
     stk_top;             % Sum of the first 10 frames (cell array of fields).
     background;          % Estimated background image from first 10 frames  (cell array of fields)
     stdbg;               % stdev of background noise at the end of movie (last 10 frames)
-    fnames;              % Cell array of text descriptors of channel locations
+    nFrames;             % number of actual time units
     
     % Picked molecules from getPeaks()
     total_t;             % Registered, total intensity image used for picking
