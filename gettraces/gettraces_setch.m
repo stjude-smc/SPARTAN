@@ -1,4 +1,4 @@
-function settings = gettraces_setch(settings,idxNewField,input)
+function settings = gettraces_setch(settings, idxNewField, input)
 % Alter imaging profile settings
 %
 %   SETTINGS = gettraces_setch(SETTINGS,IDX,INPUT)
@@ -10,12 +10,15 @@ function settings = gettraces_setch(settings,idxNewField,input)
 narginchk(3,3);
 nargoutchk(1,1);
 
-idxCh = find(idxNewField==settings.idxFields); %index into existing channel parameter list.
-fnames = {'idxFields','scaleFluor','chNames','chDesc','wavelengths'};
+idxFields = find(settings.geometry);
+idxCh = find(idxNewField==idxFields); %index into existing channel parameter list.
+fnames = {'scaleFluor','chNames','chDesc','wavelengths'};
+settings.geometry(idxNewField) = ~isempty(input);
 
 
-% Remove channel
-if isempty(input)
+% Remove channel or remove existing channel before re-inserting below.
+% (this is done instead of updating to ensure the proper wavelength order)
+if isempty(input) || ~isempty(idxCh)
     if size(settings.crosstalk,1)<=2,
         settings.crosstalk = [];
     else
@@ -26,19 +29,10 @@ if isempty(input)
     for i=1:numel(fnames)
         settings.(fnames{i})(idxCh) = [];
     end
-    
-    return;
 end
 
-
-% Alter channel (delete and re-insert to ensure proper order)
-if ~isempty(idxCh),
-    settings = gettraces_setch(settings,idxNewField,[]);
-    settings = gettraces_setch(settings,idxNewField,input);
-
-
 % Insert channel
-else
+if ~isempty(input)
     % Determine position in list to insert by wavelength order.
     idxCh = find(input.wavelengths<settings.wavelengths, 1,'first');
     if isempty(idxCh), idxCh=numel(settings.wavelengths)+1; end  %append
@@ -60,7 +54,7 @@ else
     end
 end
 
-
 end %function gettraces_setch
+
 
 

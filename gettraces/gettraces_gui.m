@@ -86,7 +86,6 @@ end
 handles.profile = constants.gettraces_defaultProfile;  %index to current profile (FIXME: rename)
 set( hMenu(handles.profile), 'Checked','on' );
 
-
 % Context menus for field-specific settings (names, wavelength, etc).
 hZoom = zoom(handles.figure1);
 set(hZoom, 'UIContextMenu', handles.mnuField);
@@ -233,6 +232,7 @@ if ~isempty(ax)
     end
     linkaxes( [to_row(ax) handles.axTotal] );
 end
+set( handles.himshow, 'UIContextMenu',handles.mnuField );
 
 % Show total fluorescence channel
 total = sum( cat(3,stkData.stk_top{idxFields}), 3);
@@ -246,7 +246,6 @@ else
     % Allows for better zooming of narrow (high time resolution) movie.
     axis( [ax handles.axTotal], 'equal' );  %keep the axes size fixed.
 end
-set( handles.himshow, 'UIContextMenu',handles.mnuImage );
 setAxTitles(handles);
 
 guidata(hObject,handles);
@@ -926,38 +925,42 @@ end
 function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to alter field-specific settings (name, wavelength, etc).
 % FIXME: alter settingdlg to make this work somehow?
-% FIXME: some redundant code here.
 
-idxField = get(gca,'UserData');  %quadrant
-if isempty(idxField), return; end  %total intensity field
-chID = find(handles.params.idxFields==idxField);  %index in parameter list
+fieldID = get(gca,'UserData');  %quadrant
+chID = find( find(handles.params.geometry)==fieldID );  %index in parameter list
+input = [];
 
 % Prompt for new values and verify validity.
-prompt = {'Role (ex: donor):', 'Description (ex: Cy3):', 'Wavelength (nm):', ...
-          'Scale intensity by:'};
-if ~isempty(chID)
-    currentopt = {handles.params.chNames{chID} handles.params.chDesc{chID} ...
-                  num2str(handles.params.wavelengths(chID)) ...
-                  num2str(handles.params.scaleFluor(chID)) };
-else
-    currentopt = {'','','','1'};
-end
+if isequal(hObject,handles.mnuFieldSettings)
+    prompt = {'Role:', 'Description:', 'Wavelength (nm):', 'Scale intensity by:'};
 
-answer = inputdlg(prompt, 'Change settings', 1, currentopt);
-if isempty(answer), return; end   %user hit cancel
+    if ~isempty(chID)
+        currentopt = {handles.params.chNames{chID} handles.params.chDesc{chID} ...
+                      num2str(handles.params.wavelengths(chID)) ...
+                      num2str(handles.params.scaleFluor(chID)) };
+    else
+        currentopt = {'','','','1'};
+    end
 
-if ~ismember(answer{1}, properties(TracesFret4)),
-    errordlg( ['Invalid channel name ' answer{1}] );
-    return;
-elseif isnan(str2double(answer{3}))
-    errordlg('Invalid wavelength');
-    return;
+    answer = inputdlg(prompt, 'Change settings', 1, currentopt);
+    if isempty(answer), return; end   %user hit cancel
+
+    % Validate input
+    if ~isempty(answer{1})
+        if ~ismember(answer{1}, properties(TracesFret4)),
+            errordlg( ['Invalid channel name ' answer{1}] );
+            return;
+        elseif isnan(str2double(answer{3}))
+            errordlg('Invalid wavelength');
+            return;
+        end
+        input = struct( 'chNames',answer{1}, 'chDesc',answer{2}, ...
+           'wavelengths',str2double(answer{3}), 'scaleFluor',str2double(answer{4}) );
+    end
 end
 
 % Save the new parameters
-input = struct( 'chNames',answer{1}, 'chDesc',answer{2}, ...
-                'wavelengths',str2double(answer{3}), 'scaleFluor',str2double(answer{4}) );
-handles.params = gettraces_setch(handles.params, idxField, input);
+handles.params = gettraces_setch(handles.params, fieldID, input);
 guidata(hObject,handles);
 setAxTitles(handles);
 
@@ -970,37 +973,8 @@ end
 
 
 
-function mnuFieldRemove_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Context menu to remove a field from consideration.
-
-idxField = get(gca,'UserData');  %quadrant
-if isempty(idxField), return; end
-
-fieldID = find(handles.params.idxFields==idxField,1);  %index in parameter list
-if isempty(fieldID), return; end
-
-if numel(handles.params.chNames)<2,
-    warndlg('At least one channel must be defined');
-    return;
-end
-
-handles.params = gettraces_setch(handles.params, idxField, []);
-guidata(hObject,handles);
-setAxTitles(handles);
-
-% Reset picking
-if ~isempty( findobj(handles.figure1,'type','line') )
-    getTraces_Callback(hObject,[],handles);
-end
-
-% END FUNCTION mnuFieldRemove_Callback
-
-
-
 function setAxTitles(handles)
 % Set axes titles from imaging profile settings, including colors.
-
-idxFields = find(handles.params.geometry);
 
 % Clear any existing titles
 for i=1:numel(handles.ax),
@@ -1010,6 +984,7 @@ end
 % Create new titles
 if numel(handles.ax)>0
     p = handles.params;
+    idxFields = find(p.geometry);
     
     for i=1:numel(idxFields)  %i is channel index
         chColor = Wavelength_to_RGB( p.wavelengths(i) );
