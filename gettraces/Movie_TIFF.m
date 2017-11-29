@@ -46,9 +46,6 @@ properties (SetAccess=protected, GetAccess=protected),
     
     useFread = false;   %use fread (faster) if true; imread otherwise.
     swap = false;       %swap byte order if not the same as native (assumed to be little-endian)
-    
-    frameCache = [];
-    frameCacheIdx = 0;
 end
 
 
@@ -237,12 +234,6 @@ methods
             return;
         end
         
-        % Check for cached frames
-        if obj.frameCacheIdx==idx
-            data = obj.frameCache;
-            return;
-        end
-        
         % Determine which file this frame number belongs to.
         movieFirstFrame = 1+cumsum([0 obj.nFramesPerMovie]);
         idxFile = find( idx>=movieFirstFrame, 1, 'last' );
@@ -260,9 +251,6 @@ methods
             data = imread( obj.filenames{idxFile}, ...
                      'Info',obj.movieHeaders{idxFile}, 'Index',idx );
         end
-        
-        obj.frameCacheIdx = idx;
-        obj.frameCache = data;
     end
     
 end %public methods
