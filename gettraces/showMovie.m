@@ -39,6 +39,7 @@ drawMovie = true;
 if isempty(axFOV) || ~ishandle(axFOV)
     axFOV = newplot(figure);
     setappdata(axFOV, 'traceID', traceID);
+    drawnow;
     
 elseif ~strcmp(traceID, getappdata(axFOV,'traceID'))
     setappdata(axFOV,'traceID',traceID);
@@ -65,11 +66,12 @@ if drawMovie
     % Load an image from the first 10 frames of the movie.
     constants = cascadeConstants;
     stkData = MovieParser( movieFilename, constants.gettraces_profiles(1) );  %single-color
+    stk_top = stkData.stk_top{1};
 
     % Display the field of view
-    sort_px = sort(stkData.stk_top(:));
-    val = sort_px( floor(0.98*numel(sort_px)) );
-    imshow( stkData.stk_top{1}, [0 val], 'Parent',axFOV );
+    sort_px = sort(stk_top(:));
+    val = sort_px( floor(0.99*numel(sort_px)) );
+    imshow( stk_top, [0 val], 'Parent',axFOV );
     colormap(axFOV, gettraces_colormap);
     
     zoom(axFOV,'on');

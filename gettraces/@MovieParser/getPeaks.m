@@ -36,12 +36,6 @@ function stkData = getPeaks(stkData, params)
 
 
 %% Process input arguments
-if nargin>=2
-    stkData.params = params;
-else
-    params = stkData.params;
-end
-
 
 % If the threshold for detecting intensity peaks is not given, calculate it
 % automatically from the std of background regions at the end of the movie.
@@ -63,7 +57,7 @@ nCh = numel(params.chNames);
 quality = zeros(nCh,1);
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'quality',{});
 indD = find( strcmp(params.chNames,'donor') ); %donor channel to align to.
-fields = stkData.stk_top( find(params.geometry) );
+fields = stkData.stk_top(params.idxFields);
 
 
 
@@ -200,8 +194,6 @@ stkData.peaks         = picks( ~rejected,:,: );
 stkData.fractionOverlapped = sum(rejected)/numel(rejected);
 stkData.total_t = total;
 stkData.alignStatus = align;
-stkData.params = params;
-
 
 % Reset any stale data from later steps
 [stkData.regionIdx, stkData.integrationEfficiency, stkData.fractionWinOverlap, ...

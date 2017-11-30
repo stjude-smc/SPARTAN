@@ -30,7 +30,7 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.5.1';
+constants.version = '3.6';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
 constants.debug = false; %if true, throw errors and print debug info at prompt.
@@ -72,22 +72,16 @@ constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 
 
 %% ======================  Gettraces Default Settings ====================== %%
-% Create gettraces parameter profiles for various imaging geometries and
-% fluorophores. Some parameters, especially crosstalk, may depend on the
-% specific biological system, fluorophores, and filters used. Others, like
-% photonConversion, nPixelsToSum, nHoodSize, and overlap_thresh depend on the
-% cameras used, level of binning, magnification, etc.
-% 
-% Channel names must be listed in spectral order (blue, green, red, IR).
-% The order these channels appear in the movie is specified by the "idxFields"
-% property. The order is: UL, UR, LL, LR.   (For two fields: L, R).
-% For example a value of [2 4 1] specifies gives a field order of: UR,LR,UL.
-% 
-% See gettraces.m for definitions for these parameters. Acceptable channel
-% names include: donor, acceptor, acceptor2, and factor.
-% This allows for 2- or 3-color FRET (but not four-color with two FRET pairs).
-% Factor is a fluorescence channel that is not part of any FRET pair.
+% Definitions of gettraces parameter profiles.
 %
+% Channels must be listed in spectral order (UV, blue, green, red, IR).
+% "geometry" defines how the fluorescence channels are arranged, encoded in the
+% size of the matrix, and their wavelength order. For example, [2,3; 1 0] says
+% the fields are arranged as four quadrants in each frame, with the following
+% wavelength order: lower-left, upper-left, upper-right (lower-right ignored).
+% 
+% Valid channel names are defined in TracesFret4.m and include:
+% donor, acceptor, acceptor2, and factor.
 
 %------------------------
 % Default settings are given here. Unless another value is given in the profile
@@ -116,7 +110,7 @@ cmosCommon.overlap_thresh = 3.5; %remove molecules that are w/i X pixels.
 cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
 cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
-cmosCommon.bgBlurSize     = 6;   %background estimation window size
+cmosCommon.bgBlurSize     = 6;   %background estimation window size (see openStk.m)
 cmosCommon.alignment = struct([]);
 
 % Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.
@@ -137,7 +131,7 @@ clear p; clear profiles
 %------  sCMOS cameras  -------
 p = cmosCommon;
 p.name         = 'sCMOS, Single-channel (Cy3)';
-p.geometry     = true(1,1);
+p.geometry     = 1;
 p.chNames      = {'donor'};
 p.chDesc       = {'Cy3'};
 p.wavelengths  = 532;
@@ -146,7 +140,7 @@ profiles(1)    = p;
 
 
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, L/R)';
-p.geometry    = true(1,2);
+p.geometry    = [1 2];
 p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
@@ -156,12 +150,12 @@ p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
 p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, sequential)';
-p.geometry    = true(1,1,2);
+p.geometry    = cat(3,1,2);
 profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy2/3/5)';
-p.geometry    = logical( [1 1; 1 0] );  % field order: UL,UR,LL.
+p.geometry    = [2 3; 1 0];  % field order: LL,UL,UR.
 p.chNames     = {'factor','donor','acceptor'};
 p.chDesc      = {'Cy2','Cy3','Cy5'};
 p.wavelengths = [473 532 640];
@@ -173,7 +167,7 @@ profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
-p.geometry    = logical( [1 1; 0 1] );  % field order: UL,UR,LL.
+p.geometry    = [1 2; 0 3];  % field order: UL,UR,LL.
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
 p.wavelengths = [532 640 730];
@@ -272,6 +266,14 @@ profiles(end+1) = p;
 % p.crosstalk(1,2) = 0.11;
 % p.scaleFluor  = [1 1];
 % profiles(end+1) = p;
+
+
+% Save indexes for getting wavelength-sorted list of selected fields.
+% DO NOT EDIT
+for i=1:numel(profiles)
+    [val,idx] = sort( profiles(i).geometry(:) );
+    profiles(i).idxFields = idx(val>0);
+end
 
 
 % Set the default settings profile.

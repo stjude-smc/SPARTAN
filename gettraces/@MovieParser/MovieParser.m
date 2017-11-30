@@ -6,15 +6,16 @@ classdef MovieParser < handle
 %   as summing fluorescence fields, detecting molecule locations, finding
 %   integration windows for each, and saving the traces to file.
 %
-%   See also: gettraces, gettraces_gui, etc.
+%   See also: gettraces_gui.
 
 %   Copyright 2017 Cornell University All Rights Reserved.
 
 
 
 properties (GetAccess=public, SetAccess=protected)
-    % Basic data available when movie is first loaded in openStk()
-    % Images (stk_top, background, fnames) are ALL fields, even unused ones.
+    % Basic data available when movie is first loaded in openStk().
+    % stk_top, backround, stdbg include ALL fields, even unused ones,
+    % and are arranged in column-major order (not wavelength order!)
     movie;               % Movie_TIFF or Movie_STK object
     stk_top;             % Sum of the first 10 frames (cell array of fields).
     background;          % Estimated background image from first 10 frames  (cell array of fields)
@@ -28,20 +29,21 @@ properties (GetAccess=public, SetAccess=protected)
     rejectedPicks;       % Locations of molecules with overlapping PSFs
     rejectedTotalPicks;  % ... in total intensity image
     fractionOverlapped;  % Fraction of molecules rejected due to overlapping PSFs
-    alignStatus;         % Alignment strct: dx, dy, theta, sx, sy, abs_dev, tform, quality
+    alignStatus;         % Alignment struct: dx, dy, theta, sx, sy, abs_dev, tform, quality
     
     % Integration windows from getIntegrationWindows()
-    regionIdx;              % X,Y coordinates of each integration window
-    bgMask;                 % Logical mask of pixels used for summing background fluorescence
+    regionIdx;           % X,Y coordinates of each integration window
+    bgMask;              % Logical mask of pixels used for summing background fluorescence
     
+    % Integration startistics for display, also from getIntegrationWindows()
     integrationEfficiency;  % Estimated fraction of intensity collected
     psfWidth;               % Average number of pixels to integrate 70% of total intensity
     fractionWinOverlap;     % Fraction of pixels used by multiple molecules
 end
 
-properties (GetAccess=public, SetAccess=public)
-    params;              % Analysis settings. See cascadeConstants.m
-end
+% properties (GetAccess=public, SetAccess=public)
+%     params;              % Analysis settings. See cascadeConstants.m
+% end
 
 
 

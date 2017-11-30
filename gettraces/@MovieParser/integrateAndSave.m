@@ -30,11 +30,6 @@ function integrateAndSave(stkData, outname, params)
 
 % Process input arguments
 narginchk(3,3);
-if nargin<3
-    params = stkData.params;
-else
-    stkData.params = params;
-end
 
 
 
@@ -134,7 +129,7 @@ end
 
 % Subtract local background
 traces = single(traces);
-bg = stkData.background( find(geo) );
+bg = stkData.background( params.idxFields );
 for c=1:nCh
     bgt = sum( bg{c}(idx{c}), 1);
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
@@ -206,7 +201,7 @@ elseif size(geo,3)>1
 else
     quad = {'L','R'};
 end
-quad = quad(geo);
+quad = quad(params.idxFields);
 
 for i=1:nCh,
     ch = data.channelNames{i};

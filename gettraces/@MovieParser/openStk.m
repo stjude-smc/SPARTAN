@@ -13,7 +13,6 @@ elseif iscell(input) || ischar(input)
 else
     error('Invalid input: must be filename or Movie object');
 end
-this.params = params;
 this.movie = movie;
 
 % Average the first 10 frames to create an image for finding molecules.
@@ -27,7 +26,7 @@ fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
 % Create an estimated background image by sampling the lowest 15-20% of 
 % values in each 6x6 area in the image and interpolating values in between.
 % The block size (den) should be at least 3x the PSF width.
-den = this.params.bgBlurSize;
+den = params.bgBlurSize;
 this.background = cell( size(fields) );
 szField = size(fields{1});
 temp = zeros( floor(szField/den) );

@@ -139,6 +139,7 @@ function handles = OpenStk(filename, handles, hObject)
 
 if isempty(filename), return; end
 if ~iscell(filename), filename = {filename}; end
+params = handles.params;
 
 % Remove "-file00x" extension for multi-file TIFF stacks.
 [p,f,e] = fileparts( filename{1} );
@@ -186,8 +187,8 @@ set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
      'SliderStep',[1/stkData.movie.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-idxFields = find(handles.params.geometry);
-stk_top = cat(3,stkData.stk_top{idxFields});
+idxFields = handles.params.idxFields;
+stk_top = cat(3, stkData.stk_top{idxFields} );
 sort_px = sort(stk_top(:));
 val = 2*sort_px( floor(0.99*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
@@ -195,7 +196,7 @@ high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
-% Create axes for sub-fields
+% Create axes for sub-fields (listed in column-major order, like stk_top)
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 axopt = {'Visible','off'};
 
@@ -440,21 +441,21 @@ set(handles.figure1,'pointer','watch'); drawnow;
 delete(findobj(handles.figure1,'type','line')); drawnow;
 
 % Locate single molecules
-try
+% try
     stkData = getappdata(handles.figure1,'stkData');
     stkData = getPeaks(stkData, handles.params);
     stkData = getIntegrationWindows(stkData, handles.params);
     setappdata(handles.figure1,'stkData',stkData);
     
-catch e
-    set(handles.figure1,'pointer','arrow'); drawnow;
-    if ~cascadeConstants('debug')
-        errordlg( ['Error: ' e.message], 'Gettraces' );
-    else
-        rethrow(e);
-    end
-    return;
-end
+% catch e
+%     set(handles.figure1,'pointer','arrow'); drawnow;
+%     if ~cascadeConstants('debug')
+%         errordlg( ['Error: ' e.message], 'Gettraces' );
+%     else
+%         rethrow(e);
+%     end
+%     return;
+% end
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -631,18 +632,18 @@ end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 % Integrate fluorophore PSFs into fluorescence traces and save to file.
-try
+% try
     stkData = getappdata(handles.figure1,'stkData');
     integrateAndSave(stkData, filename, handles.params);
-catch e
-    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-        disp('Gettraces: Operation cancelled by user.');
-    elseif ~cascadeConstants('debug')
-        errordlg( ['Error: ' e.message], 'Gettraces' );
-    else
-        rethrow(e);
-    end
-end
+% catch e
+%     if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+%         disp('Gettraces: Operation cancelled by user.');
+%     elseif ~cascadeConstants('debug')
+%         errordlg( ['Error: ' e.message], 'Gettraces' );
+%     else
+%         rethrow(e);
+%     end
+% end
 
 set(handles.figure1,'pointer','arrow'); drawnow;
 
@@ -984,12 +985,11 @@ end
 % Create new titles
 if numel(handles.ax)>0
     p = handles.params;
-    idxFields = find(p.geometry);
     
-    for i=1:numel(idxFields)  %i is channel index
+    for i=1:numel(p.idxFields)  %i is channel index
         chColor = Wavelength_to_RGB( p.wavelengths(i) );
 
-        title( handles.ax( idxFields(i) ), ...
+        title( handles.ax( p.idxFields(i) ), ...
                sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},i), ...
                'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
                'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.

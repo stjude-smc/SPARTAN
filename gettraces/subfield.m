@@ -18,8 +18,7 @@ function output = subfield(input, quad, frameIdx)
 
 
 % Process input arguments
-narginchk(2,3);
-if nargin<3, frameIdx=1; end
+narginchk(3,3);
 assert( isa(input,'Movie_TIFF') || isa(input,'Movie_STK'), 'Invalid input' );
 
 szQuad = size(quad);
@@ -28,14 +27,14 @@ assert( numel(szQuad)<=3, 'Invalid dimensions of subfield indexing matrix' );
 % Fluorescence channels are stacked in sequential frames (not interleaved)
 if numel(szQuad)>2
     if any(szQuad(1:2)>1)
-        error('Sub-fields must be arranged either side-by-side OR stacked, not both');
+        error('Fields must be arranged either side-by-side OR stacked, not both');
     end
     
     nFrames = input.nFrames/szQuad(3);  %number of actual time units in movie
     assert( nFrames==floor(nFrames), 'Unexpected number of frames for chosen stacked geometry' )
     
-    output = cell( szQuad(3), 1 );
-    for i=1:numel(output)
+    output = cell( sum(quad>0), 1 );
+    for i=to_row( find(quad>0) )
         output{i} = input.readFrames( frameIdx + (i-1)*nFrames );
     end
     
@@ -49,14 +48,19 @@ else
     idx = [imr,imc] ./ [nr,nc];  %subdivision size in each dimension
 
     if ~all(idx==floor(idx))
-        error('Movie cannot be divided into equal-sized subfields. Incorrect geometry?');
+        error('Movie cannot be divided into equal-sized fields. Incorrect geometry?');
     end
 
     % Divide image into equal-sized subregions
     C = mat2cell( input, repmat(idx(1),nr,1), repmat(idx(2),nc,1), imf );
-    output = C(quad);  %Select requested subfields
+    output = C(quad>0);  %Select requested subfields
 end
 
+% Sort fields in wavelength order
+if ~islogical(quad)
+    idxFields = to_row( quad(quad>0) );
+    output = output(idxFields);  %sort in wavelength order
+end
 
 end %FUNCTION subfield
 
