@@ -33,7 +33,7 @@ if nargin<3 || isempty(tform)
 
 elseif isnumeric(tform) || ischar(tform)
     % Translate into target field
-    switch quadrant
+    switch tform
         case {1,'L','UL'}  %nothing to do.
         case {2,'R','UR'}
                 picks(:,1) = picks(:,1) + ncol;

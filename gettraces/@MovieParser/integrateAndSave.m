@@ -197,10 +197,23 @@ data.fileMetadata.wavelengths = params.wavelengths;
 data.fileMetadata.chDesc = params.chDesc;
 
 % Save molecule locations of the picked peaks for later lookup.
+% For now, these are relative to the full image with side-by-side arranged
+% fields to reproduce old behavior... FIXME someday
+if size(geo,1)==2
+    quad = {'UL','UR';'BL','BR'};
+elseif size(geo,3)>1
+    quad = repmat({'L'}, [1 size(geo,3)]);
+else
+    quad = {'L','R'};
+end
+quad = quad(geo);
+
 for i=1:nCh,
     ch = data.channelNames{i};
-    x = num2cell( stkData.peaks(:,1,i) );
-    y = num2cell( stkData.peaks(:,2,i) );
+    peaks = translatePeaks( stkData.peaks(:,:,i), size(stkData.background{1}), quad{i} );
+    
+    x = num2cell( peaks(:,1) );
+    y = num2cell( peaks(:,2) );
     [data.traceMetadata.([ch '_x'])] = x{:};
     [data.traceMetadata.([ch '_y'])] = y{:};
 end
