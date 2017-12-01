@@ -94,7 +94,6 @@ zoom(handles.figure1,'on');
 % Setup default values for parameter values -- 2-color FRET.
 handles.hProfileMenu = hMenu;
 handles.profiles = profiles;
-handles.alignment = [];  %current alignment parameters (status)
 guidata(hObject, handles);
 
 % Set up GUI elements to reflect the internal parameter values.
@@ -419,9 +418,7 @@ set(handles.txtProgress,'String','Batch processing: finished.');
 % ------------------------ PICK INTENSITY PEAKS ------------------------ %
 
 function handles = getTraces_Callback(hObject, ~, handles)
-%
-
-%----- Find peak locations from total intensity
+% Find peak locations from total intensity
 
 % Do nothing if no file has been loaded. This function may be triggered by
 % changing the settings fields before a file is open.
@@ -430,24 +427,22 @@ if ~isfield(handles, 'stkfile')
 end
 set(handles.tblAlignment, 'Data',{}, 'RowName',{});
 set(handles.figure1,'pointer','watch'); drawnow;
+stkData = handles.stkData;
 
 % Clear any existing selection markers from previous calls.
 delete(findobj(handles.figure1,'type','line')); drawnow;
 
 % Locate single molecules
-try
-    stkData = handles.stkData;
+if cascadeConstants('debug')
     getPeaks(stkData, handles.params);
-    getIntegrationWindows(stkData, handles.params);
-    
-catch e
-    set(handles.figure1,'pointer','arrow'); drawnow;
-    if ~cascadeConstants('debug')
+else
+    try
+        getPeaks(stkData, handles.params);
+    catch e
+        set(handles.figure1,'pointer','arrow'); drawnow;
         errordlg( ['Error: ' e.message], 'Gettraces' );
-    else
-        rethrow(e);
+        return;
     end
-    return;
 end
 
 % The alignment may involve shifting (or distorting) the fields to get a
@@ -467,13 +462,12 @@ set( handles.txtAlignWarning, 'Visible','off' );
 
 if isempty(stkData.alignStatus),
     set(handles.panAlignment, 'Visible','off', 'ForegroundColor', [0 0 0]);
-    handles.alignment = [];
     
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
 else
     a = stkData.alignStatus;
-    handles.alignment = a;
+    handles.params.alignment = a;
     
     tableData = cell(numel(a)-1,6);
     fmt = {'% 0.2f','% 0.2f','% 0.2f','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
@@ -555,6 +549,8 @@ set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
 
 set( [handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs ...
                                      handles.mnuHidePeaks], 'Enable','on');
+set( [handles.mnuAlignSave handles.mnuAlignKeep], ...
+                   'Enable',onoff(handles.params.alignMethod>1) );
 
 set(handles.figure1,'pointer','arrow');
 guidata(hObject,handles);
@@ -620,15 +616,17 @@ end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 % Integrate fluorophore PSFs into fluorescence traces and save to file.
-try
+if cascadeConstants('debug')
     integrateAndSave(handles.stkData, filename, handles.params);
-catch e
-    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-        disp('Gettraces: Operation cancelled by user.');
-    elseif ~cascadeConstants('debug')
-        errordlg( ['Error: ' e.message], 'Gettraces' );
-    else
-        rethrow(e);
+else
+    try
+        integrateAndSave(handles.stkData, filename, handles.params);
+    catch e
+        if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+            disp('Gettraces: Operation cancelled by user.');
+        else
+            errordlg( ['Error: ' e.message], 'Gettraces' );
+        end
     end
 end
 
@@ -719,7 +717,6 @@ set( handles.mnuBatchOverwrite,   'Checked', onoff(params.skipExisting) );
 set( findobj('Parent',handles.mnuAlign), 'Checked','off' );
 set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
      'Checked','on' );
-set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
@@ -734,6 +731,7 @@ set( handles.panAlignment, 'Title','Software Alignment', ...
 % If a movie has already been loaded, reload movie with new setup.
 if isfield(handles,'stkfile'),
     handles = OpenStk( handles.stkfile, handles, hObject );
+    set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 end
 
 guidata(hObject,handles);
@@ -1018,21 +1016,20 @@ if sel==2
         return;
     end
 
-    handles.alignment = input.alignment; %GUI state
-    handles.params.alignment = input.alignment; %gettraces() input
+    handles.params.alignment = input.alignment;
     
 elseif sel==4
-    handles.params.alignment = rmfield( handles.alignment, {'quality'} );
-    %FIMXE: only run getTraces_Callback if molecules not picked yet.
+    % Can only align memorize a valid alignment.
+    if isempty(handles.params.alignment), return; end
 end
 
 % Re-pick molecules and update GUI with new mode.
 handles.params.alignMethod = sel;
+guidata(hObject,handles);
 getTraces_Callback(hObject,[],handles);
 
 set(findobj('Parent',handles.mnuAlign), 'Checked','off');
 set(hObject, 'Checked','on');
-set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(sel>1));
 
 % END FUNCTION cboAlignMethod_Callback
 
@@ -1042,7 +1039,9 @@ function btnSaveAlignment_Callback(~, ~, handles)  %#ok<DEFNU>
 % Save current software alignment settings (which may be set to do nothing
 % at all) to file so they can be reloaded later.
 
-assert( isfield(handles,'alignment') && ~isempty(handles.alignment) && ~isscalar(handles.params.geometry) );
+if isempty(handles.params.alignment) || isscalar(handles.params.geometry)
+    return;  %can't save an invalid alignment
+end
 
 [p,f] = fileparts(handles.stkfile);
 alignfile = fullfile( p, [f '_align.mat'] );
@@ -1051,7 +1050,7 @@ alignfile = fullfile( p, [f '_align.mat'] );
 
 if f,
     % FIXME: should also remove abs_dev.
-    alignment = rmfield( handles.alignment, {'quality'} );   %#ok<NASGU>
+    alignment = rmfield( handles.params.alignment, {'quality'} );   %#ok<NASGU>
     save( fullfile(p,f), 'alignment' );
 end
 

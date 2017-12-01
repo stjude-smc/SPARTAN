@@ -54,8 +54,7 @@ end
 
 % Used by all methods
 nCh = numel(params.chNames);
-quality = zeros(nCh,1);
-align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'quality',{});
+align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{},'quality',{});
 indD = find( strcmp(params.chNames,'donor') ); %donor channel to align to.
 fields = stkData.stk_top(params.idxFields);
 
@@ -105,10 +104,10 @@ if params.alignMethod==1 && ~isscalar(params.geometry)
         theta = atan2(ss,sc)*180/pi;
 
         % Contrast score relative to a random alignment (scrambled inputs)
-        quality(i) = weberQuality(fields{indD}, fields{i}, 0.7*params.don_thresh);
+        quality = weberQuality(fields{indD}, fields{i}, 0.7*params.don_thresh);
 
         align(i) = struct( 'dx',tform.T(3,1), 'dy',tform.T(3,2), 'theta',theta, ...
-                'sx',scale, 'sy',scale, 'abs_dev',abs_dev, 'quality',quality(i) );
+                'sx',scale, 'sy',scale, 'abs_dev',abs_dev, 'tform',tform, 'quality',quality );
     end
 end
 
@@ -118,8 +117,6 @@ end
 % alignMethod: 1=disable, 2=auto (ICP), 3=load from file, 4=memorize.
 
 if ~isscalar(params.geometry) && params.alignMethod>1
-    
-    newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     
     donor = fields{indD};  %reference field for alignment
     total = donor;         %total intensity of registered channel images
@@ -131,17 +128,17 @@ if ~isscalar(params.geometry) && params.alignMethod>1
         
         % Load memorized alignment
         if params.alignMethod==2 || params.alignMethod==4,
-            newAlign(i) = params.alignment(i);
+            a = params.alignment(i);
         
         % Run iterative closest points algorithm.
-        elseif params.alignMethod==3,
-            newAlign(i) = icpalign( donor, target, params );
+        else
+            a = icpalign( donor, target, params );
         end
         
         % Register acceptor side so that it is lined up with the donor.
         % imref2d specifies the center of the image is the origin (0,0).
         R = imref2d( size(target), [-1 1]*ncol/2, [-1 1]*nrow/2 );
-        registered = imwarp( target, R, newAlign(i).tform,...
+        registered = imwarp( target, R, a.tform,...
                                     'Interp','cubic', 'OutputView',R );
         total = total + registered;
         
@@ -149,7 +146,8 @@ if ~isscalar(params.geometry) && params.alignMethod>1
         % FIXME: the threshold here is for total intensity, which may be much
         % brighter than the combination of any two channels. This could give 
         % low quality scores even when the alignment is good.
-        quality(i) = weberQuality(donor, registered, 0.7*params.don_thresh);
+        a.quality = weberQuality(donor, registered, 0.7*params.don_thresh);
+        align(i) = a;
     end
 
     % Pick peaks from the aligned total intensity image.
@@ -162,7 +160,7 @@ if ~isscalar(params.geometry) && params.alignMethod>1
     remove = false( nPicked,1 );
 
     for i=1:nCh,
-        [picks(:,:,i),r] = translatePeaks( total_picks,  size(total), newAlign(i).tform );
+        [picks(:,:,i),r] = translatePeaks( total_picks,  size(total), align(i).tform );
         remove = remove | r;
     end
 
@@ -171,22 +169,21 @@ if ~isscalar(params.geometry) && params.alignMethod>1
     rejected    = rejected(~remove);
     picks       = picks(~remove,:,:);
     
+    % Estimate of residual misalignment from the net displacement of the
+    % peak centroids relative to the donor channel (alignment reference).
+    % (If the fields are closely aligned, the residuals should point in the 
+    % same direction, but may point in opposite directions otherwise).
     refinedPicks = zeros( size(picks) );
     for i=1:nCh
         refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
     end
     residuals = refinedPicks-picks; 
 
-    % Estimate of residual misalignment from the deviation of the position  of
-    % the highest intensity pixel in each field vs registered total intensity image.
     for i=1:nCh
         dev = residuals(~rejected,:,i) - residuals(~rejected,:,indD);
-        newAlign(i).abs_dev = sqrt(  mean( dev(:,1).^2 + dev(:,2).^2 )  );
-        newAlign(i).quality = quality(i);
+        align(i).abs_dev = sqrt(  mean( dev(:,1).^2 + dev(:,2).^2 )  );
     end
-    align = newAlign;
 end
-
 
 
 %% Save output
@@ -199,9 +196,9 @@ stkData.fractionOverlapped = sum(rejected)/numel(rejected);
 stkData.total_t = total;
 stkData.alignStatus = align;
 
-% Reset any stale data from later steps
-[stkData.regionIdx, stkData.integrationEfficiency, stkData.fractionWinOverlap, ...
- stkData.bgMask, stkData.psfWidth] = deal([]);
+
+%% Get integration windows
+getIntegrationWindows(stkData, params);
     
 
 end %function getPeaks
