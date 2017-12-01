@@ -139,7 +139,6 @@ function handles = OpenStk(filename, handles, hObject)
 
 if isempty(filename), return; end
 if ~iscell(filename), filename = {filename}; end
-params = handles.params;
 
 % Remove "-file00x" extension for multi-file TIFF stacks.
 [p,f,e] = fileparts( filename{1} );
@@ -175,13 +174,10 @@ set(handles.tblAlignment, 'Data',{});
 
 
 % Load movie data, clearing original to save memory
-if isappdata(handles.figure1,'stkData')
-    rmappdata(handles.figure1,'stkData');
-end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 stkData = MovieParser( filename, handles.params );  %does not draw from gettraces params!
-setappdata(handles.figure1,'stkData',stkData);
+handles.stkData = stkData;
 
 set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
      'SliderStep',[1/stkData.movie.nFrames,0.02] );
@@ -251,7 +247,7 @@ setAxTitles(handles);
 
 guidata(hObject,handles);
 set( handles.figure1, 'pointer','arrow');
-set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata], 'Enable','on');
+set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata handles.mnuTirfProfile], 'Enable','on');
 set([handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs],'Enable','off');
 
 %end function OpenStk
@@ -266,14 +262,12 @@ function sldScrub_Callback(hObject, ~, handles) %#ok<DEFNU>
 set(handles.btnPlay,'String','Play');
 
 % Read frame of the movie
-stkData  = getappdata(handles.figure1,'stkData');
 idxFrame = round( get(hObject,'Value') );
-
 allgeo = true( size(handles.params.geometry) );
-fields = subfield( stkData.movie, allgeo, idxFrame );
+fields = subfield( handles.stkData.movie, allgeo, idxFrame );
 
 for f=1:numel(fields)
-    field = single(fields{f}) - stkData.background{f};
+    field = single(fields{f}) - handles.stkData.background{f};
     set( handles.himshow(f), 'CData',field );
 end
 
@@ -293,7 +287,7 @@ else
     return;
 end
 
-stkData = getappdata(handles.figure1,'stkData');
+stkData = handles.stkData;
 startFrame = round( get(handles.sldScrub,'Value') );
 allgeo = true( size(handles.params.geometry) );
 
@@ -441,21 +435,20 @@ set(handles.figure1,'pointer','watch'); drawnow;
 delete(findobj(handles.figure1,'type','line')); drawnow;
 
 % Locate single molecules
-% try
-    stkData = getappdata(handles.figure1,'stkData');
-    stkData = getPeaks(stkData, handles.params);
-    stkData = getIntegrationWindows(stkData, handles.params);
-    setappdata(handles.figure1,'stkData',stkData);
+try
+    stkData = handles.stkData;
+    getPeaks(stkData, handles.params);
+    getIntegrationWindows(stkData, handles.params);
     
-% catch e
-%     set(handles.figure1,'pointer','arrow'); drawnow;
-%     if ~cascadeConstants('debug')
-%         errordlg( ['Error: ' e.message], 'Gettraces' );
-%     else
-%         rethrow(e);
-%     end
-%     return;
-% end
+catch e
+    set(handles.figure1,'pointer','arrow'); drawnow;
+    if ~cascadeConstants('debug')
+        errordlg( ['Error: ' e.message], 'Gettraces' );
+    else
+        rethrow(e);
+    end
+    return;
+end
 
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
@@ -512,14 +505,9 @@ else
 
     % Color the text to draw attention to it if the alignment is bad.
     % FIXME: this should depend on the nhood/window size. 1 px may be small.
-    if any( [a.abs_dev] > 0.35 ),
-        d = min(1, 1.75*(max([a.abs_dev])-0.2) );
-        set( handles.tblAlignment, 'ForegroundColor', d*[1 0 0] );
-        set( handles.panAlignment, 'ForegroundColor', d*[1 0 0] );
-    else
-        set( handles.tblAlignment, 'ForegroundColor', [0 0 0] );
-        set( handles.panAlignment, 'ForegroundColor', [0 0 0] );
-    end
+    d = max(0,min(1,  1.75*(max([a.abs_dev])-0.25)  ));
+    set( handles.tblAlignment, 'ForegroundColor', d*[1 0 0] );
+    set( handles.panAlignment, 'ForegroundColor', d*[1 0 0] );
     
     % Show a big warning for total misalignment (no corresponding peaks).
     if any( [a.abs_dev] >=0.7 ),
@@ -579,7 +567,7 @@ function highlightPeaks(handles)
 % Draw circles around each selected fluorescence spot.
 
 style = {'LineStyle','none','marker','o'};
-stkData = getappdata(handles.figure1,'stkData');
+stkData = handles.stkData;
 idxField = find(handles.params.geometry);
 
 if ~isscalar(handles.params.geometry)
@@ -632,18 +620,17 @@ end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 % Integrate fluorophore PSFs into fluorescence traces and save to file.
-% try
-    stkData = getappdata(handles.figure1,'stkData');
-    integrateAndSave(stkData, filename, handles.params);
-% catch e
-%     if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-%         disp('Gettraces: Operation cancelled by user.');
-%     elseif ~cascadeConstants('debug')
-%         errordlg( ['Error: ' e.message], 'Gettraces' );
-%     else
-%         rethrow(e);
-%     end
-% end
+try
+    integrateAndSave(handles.stkData, filename, handles.params);
+catch e
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        disp('Gettraces: Operation cancelled by user.');
+    elseif ~cascadeConstants('debug')
+        errordlg( ['Error: ' e.message], 'Gettraces' );
+    else
+        rethrow(e);
+    end
+end
 
 set(handles.figure1,'pointer','arrow'); drawnow;
 
@@ -852,7 +839,7 @@ guidata(hObject,handles);
 function btnMetadata_Callback(~, ~, handles)  %#ok<DEFNU>
 % Display a simple diaglog with the MetaMorph metadata for the first frame.
 
-stkData = getappdata(handles.figure1,'stkData');
+stkData = handles.stkData;
 if isempty(stkData), return; end  %disable button?
 
 % MetaMorph specific metadata

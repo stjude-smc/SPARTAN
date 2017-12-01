@@ -31,7 +31,7 @@ this.background = cell( size(fields) );
 szField = size(fields{1});
 temp = zeros( floor(szField/den) );
 win = 1:den;
-partition = round( 0.167*(den^2) );  %index of sorted pixel to use 
+partition = floor( 0.167*(den^2) );  %index of sorted pixel to use
 
 for f=1:numel(fields)
     % Divide image into den-x-den squares and find 16% lowest value in each.

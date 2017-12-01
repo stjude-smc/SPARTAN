@@ -77,21 +77,22 @@ end
 
 %% Estimate local misalignment with software alignment is disabled.
 
-if params.alignMethod==1 && ~isscalar(params.geometry)  % && numel(picks)>0,
+if params.alignMethod==1 && ~isscalar(params.geometry)
     
     % Measure apparent deviation from perfect alignment
     refinedPicks = zeros( size(picks) );
     for i=1:nCh
         refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
     end
+    residuals = refinedPicks-picks;
     
     for i=1:nCh
         if i==indD, continue; end %don't try to align donor to itself.
         
         % Estimate of misalignment error from the deviation of the position of
         % the highest intensity pixel in each field vs total intensity image.
-        dev = refinedPicks(~rejected,:,i) - total_picks(~rejected,:);
-        abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
+        dev = residuals(~rejected,:,i) - residuals(~rejected,:,indD);
+        abs_dev = sqrt(  mean( dev(:,1).^2 + dev(:,2).^2 )  );
 
         % Use the picked peak locations to create a simple transformation
         % (including translation, rotation, and scaling) from donor to
@@ -116,7 +117,7 @@ end
 %% Apply software alignment, if requested.
 % alignMethod: 1=disable, 2=auto (ICP), 3=load from file, 4=memorize.
 
-if ~isscalar(params.geometry) && params.alignMethod>1 % && numel(picks)>0,
+if ~isscalar(params.geometry) && params.alignMethod>1
     
     newAlign = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{});
     
@@ -169,15 +170,18 @@ if ~isscalar(params.geometry) && params.alignMethod>1 % && numel(picks)>0,
     total_picks = total_picks(~remove,:,:);
     rejected    = rejected(~remove);
     picks       = picks(~remove,:,:);
+    
+    refinedPicks = zeros( size(picks) );
+    for i=1:nCh
+        refinedPicks(:,:,i) = getCentroids( fields{i}, picks(:,:,i), params.nhoodSize );
+    end
+    residuals = refinedPicks-picks; 
 
     % Estimate of residual misalignment from the deviation of the position  of
     % the highest intensity pixel in each field vs registered total intensity image.
     for i=1:nCh
-        goodPicks = picks(~rejected,:,i);  %non-overlapping PSFs
-        refinedPicks = getCentroids( fields{i}, goodPicks, params.nhoodSize );
-        
-        dev = refinedPicks-goodPicks;
-        newAlign(i).abs_dev = mean(  sqrt( dev(:,1).^2 + dev(:,2).^2 )  );
+        dev = residuals(~rejected,:,i) - residuals(~rejected,:,indD);
+        newAlign(i).abs_dev = sqrt(  mean( dev(:,1).^2 + dev(:,2).^2 )  );
         newAlign(i).quality = quality(i);
     end
     align = newAlign;

@@ -30,6 +30,7 @@ function integrateAndSave(stkData, outname, params)
 
 % Process input arguments
 narginchk(3,3);
+tic;
 
 
 
@@ -89,7 +90,6 @@ if nTraces*nFrames/2000 > 1500 && cascadeConstants('enable_parfor') && isa(movie
 else
     M = 0;  %use GUI thread
 end
-tic;
 
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
@@ -108,7 +108,6 @@ traces = zeros(nTraces,nFrames,nCh, stkData.movie.precision);
 idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
 parfor (k=1:nFrames, M)
-% for k=1:nFrames
     % Retrieve next frame and separate fluorescence channels
     frame = subfield(movie, geo, k);
     
@@ -134,7 +133,6 @@ for c=1:nCh
     bgt = sum( bg{c}(idx{c}), 1);
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
 end
-disp(toc);
 
 
 %% Apply corrections and calculate FRET
@@ -175,7 +173,7 @@ end
 if isfield(params,'zeroMethod'),
     data.fileMetadata.zeroMethod = params.zeroMethod;
 end
-
+disp(toc);
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = correctTraces( bgsub(data), params.crosstalk, to_col(params.scaleFluor));
 data.recalculateFret();
