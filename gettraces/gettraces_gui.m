@@ -1,23 +1,26 @@
 function varargout = gettraces_gui(varargin)
-% GETTRACES M-file for gettraces.fig
-%      
-%      Converts Metamorph .stk files into single-molecule fluorescence and
-%      FRET traces. The picking algorithm was taken from gui3.m, written by
-%      Harold Kim. I fixed problems with the batch mode, and reconfigured
-%      the startup to open .stks instead of .pmas. I also reconfigured the
-%      output, so that now the result is a new .traces file with a unique 
-%      id for each molecule donor fluorescence, acceptor fluorescence, and
-%      fret for each molecule.
+% GETTRACES  Extract fluorescence traces from wide-field fluorescence movies
 %
-%      To run in batch mode, first load a single .stk file and adjust the
-%      threshold and txtOverlap rejection. Then select batch mode and choose a
-%      directory. All the .stk files in that directory will be converted to
-%      separate .traces files using the established threshold and txtOverlap
-%      rejection. Batch mode is not recursive.
+%   This GUI provides an interface to view wide-field fluoerscence movies
+%   (.tif and .stk files), detect peaks of fluorescence intensity within the
+%   field of view, align peaks from separate spectral channels, and save
+%   single molecule fluorescence traces by summing the intensity over a fixed
+%   window around each peak in each frame of the movie.
+%
+%   Imaging profiles describe how the movie is divided into fluorescence
+%   channels (side-by-side tiles, sequential frames, etc), descriptions of these
+%   channels, and various analysis settings. Default profiles are defined in
+%   cascadeConstants.m and can be modified for your lab's setup. Custom profiles
+%   can also be saved within the GUI that are persisent across sessions, but
+%   have less flexibility.
+%
+%   For algorithm details, see the MovieParser class and associated methods.
+%
+%   See also: MovieParser, Movie_TIFF, subfield, tirfProfile.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 01-Nov-2017 16:16:19
+% Last Modified by GUIDE v2.5 05-Dec-2017 17:47:33
 
 
 % Begin initialization code - DO NOT EDIT
@@ -48,41 +51,34 @@ function gettraces_OpeningFcn(hObject, ~, handles, varargin)
 updateSpartan; %check for updates
 constants = cascadeConstants();
 set( handles.figure1, 'Name', ['gettraces - ' constants.software] );
+handles.output = hObject;
 
 % Load colormap for image viewer
 set( handles.figure1, 'Colormap',gettraces_colormap() );
 
-% Choose default command line output for gettraces
-handles.output = hObject;
-
 % Load built-in and saved user-custom.
 profiles = constants.gettraces_profiles;
-nStandard = numel(profiles);
+handles.nStandard = numel(profiles);
 
 if ispref('SPARTAN','gettraces_customProfiles')
     try
         profiles = [profiles getpref('SPARTAN','gettraces_customProfiles')];
     catch
-        warning('Save profiles struct have differing fields and cannot be used');
+        warndlg('Previously saved custom profiles could not be loaded due to a version incompatibility');
         rmpref('SPARTAN','gettraces_customProfiles');
     end
 end
 
 % Add profiles from cascadeConstants to settings menu.
 for i=1:numel(profiles),
-    if i<=numel(constants.gettraces_profiles), pos=i; else, pos=i+2; end
+    if i<=numel(constants.gettraces_profiles), pos=i; else, pos=i+1; end
     
     hMenu(i) = uimenu(handles.mnuProfiles, 'Label',profiles(i).name, ...
                       'Position',pos, 'Callback',@mnuProfiles_Callback); %#ok<AGROW>
 end
 
 % Put customization menu items in the correct spots.
-set(handles.mnuSettingsCustom,'Position',nStandard+1);
-set(handles.mnuSettingsSave,  'Position',nStandard+2);
-if numel(hMenu)>nStandard
-    set( hMenu(nStandard+1), 'Separator','on' );
-end
-
+set(handles.mnuSettingsCustom,'Position',handles.nStandard+1);
 handles.profile = constants.gettraces_defaultProfile;  %index to current profile (FIXME: rename)
 set( hMenu(handles.profile), 'Checked','on' );
 
@@ -94,13 +90,22 @@ zoom(handles.figure1,'on');
 % Setup default values for parameter values -- 2-color FRET.
 handles.hProfileMenu = hMenu;
 handles.profiles = profiles;
+handles.params = profiles(handles.profile);
 guidata(hObject, handles);
 
 % Set up GUI elements to reflect the internal parameter values.
-cboGeometry_Callback(hObject, [], handles);
+mnuProfiles_Callback( hMenu(handles.profile), [], handles);
 
 % END FUNCTION gettraces_OpeningFcn
 
+
+
+% --- Executes when user attempts to close figure1.
+function figure1_CloseRequestFcn(hObject, ~, handles) %#ok<DEFNU>
+% Save custom profiles for future sessions before exit
+setpref('SPARTAN','gettraces_customProfiles',handles.profiles(handles.nStandard+1:end));
+delete(hObject);
+% END FUNCTION figure1_CloseRequestFcn
 
 
 
@@ -112,7 +117,9 @@ varargout{1} = handles.output;
 
 
 
-% --------------- OPEN SINGLE MOVIE (CALLBACK) ---------------- %
+%==========================================================================
+%=========================  OPEN and DISPLAY MOVIE  =======================
+%==========================================================================
 
 % --- Executes on button press in openstk.
 function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
@@ -178,8 +185,8 @@ set(handles.figure1,'pointer','watch'); drawnow;
 stkData = MovieParser( filename, handles.params );  %does not draw from gettraces params!
 handles.stkData = stkData;
 
-set( handles.sldScrub, 'Min',1, 'Max',stkData.movie.nFrames, 'Value',1, ...
-     'SliderStep',[1/stkData.movie.nFrames,0.02] );
+set( handles.sldScrub, 'Min',1, 'Max',stkData.nFrames, 'Value',1, ...
+     'SliderStep',[1/stkData.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
 idxFields = handles.params.idxFields;
@@ -414,8 +421,9 @@ set(handles.txtProgress,'String','Batch processing: finished.');
 
 
 
-
-% ------------------------ PICK INTENSITY PEAKS ------------------------ %
+%==========================================================================
+%=======================  PICK PEAKS and SAVE TRACES  =====================
+%==========================================================================
 
 function handles = getTraces_Callback(hObject, ~, handles)
 % Find peak locations from total intensity
@@ -676,24 +684,21 @@ guidata(hObject,handles);
 % END FUNCTION txtMaxIntensity_Callback
 
 
-function mnuProfiles_Callback(hObject, ~)
-% Called when any imaging profile is selected from the "Settings" menu.
-% Marks only the active profile and breaks up the movie.
 
-handles = guidata(hObject);
+% --------------------------------------------------------------------
+function mnuProfiles_Callback(hObject, ~, handles)
+% Called when any imaging profile is selected from the "Settings" menu.
+% Apply imaging profile settings, including dividing the movie into quadrants.
+
+if nargin<3,  handles = guidata(hObject);  end
+
+% Save any changes to previous profile
+handles.profiles(handles.profile) = handles.params;
+
+% Mark the new profile as current
 set(handles.hProfileMenu,'Checked','off');
 set(hObject, 'Checked','on');
 handles.profile = find(hObject==handles.hProfileMenu);
-
-cboGeometry_Callback(hObject, [], handles);
-
-% END FUNCTION mnuProfiles_Callback
-
-
-
-% --- Executes on selection change in cboGeometry.
-function handles = cboGeometry_Callback(hObject, ~, handles)
-%
 
 % If running, stop the "auto detect" timer. Otherwise, it may be triggered by
 % the change in settings.
@@ -705,10 +710,9 @@ if ~isempty(fileTimer),
 end
 
 % Get parameter values associated with the selected profile.
-% Warning: if cascadeConstants is changed to add a new profile or rearrange
-% profiles, this can have unpredictable effects...
 params = handles.profiles(handles.profile);
 handles.params = params;
+guidata(hObject,handles);
 
 % Set all GUI to defaults of currently selected profile.
 set( handles.mnuBatchRecursive,   'Checked', onoff(params.recursive)    );
@@ -717,7 +721,6 @@ set( handles.mnuBatchOverwrite,   'Checked', onoff(params.skipExisting) );
 set( findobj('Parent',handles.mnuAlign), 'Checked','off' );
 set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
      'Checked','on' );
-
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
 isMultiColor = ~isscalar(handles.params.geometry);
@@ -729,12 +732,12 @@ set( handles.panAlignment, 'Title','Software Alignment', ...
                            'Visible',onoff(isMultiColor) );
 
 % If a movie has already been loaded, reload movie with new setup.
-if isfield(handles,'stkfile'),
+if isfield(handles,'stkfile')
     handles = OpenStk( handles.stkfile, handles, hObject );
     set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 end
 
-guidata(hObject,handles);
+% END FUNCTION cboGeometry_Callback
 
 
 
@@ -743,11 +746,17 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
-% All options for fluorescence channel identifiers. See subfield_mask.m.
-% FIXME: ideally this should be the natural field name (e.g., 'acceptor').
+params = handles.params;
+disp(params);
+
+% Create options for bgTraceField, which can be empty or a number.
+% (settingdlg doesn't like this, so we have to convert it to string. FIXME)
 nCh = numel(handles.params.chNames);
 fopt = cellfun(@num2str, num2cell(1:nCh), 'uniform',false);
 fopt = [{''} fopt];
+params.bgTraceField = num2str(params.bgTraceField);
+
+% Create dialog for changing imaging settings
 prompt = {'Name:','Threshold (0 for auto):', 'Integration window size (px):', ...
           'Minimum separation (px):', 'ADU/photon conversion:', ...
           'Donor blink detection method:', 'Integration neighbhorhood (px):', ...
@@ -757,79 +766,53 @@ fields = {'name','don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
 isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
 isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
 types = {[],[],isInt,isNum,isNum,{'off','threshold','skm'},isInt,fopt};
-params = settingdlg(handles.params,fields,prompt,types);
+
+if handles.profile > handles.nStandard
+    prompt{1} = 'Name (clear to remove profile):';
+end
+
+params = settingdlg(params, fields, prompt, types);
 if isempty(params), return; end  %user hit cancel
 
 if ~isempty(params.bgTraceField),
     params.bgTraceField = str2double(params.bgTraceField);
 end
 
-% Update profile name
-nStandard = numel( cascadeConstants('gettraces_profiles') );
-
-if handles.profile < nStandard  && ~strcmpi(params.name,handles.params.name)
-    % Standard profile's name was modified, so we assume they want to create a
-    % new custom-named profile, rather than giving an error.
-    % FIXME
-    errordlg('Can''t rename built-in profiles');
-    return;
-end
-
-% Save modified profile list.
-set( handles.hProfileMenu(handles.profile), 'Label',params.name );
-handles.params = params;
-handles.profiles(handles.profile) = params;
-guidata(hObject,handles);
-
-setpref('SPARTAN','gettraces_customProfiles',handles.profiles(nStandard+1:end));
-
-% END FUNCTION mnuSettingsCustom_Callback
-
-
-
-% --------------------------------------------------------------------
-function mnuSettingsSave_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Save current settings as a new imaging profile in the Settings menu.
-
-nStandard = numel( cascadeConstants('gettraces_profiles') );
-
-% Ask for the new name
-newName = inputdlg('New profile name:', mfilename, 1, {handles.params.name});
-if isempty(newName), return; end  %user hit cancel
-newName = newName{1};
-
-% Overwrite if name matches an existing profile, except built-in.
-% FIXME: make this a shortcut to adding a new custom profile?
-if strcmpi( newName, handles.params.name )
-    if handles.profile <= nStandard,
-        errordlg('Built-in profiles cannot be modified. Alter cascadeConstants.m instead.');
+% If a standard profile is renamed, make a custom setting instead.
+if handles.profile < handles.nStandard  && ~strcmpi(params.name,handles.params.name)
+    if isempty(params.name),
+        errordlg('Built-in profiles cannot be deleted. Modify cascadeConstants instead');
         return;
-    else
-        handles.profiles(handles.profile) = handles.params;
     end
-
-% Save as a new profile if the name is new.
-else
-    handles.params.name = newName;
-    handles.profiles(end+1) = handles.params;
-    handles.profile = numel(handles.profiles);
     
+    % Overwrite if name matches an existing profile, except built-in.
+    handles.params = params;
+    handles.profiles(end+1) = params;
+    handles.profile = numel(handles.profiles);
+
     % Update settings menu with new item.
     set( handles.hProfileMenu, 'Checked','off' );  %uncheck all
     handles.hProfileMenu(end+1) = uimenu( handles.mnuProfiles, 'Checked','on', ...
               'Label',handles.params.name, 'Callback',@mnuProfiles_Callback );
+    guidata(hObject,handles);
+
+% Modify existing custom profile
+elseif ~isempty(params.name)
+    set( handles.hProfileMenu(handles.profile), 'Label',params.name );
+    handles.params = params;
+    guidata(hObject,handles);
     
-    % If this is the first in the list, add separator.
-    if handles.profile == nStandard+1
-        set( handles.hProfileMenu(end), 'Separator','on' );
-    end
+% Delete profile if name was cleared
+else
+    delete( handles.hProfileMenu(handles.profile) );
+    handles.hProfileMenu(handles.profile) = [];
+    handles.profiles(handles.profile) = [];
+    mnuProfiles_Callback( handles.hProfileMenu(1), [], handles );
+    
+    % FIXME: need to move down the separator if top profile is deleted...
 end
 
-% Save the updated profile list.
-setpref('SPARTAN','gettraces_customProfiles',handles.profiles(nStandard+1:end));
-guidata(hObject,handles);
-
-% END FUNCTION mnuSettingsSave_Callback
+% END FUNCTION mnuSettingsCustom_Callback
 
 
 
