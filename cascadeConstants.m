@@ -59,11 +59,6 @@ constants.NBK = 100;
 constants.TAU  = 9;  % Median filter window size
 constants.NSTD = 8;  % Step detection threshold in st dev of gradient
 constants.overlap_nstd=5;
-
-% Used to calculated a threshold for detecting peaks of fluorescence in
-% gettraces.m. In standard deviations of background noise.
-constants.gettracesThresholdStd = 8;
-
 constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 
 
@@ -109,6 +104,7 @@ cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
 cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)
                                    %  1=3x3 area, 2=5x5 area, 3=7x7 area, etc.
 cmosCommon.bgBlurSize     = 6;   %background estimation window size (see openStk.m)
+cmosCommon.thresh_std     = 8;   %stdev's of background noise above which to pick molecules
 cmosCommon.alignment = struct([]);
 
 % Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.

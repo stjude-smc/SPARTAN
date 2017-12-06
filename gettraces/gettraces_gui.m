@@ -747,15 +747,15 @@ fopt = [{''} fopt];
 params.bgTraceField = num2str(params.bgTraceField);
 
 % Create dialog for changing imaging settings
-prompt = {'Name:','Threshold (0 for auto):', 'Integration window size (px):', ...
-          'Integration neighbhorhood (px):', 'Minimum separation (px):', ...
-          'ADU/photon conversion:', 'Donor blink detection method:', ...
-          'Background trace field'};
-fields = {'name', 'don_thresh', 'nPixelsToSum', 'nhoodSize', 'overlap_thresh', ...
-          'photonConversion', 'zeroMethod', 'bgTraceField'};
+prompt = {'Name:', 'Threshold (0 for auto):', 'Auto picking sensitivity', ...
+          'Integration window size (px):', 'Integration neighbhorhood (px):', ...
+          'Minimum separation (px):', 'ADU/photon conversion:', ...
+          'Donor blink detection method:', 'Background trace field'};
+fields = {'name', 'don_thresh', 'thresh_std', 'nPixelsToSum', 'nhoodSize', ...
+          'overlap_thresh', 'photonConversion', 'zeroMethod', 'bgTraceField'};
 isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
 isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
-types = {[],isNum,isInt,isInt,isNum,isNum,{'off','threshold','skm'},fopt};
+types = {[],isNum,isNum,isInt,isInt,isNum,isNum,{'off','threshold','skm'},fopt};
 
 if handles.profile > handles.nStandard
     prompt{1} = 'Name (clear to remove profile):';
@@ -798,8 +798,12 @@ else
     handles.hProfileMenu(handles.profile) = [];
     handles.profiles(handles.profile) = [];
     mnuProfiles_Callback( handles.hProfileMenu(1), [], handles );
-    
-    % FIXME: need to move down the separator if top profile is deleted...
+    return;
+end
+
+% If molecules were already picked and settings have changed, re-pick.
+if ~isempty(handles.stkData.peaks)
+    getTraces_Callback(hObject, [], handles);
 end
 
 % END FUNCTION mnuSettingsCustom_Callback

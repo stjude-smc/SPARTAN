@@ -39,16 +39,9 @@ function stkData = getPeaks(stkData, params)
 
 % If the threshold for detecting intensity peaks is not given, calculate it
 % automatically from the std of background regions at the end of the movie.
-if ~params.don_thresh
-    if ~isfield(params,'thresh_std')
-        thresh_std = cascadeConstants('gettracesThresholdStd');
-    else
-        thresh_std = params.thresh_std;
-    end
-
-    % Calculate threshold from variance in background intensity at end of movie.
-    params.don_thresh = thresh_std*stkData.stdbg;
-%     params.don_thresh = thresh_std*mean(stkData.stdbg(params.idxFields));  %improved version
+if isempty(params.don_thresh) || params.don_thresh==0
+    params.don_thresh = params.thresh_std*stkData.stdbg;
+%     params.don_thresh = params.thresh_std*mean(stkData.stdbg(params.idxFields));  %improved version
 end
 
 
