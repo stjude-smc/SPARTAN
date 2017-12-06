@@ -459,7 +459,9 @@ try
     [~,data] = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
     saveTraces( fullfile(p,f), data );
 catch e
-    if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        set(handles.txtStatus,'String','Operation cancelled by user');
+    else
         errordlg( ['Error: ' e.message], mfilename );
         set(handles.txtStatus,'String',['Error: ' e.message]);
     end
@@ -511,7 +513,21 @@ opt = newOpt;
 newOpt.density = min(handles.traceViewer.data.nTraces, newOpt.density);
 
 % Simulate the movie (simulateMovie.m will ask for the movie filenames)
-simulateMovie(handles.traceViewer.data, [],[], newOpt);
+set(handles.figure1,'pointer','watch');
+set(handles.txtStatus,'String','Simulating...'); drawnow;
+
+try
+    simulateMovie(handles.traceViewer.data, [],[], newOpt);
+catch e
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        set(handles.txtStatus,'String','Operation cancelled by user');
+    else
+        set(handles.txtStatus,'String',['Error: ' e.message]);
+        errordlg(['Error: ' e.message]);
+    end
+end
+set(handles.txtStatus,'String','Finished.'); drawnow;
+set(handles.figure1,'pointer','arrow');
 
 % END FUNCTION mnuSimMovie_Callback
 

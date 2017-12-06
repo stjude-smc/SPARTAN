@@ -155,7 +155,8 @@ methods
     % Add a callback to the box so the properties can be seen and changed.
     set([this.hBox; this.hText], 'ButtonDownFcn', @this.stateClicked_callback );
 
-    menu = uicontextmenu(gcbf);
+    hFig = ancestor(this.ax,'figure');
+    menu = uicontextmenu(hFig);
     uimenu( menu, 'Label','State properties...', 'Callback', @this.editState_callback   );
     uimenu( menu, 'Label','Class properties...', 'Callback', @this.editClass_callback  );
     uimenu( menu, 'Label','Connect to...',       'Callback', @this.connect_callback     );
@@ -174,7 +175,7 @@ methods
     ylim(this.ax,[7 90]);
 
     %---- Add context menu to for additional options
-    menu = uicontextmenu(gcbf);
+    menu = uicontextmenu(hFig);
     uimenu( menu, 'Label','Add state', 'Callback',@this.addState_callback );
     uimenu( menu, 'Label','Calculate and apply equilibrium p0', ...
                              'Callback',@this.calcEqP0_callback );
@@ -338,6 +339,12 @@ methods
         this.model.removeState(stateID);
         this.redraw();
     end
+    
+    
+%     function removeConnction_callback(this,varargin)
+%     % Remove a specified connection, setting rates to zero
+%         
+%     end
 
 
     function connect_callback(this,varargin)
