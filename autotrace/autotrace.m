@@ -282,12 +282,8 @@ handles.outfile = fullfile(p, [f '_auto.traces']);
 try
     [infoStruct,nTracesPerFile] = traceStat(handles.inputfiles);
 catch e
-    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-        disp('Autotrace: Operation cancelled by user.');
-    elseif ~cascadeConstants('debug')
+    if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
         errordlg( ['Error: ' e.message], mfilename );
-    else
-        rethrow(e);
     end
     set(handles.figure1, 'pointer','arrow'); drawnow;
     return;

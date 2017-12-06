@@ -368,15 +368,12 @@ else
     try
         [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
     catch e
-        set(handles.figure1,'pointer','arrow');
-        set(handles.txtStatus,'String',['Error: ' e.message]);
-        
-        if ~cascadeConstants('debug')
+        if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
+            set(handles.txtStatus,'String',['Error: ' e.message]);
             errordlg(['Error: ' e.message]);
-            return;
-        else
-            rethrow(e);
         end
+        set(handles.figure1,'pointer','arrow');
+        return;
     end
     
     handles.dwtFilenames{idxfile} = dwtfname;
@@ -462,8 +459,11 @@ try
     [~,data] = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
     saveTraces( fullfile(p,f), data );
 catch e
+    if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        errordlg( ['Error: ' e.message], mfilename );
+        set(handles.txtStatus,'String',['Error: ' e.message]);
+    end
     set(handles.figure1,'pointer','arrow');
-    set(handles.txtStatus,'String',['Error: ' e.message]);
     return;
 end
 

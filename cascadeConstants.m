@@ -33,8 +33,6 @@ constants.tstamp = now();
 constants.version = '3.6';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
-constants.debug = true; %if true, throw errors and print debug info at prompt.
-
 
 
 %% ======================  Global Algorithm Settings ====================== %%

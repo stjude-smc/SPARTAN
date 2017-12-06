@@ -29,25 +29,24 @@ end
 checktime = now + DELAY_SHORT;
 
 % Get current version number
-constants = cascadeConstants;
-current = versionEncode(constants.version);
+verstr = cascadeConstants('version');
 
 
 %% Check online for the latest version.
 fprintf('Checking for updates to SPARTAN... ');
 try
-    latestVerString = strtrim(urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1'));
+    latestVerString = strtrim( urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1','Timeout',10) );
     latest = versionEncode(latestVerString);
 catch
     fprintf('Failed. Check the address below instead:\n');
-    disp('http://www.scottcblanchardlab.com/software');
+    fprintf('http://www.scottcblanchardlab.com/software\n\n');
     return;
 end
 
-needsupdate = latest>current;
+needsupdate = latest > versionEncode(verstr);
 if nargout>0, output = needsupdate; end
 if ~needsupdate,
-    fprintf('Up to date. %s >= %s\n\n',constants.version,latestVerString);
+    fprintf('Up to date. %s >= %s\n\n',verstr,latestVerString);
     return;
 else
     fprintf('New version available: %s\n\n',latestVerString);
@@ -72,6 +71,7 @@ switch a
         end
         fprintf('\nFor more information, go to the following address:\n');
         fprintf('http://www.scottcblanchardlab.com/software\n\n');
+        checktime = now + DELAY_LONG;
 
     case 'Stop asking'
         checktime = now + Inf;

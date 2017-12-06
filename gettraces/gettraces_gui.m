@@ -441,16 +441,14 @@ stkData = handles.stkData;
 delete(findobj(handles.figure1,'type','line')); drawnow;
 
 % Locate single molecules
-if cascadeConstants('debug')
+try
     getPeaks(stkData, handles.params);
-else
-    try
-        getPeaks(stkData, handles.params);
-    catch e
-        set(handles.figure1,'pointer','arrow'); drawnow;
+catch e
+    if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
         errordlg( ['Error: ' e.message], 'Gettraces' );
-        return;
     end
+    set(handles.figure1,'pointer','arrow'); drawnow;
+    return;
 end
 
 % The alignment may involve shifting (or distorting) the fields to get a
@@ -624,20 +622,13 @@ end
 set(handles.figure1,'pointer','watch'); drawnow;
 
 % Integrate fluorophore PSFs into fluorescence traces and save to file.
-if cascadeConstants('debug')
+try
     integrateAndSave(handles.stkData, filename, handles.params);
-else
-    try
-        integrateAndSave(handles.stkData, filename, handles.params);
-    catch e
-        if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-            disp('Gettraces: Operation cancelled by user.');
-        else
-            errordlg( ['Error: ' e.message], 'Gettraces' );
-        end
+catch e
+    if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        errordlg( ['Error: ' e.message], 'Gettraces' );
     end
 end
-
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 % END FUNCTION mnuFileSave_Callback
@@ -747,7 +738,6 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Allows the user to temporarily alter settings for the current profile.
 
 params = handles.params;
-disp(params);
 
 % Create options for bgTraceField, which can be empty or a number.
 % (settingdlg doesn't like this, so we have to convert it to string. FIXME)
@@ -758,14 +748,14 @@ params.bgTraceField = num2str(params.bgTraceField);
 
 % Create dialog for changing imaging settings
 prompt = {'Name:','Threshold (0 for auto):', 'Integration window size (px):', ...
-          'Minimum separation (px):', 'ADU/photon conversion:', ...
-          'Donor blink detection method:', 'Integration neighbhorhood (px):', ...
+          'Integration neighbhorhood (px):', 'Minimum separation (px):', ...
+          'ADU/photon conversion:', 'Donor blink detection method:', ...
           'Background trace field'};
-fields = {'name','don_thresh', 'nPixelsToSum', 'overlap_thresh', ...
-          'photonConversion', 'zeroMethod', 'nhoodSize','bgTraceField'};
+fields = {'name', 'don_thresh', 'nPixelsToSum', 'nhoodSize', 'overlap_thresh', ...
+          'photonConversion', 'zeroMethod', 'bgTraceField'};
 isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
 isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
-types = {[],[],isInt,isNum,isNum,{'off','threshold','skm'},isInt,fopt};
+types = {[],isNum,isInt,isInt,isNum,isNum,{'off','threshold','skm'},fopt};
 
 if handles.profile > handles.nStandard
     prompt{1} = 'Name (clear to remove profile):';

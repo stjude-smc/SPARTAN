@@ -30,7 +30,6 @@ function integrateAndSave(stkData, outname, params)
 
 % Process input arguments
 narginchk(3,3);
-tic;
 
 
 
@@ -80,7 +79,7 @@ end
 
 %% Integrate fluorescence intensity in movie to create fluorescence traces
 if ~quiet,
-    wbh = parfor_progressbar(1.1*nFrames,'Extracting traces from movie data');
+    wbh = parfor_progressbar(1.1*nFrames,'Starting parallel pool');
 end
 
 % Parallelize large movies, where disk access is faster than image processing. 
@@ -90,6 +89,8 @@ if nTraces*nFrames/2000 > 1500 && cascadeConstants('enable_parfor') && isa(movie
 else
     M = 0;  %use GUI thread
 end
+
+if ~quiet, wbh.message='Extracting traces from movie data'; end
 
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
@@ -173,7 +174,7 @@ end
 if isfield(params,'zeroMethod'),
     data.fileMetadata.zeroMethod = params.zeroMethod;
 end
-disp(toc);
+
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = correctTraces( bgsub(data), params.crosstalk, to_col(params.scaleFluor));
 data.recalculateFret();
