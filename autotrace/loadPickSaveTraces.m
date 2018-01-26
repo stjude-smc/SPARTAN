@@ -1,34 +1,29 @@
 function [outFilename,picks,allStats,dataAll]=loadPickSaveTraces( varargin )
 % loadPickSaveTraces   Select traces passing defined criteria and save to disk.
 % 
-%   [] = loadPickSaveTraces( FILES, CRITERIA, ... )
-%   Loads FILES, selects traces according to selection CRITERIA (pickTraces.m).
-%   FILES may be a filename (string), directory (string), and cell array of
-%   filenames. If FILES is a cell array, all of the specified filenames are
-%   loaded as one large dataset. If a dictory is specified, all FRET data
-%   files (.traces) in this directory will be loaded together. Traces that
-%   pass the selection CRITERIA are then saved to disk with the file
-%   extension "_auto.traces". A log file is also created.
+%   loadPickSaveTraces(FILES, CRITERIA) load traces from each filename given in
+%   the cell array FILES, select traces according to the criteria in the struct
+%   CRITERIA (see pickTraces.m for details), and save the pooled traces into
+%   one output file with the extension "_auto.traces" along with a .log file.
+%   If FILES may also be a string to specify a single file, or to load all
+%   traces in a directory with the extension ".rawtraces".
 %
-%   TODO: optional argument to pass a list of indexes of traces to load OR the
-%   output of traceStat so not all trace data has to be reloaded! This will
-%   allow processing of very large datasets in autotrace.
+%   loadPickSaveTraces(..., 'ParameterName',ProptertyValue, ...)  or
+%   loadPickSaveTraces( OPTIONS ) allows optional parameters to be specified
+%   as a list of key-value pairs or as a struct:
 %
-%   loadPickSaveTraces( ...,'ParameterName',ProptertyValue,... )
-%   The following option parameters (specified with the above format):
-%    * showWaitbar  - set to 1 to show (0 to not show) progress indicators.
-%    * outputFilename
-%    * indexes   - instead of loading the traces and calculating stats, use
-%                  these picks and only load what is needed. This is a cell
-%                  array with one per file.
-%    * stats
+%    * showWaitbar    - show waitbar when processing (default false).
+%
+%    * outputFilename - specify the output file name. 
+%
+%    * indexes - specify the indices of traces to select instead of using the
+%                  selection criteria. indexes is a cell array, one per file.
+%
+%    * stats   - specify the trace calculated statistics (see traceStat.m)
+%                  insted of calculating again to save time.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-
-% TODO:
-%  * Allow user to give stats of the data files, so that they aren't
-%    calculated a second time in autotrace.
 
 
 % USER TUNABLE PARAMETERS
@@ -46,7 +41,7 @@ criteria = varargin{2};
 % If a directory name is give, find all traces files in the directory.
 if ischar(varargin{1}) && isdir(varargin{1}),
     dirName = varargin{1};
-    files = dir( [dirName filesep '*.traces'] );
+    files = dir( [dirName filesep '*.rawtraces'] );
 
     if numel(files)<1
         disp('No files in this directory!');
@@ -69,13 +64,17 @@ end
 assert( iscell(files), 'Invalid file list' );
 nFiles = numel(files);
 
-% options.showWaitbar = nFiles>1;
-
 
 % Process optional argument list
 if nargin>2,
-    vopt = varargin{3};
-%     vopt = varargin(3:end);
+    if nargin==3
+        vopt = varargin{3};
+    else
+        % Convert parameter key-value pair list to a struct
+        vopt = varargin(3:end);
+        if ischar(vopt), vopt=struct(vopt{:}); end
+    end
+    
 %     assert( mod(numel(vopt),2)==0 & all( cellfun(@ischar,vopt(1:2:end)) ), ...
 %             'Invalid format for optional argument list' );
     
@@ -144,7 +143,6 @@ for i=1:nFiles,
         %stats = struct([]);
     else
         % Calculate trace statistics
-        % FIXME: this should check if stats are being passed!!
         if isfield( options, 'stats' ),
             stats = options.stats( sum(nTracesPerFile)+(1:size(data.donor,1)) );
         else
