@@ -750,12 +750,14 @@ params.bgTraceField = num2str(params.bgTraceField);
 prompt = {'Name:', 'Threshold (0 for auto):', 'Auto picking sensitivity', ...
           'Integration window size (px):', 'Integration neighbhorhood (px):', ...
           'Minimum separation (px):', 'ADU/photon conversion:', ...
-          'Donor blink detection method:', 'Background trace field'};
+          'Donor blink detection method:', 'Background trace field:', ...
+          'Frames to average for picking:'};
 fields = {'name', 'don_thresh', 'thresh_std', 'nPixelsToSum', 'nhoodSize', ...
-          'overlap_thresh', 'photonConversion', 'zeroMethod', 'bgTraceField'};
+          'overlap_thresh', 'photonConversion', 'zeroMethod', 'bgTraceField', ...
+          'nAvgFrames'};
 isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
 isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
-types = {[],isNum,isNum,isInt,isInt,isNum,isNum,{'off','threshold','skm'},fopt};
+types = {[],isNum,isNum,isInt,isInt,isNum,isNum,{'off','threshold','skm'},fopt,isInt};
 
 if handles.profile > handles.nStandard
     prompt{1} = 'Name (clear to remove profile):';
@@ -802,7 +804,7 @@ else
 end
 
 % If molecules were already picked and settings have changed, re-pick.
-if ~isempty(handles.stkData.peaks)
+if isfield(handles,'stkData') && ~isempty(handles.stkData.peaks)
     getTraces_Callback(hObject, [], handles);
 end
 

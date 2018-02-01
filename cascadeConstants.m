@@ -98,6 +98,7 @@ cmosCommon.photonConversion = 2.04;   % 0.49 e-/ADU  (manual says 0.46?)
 
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.
+cmosCommon.nAvgFrames     = 10;  %number of frames to average for picking image
 cmosCommon.don_thresh     = 0;   %molecule detection threshold (0=automatic)
 cmosCommon.overlap_thresh = 3.5; %remove molecules that are w/i X pixels.
 cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace

@@ -15,9 +15,9 @@ else
 end
 this.movie = movie;
 
-% Average the first 10 frames to create an image for finding molecules.
+% Average the first few frames to create an image for finding molecules.
 this.nFrames = movie.nFrames / size(params.geometry,3);  %accounts for channels stacked as separate frames
-averagesize = min([10 this.nFrames]);
+averagesize = min([params.nAvgFrames this.nFrames]);
 
 geoall = true( size(params.geometry) );  %use all fields, not just selected ones
 fields = subfield( this.movie, geoall, 1:averagesize );
