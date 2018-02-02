@@ -204,6 +204,7 @@ else
 end
 
 parfor (i=1:Ntraces, M)
+% for i=1:Ntraces
     % Extract trace in a way that makes parpool happy.
     donor    = donorAll(i,:);
     acceptor = acceptorAll(i,:);
@@ -284,13 +285,13 @@ parfor (i=1:Ntraces, M)
     end
     
     % Calculate number of Cy3 PB threshold crossings per frame    
-    if lt<8
-        donorRange = false(1,lt);
-        retval(i).donorlife = lt;
+    if lt<3
+        donorRange = true(1,lt-1);
+        retval(i).donorlife = lt-1;
     else
-        % Calculate blinking total fluor cutoff value        
+        % Calculate blinking total fluor cutoff value
         % Find start points where Cy3 blinks
-        x = total(1:lt-3) <= constants.blink_nstd*stdbg;
+        x = total(1:lt-1) <= constants.blink_nstd*stdbg;  %was lt-3
         retval(i).ncross = sum(  x & ~[0 x(1:end-1)]  );
         
         % Remove from consideration regions where Cy3 is dark
@@ -306,7 +307,7 @@ parfor (i=1:Ntraces, M)
     nDonor = sum(donorRange);
     
     
-    if nDonor > 2,
+    if nDonor >= 2, %was >2
         % Truncate to regions with donor alive
         donor    = donor(donorRange);
         acceptor = acceptor(donorRange);
