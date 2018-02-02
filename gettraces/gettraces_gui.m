@@ -738,6 +738,7 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Allows the user to temporarily alter settings for the current profile.
 
 params = handles.params;
+oldParams = params;
 
 % Create options for bgTraceField, which can be empty or a number.
 % (settingdlg doesn't like this, so we have to convert it to string. FIXME)
@@ -803,9 +804,17 @@ else
     return;
 end
 
-% If molecules were already picked and settings have changed, re-pick.
-if isfield(handles,'stkData') && ~isempty(handles.stkData.peaks)
-    getTraces_Callback(hObject, [], handles);
+if isfield(handles,'stkData')  %if a movie has been loaded
+    
+    % Reload movie if changing number of frames to average
+    if params.nAvgFrames~=oldParams.nAvgFrames
+        OpenStk( handles.stkfile, handles, hObject );
+
+    % If molecules were already picked and settings have changed, re-pick.
+    elseif isfield(handles,'stkData') && ~isempty(handles.stkData.peaks)
+        getTraces_Callback(hObject, [], handles);
+    end
+    
 end
 
 % END FUNCTION mnuSettingsCustom_Callback
