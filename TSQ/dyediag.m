@@ -60,6 +60,8 @@ if isempty(params)
     params.centerQuad = true;   %remove traces near the edges of the FOV
     params.removeHighBg = true;  %remove traces with baseline fluctuations
     params.min_snr = 10;         %minimum SNR_bg
+    params.errorbars = true;     %show standard deviation error bars
+    params.showRepeats = false;  %display a circle for value of each repeat
 end
 
 
@@ -69,7 +71,7 @@ nargoutchk(0,3);
 [varargout{1:nargout}] = deal([]);
 
 % Check for initial figure target argument
-if nargin>0 && ishandle(varargin{1}),
+if nargin>0 && isscalar(varargin{1}) && ishandle(varargin{1}),
     hfig = varargin{1};
     varargin = varargin(2:end);
 else
@@ -118,6 +120,7 @@ offState = find( mu==min(mu) );
 z = { zeros(1,nFiles) };
 output = struct('intensity',z, 'SNRs',z, 'Ton',z, 'Toff',z, 'totalTon',z, 'yield',z);
 errors = output;
+values = output;
 
 % Plain-text column names for axes labels and file output.
 colnames = {'Intensity (photons)','SNR_{sig}', 'Time ON (s)', 'Time OFF (s)', ...
@@ -134,6 +137,7 @@ for i=1:nFiles,
     %-------------------------------------------------------------
     % 1) Load data from each file and combine into one large dataset.
     condition_files = fnames{i};
+    if ~iscell(condition_files), condition_files={condition_files}; end
     condition_data  = cell(  numel(condition_files), 1 );
     condition_idx   = [];
     
@@ -209,8 +213,7 @@ for i=1:nFiles,
     
     % Total intensity distributions
     t = [stats.t];
-    output.intensity(i) = median(t);
-    errors.intensity(i) = stdbyfile(t,condition_idx,@median);
+    [output.intensity(i), errors.intensity(i), values(i).intensity] = stdbyfile(t,condition_idx,@median);
     
     [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
@@ -221,8 +224,8 @@ for i=1:nFiles,
     
     % Signal-to-noise over signal distributions
     snr = [stats.snr_s];
-    output.SNRs(i) = median(snr);
-    errors.SNRs(i) = stdbyfile(snr,condition_idx,@median);
+    [output.SNRs(i), errors.SNRs(i), values(i).SNRs] = stdbyfile(snr,condition_idx,@median);
+    
     
     [histdata,bins] = hist( snr, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
@@ -315,21 +318,22 @@ for i=1:nFiles,
     % Get total time on for each trace.
     idl = dwtToIdl( dwt, offsets, data.nFrames, data.nTraces );
     totalOn = sum(idl==onState,2).*sampling;
-    output.totalTon(i) = mean(totalOn);   %expfit(totalOn, dwellaxis);
-    errors.totalTon(i) = stdbyfile(totalOn,condition_idx,@mean);
+    %fcn = expfit(totalOn, dwellaxis);
+    [output.totalTon(i), errors.totalTon(i), values(i).totalTon] = stdbyfile(totalOn,condition_idx);
     
     % Calculate average total time on/off
+    %FIXME
     output.Ton(i)  = mean( onTimes );
-    %errors.Ton(i) = stdbyfile(onTimes,condition_idx,@mean);
+%     [output.Ton(i), errors.Ton(i), values(i).Ton] = stdbyfile(onTimes,condition_idx);
     
     output.Toff(i) = mean( offTimes );
-    %errors.Toff(i) = stdbyfile(offTimes,condition_idx,@mean);
+%     [output.Toff(i), errors.Toff(i), values(i).Toff] = stdbyfile(offTimes,condition_idx);
     
     
     % Calculate photon yield
     photons = sum( data.total.*(idl==onState), 2 );
-    output.yield(i) = mean( photons );
-    errors.yield(i) = stdbyfile(photons,condition_idx,@mean);
+    [output.yield(i), errors.yield(i), values(i).yield] = stdbyfile(photons,condition_idx);
+    
     
     
     %-------------------------------------------------------------
@@ -373,7 +377,16 @@ for i=1:numel(fieldIdx),
     hold( ax(2,i), 'on' );
     bar( ax(2,i), 1:nFiles, output.(statName), 'r' );
     
-    errorbar( ax(2,i), 1:nFiles, output.(statName), errors.(statName)/2, '.k' );
+    if params.showRepeats
+        for d=1:nFiles
+            points = values(d).(statName);
+            scatter( ax(2,i), repmat(d,numel(points),1), points, 'ko' );
+        end
+    end
+    
+    if params.errorbars
+        errorbar( ax(2,i), 1:nFiles, output.(statName), errors.(statName)/2, 'k.' );
+    end
     
     ylabel(ax(2,i), colnames{fid});
     xlim(ax(2,i), [0.35 nFiles+0.65]);
@@ -404,9 +417,10 @@ txtout = cat( 2, txtout{:} );
 
 
 %% Add menu items for adjusting settings and saving output to file
-prompt = {'Log scale dwell-time histograms:', 'Remove high background traces:', 'Minimum SNR_{bg}:', 'Center Quad'};
-fields = {'logX', 'removeHighBg', 'min_snr', 'centerQuad'};
-cb = @(~,~)settingdlg(params,fields,prompt,{}, @dyediag,{hfig,fnames});
+prompt = {'Log scale dwell-time histograms:', 'Remove high background traces:', ...
+          'Minimum SNR_{bg}:', 'Center Quad', 'Error bars:', 'Show repeats'};
+fields = {'logX', 'removeHighBg', 'min_snr', 'centerQuad', 'errorbars', 'showRepeats'};
+cb = @(~,~)settingdlg(params,fields,prompt, @dyediag,{hfig,fnames});
 
 defaultFigLayout( hfig, @(~,~)dyediag(getFileGroups('*.rawtraces'),params), ...
                         @(~,~)dyediag(hfig,getFileGroups('*.rawtraces'),params), ...
@@ -438,30 +452,27 @@ end %FUNCTION saveResults
 
 
 
-function stdev = stdbyfile(stat,idx,fcn)
+function [avg,stdev,values] = stdbyfile(stat,idx,fcn)
 % Select out all statistic values (stat) from each file as specified in
 % idx, apply the fcn to get a mean (or median, etc) value, and then take
 % the standard deviation across all such files.
 % If only one file is given, use bootstrapping as a fallback.
 
-if nargin<3,
-    fcn = @mean;
-end
-
-nFiles = max(idx);
+if nargin<3, fcn=@mean; end
 
 % Get the standard deviation across files
-if nFiles>1,
-    values = zeros( nFiles, 1 );
+nFiles = max(idx);
+values = zeros( nFiles, 1 );
 
-    for i=1:nFiles,
-        values(i) = fcn( stat(idx==i) );
-    end
-
-    stdev = std(values);
+for i=1:nFiles,
+    values(i) = fcn( stat(idx==i) );
+end
+avg = mean(values);
 
 % If only one file is provided, use bootstrap samples as a fallback.
 % This is not comparable to standard deviation, but oh well.
+if nFiles>1
+    stdev = std(values);
 else
     stdev = std( bootstrp(100,fcn,stat) );
 end
