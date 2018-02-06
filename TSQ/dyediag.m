@@ -218,8 +218,8 @@ for i=1:nFiles,
     [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
     ax(1,1) = subplot(2,5,1, 'Parent',hfig);
-    hold( ax(1,1), 'all' );
     plot( ax(1,1), bins, histdata );
+    hold( ax(1,1), 'all' );
     max_t = max(max_t, max(bins) );
     
     % Signal-to-noise over signal distributions
@@ -230,8 +230,8 @@ for i=1:nFiles,
     [histdata,bins] = hist( snr, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
     ax(1,2) = subplot(2,5,2, 'Parent',hfig);
-    hold( ax(1,2), 'all' );
     plot( ax(1,2), bins, histdata );
+    hold( ax(1,2), 'all' );
     max_snr = max(max_snr, max(bins) );
     
     
@@ -286,12 +286,26 @@ for i=1:nFiles,
     % Save selected traces and idealization.
     data.subset(selected);
     dwt = dwt(selected);
-    condition_idx = condition_idx(selected);    
+    condition_idx = condition_idx(selected);
+    
+    % Remove final dark state dwell from every trace for dwelltime calc
+    for j=1:numel(dwt),
+        if dwt{j}(end,1) == offState,
+            dwt{j}(end,:) = [];
+        end
+        
+        if isempty(dwt{j})
+            dwt{j} = [];
+            offsets(j) = [];
+        end
+    end
+    
     
     saveTraces( [basename '_auto.traces'], data );
     
     offsets = data.nFrames*( (1:data.nTraces)-1 );
-    saveDWT( [basename '_auto.qub.dwt'], dwt, offsets, [mu sigma], data.sampling );
+    dwtfname{i} = [basename '_auto.qub.dwt'];
+    saveDWT( dwtfname{i}, dwt, offsets, [mu sigma], data.sampling );
         
     
     %-------------------------------------------------------------   
@@ -315,11 +329,14 @@ for i=1:nFiles,
         offTimes = [offTimes ; times(classes==offState) ];
     end
     
-    % Get total time on for each trace.
+    % Calculate and display total time on for each trace.
     idl = dwtToIdl( dwt, offsets, data.nFrames, data.nTraces );
     totalOn = sum(idl==onState,2).*sampling;
-    %fcn = expfit(totalOn, dwellaxis);
-    [output.totalTon(i), errors.totalTon(i), values(i).totalTon] = stdbyfile(totalOn,condition_idx);
+    
+    ax(1,5) = subplot(2,5,5, 'Parent',hfig);
+    survival(ax(1,5), totalOn, dwellaxis);
+    hold( ax(1,5), 'all' );
+    
     
     % Calculate average total time on/off
     %FIXME
@@ -328,30 +345,54 @@ for i=1:nFiles,
     
     output.Toff(i) = mean( offTimes );
 %     [output.Toff(i), errors.Toff(i), values(i).Toff] = stdbyfile(offTimes,condition_idx);
+
+    %fcn = expfit(totalOn, dwellaxis);
+    [output.totalTon(i), errors.totalTon(i), values(i).totalTon] = stdbyfile(totalOn,condition_idx);
     
     
     % Calculate photon yield
     photons = sum( data.total.*(idl==onState), 2 );
     [output.yield(i), errors.yield(i), values(i).yield] = stdbyfile(photons,condition_idx);
     
-    
-    
-    %-------------------------------------------------------------
-    % 7) Display state lifetime histograms.
-    ax(1,3) = subplot(2,5,3, 'Parent',hfig);
-    hold( ax(1,3), 'all' );
-    survival(ax(1,3), onTimes, dwellaxis);
-    
-    ax(1,4) = subplot(2,5,4, 'Parent',hfig);
-    hold( ax(1,4), 'all' );
-    survival(ax(1,4), offTimes, dwellaxis);
-    
-    ax(1,5) = subplot(2,5,5, 'Parent',hfig);
-    hold( ax(1,5), 'all' );
-    survival(ax(1,5), totalOn, dwellaxis);
-    
     drawnow;
 end
+
+
+
+%% Plot dwell-time distributions
+
+% Calculate dwell-time histograms using dwellhist()
+% FIXME: dwellhist should allow key-value pairs if just one parameter.
+% FIXME: dwellplots should be displaying these, ideally.
+% FIXME: 
+dwellhistparams.removeBlinks = false;
+[dwellaxis,histograms] = dwellhist(dwtfname, dwellhistparams);
+h = [histograms{:}];
+ymax = 1.1*max(h(:));
+
+
+% Plot dwell time distributions
+ax(1,3) = subplot(2,5,3, 'Parent',hfig);
+ax(1,4) = subplot(2,5,4, 'Parent',hfig);
+
+% if params.logX,
+    semilogx( ax(1,3), dwellaxis, [histograms{:,2}] );
+    semilogx( ax(1,4), dwellaxis, [histograms{:,1}] );
+% else
+%     plot( ax(1,3), dwellaxis, [histograms{:,2}] );
+%     plot( ax(1,4), dwellaxis, [histograms{:,1}] );
+% end
+
+xlim( ax(1,3), dwellaxis([1 end]) );
+xlim( ax(1,4), dwellaxis([1 end]) );
+ylim( ax(1,3), [0 ymax] );
+ylim( ax(1,4), [0 ymax] );
+linkaxes(ax(1,3:4),'xy');
+
+% Use manual tick labels since MATLAB tends to hide all but one if the panel
+% is relatively small.
+set(ax(1,3:4), 'XTick', 10.^(-3:4));
+    
 
 % Plot formatting
 ylabel( ax(1,1), 'Counts (%)' );
@@ -394,7 +435,7 @@ end
 
 xlabel(ax(2,1), 'Condition');
 set(ax(2,:),'xtick',1:nFiles);
-set(ax,'box','on');
+% set(ax,'box','on');
 
 
 %% Construct text-format output for saving in the File menu
@@ -440,7 +481,7 @@ function exportTxt(~,~,txtout)
 % Save results to a file that can be plotted as bar graphs in Origin.
 % Executes when the user clicks the "File->Export as text" menu.
 
-[f,p] = uiputfile('tsqStats.txt','Choose a filename to save the results.');
+[f,p] = uiputfile('dyediag_results.txt','Choose a filename to save the results.');
 if ~isequal(f,0)
     fid = fopen( fullfile(p,f), 'w' );
     fprintf(fid, txtout);
