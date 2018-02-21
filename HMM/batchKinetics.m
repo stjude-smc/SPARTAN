@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 02-Oct-2017 18:16:14
+% Last Modified by GUIDE v2.5 09-Feb-2018 11:51:40
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -624,24 +624,26 @@ function mnuFileUp_Callback(hObject, ~, handles, inc) %#ok<DEFNU>
 % Move currently-selected file up in the GUI list.
 % The last parameter specifies the direction to move (+1 up, -1 down).
 
-% Reorder in handles objects
 names   = get(handles.lbFiles,'String');
 idxfile = get(handles.lbFiles,'Value');  %currently selected file.
-idxnew  = idxfile+inc;  %new position after move.
-idxnew  = max(1, min(numel(names),idxnew) );  %can't move past the end
-idxswap = [idxfile idxnew];
+idxnew  = max(1,  min( numel(names), idxfile+inc)  );
 
-handles.dataFilenames(idxswap) = handles.dataFilenames(flip(idxswap));
-handles.dwtFilenames(idxswap)  = handles.dwtFilenames(flip(idxswap));
+set( handles.lbFiles, 'String',shiftvec(names, idxfile, idxnew), 'Value',idxnew );
+handles.dataFilenames = shiftvec( handles.dataFilenames, idxfile, idxnew );
+handles.dwtFilenames  = shiftvec( handles.dwtFilenames,  idxfile, idxnew );
+
 guidata(hObject,handles);
-
-% Reorder within listbox control
-names(idxswap) = names(flip(idxswap));
-set(handles.lbFiles, 'String',names, 'Value',idxnew);
 
 % END FUNCTION mnuFileUp_Callback
 
 
+function vector = shiftvec( vector, idx, idxfinal )
+% Move the element in the index IDX of VECTOR to the final index IDXFINAL.
+vector = to_col(vector);
+temp = vector(idx);
+vector(idx) = [];
+vector = [ vector(1:idxfinal-1); temp; vector(idxfinal:end) ];
+% END shiftvec
 
 
 
@@ -720,6 +722,3 @@ if ~isempty(options),
 end
 
 % END FUNCTION mnuIdlSettings_Callback
-
-
-
