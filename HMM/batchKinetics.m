@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Feb-2018 11:51:40
+% Last Modified by GUIDE v2.5 09-Mar-2018 15:22:54
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -136,7 +136,7 @@ set( allchild(handles.mnuFileList), 'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
 set( [handles.btnSaveModel handles.tblFixFret handles.btnSim handles.mnuSim ...
-      handles.btnSaveModel], 'Enable',onoff(hasModel) );
+      handles.mnuSimPhoton handles.btnSaveModel], 'Enable',onoff(hasModel) );
 set( [handles.btnExecute handles.mnuExecute], 'Enable',onoff(hasData&hasModel) );
   
 isIdealized = any( ~cellfun(@isempty,handles.dwtFilenames) );
@@ -488,6 +488,72 @@ set(handles.txtStatus,'String','Finished.'); drawnow;
 
 
 
+
+
+% ~
+function mnuSimPhoton_Callback(hObject, eventdata, handles) %#ok<DEFNU>
+% Simulate fluorescence traces one photon at a time using a full photophysical
+% model (Jablonski diagram)
+
+
+if isempty(handles.model), return; end  %model required.
+
+% Get simulation settings.
+persistent opt;
+if isempty(opt)
+    opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, 'snr',30);
+end
+prompt = {'Traces', 'Frames', 'Sampling (ms)', 'Signal:background noise ratio'};
+newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
+if isempty(newOpt), return; end  %user hit cancel
+
+% Get output filename from user.
+[f,p] = uiputfile('sim.traces','Save simulated data as...');
+if f==0, return; end  %user pressed "cancel"
+
+
+% Simulate new data.
+% FIXME: simulate.m should return a valid traces object.
+set(handles.figure1,'pointer','watch');
+set(handles.txtStatus,'String','Simulating...'); drawnow;
+
+opt = newOpt;
+% newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
+
+try
+    data = simphotons( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
+    saveTraces( fullfile(p,f), data );
+catch e
+    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        set(handles.txtStatus,'String','Operation cancelled by user');
+    else
+        errordlg( ['Error: ' e.message], mfilename );
+        set(handles.txtStatus,'String',['Error: ' e.message]);
+    end
+    set(handles.figure1,'pointer','arrow');
+    return;
+end
+
+% Load the new simulated file and clear any others loaded.
+handles.dataFilenames = { fullfile(p,f) };
+handles.dwtFilenames = cell( size(handles.dataFilenames) );  %findDwt(handles.dataFilenames);  %FIXME?
+
+[~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
+set(handles.lbFiles, 'Value',1, 'String',names);
+
+% Update GUI
+guidata(hObject,handles);
+enableControls(handles);
+lbFiles_Callback(handles.lbFiles, [], handles);
+
+set(handles.figure1,'pointer','arrow');
+set(handles.txtStatus,'String','Finished.'); drawnow;
+
+% END FUNCTION mnuSimPhoton_Callback
+
+
+
+
 function mnuSimMovie_Callback(~, ~, handles)  %#ok<DEFNU>
 % Executed when the user selects the "Actions->Simulate Movie" menu.
 % Simulates a wide-field fluorescence movie by distributing the fluorescence
@@ -722,3 +788,5 @@ if ~isempty(options),
 end
 
 % END FUNCTION mnuIdlSettings_Callback
+
+
