@@ -128,8 +128,8 @@ methods
         this.hLine(i) = line( 0,0, lineFormat{:} );
 
         % Display rate numbers
-        this.hRate(i,1) = text( 0,0, num2str(k0(1)), textFormat{:}, 'Color',[0 0 0] );
-        this.hRate(i,2) = text( 0,0, num2str(k0(2)), textFormat{:}, 'Color',[0 0 0] );
+        this.hRate(i,1) = text( 0,0, num2str(k0(1),2), textFormat{:}, 'Color',[0 0 0] );
+        this.hRate(i,2) = text( 0,0, num2str(k0(2),2), textFormat{:}, 'Color',[0 0 0] );
 
         % Add callbacks for changing the rate constants.
         set( this.hRate(i,1), 'ButtonDownFcn', {@this.editRate_callback,states}         );
@@ -193,7 +193,7 @@ methods
     % is called both to initially display the model and whenever a state box is
     % moved by the user.
 
-    r = 0.7*this.boxsize;  %distance from the line to draw text
+    r = 0.6*this.boxsize;  %distance from the line to draw text
 
     conn = this.model.connections;
     nRates = size(conn,1);
@@ -206,28 +206,31 @@ methods
         % Display the rate numbers
         % Use some fancy geometry to position the numbers above and below the
         % line regardless of their orientation.
-        t = atan2( diff(state_y), diff(state_x) );
+        t = atan2d( diff(state_y), diff(state_x) );
         mx = mean(state_x);  my = mean(state_y);  %center between states
 
         % Draw the connecting lines for each rate. The fancy math is shorten it
         % to fit between the boxes. The other lines are arrowheads that
         % indicate which rate is described by the numbers.
         len = sqrt( diff(state_x)^2 + diff(state_y)^2 )/2 - 0.75*this.boxsize;
-        line_x = [mx-len*cos(t) mx+len*cos(t)];
-        line_y = [my-len*sin(t) my+len*sin(t)]; %these define the main line connecting states
+        line_x = [mx-len*cosd(t) mx+len*cosd(t)];
+        line_y = [my-len*sind(t) my+len*sind(t)]; %these define the main line connecting states
 
-        line_xx = [line_x(1)+(this.boxsize/2)*cos(t+(40*pi/180)) line_x(1) line_x(2) line_x(2)-(this.boxsize/2)*cos(t+(40*pi/180))];
-        line_yy = [line_y(1)+(this.boxsize/2)*sin(t+(40*pi/180)) line_y(1) line_y(2) line_y(2)-(this.boxsize/2)*sin(t+(40*pi/180))];
+        line_xx = [line_x(1)+(this.boxsize/2)*cosd(t+40) line_x(1) line_x(2) line_x(2)-(this.boxsize/2)*cosd(t+40)];
+        line_yy = [line_y(1)+(this.boxsize/2)*sind(t+40) line_y(1) line_y(2) line_y(2)-(this.boxsize/2)*sind(t+40)];
         set( this.hLine(i), 'XData', line_xx );
         set( this.hLine(i), 'YData', line_yy );
 
         % Display rate numbers
-        set( this.hRate(i,1), 'Position',[mx-r*cos(t+pi/2),my-r*sin(t+pi/2)] );
-        set( this.hRate(i,2), 'Position',[mx+r*cos(t+pi/2),my+r*sin(t+pi/2)] );
+        set( this.hRate(i,1), 'Position',[mx-r*cosd(t+90),my-r*sind(t+90)], ...
+                              'Rotation', rflct(180-t) );
+        set( this.hRate(i,2), 'Position',[mx+r*cosd(t+90),my+r*sind(t+90)], ...
+                              'Rotation', rflct(180-t) );
     end
 
     end %function moveLines
 
+    
 
 
 
@@ -244,8 +247,8 @@ methods
 
     % Save the value.
     a = str2double(a);
-    set(hObject,'String', num2str(a) );
     this.model.rates( rateID(1), rateID(2) ) = a;
+    set(hObject,'String', num2str(a,2) );
 
     % Redraw if a connection was removed.
     if this.model.rates( rateID(1), rateID(2) )==0 && this.model.rates( rateID(2), rateID(1) )==0
@@ -442,6 +445,9 @@ end %classdef
 
 
 
+function t = rflct(t)
+    if t>90&&t<270, t=t-180; end
+end
 
 
 
