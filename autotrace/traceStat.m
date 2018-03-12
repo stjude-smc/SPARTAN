@@ -203,8 +203,8 @@ else
     M = 0;
 end
 
-parfor (i=1:Ntraces, M)
-% for i=1:Ntraces
+% parfor (i=1:Ntraces, M)
+for i=1:Ntraces
     % Extract trace in a way that makes parpool happy.
     donor    = donorAll(i,:);
     acceptor = acceptorAll(i,:);
@@ -291,7 +291,7 @@ parfor (i=1:Ntraces, M)
     else
         % Calculate blinking total fluor cutoff value
         % Find start points where Cy3 blinks
-        x = total(1:lt-1) <= constants.blink_nstd*stdbg;  %was lt-3
+        x = total(1:lt-2) <= constants.blink_nstd*stdbg;  %was lt-3
         retval(i).ncross = sum(  x & ~[0 x(1:end-1)]  );
         
         % Remove from consideration regions where Cy3 is dark
