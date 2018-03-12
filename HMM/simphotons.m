@@ -13,7 +13,8 @@
 %      DATA.acceptor also includes background noise.
 %
 %    OPTIONAL Parameter values:
-%      'snr'  ->  signal to background noise ratio of output traces
+%      'snr'       -> signal to background noise ratio of output traces
+%      'detection' -> percent of emitted photons that are recorded
 %  
 %  See also: simulate, batchKinetics, QubModel.
 
@@ -30,7 +31,7 @@ p0 = to_row(model.p0);
 p0 = p0/sum(p0);
 
 % Default parameter values. FIXME: should be in cascadeConstants?
-params = struct('stdBackground',0); 
+params = struct('stdBackground',0, 'detection',22); 
 params = mergestruct( params, struct(varargin{:}) );
 
 
@@ -93,11 +94,16 @@ for i=1:nTraces
     traceClasses = model.class(traceStates);
     eventTimes = cumsum(traceTimes);
     eventTimes = eventTimes(traceClasses>1) ./ (1000*sampling);
+    
+    % 2. Remove a fraction of photons to simulate detection efficiency
+    nEvents = numel(eventTimes);
+    idxKeep = randi( nEvents, 1, floor(nEvents*params.detection/100) );
+    eventTimes = eventTimes(idxKeep);
 
-    % 2. Assign each photon to the appropriate time bin.
+    % 3. Assign each photon to the appropriate time bin.
     frameIdx = floor(eventTimes+1);
 
-    % 3. Sum events for each frame to get total fluorescence intensity.
+    % 4. Sum events for each frame to get total fluorescence intensity.
     if ~isempty(frameIdx)
         noiseless_traces(i,:) = histc( frameIdx, 1:traceLen );
     end
@@ -132,10 +138,9 @@ noisy_traces = noiseless_traces + stdbg*randn(size(noiseless_traces));
 % intensity if there are no non-radiative pathways (from the 1->2 rate constant)
 % to give a visual of the amount of quenching.
 data = TracesFret(nTraces, traceLen);
-data.donor    = noisy_traces;
-data.acceptor = noiseless_traces;
-data.fret = 0.8 * noiseless_traces ./ mti;  %for display purposes only
-data.time     = sampling*1000*(0:traceLen-1);
+data.donor = noisy_traces;
+data.fret  = 0.8 * noiseless_traces ./ mti;  %for display purposes only
+data.time  = sampling*1000*(0:traceLen-1);
 data.fileMetadata(1).wavelengths = [532 640];
 
 

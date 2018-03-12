@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Mar-2018 15:22:54
+% Last Modified by GUIDE v2.5 09-Mar-2018 16:58:35
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -491,7 +491,7 @@ set(handles.txtStatus,'String','Finished.'); drawnow;
 
 
 % ~
-function mnuSimPhoton_Callback(hObject, eventdata, handles) %#ok<DEFNU>
+function mnuSimPhoton_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Simulate fluorescence traces one photon at a time using a full photophysical
 % model (Jablonski diagram)
 
@@ -501,9 +501,11 @@ if isempty(handles.model), return; end  %model required.
 % Get simulation settings.
 persistent opt;
 if isempty(opt)
-    opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, 'snr',30);
+    opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, 'snr',30, ...
+                 'detection',22);
 end
-prompt = {'Traces', 'Frames', 'Sampling (ms)', 'Signal:background noise ratio'};
+prompt = {'Traces', 'Frames', 'Sampling (ms)', 'Signal:background noise ratio', ...
+          'Photon detection efficiency (%)'};
 newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
 if isempty(newOpt), return; end  %user hit cancel
 
@@ -788,5 +790,3 @@ if ~isempty(options),
 end
 
 % END FUNCTION mnuIdlSettings_Callback
-
-
