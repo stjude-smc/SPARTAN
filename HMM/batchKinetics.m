@@ -456,7 +456,7 @@ newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
 newOpt.kBleach = 1/opt.totalTimeOn;
 
 try
-    [~,data] = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
+    data = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
     saveTraces( fullfile(p,f), data );
 catch e
     if strcmpi(e.identifier,'parfor_progressbar:cancelled')

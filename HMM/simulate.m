@@ -1,4 +1,4 @@
- function [dwt,data] = simulate( dataSize, sampling, model, varargin )
+ function data = simulate( dataSize, sampling, model, varargin )
 % SIMULATE   Simulate smFRET data
 %
 %    [IDL,FRET,DONOR,ACCEPTOR] = SIMULATE( SIZE, FRAMERATE, MODEL, Q )
@@ -32,7 +32,7 @@
 %   - Simulate distribution of gamma across traces (stdGamma)
 %   - Simulate effect of varying quantum yield in each state... 
 %   - Simulate donor->accpetor (acceptor->donor) crosstalk. 
-
+tic;
 
 % CONSTANTS
 kBleachDonorFactor = 0.5; %donor relative to acceptor bleaching rate.
@@ -61,18 +61,8 @@ params = mergestruct( params, struct(varargin{:}) );
 kBleachAcceptor = params.kBleach/(1+kBleachDonorFactor);
 kBleachDonor    = params.kBleach - kBleachAcceptor;
 
-
-%%
-
 simFramerate = 1000; %1000/sec = 1ms frames
 binFactor = round(simFramerate/framerate);
-
-
-
-%%
-
-% Generate a set of uniform random numbers for choosing states
-wbh = parfor_progressbar(1.25*nTraces,'Simulating state sequences...');
 
 
 %--- Draw lifetimes for each trace before photobleaching
@@ -96,76 +86,85 @@ else
     M = 0;
 end
 
-simTraces = nargout<2;
 
 
-%--- Generate noiseless state trajectory at 1 ms
-dwt  = cell(nTraces, 1);
+%% Simulate noiseless FRET trajectories
+
+% Generate a set of uniform random numbers for choosing states
+wbh = parfor_progressbar(1.25*nTraces,'Simulating state sequences...');
+
+
+% Pre-calculate state time constants for Gillespie direct method
+nStates = numel(p0);
+Qtau    = zeros(1,nStates);  %mean dwell time for each state
+Qcumsum = zeros(nStates);  %cumsum of probability of each possible exit from a state
+for s=1:nStates
+    Qtau(s)   = -1000 / sum( Q(s,:) );
+    Qcumsum(s,:) = cumsum(  Q(s,:) ./ sum(Q(s,:))  );
+end
+
+
+% dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
+endTime = 1000*(traceLen*sampling); %in ms
+
 
 parfor (i=1:nTraces,M)
-% for i=1:nTraces,
-    % Choose the initial state
-    curState = find( rand <= cumsum(p0), 1, 'first' );
+% for i=1:nTraces
     
-    endTime = 1000*(traceLen*sampling); %in ms
+    % Choose the initial state
+    curState = find( rand <= cumsum(p0), 1 );
+    
+    cumTime = 0;
     states = [];
     times  = [];
     
-    % Below is essentially the (direct) Gillipse algorithm. Dwell times are
-    % drawn from exponential distributions and the first event to occur
-    % takes the system to a new "current state", continuing until the end
-    % of the trace (acceptor dye photobleaching).
-    % Note that, as with the experiments, this process is biased toward
-    % short dwells when the bleaching time is on the order of the dwell
-    % times in any state (even if the last dwell isn't truncated).
-    while sum(times)<pbTimes(i) && sum(times)<endTime, %end when no more dwells are needed.
+    %--- Simulate state dwells using the (direct) Gillespie algorithm.
+    while cumTime<pbTimes(i) && cumTime<endTime, %end when no more dwells are needed.
         
-        % Simulate the time until the next transition.
-        l_tot = sum( Q(curState,:) ); %rate for any transition to occur (the sum of all rates)
-        dwellTime = (-1000./l_tot) .* log( rand(size(l_tot)) );  %in ms
+        % Randomly sample the time until the next transition.
+        dwellTime = Qtau(curState) .* log(rand);  %in ms
         
-        % Simulate the transition type with probabilities being the
-        % fraction of transition of each type by rate.
-        x = cumsum( Q(curState,:)./l_tot );
-        nextState = find( rand<=x, 1, 'first' );
+        % Randomly sample final state with probabilities calculated as the
+        % fraction of all possible rate constants exiting current state.
+        nextState = find( rand<=Qcumsum(curState,:), 1 );  %'first' is default
         
         states(end+1) = curState;
         times(end+1) = dwellTime;
         
+        cumTime = cumTime + dwellTime;
         curState = nextState;
     end
     
     % Truncate last dwell to fit into time window
-    totalTime = sum(times);
-    times(end) = times(end) - ( totalTime-min(endTime-1,pbTimes(i)) );
+    times(end) = times(end) - ( cumTime-min(endTime-1,pbTimes(i)) );
+    times = to_col(times);
     
-    % Convert states to classes and merge dwells in the same class.
-    % Times must be rounded to 1ms time resolution for the .dwt format.
-    [classes,times] = mergedwells( model.class(states), times ); %#ok<PFBNS>
-    dwt{i} = [classes round(times)];
+    % Save simulated state series. Dwells in the same class must be merged and
+    % the times are rounded to 1ms because of limitations in the .dwt format.
+    % THIS IS NOT IMPLEMENT FOR SPEED.
+    %[classes,times] = mergedwells( model.class(states), times ); %#ok<PFBNS>
+    %dwt{i} = [to_col(classes) round(to_col(times))];
     
-    if mod(i,20)==0,  %fixme; not very useful with long traces.
-        wbh.iterate(20); %#ok<PFBNS>
+    if mod(i,10)==0
+        wbh.iterate(10);
     end
     
     
-    % Don't simulate FRET traces if not requested to save time.
-    if simTraces, continue; end
-    
-    % Generate noiseless FRET traces with time averaging.
+    %--- Generate noiseless FRET traces with time averaging.
     e = 1+cumsum(times'./dt);    % dwell end times (continuous frames)
     s = [1 e(1:end-1)+eps];     % dwell start times
     eh = floor(e);              % discrete frame in which dwell ends
     sh = floor(s);              % discrete frame in which dwell starts
     
     trace = zeros( 1,traceLen );
+    fretValues = model.mu( model.class(states) );
     
-    for j=1:numel(times),
-        dwellFretValue = model.mu( classes(j) );
+    for j=1:numel(fretValues),
+        dwellFretValue = fretValues(j);
         
-        % 1. Isolated stretch (shortdwell within one frame).
+        % 1. Isolated stretch (short dwell within one frame).
         % Add the fret value to the current frame as a fraction of how much
         % time it takes up, so that the total "probability" (the first
         % number) sums to one for each frame at the end of the loop.        
@@ -190,70 +189,68 @@ end
 
 
 
-%--- Simulate fluorescence traces, adding gaussian read noise
+%% Simulate fluorescence traces, adding gaussian read noise
 % Don't simulate traces unless requested to save time.
-if nargout>1,
-    wbh.message = 'Simulating noise...';
+wbh.message = 'Simulating noise...';
 
-    % Generate total intensity profile
-    variation = params.stdTotalIntensity*randn( nTraces,1 );
-    intensity = params.totalIntensity + variation;
-    intensity = repmat( intensity, 1, traceLen );
-    
-    % Generate noiseless fluorescence traces (variable intensity)
-    donor    = (1-noiseless_fret).*intensity;
-    acceptor = intensity-donor;
-    
-    % Alter fluorescence traces to simulate non-equal collection efficiencies
-    % for donor and acceptor fluorescence intensities. The factor gamma
-    % is a correction for this effect.
-    % Not that this alters total fluorescence intensities!
-    donor = (1/params.gamma)*donor;
-    
-    % Simulate donor photobleaching.
-    % NOTE: this is not correctly time averaged.
-    if params.kBleach > 0,
-        pbTimes = exprnd( 1/kBleachDonor, 1,nTraces );
-        pbTimes = round(pbTimes*simFramerate/binFactor);
-        pbTimes = min( max(1,pbTimes), traceLen );
-        
-        for i=1:nTraces,
-            donor(i,pbTimes(i):end) = 0;
-            acceptor(i,pbTimes(i):end) = 0;
-        end
+% Generate total intensity profile
+variation = params.stdTotalIntensity*randn( nTraces,1 );
+intensity = params.totalIntensity + variation;
+intensity = repmat( intensity, 1, traceLen );
+
+% Generate noiseless fluorescence traces (variable intensity)
+donor    = (1-noiseless_fret).*intensity;
+acceptor = intensity-donor;
+
+% Alter fluorescence traces to simulate non-equal collection efficiencies
+% for donor and acceptor fluorescence intensities. The factor gamma
+% is a correction for this effect.
+% Not that this alters total fluorescence intensities!
+donor = (1/params.gamma)*donor;
+
+% Simulate donor photobleaching.
+% NOTE: this is not correctly time averaged.
+if params.kBleach > 0,
+    pbTimes = exprnd( 1/kBleachDonor, 1,nTraces );
+    pbTimes = round(pbTimes*simFramerate/binFactor);
+    pbTimes = min( max(1,pbTimes), traceLen );
+
+    for i=1:nTraces,
+        donor(i,pbTimes(i):end) = 0;
+        acceptor(i,pbTimes(i):end) = 0;
     end
-    
-    % Rescale fluorescence intensities so that the total intensity
-    % (and SNR) are roughly the same as if there was not gamma correction.
-    nNonZero = sum( donor(:)>0 );
-    obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero;
-    donor    = donor*    (params.totalIntensity/obsIntensity);
-    acceptor = acceptor* (params.totalIntensity/obsIntensity);
-        
-    % Simulate the effect of photophysical noise. Here the variance
-    % is propotional to the intensity of the signal.
-    donor    = donor    .*  (1+ params.stdPhoton*randn(size(donor))    );
-    acceptor = acceptor .*  (1+ params.stdPhoton*randn(size(acceptor)) );
-        
-    % Simulate Poisson shot "noise" or the variance of signal intensity simply
-    % due to photon statistics. Note that this also discretizes the data.
-    if params.shotNoise
-        donor    = poissrnd(donor);
-        acceptor = poissrnd(acceptor);
-    end
-    
-    % Add background and read noise to fluorescence traces. Here the
-    % variance is invariant of the signal.
-    alive = donor~=0;
-    donor    = donor    + params.stdBackground*randn(size(donor));
-    acceptor = acceptor + params.stdBackground*randn(size(donor));
-    
-    % Recalculate FRET from fluorescence traces
-    fret = acceptor./(donor+acceptor);
-    fret(~alive) = 0; %set undefined values to zero
-    %assert( ~any(isnan( fret(:) )) );
-    fret( isnan(fret) ) = 0;
 end
+
+% Rescale fluorescence intensities so that the total intensity
+% (and SNR) are roughly the same as if there was not gamma correction.
+nNonZero = sum( donor(:)>0 );
+obsIntensity = ( sum(donor(:))+sum(acceptor(:)) )/nNonZero;
+donor    = donor*    (params.totalIntensity/obsIntensity);
+acceptor = acceptor* (params.totalIntensity/obsIntensity);
+
+% Simulate the effect of photophysical noise. Here the variance
+% is propotional to the intensity of the signal.
+donor    = donor    .*  (1+ params.stdPhoton*randn(size(donor))    );
+acceptor = acceptor .*  (1+ params.stdPhoton*randn(size(acceptor)) );
+
+% Simulate Poisson shot "noise" or the variance of signal intensity simply
+% due to photon statistics. Note that this also discretizes the data.
+if params.shotNoise
+    donor    = poissrnd(donor);
+    acceptor = poissrnd(acceptor);
+end
+
+% Add background and read noise to fluorescence traces. Here the
+% variance is invariant of the signal.
+alive = donor~=0;
+donor    = donor    + params.stdBackground*randn(size(donor));
+acceptor = acceptor + params.stdBackground*randn(size(donor));
+
+% Recalculate FRET from fluorescence traces
+fret = acceptor./(donor+acceptor);
+fret(~alive) = 0; %set undefined values to zero
+%assert( ~any(isnan( fret(:) )) );
+fret( isnan(fret) ) = 0;
 
 close(wbh);
 drawnow;
@@ -266,31 +263,31 @@ data.acceptor = acceptor;
 data.time     = sampling*1000*(0:traceLen-1);
 data.fileMetadata(1).wavelengths = [532 640];
 
-
+disp(toc)
 end %FUNCTION simulate
 
 
 
 
-function [newstates,newtimes] = mergedwells(states, times)
-% Merge repeated dwells in the same state/class into a single longer dwell.
-
-newstates = states(1);
-newtimes  = times(1);
-
-for i=2:numel(states),
-    % Accumulate time if still in the same state.
-    if states(i)==newstates(end),
-        newtimes(end) = newtimes(end) + times(i);
-        
-    % Add the next dwell if there is a transition to a new state.
-    else
-        newstates(end+1) = states(i);
-        newtimes(end+1)  = times(i);
-    end
-end
-
-newstates = newstates';
-newtimes  = newtimes';
-
-end
+% function [newstates,newtimes] = mergedwells(states, times)
+% % Merge repeated dwells in the same state/class into a single longer dwell.
+% 
+% newstates = states(1);
+% newtimes  = times(1);
+% 
+% for i=2:numel(states),
+%     % Accumulate time if still in the same state.
+%     if states(i)==newstates(end),
+%         newtimes(end) = newtimes(end) + times(i);
+%         
+%     % Add the next dwell if there is a transition to a new state.
+%     else
+%         newstates(end+1) = states(i);
+%         newtimes(end+1)  = times(i);
+%     end
+% end
+% 
+% newstates = newstates';
+% newtimes  = newtimes';
+% 
+% end
