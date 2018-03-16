@@ -1,24 +1,23 @@
- function [data,dwt] = simphotons( dataSize, sampling, model, varargin )
+function [data,dwt] = simphotons( dataSize, sampling, model, varargin )
 % SIMPHOTONS   Simulate fluorophore photophysics
 %
-%    DATA = SIMPHOTONS(SIZE, SAMPLING, MODEL) performs a stochastic simulation
-%    of MODEL (QubModel object) using the Gillespie algorithm, where each dwell
-%    in states of class 2 (or higher) adds a photon to the frame in the output
-%    trace at the time it was sampled. This function is designed for simulating
-%    photophysical processes by simulating photon emission series directly.
-%    SAMPLING is the output time resolution in seconds.
+%   DATA = SIMPHOTONS(SIZE, SAMPLING, MODEL) simulates a photon emission
+%   photophysical process using the Gillespie algorithm.
 %
-%      DATA.donor contains raw fluorescence counts.
-%      DATA.fret has the raw fluorescence counts normalized to 1.
-%      DATA.acceptor also includes background noise.
+%     SIZE is the number of traces and frames to simulate, respectively.
+%     SAMPLING is the time binning resolution (in milliseconds).
+%     MODEL is a QubModel object describing the photophysical behavior.
+%       Transitions of states 2->1 contribute to photon counting.
+%     DATA is a Traces object, with fluorescence counts in 'donor' and a
+%     normalized trace in 'fret'.
 %
-%    OPTIONAL Parameter values:
-%      'snr'       -> signal to background noise ratio of output traces
-%      'detection' -> percent of emitted photons that are recorded
+%   ... = SIMPHOTONS(..., PARAMS) specifies parameters as a struct:
+%     'snr'       -> signal to background noise ratio of output traces
+%     'detection' -> percent of emitted photons that are recorded
 %  
-%  See also: simulate, batchKinetics, QubModel.
+%   See also: gillespie, simulate, batchKinetics, QubModel.
 
-%   Copyright 2007-2018 Cornell University All Rights Reserved.
+%   Copyright 2018 Cornell University All Rights Reserved.
 
 
 
@@ -33,7 +32,6 @@ p0 = p0/sum(p0);
 % Default parameter values. FIXME: should be in cascadeConstants?
 params = struct('stdBackground',0, 'detection',22); 
 params = mergestruct( params, struct(varargin{:}) );
-
 
 % Start the matlab thread pool if not already running. perfor below will
 % run the calculations of the available processors.
@@ -100,13 +98,13 @@ parfor (i=1:nTraces,M)
     
     
     %---- Sum photon arrivals into time bins to get fluorescence traces.
-    % FIXME: photons should only be emitted from a specific transition, not any
-    % dwell in the singlet excited state.
     
-    % 1. Get explicit arrival times of each photon in fractional frames
-    traceClasses = model.class(traceStates);
+    % 1. Find photon emission events (transition from state 2 to 1)
+    events = traceStates(1:end-1)==2 & traceStates(2:end)==1;
+    
+    % 2. Get arrival times of each photon in fractional frames.
     eventTimes = cumsum(traceTimes);
-    eventTimes = eventTimes(traceClasses>1) ./ (1000*sampling);
+    eventTimes = eventTimes(events) ./ (1000*sampling);
     
     % 2. Remove a fraction of photons to simulate detection efficiency
     nEvents = numel(eventTimes);
@@ -126,7 +124,7 @@ parfor (i=1:nTraces,M)
     % FIXME: .dwt files only support CLASS series, but these are mostly
     % useless for this type of simulation...
     %if nargout>1
-    %    dwt{i} = [traceClasses' traceTimes'];
+    %    dwt{i} = [model.class(traceStates)' traceTimes'];
     %end
 
     
