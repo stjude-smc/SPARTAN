@@ -1,7 +1,8 @@
  function data = simulate( dataSize, sampling, model, varargin )
-% SIMULATE   Simulate smFRET data
+% SIMULATE   Simulate fluorescence and FRET traces
 %
-%    [IDL,FRET,DONOR,ACCEPTOR] = SIMULATE( SIZE, FRAMERATE, MODEL, Q )
+%    DATA = SIMULATE( SIZE, FRAMERATE, MODEL )
+%
 %    Generates noiselss FRET trajectories (FRET) at 1ms time resolution
 %    using the given FRET emission MODEL (col1=means, col2=stdevs) and
 %    rates in the given rate matrix (Q(i,j)=k_i->j), averages to
@@ -12,23 +13,19 @@
 %    with specified mean total intensity, stdev across traces, 
 %    and added fluorescence noise (only if specified).
 %
-%    OPTIONAL Parameter values:
-%      'totalIntensity'     ->  for simulated fluorescence trajectories
-%      'stdTotalIntensity'  ->  std of distribution (0)
-%          *** if stdBackground is set, traces will have varying
-%          signal-to-noise ratios! 
+%   ... = SIMULATE(..., PARAMS) specifies parameters as a struct:
+%      'totalIntensity'     ->  total (donor+acceptor) intensity per frame
+%      'stdTotalIntensity'  ->  stdev of total intensity across molecules
 %      'stdPhoton'      ->  noise within fluorescence traces (multiplicitive)
 %      'stdBackground'  ->  background noise (additive)
 %
 %      'kBleach'        ->  rate of acceptor photobleaching (0)
 %  
-%  See also: simulateMovie, batchKinetics, QubModel.
+%  See also: gillespie, simphotons, simulateMovie, batchKinetics, QubModel.
 
-%   Copyright 2007-2017 Cornell University All Rights Reserved.
+%   Copyright 2007-2018 Cornell University All Rights Reserved.
 
 %  TODO:
-%   - re-implement random seed, if possible.
-%   - Simulate anisotropy noise
 %   - Simulate distribution of gamma across traces (stdGamma)
 %   - Simulate effect of varying quantum yield in each state... 
 %   - Simulate donor->accpetor (acceptor->donor) crosstalk. 
@@ -43,10 +40,6 @@ kBleachDonorFactor = 0.5; %donor relative to acceptor bleaching rate.
 nTraces  = dataSize(1);
 traceLen = dataSize(2);
 framerate = 1/sampling;
-
-Q = model.rates;
-p0 = model.p0;
-p0 = p0/sum(p0);
 
 % Default parameter values. FIXME: should be in cascadeConstants?
 params = struct('totalIntensity',500, 'stdTotalIntensity',0, 'stdBackground',0, ...
@@ -93,52 +86,20 @@ end
 % Generate a set of uniform random numbers for choosing states
 wbh = parfor_progressbar(1.25*nTraces,'Simulating state sequences...');
 
-
-% Pre-calculate state time constants for Gillespie direct method
-nStates = numel(p0);
-Qtau    = zeros(1,nStates);  %mean dwell time for each state
-Qcumsum = zeros(nStates);  %cumsum of probability of each possible exit from a state
-for s=1:nStates
-    Qtau(s)   = -1000 / sum( Q(s,:) );
-    Qcumsum(s,:) = cumsum(  Q(s,:) ./ sum(Q(s,:))  );
-end
-
-
 % dwt  = cell(nTraces, 1);
 noiseless_fret = zeros( nTraces, traceLen );
 dt = 1000*sampling; %integration time (timestep) in ms.
-endTime = 1000*(traceLen*sampling); %in ms
 
 
 parfor (i=1:nTraces,M)
 % for i=1:nTraces
     
-    % Choose the initial state
-    curState = find( rand <= cumsum(p0), 1 );
-    
-    cumTime = 0;
-    states = [];
-    times  = [];
-    
     %--- Simulate state dwells using the (direct) Gillespie algorithm.
-    while cumTime<pbTimes(i) && cumTime<endTime, %end when no more dwells are needed.
-        
-        % Randomly sample the time until the next transition.
-        dwellTime = Qtau(curState) .* log(rand);  %in ms
-        
-        % Randomly sample final state with probabilities calculated as the
-        % fraction of all possible rate constants exiting current state.
-        nextState = find( rand<=Qcumsum(curState,:), 1 );  %'first' is default
-        
-        states(end+1) = curState;
-        times(end+1) = dwellTime;
-        
-        cumTime = cumTime + dwellTime;
-        curState = nextState;
-    end
+    endTime = min( pbTimes(i), 1000*(traceLen*sampling)-1 );
+    [states,times] = gillespie( model, endTime );
     
     % Truncate last dwell to fit into time window
-    times(end) = times(end) - ( cumTime-min(endTime-1,pbTimes(i)) );
+    times(end) = times(end) - (sum(times)-endTime);
     times = to_col(times);
     
     % Save simulated state series. Dwells in the same class must be merged and

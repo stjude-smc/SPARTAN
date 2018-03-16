@@ -25,10 +25,6 @@ function [data,dwt] = simphotons( dataSize, sampling, model, varargin )
 nTraces  = dataSize(1);
 traceLen = dataSize(2);
 
-Q = model.rates;
-p0 = to_row(model.p0);
-p0 = p0/sum(p0);
-
 % Default parameter values. FIXME: should be in cascadeConstants?
 params = struct('stdBackground',0, 'detection',22); 
 params = mergestruct( params, struct(varargin{:}) );
@@ -50,51 +46,16 @@ end
 %% Simulate noiseless fluorescence traces
 tic;
 
-
-% Initialize variables for Gillespie algorithm
 wbh = parfor_progressbar(nTraces,'Simulating photon series...');
-dwt  = cell(nTraces, 1);
 noiseless_traces = zeros( nTraces, traceLen );
-endTime = 1000*(traceLen*sampling); %in ms
-nStates = numel(p0);
-
-
-% Pre-calculate state time constants for Gillespie direct method
-Qtau    = zeros(1,nStates);  %mean dwell time for each state
-Qcumsum = zeros(nStates);  %cumsum of probability of each possible exit from a state
-for s=1:nStates
-    Qtau(s)   = -1000 / sum( Q(s,:) );
-    Qcumsum(s,:) = cumsum(  Q(s,:) ./ sum(Q(s,:))  );
-end
+% dwt = cell(nTraces, 1);
 
 
 parfor (i=1:nTraces,M)
 % for i=1:nTraces
     
-    traceStates = [];
-    traceTimes  = [];
-    cumTime = 0;
-    
-    % Sample initial state from initial probabilities distribution (p0)
-    curState = find( rand <= cumsum(p0), 1 );
-    
     %--- Simulate state dwells using the (direct) Gillespie algorithm.
-    while cumTime<endTime,
-        
-        % Randomly sample the time until the next transition.
-        dwellTime = Qtau(curState) .* log(rand);  %in ms
-        
-        % Randomly sample final state with probabilities calculated as the
-        % fraction of all possible rate constants exiting current state.
-        nextState = find( rand<=Qcumsum(curState,:), 1 );  %'first' is default
-        
-        traceStates(end+1) = curState;
-        traceTimes(end+1) = dwellTime;
-
-        cumTime = cumTime + dwellTime;
-        curState = nextState;
-        
-    end %while not enough dwells to fill trace
+    [traceStates,traceTimes] = gillespie( model, 1000*(traceLen*sampling) );
     
     
     %---- Sum photon arrivals into time bins to get fluorescence traces.
