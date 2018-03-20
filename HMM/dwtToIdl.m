@@ -73,7 +73,7 @@ for dwtID=1:numel(dwt)
     ends = cumsum(times);
     starts = [1; ends(1:end-1)+1];
     
-    if ends(end)>traceLen,
+    if ends(end)>traceLen || offsets(dwtID)+traceLen > nTraces*traceLen
         error('Idealization is longer than trace length');
     end
     

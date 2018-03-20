@@ -639,15 +639,18 @@ handles.traceViewer.redraw();
 function idl = loadIdl(dwtfname, data)
 % Returns the idealization for the currently selected file
 
-if ~isempty(dwtfname) && exist(dwtfname,'file'),
-    [dwt,~,offsets,model] = loadDWT(dwtfname);
-    idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
-    
-    assert( size(model,2)==2 );
-    fretValues = [NaN; model(:,1)];
-    idl = fretValues( idl+1 );
-else
-    idl = [];
+idl = [];
+try
+    if ~isempty(dwtfname) && exist(dwtfname,'file'),
+        [dwt,~,offsets,model] = loadDWT(dwtfname);
+        idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+
+        assert( size(model,2)==2 );
+        fretValues = [NaN; model(:,1)];
+        idl = fretValues( idl+1 );
+    end
+catch e
+    disp(['Idealization failed to load: ' e.message])
 end
 
 % END FUNCTION loadIdl

@@ -351,8 +351,13 @@ for k=1:nFiles,
     
     %% ================ STATE OCCUPANCY HISTOGRAMS ================ 
     if has_dwt(k),
-        [dwt,~,offsets] = loadDWT(dwtfnames{k});
-        idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+        try
+            [dwt,~,offsets] = loadDWT(dwtfnames{k});
+            idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
+        catch e
+            disp(['Invalid idealization: ' e.message]);
+            has_dwt(k) = false;    
+        end
     end
     
     if histax(k)==0, continue; end
@@ -377,7 +382,7 @@ for k=1:nFiles,
     
         
     %% ========================= TD PLOTS ========================= 
-    if nrows<3 || tdax(k)==0, continue; end
+    if nrows<3 || ~has_dwt(k) || tdax(k)==0, continue; end
     
     % Calculate TD plot
     tdp = tdplot(idl, data, options);
