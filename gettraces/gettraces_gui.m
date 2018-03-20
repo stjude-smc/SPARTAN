@@ -103,7 +103,8 @@ mnuProfiles_Callback( hMenu(handles.profile), [], handles);
 % --- Executes when user attempts to close figure1.
 function figure1_CloseRequestFcn(hObject, ~, handles) %#ok<DEFNU>
 % Save custom profiles for future sessions before exit
-setpref('SPARTAN','gettraces_customProfiles',handles.profiles(handles.nStandard+1:end));
+% FIXME: setpref can interfere with older versions. enable with caution.
+% setpref('SPARTAN','gettraces_customProfiles',handles.profiles(handles.nStandard+1:end));
 delete(hObject);
 % END FUNCTION figure1_CloseRequestFcn
 
