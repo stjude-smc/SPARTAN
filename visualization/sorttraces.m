@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 19-Apr-2017 15:14:47
+% Last Modified by GUIDE v2.5 21-Mar-2018 14:35:01
 
 
 % Begin initialization code - DO NOT EDIT
@@ -270,7 +270,8 @@ zoom reset;  %remember new axis limits when zooming out.
 set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
      handles.mnuCorrResetAll handles.btnSubBoth handles.mnuSellAll2 ...
-     handles.mnuClearAll2 handles.mnuBinNext handles.mnuBinPrev], 'Enable','on');
+     handles.mnuClearAll2 handles.mnuBinNext handles.mnuBinPrev ...
+     handles.mnuTruncate], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 
@@ -691,6 +692,26 @@ save(filename, '-struct', 'savedState');
 %========================   TRACE CORRECTIONS   ==========================%
 
 
+% --------------------------------------------------------------------
+function mnuTruncate_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Truncate all traces to the specified number of frames.
+
+a = inputdlg( 'Number of frames to keep:', mfilename, 1, {num2str(handles.data.nFrames)} );
+nFrames = str2double(a);
+if ~isnan(nFrames)
+    nFrames = max(1, min(nFrames,handles.data.nFrames) );
+    handles.data.truncate(nFrames);
+    handles.idl     = handles.idl(:,1:nFrames);
+    handles.idlFret = handles.idlFret(:,1:nFrames);
+    
+    % Update GUI controls and redraw the trace.
+    editGoTo_Callback( hObject, [], handles );
+end
+
+% END FUNCTION mnuTruncate_Callback
+
+
+
 %----------HANDLE BACKGROUND SUBSTRACTION BUTTONS----------%
 function btnSubBoth_Callback(~, ~, handles, mode) %#ok<DEFNU>
 % Subtract fluorescence background from the current x-axis region
@@ -698,7 +719,6 @@ function btnSubBoth_Callback(~, ~, handles, mode) %#ok<DEFNU>
 % subtraction buttons are handled with this one function. The mode
 % parameter specifies which button was pressued and which function
 % is to be performed.
-
 
 m = handles.molecule_no; %selected molecule being viewed now.
 
@@ -1441,3 +1461,5 @@ titles = [ 'Whole File' handles.binNames(binsToShow) ];
 makeplots(files, titles);
 
 % END FUNCTION mnuMakeplots_Callback
+
+
