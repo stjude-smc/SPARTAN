@@ -54,7 +54,7 @@ if isempty(params)
     params.model = QubModel(model);
 
     % Show Time-On and Total Time On plots on a log scale (sine-sigworth)
-    params.logX = false;
+    params.logX = true;
 
     % Filtering parameters
     params.centerQuad = true;   %remove traces near the edges of the FOV
@@ -142,13 +142,17 @@ for i=1:nFiles,
     condition_idx   = [];
     
     [p,f] = fileparts( condition_files{1} );
-    names{i} = strrep(f,'_',' ');
+    names{i} = f; %strrep(f,'_',' ');
     basename = fullfile(p,f);
     
     for j=1:numel(condition_files),
         condition_data{j} = loadTraces( condition_files{j} );
         if params.centerQuad
-            condition_data{j} = centerQuad( condition_data{j} );
+            if ~isfield(condition_data{j}.traceMetadata,'donor_x')
+                disp('Warning: cannot run centerQuad. No coordinates');
+            else
+                condition_data{j} = centerQuad( condition_data{j} );
+            end
         end
     end
     
@@ -159,6 +163,7 @@ for i=1:nFiles,
         data = condition_data{1};
         fprintf('Only one file for condition #%d. Using bootstrap sampling for error bars\n',i);
     end
+    nTraceAll = data.nTraces;  %before filtering.
     
     % Keep track of which file each trace came from.
     for j=1:numel(condition_data),
@@ -176,7 +181,7 @@ for i=1:nFiles,
     % Fit the background distribution to find a good cutoff to remove
     % traces with low-intensity resurrection (not well-handled by HMM).
     % NOTE: this may exclude traces that blink but do not photobleach.
-    bins = 0:70;
+    bins = 0:140;
     bg = [stats.bg];
     bg = bg( bg>bins(1) & bg<bins(end) );
     N = hist( bg, bins );
@@ -189,7 +194,9 @@ for i=1:nFiles,
     tMax   = t( floor(0.99*data.nTraces)-1 );
     snrMax = snr( floor(0.99*data.nTraces)-1 );
     
-    % Define selection criteria
+    % Define selection criteria.
+    % (Overlap criteria tends to be the most severe of these, and might need
+    % algorithmic adjustments in the long run.)
     criteria.min_snr = params.min_snr;
     criteria.eq_overlap = 0;
     if params.removeHighBg
@@ -199,6 +206,8 @@ for i=1:nFiles,
     criteria.max_t = tMax;
     criteria.min_snr_s  = 0;
     criteria.max_snr_s = snrMax;
+    
+    disp(criteria)
 
     % Select traces according to criteria defined above.
     [selected,stats] = pickTraces( stats, criteria );
@@ -212,7 +221,6 @@ for i=1:nFiles,
     % 3) Calculate signal statistics
     
     % Total intensity distributions
-    t = [stats.t];
     [output.intensity(i), errors.intensity(i), values(i).intensity] = stdbyfile(t,condition_idx,@median);
     
     [histdata,bins] = hist( t, 40 );
@@ -227,7 +235,7 @@ for i=1:nFiles,
     [output.SNRs(i), errors.SNRs(i), values(i).SNRs] = stdbyfile(snr,condition_idx,@median);
     
     
-    [histdata,bins] = hist( snr, 40 );
+    [histdata,bins] = hist( snr, 35 );
     histdata = 100*histdata/sum(histdata);  %normalize
     ax(1,2) = subplot(2,5,2, 'Parent',hfig);
     plot( ax(1,2), bins, histdata );
@@ -266,22 +274,23 @@ for i=1:nFiles,
     
     % Remove empty traces
     selected = selected & nTransitions>0;    
-    nRejected = data.nTraces - sum(selected);
+    nRejected = nTraceAll - sum(selected);
     
-    fprintf('File %d: Removed %d traces (%.1f%%)\n', i, nRejected, 100*nRejected/data.nTraces);
+    % Note: this does not include traces removed by centerQuad.
+    fprintf('\nFile %d: Removed %d of %d traces (%.1f%%)\n', i, nRejected, nTraceAll, 100*nRejected/nTraceAll);
   
     
     %-------------------------------------------------------------
     % 6) Save idealization.
     
     % Save rejected traces and idealization.
-    if params.saveRejected
+%     if params.saveRejected
         saveTraces( [basename '_rejected.traces'], data.getSubset(~selected) );
 
         offsets2 = data.nFrames*((1:sum(~selected))-1);
         saveDWT( [basename '_rejected.dwt'], dwt(~selected), offsets2, ...
                                                [mu sigma], data.sampling );
-    end
+%     end
     
     % Save selected traces and idealization.
     data.subset(selected);
@@ -366,6 +375,7 @@ end
 % FIXME: dwellplots should be displaying these, ideally.
 % FIXME: 
 dwellhistparams.removeBlinks = false;
+dwellhistparams.logX = params.logX;
 [dwellaxis,histograms] = dwellhist(dwtfname, dwellhistparams);
 h = [histograms{:}];
 ymax = 1.1*max(h(:));
@@ -375,23 +385,23 @@ ymax = 1.1*max(h(:));
 ax(1,3) = subplot(2,5,3, 'Parent',hfig);
 ax(1,4) = subplot(2,5,4, 'Parent',hfig);
 
-% if params.logX,
+if params.logX,
     semilogx( ax(1,3), dwellaxis, [histograms{:,2}] );
     semilogx( ax(1,4), dwellaxis, [histograms{:,1}] );
-% else
-%     plot( ax(1,3), dwellaxis, [histograms{:,2}] );
-%     plot( ax(1,4), dwellaxis, [histograms{:,1}] );
-% end
+
+    % Use manual tick labels since MATLAB tends to hide all but one if the panel
+    % is relatively small.
+    set(ax(1,3:4), 'XTick', 10.^(-3:4));
+else
+    plot( ax(1,3), dwellaxis, [histograms{:,2}] );
+    plot( ax(1,4), dwellaxis, [histograms{:,1}] );
+end
 
 xlim( ax(1,3), dwellaxis([1 end]) );
 xlim( ax(1,4), dwellaxis([1 end]) );
 ylim( ax(1,3), [0 ymax] );
 ylim( ax(1,4), [0 ymax] );
 linkaxes(ax(1,3:4),'xy');
-
-% Use manual tick labels since MATLAB tends to hide all but one if the panel
-% is relatively small.
-set(ax(1,3:4), 'XTick', 10.^(-3:4));
     
 
 % Plot formatting
@@ -402,11 +412,14 @@ end
 xlim( ax(1,1), [0 max_t] );
 xlim( ax(1,2), [0 max_snr] );
 
-legend(ax(1,end), names);
+legend(ax(1,end), trimtitles(names));
 
 
 
 %% Make bar graphs to summarize the results
+% TODO: plot each bar separately so they can be given the same colors as the
+% line plots in the first row of panels.
+
 fieldIdx = [1:3,5:6];  %which fields to show
 fields = fieldnames(output);
 
@@ -416,7 +429,7 @@ for i=1:numel(fieldIdx),
     
     ax(2,i) = subplot(2,5,5+i, 'Parent',hfig);
     hold( ax(2,i), 'on' );
-    bar( ax(2,i), 1:nFiles, output.(statName), 'r' );
+    b = bar( ax(2,i), 1:nFiles, output.(statName), 'r' );
     
     if params.showRepeats
         for d=1:nFiles
@@ -458,6 +471,10 @@ txtout = cat( 2, txtout{:} );
 
 
 %% Add menu items for adjusting settings and saving output to file
+
+% Additional criteria: remove traces with many events, overlap, etc.
+% Additional options:  more options than just 'center quad'
+
 prompt = {'Log scale dwell-time histograms:', 'Remove high background traces:', ...
           'Minimum SNR_{bg}:', 'Center Quad', 'Error bars:', 'Show repeats'};
 fields = {'logX', 'removeHighBg', 'min_snr', 'centerQuad', 'errorbars', 'showRepeats'};
