@@ -701,8 +701,10 @@ nFrames = str2double(a);
 if ~isnan(nFrames)
     nFrames = max(1, min(nFrames,handles.data.nFrames) );
     handles.data.truncate(nFrames);
-    handles.idl     = handles.idl(:,1:nFrames);
-    handles.idlFret = handles.idlFret(:,1:nFrames);
+    if ~isempty(handles.idl)
+        handles.idl     = handles.idl(:,1:nFrames);
+        handles.idlFret = handles.idlFret(:,1:nFrames);
+    end
     
     % Update GUI controls and redraw the trace.
     editGoTo_Callback( hObject, [], handles );
