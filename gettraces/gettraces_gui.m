@@ -20,7 +20,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 05-Dec-2017 17:47:33
+% Last Modified by GUIDE v2.5 03-May-2018 15:09:13
 
 
 % Begin initialization code - DO NOT EDIT
@@ -889,6 +889,28 @@ else
 end
 
 % END FUNCTION mnuTirfProfile_Callback
+
+
+
+% --------------------------------------------------------------------
+function mnuViewMontage_Callback(varargin) %#ok<DEFNU>
+% Display multiple movies simultaneously for direct comparison.
+
+% Get movie paths from user
+filter = {'*.tif;*.tiff;*.stk','Movie Files (*.tif;*.tiff)'; ...
+          '*.*','All Files (*.*)'};
+f = getFiles(filter,'Movie Montage: Select Files');
+if isempty(f), return; end  %user hit cancel.
+
+% Reshape input for common sizes. FIXME
+if numel(f)==4, reshape(f,2,2); end
+
+% Create a new window to view all movies simultaneously
+m = MovieViewer(f);
+m.show();
+
+% END FUNCTION mnuViewMontage_Callback
+
 
 
 
