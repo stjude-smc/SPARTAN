@@ -33,23 +33,10 @@ catch
     return;
 end
 
-% Create a new window for the movie viewer if not provided
-drawMovie = true;
-
-if isempty(axFOV) || ~ishandle(axFOV)
-    axFOV = newplot(figure);
-    setappdata(axFOV, 'traceID', traceID);
-    drawnow;
-    
-elseif ~strcmp(traceID, getappdata(axFOV,'traceID'))
-    setappdata(axFOV,'traceID',traceID);
-else
-    drawMovie = false;  %everything is valid, just need to draw circles.
-end
-
 
 %% If not already drawn, show movie image in new window.
-if drawMovie    
+if isempty(axFOV) || ~ishandle(axFOV)
+    
     % Look for the movie in the current directory,
     % using .tif extension if it is .rawtraces etc (in some old versions).
     [~,f,e] = fileparts2(traceID);
@@ -63,19 +50,12 @@ if drawMovie
         movieFilename = fullfile(p,f);
     end
 
-    % Load an image from the first 10 frames of the movie.
-    constants = cascadeConstants;
-    stkData = MovieParser( movieFilename, constants.gettraces_profiles(1) );  %single-color
-    stk_top = stkData.stk_top{1};
-
-    % Display the field of view
-    sort_px = sort(stk_top(:));
-    val = sort_px( floor(0.99*numel(sort_px)) );
-    imshow( stk_top, [0 val], 'Parent',axFOV );
-    colormap(axFOV, gettraces_colormap);
-    
-    zoom(axFOV,'on');
+    % Create a viewer to display movie
+    viewer = MovieViewer( {movieFilename} );
+    axFOV = viewer.show();
 end
+
+setappdata(axFOV,'traceID',traceID);
 
 
 %% Step 3. Draw circle around the currently-selected molecule.

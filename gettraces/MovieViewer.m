@@ -105,7 +105,7 @@ methods
     
     
     %% ------------------ Display montage viewer window ------------------ %%
-    function show(this, varargin)
+    function axOut = show(this, varargin)
     % Create figure
     
     % Set arrangement of panels
@@ -174,6 +174,8 @@ methods
  
     this.btnPlay = uicontrol('style','pushbutton', 'units','normalized', 'String','Play', ...
             'Position',[0.08 0.05 0.08 .05], 'Callback',@this.btnPlay_Callback );
+    
+    axOut = this.ax;
     
     end %function show
     
