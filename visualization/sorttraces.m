@@ -75,7 +75,7 @@ end
 
 ylabel( handles.axFluor, 'Fluorescence' );
 ylabel( handles.axTotal, 'Total Fluorescence' );
-[handles.axFOV, handles.idl, handles.idlFret] = deal([]);
+[handles.movieViewer, handles.idl, handles.idlFret] = deal([]);
 guidata(hObject, handles);
 
 % If called by autotrace, 2nd argument is filename of traces output file.
@@ -114,6 +114,10 @@ if nargin<4,
 end
 if isempty(filename), return; end
 set(handles.figure1,'pointer','watch'); drawnow;
+if ~isempty(handles.movieViewer) && isvalid(handles.movieViewer)
+    close(handles.movieViewer);
+    handles.movieViewer = [];
+end
 
 % Load the file
 data = loadTraces( filename );
@@ -995,9 +999,13 @@ else
 end
 
 % Show the molecule location within field of view, if the window is open.
-if ishandle(handles.axFOV),
-    showMovie(handles.axFOV, handles.data, handles.molecule_no);
+% try
+if ~isempty(handles.movieViewer) && isvalid(handles.movieViewer)
+    p = fileparts(handles.filename);  %get path of currently loaded file
+    showMovie( handles.movieViewer, handles.data, handles.molecule_no, p );
 end
+% catch
+% end
 
 % Draw molecule location in small panel
 if strcmp( get(handles.axLocation, 'Visible'), 'on'),
@@ -1355,11 +1363,14 @@ end
 % --- Executes on button press in btnGettraces.
 function btnGettraces_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Display an image of the field-of-view from the movie that the current trace
-% came from and its physical location in each fluorescence channel. Iterating
-% over traces will then update the molecule location.
-handles.axFOV = showMovie(handles.data, handles.molecule_no);
+% came from and its physical location in each fluorescence channel.
+
+p = fileparts(handles.filename);  %get path of currently loaded file
+
+handles.movieViewer = showMovie(handles.data, handles.molecule_no, p);
 handles = plotter(handles);
 guidata(hObject,handles);
+
 % end function btnGettraces_Callback
 
 
@@ -1383,8 +1394,9 @@ if strcmpi(get(handles.mnuSave,'Enable'),'on') && ...
 end
 
 % Close the molecule location window if open
-if ~isempty(handles.axFOV) && ishandle(handles.axFOV),
-    close( get(handles.axFOV,'Parent') );
+try
+    close( get(handles.movieViewer.ax(1),'Parent') );
+catch
 end
 
 % Close the sorttraces window

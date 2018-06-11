@@ -1,4 +1,4 @@
-function [axFOV,movieFilename] = showMovie(varargin)
+function [viewer,movieFilename] = showMovie(varargin)
 %showMovie  Display wide-field movie that produced a particular trace.
 %
 %   AX = showMovie(DATA, MOL) displays the raw data movie associated with a
@@ -9,79 +9,103 @@ function [axFOV,movieFilename] = showMovie(varargin)
 %   showMovie(AX, DATA, MOL) updates an existing display to highlight a
 %   different molecule number (MOL).
 %
-%   See also: sorttraces, gettraces.
+%   PARAMS struct must contain: geometry, wavelengths, chNames, chDesc, 
+%     nAvgFrames, bgBlurSize (see @MovieParser/openStk.m for details).
+%
+%   See also: sorttraces, MovieViewer.
 
-%   Copyright 2017 Cornell University All Rights Reserved.
-
-% TODO: split fields; basically a small subset of gettraces functionality.
-% This requires knowing the geometry, which is not available in metadata...
-
-
-narginchk(2,3); nargoutchk(0,2);
-[axFOV,args] = axescheck(varargin{:});
-[data,m] = args{:};
+%   Copyright 2017-2018 Cornell University All Rights Reserved.
 
 
-%% Step 1: parse trace identifiers to predict original movie filename.
+% Process input arguments.
+narginchk(3,4); nargoutchk(0,2);
+viewer = [];
+
+if nargin>=1 && isa(varargin{1},'MovieViewer')
+    viewer = varargin{1};
+    [data,m,fpath] = varargin{2:end};
+else
+    [data,m,fpath] = varargin{:};
+end
+
+
+% Parse trace identifiers to predict original movie filename.
 try
     id = data.traceMetadata(m).ids;
     assert( any(id=='#') );
     output = strsplit(id,'#');
-    [traceID,~] = deal( output{:} );
+    [moviePath,~] = deal( output{:} );
+    
+    % Look for the movie in the directory containing the loaded traces file.
+    % using .tif extension if it is .rawtraces etc (in some old versions).
+    [~,f,e] = fileparts2(moviePath);
+    if ~ismember(e, {'.stk','.tif','.tiff'}), e='.tif'; end
+    movieFilename = fullfile(fpath, [f e]);
 catch
-    disp('Failed to find movie source file. Metadata not available.');
+    disp('Failed to find movie source file');
     return;
 end
 
 
-%% If not already drawn, show movie image in new window.
-if isempty(axFOV) || ~ishandle(axFOV)
-    
-    % Look for the movie in the current directory,
-    % using .tif extension if it is .rawtraces etc (in some old versions).
-    [~,f,e] = fileparts2(traceID);
-    if ~ismember(e, {'.stk','.tif','.tiff'}), e='.tif'; end
-    movieFilename = fullfile(pwd, [f e]);
-    
-    % If not found in the current folder, ask the user.
+% The viewer has been closed or never opened, create one.
+if isempty(viewer) || ~isvalid(viewer)
     if ~exist( movieFilename, 'file' )
-        [f,p] = uigetfile('*.tif;*.tiff;*.stk', 'Select movie', movieFilename);
-        if isequal(f,0), return; end  %user hit cancel
-        movieFilename = fullfile(p,f);
+        error('Corresponding movie file not found');
+    end
+    
+    % Assemble movie parsing parameters.
+    constants = cascadeConstants;
+    params = constants.gettraces_profiles(1);  %single color
+    params.chNames = data.channelNames;
+    try
+        params.wavelengths = data.fileMetadata.wavelengths;
+        params.chDesc      = data.fileMetadata.chDesc;
+        params.geometry    = data.fileMetadata.geometry;  %new in v3.7
+    catch e
+        % If geometry field is not available (older file), gracefully fail by
+        % defaulting to single-color mode (one axis instead of three).
+        disp(e.message);
     end
 
-    % Create a viewer to display movie
-    viewer = MovieViewer( {movieFilename} );
-    axFOV = viewer.show();
+    % Create and show movie viewer
+    viewer = MovieViewer( movieFilename, params );
+    viewer.show();
+    
+    
+% If trace is from a different file than the one currently load,
+% load the new movie quietly into the existing window.
+else
+    [~,fold] = fileparts2(viewer.movie.filenames{1});
+    if ~strcmp(f, fold),
+        viewer.load(movieFilename);
+    end
 end
 
-setappdata(axFOV,'traceID',traceID);
 
-
-%% Step 3. Draw circle around the currently-selected molecule.
+% Draw circle around the currently-selected molecule.
 fluorCh = data.channelNames(data.idxFluor);
-nCh = numel(fluorCh);
+coord = cell( numel(fluorCh), 1 );
 
-% Get x/y location of current molecule in each fluorescence channel.
-coord = nan(nCh,2);
-for i=1:nCh
-    x=[fluorCh{i} '_x'];  y=[fluorCh{i} '_y'];  %metadata x/y field names
-
-    if all( isfield(data.traceMetadata,{x,y}) ),
-        coord(i,:) = [data.traceMetadata(m).(x) data.traceMetadata(m).(y)];
+for i=1:numel(fluorCh)
+    try
+        x = data.traceMetadata(m).( [fluorCh{i} '_x'] );
+        y = data.traceMetadata(m).( [fluorCh{i} '_y'] );
+        coord{i} = [x y];
+    catch e
+        disp(e.message);
     end
 end
-
-% Draw markers on selection points.
-delete( findall(axFOV,'type','Line') );
-viscircles( axFOV, coord, repmat(3,nCh,1), 'EdgeColor','w' );
+viewer.highlightPeaks(coord);
 
 
-end
+end %function showMovie
 
 
 
 function [p,f,e] = fileparts2(fname)
+% Extract path, file name, and extension of a file.
+% The built-in fileparts only separates paths using the current system's
+% filesep, which may be different from the one used when the file was saved.
 
 pidx = find( fname=='\'|fname=='/', 1, 'last' );
 eidx = find( fname=='.', 1, 'last' );

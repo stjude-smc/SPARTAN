@@ -189,6 +189,8 @@ end
 
 data.fileMetadata.wavelengths = params.wavelengths;
 data.fileMetadata.chDesc = params.chDesc;
+data.fileMetadata.geometry = params.geometry;
+data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.
 % For now, these are relative to the full image with side-by-side arranged

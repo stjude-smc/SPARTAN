@@ -906,7 +906,7 @@ if isempty(f), return; end  %user hit cancel.
 if numel(f)==4, reshape(f,2,2); end
 
 % Create a new window to view all movies simultaneously
-m = MovieViewer(f);
+m = MovieMontage(f);
 m.show();
 
 % END FUNCTION mnuViewMontage_Callback
