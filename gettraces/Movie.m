@@ -1,4 +1,4 @@
-classdef Movie
+classdef Movie < handle
 % This is an abstract class that represents various formats of image stacks
 % (movies) recorded from CCD cameras. Format-specific classes inherit from
 % this class, creating a standard interface regardless of file format.
@@ -19,24 +19,30 @@ classdef Movie
 properties (SetAccess=protected, GetAccess=public)
     filename; % full path and filename to loaded file - empty if not loaded.
     
-    nX;       % size (in pixels) of x dimension (columns).
-    nY;       % size (in pixels) of y dimension (rows).
-    nFrames;  % number of images in the stack.
+    nX=0;       % size (in pixels) of x dimension (columns).
+    nY=0;       % size (in pixels) of y dimension (rows).
+    nFrames=0;  % number of images in the stack.
     
-    timeAxis; % wall time of the start of each frame (starts with zero).
+    timeAxis=[];   % wall time of the start of each frame (starts with zero).
+    
+    header = struct([]); %
     
 end %end public properties
 
 
 methods (Abstract)
-    
-    % Data access methods. Data are only loaded when needed by these functions.
+    % Data access methods
     data = readFrames( obj, idxStart, idxEnd );
-    data = readFrame(  obj, idx );
-    
-    
-end %public methods
+end
 
+
+methods
+    function viewer = show(this)
+    % Open a MovieViewer window for user to display the movie
+    viewer = MovieViewer(this);
+    viewer.show();
+    end
+end
 
 
 methods (Static)

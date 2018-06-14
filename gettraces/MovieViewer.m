@@ -50,11 +50,19 @@ methods
     
     narginchk(0,2); nargoutchk(0,1);
     
-    % If not specified, ask the user for input.
+    % Load movie from file, prompting user if no arguments given.
     if nargin<1
         movieInput = getFile('*.tif');
+        if isempty(movieInput), return; end  %user hit cancel
     end
-    if isempty(movieInput), return; end  %user hit cancel
+    
+    if ischar(movieInput)
+        this.movie = Movie.load(movieInput);
+    elseif isa(movieInput,'Movie')
+        this.movie = movieInput;
+    else
+        error('Invalid input. Must be filename or Movie object');
+    end
     
     % If no parameters given, show raw movie (no subfields)
     if nargin<2
@@ -66,10 +74,7 @@ methods
         [val,idx] = sort( paramsInput.geometry(:) );
         paramsInput.idxFields = idx(val>0);
     end
-    
-    % Load movie parser
     this.params = paramsInput;
-    this.movie = Movie.load(movieInput);
     
     end %function load
     
@@ -214,10 +219,15 @@ methods
     [ny,nx] = size( this.background{1} );
 
     for i=1:numel(coords)
+        x = rem( coords{i}(:,1), nx);
+        y = rem( coords{i}(:,2), ny);
+            
         % Translate coordinates from stitched movie to subfield
-        x = rem( coords{i}(:,1), nx );
-        y = rem( coords{i}(:,2), ny );
-        viscircles( this.ax(i), [x y], 3, 'EdgeColor','w' );
+        if numel(this.params.idxFields)>1
+            viscircles( this.ax(i), [x y], 3, 'EdgeColor','w' );
+        else
+            viscircles( this.ax, [x y], 3, 'EdgeColor','w' );
+        end
     end
     
     % If zoomed in, recenter on around new peak.
