@@ -11,7 +11,7 @@ function varargout = sorttraces(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 21-Mar-2018 14:35:01
+% Last Modified by GUIDE v2.5 14-Jun-2018 11:22:10
 
 
 % Begin initialization code - DO NOT EDIT
@@ -275,7 +275,7 @@ set([handles.mnuSaveAs handles.mnuExportText handles.mnuSubDonor ...
      handles.mnuSubAcceptor handles.mnuSubBoth handles.mnuResetBG ...
      handles.mnuCorrResetAll handles.btnSubBoth handles.mnuSellAll2 ...
      handles.mnuClearAll2 handles.mnuBinNext handles.mnuBinPrev ...
-     handles.mnuTruncate], 'Enable','on');
+     handles.mnuTruncate handles.mnuExportBin], 'Enable','on');
 set(handles.figure1,'pointer','arrow'); drawnow;
 
 
@@ -664,6 +664,23 @@ end
 set(handles.figure1,'pointer','arrow');
 
 % END FUNCTION savePickedTraces
+
+
+
+
+% --------------------------------------------------------------------
+function mnuExportBin_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Save selected traces and export current bin as text file for Origin.
+idxBin = get(hObject,'UserData');
+
+if ~isempty(idxBin)
+    binFilenames = btnSave_Callback([], [], handles);
+    forOrigin( binFilenames{idxBin} );
+else
+    % If called from main menu, export whole file
+    forOrigin( handles.filename );
+end
+% END FUNCTION mnuExportBin_Callback
 
 
 
@@ -1475,5 +1492,3 @@ titles = [ 'Whole File' handles.binNames(binsToShow) ];
 makeplots(files, titles);
 
 % END FUNCTION mnuMakeplots_Callback
-
-
