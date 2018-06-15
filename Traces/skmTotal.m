@@ -53,7 +53,6 @@ model.fixMu = [0 1 0];
 
 
 %% ALGORITHM
-[nTraces,nFrames] = size(total);
 
 % Use the threshold method to get a crude estimate of total intensities
 % to normalize the data to fit the model (range is 0 to 1).
@@ -63,15 +62,13 @@ t(t==0) = median(t);
 normTotal = bsxfun( @rdivide, total, t );
 
 % Run SKM to determine where the donor is dark.
-[dwt,~,~,offsets] = skm( normTotal, 100, model, skmParams );
-idl = dwtToIdl(dwt, offsets, nFrames, nTraces)==3;
+idl = skm( normTotal, 100, model, skmParams )==3;
 
 % Re-normalize using the first pass idealiation and run again to refine.
 t = sum(idl.*total,2) ./ sum(idl,2);
 normTotal = bsxfun( @rdivide, total, t );
 
-[dwt,~,~,offsets] = skm( normTotal, 100, model, skmParams );
-idl = dwtToIdl(dwt, offsets, nFrames, nTraces)==3;
+idl = skm( normTotal, 100, model, skmParams )==3;
 
 % Remove rising/falling edges that may have low SNR and inaccurate FRET.
 idl = imerode(idl, [1 1 1]);

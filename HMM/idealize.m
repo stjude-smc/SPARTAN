@@ -1,7 +1,7 @@
-function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
+function [idealization,LL] = idealize(obs, model, start_p, trans_p)
 % IDEALIZE   HMM discovery of underlying sequence of hidden states
 %
-%    [DWT,IDL,OFFSETS,LL] = idealize( TRACES, MODEL, P0, A )
+%    [IDL,LL] = idealize( TRACES, MODEL, P0, A )
 %    Produces an idealization (sequence of hidden states) that best explains
 %    the observed data in TRACES, given a guassian emmission MODEL, 
 %    starting probabilities (P0) and transition probabilities (A).
@@ -11,17 +11,12 @@ function [dwt,idealization,offsets,LL] = idealize(obs, model, start_p, trans_p)
 %    A is a matrix of probability of transiting from state i to state j 
 %    at each time point (frame).
 %
-%    DWT is a 1xN cell array of dwell sequences (see loadDWT.m), each of
-%    which is a 2xD matrix of state+dwell time pairs, where D is the number
-%    of such dwells.  IDL is an NxM matrix of state assignments for each
-%    datapoint in TRACES. OFFSETS is a 1xN vector of indexes into the raw 
-%    data file (linearized TRACES).  LL is a 1xN vector of the log-likelihood 
+%    IDL is an NxM matrix of state assignments for each
+%    datapoint in TRACES. LL is a 1xN vector of the log-likelihood 
 %    ofeach trace, given the sequence of states (Viterbi path) and the model.
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-
-[nTraces,nFrames] = size(obs);
 
 
 % Initialize emission probability distribution function
@@ -55,7 +50,7 @@ prefactor = log( 0.001./(sqrt(2*pi).*sigma) );
 
 
 % Predict the sequence of hidden model states for each trace
-dwt = cell(1,nTraces);
+nTraces = size(obs,1);
 idealization = zeros( size(obs) );
 LL = zeros(1,nTraces);
 
@@ -66,7 +61,6 @@ for i=1:nTraces,
     trace = obs(i,1:traceLen);
     
     if isempty(traceLen) || traceLen<2,
-        dwt{i} = zeros(0,nStates);
         continue;
     end
     
@@ -88,11 +82,7 @@ for i=1:nTraces,
     % Convert sequence of state assignments to dwell-times in each state
     % and add this new idealization to the output
     idealization(i,1:traceLen) = vPath;
-    dwt{i} = RLEncode(vPath);
 end
-
-% Add offsets to relate idealization back to raw data
-offsets = (0:(nTraces-1))*nFrames;
 
 end %function idealize
 

@@ -1,4 +1,4 @@
-function [optModel,LL] = BWoptimize( observations, sampling, model, paramInput )
+function [optModel,idlTotal,LL] = BWoptimize( observations, sampling, model, paramInput )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
 %    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, MODEL, PARAMS )
@@ -64,6 +64,7 @@ params.quiet    = false;
 params.fixRates = false; %FIXME: should ultimately be in the model.
 params.zeroEnd  = false;
 params.seperately = false;
+params.exclude  = false( size(observations,1), 1 );
 
 if nargin>=4
     params = mergestruct(params, paramInput);
@@ -96,6 +97,8 @@ else
 end
 
 % Initialize parameter values
+origSize = size(observations);  %before exlusions
+observations = observations( ~params.exclude, : );
 observations = max(-0.5, min(1.5,observations));  %remove outlier values
 LL = zeros(0,1);
 dL = Inf;
@@ -146,6 +149,15 @@ optModel.p0    = p0;
 A( logical(eye(size(A))) ) = 0;
 optModel.rates = A/(sampling/1000);
 LL = LL(end);
+
+% Return idealized traces if requested
+if nargin>=2
+    idlTotal = zeros( origSize );
+    fretModel = [to_col(optModel.mu) to_col(optModel.sigma)];
+    idl = idealize( observations, fretModel, optModel.p0, model.calcA(sampling/1000) );
+    idlTotal( ~params.exclude, :) = idl;
+end
+
 
 end %function BWoptimize
 

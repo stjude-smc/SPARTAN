@@ -1,4 +1,4 @@
-function [dwtfile,outModel,LL] = runParamOptimizer(model,trcfile,options)
+function [dwtfile,outModel,idl] = runParamOptimizer(model,trcfile,options)
 % batchKinetics: run parameter optimization
 
 % Remove intermediate files from previous runs.
@@ -26,20 +26,14 @@ end
 % Idealize data using user-specified algorithm...
 switch upper(options.idealizeMethod)
 case upper('Segmental k-means'),
-    [dwt,optModel,LL,offsets] = skm( input, data.sampling, model, options );
+    [idl,optModel] = skm( input, data.sampling, model, options );
 
 case upper('Baum-Welch'),
     options.seperately = false;  %individual fitting not supported yet.
-    [optModel,LL] = BWoptimize( input, data.sampling, model, options );
-
-    % Idealize using optimized parameters
-    fretModel = [to_col(optModel.mu) to_col(optModel.sigma)];
-    [dwt,~,offsets] = idealize( input, fretModel, optModel.p0, ...
-                                        optModel.calcA(data.sampling) );
+    [optModel,idl] = BWoptimize( input, data.sampling, model, options );
 
 case upper('ebFRET'),
-    [idl,optModel,LL] = runEbFret(input, model);            
-    [dwt,offsets] = idlToDwt(idl);
+    [idl,optModel] = runEbFret(input, model);
 
 case upper('Thresholding'),
     error('Thresholding not implemented')
@@ -64,7 +58,6 @@ if numel(optModel)>1,
     outModel.sigma = mean( cat(2,temp{:}), 2 );
     
     outModel.rates = mean( cat(3,optModel.rates), 3 );
-    LL = mean(LL);
 else
     assert( numel(optModel)==1 );
     outModel = optModel;
@@ -79,8 +72,7 @@ dwtfile = fullfile( p, [n '.dwt'] );
 if exist(dwtfile,'file'), delete(dwtfile); end
 
 dwtfile = fullfile( p, [n '.qub.dwt'] );
-fretModel = [to_col(outModel.mu) to_col(outModel.sigma)];
-saveDWT( dwtfile, dwt, offsets, fretModel, data.sampling );
+saveDWT( dwtfile, idl, outModel, data.sampling );
 
     
 end  %FUNCTION runParamOptimizer

@@ -1,4 +1,4 @@
-function [dwt,model,LL,offsets] = skm( data, sampling, initialModel, params )
+function [idlTotal,model,LL] = skm( data, sampling, initialModel, params )
 % SKM  Crude model re-estimation using iterative idealization
 % 
 %   [DWT,NEW_MODEL,LL,OFFSETS] = SKM( DATA, SAMPLING, MODEL, params )
@@ -46,17 +46,16 @@ defaultParams.quiet    = false;
 defaultParams.fixRates = false; %FIXME: should ultimately be in the model.
 defaultParams.zeroEnd  = false;
 defaultParams.seperately = true;
+defaultParams.exclude  = false( size(data,1), 1);
 
 params = mergestruct(defaultParams, params);
 
 
-% Convert input model to QubModel object if necessary
-if ~isa(initialModel,'QubModel')
-    if isstruct(initialModel),
-        initialModel = QubModel(initialModel);
-    else
-        error('Invalid model input');
-    end
+% Convert struct model input into a QubModel object
+if isstruct(initialModel),
+    initialModel = QubModel(initialModel);
+elseif ~isa(initialModel,'QubModel')
+    error('Invalid model input');
 end
 
 
@@ -70,26 +69,14 @@ if isfield(params,'convGrad')
 end
 
 
+origSize = size(data);  %size before removing outliers
+data = max(-1, min(10,data));    %remove outliers
+data = data(~params.exclude,:);  %remove manually excluded traces
 [nTraces,nFrames] = size(data);
-offsets = nFrames*((1:nTraces)-1);
-
-% Ensure input falls within a reasonable range for FRET data.
-data(data>10) = 10;
-data(data<-1) = -1;
-
-% Remove manually excluded traces
-if isfield(params,'exclude')
-    data = data(~params.exclude,:);
-    offsets = offsets(~params.exclude);
-end
-nTraces = size(data,1);
 
 
 %% Run the SKM algorithm
-% If params.seperately = 
-% NO:  Optimize all the data together and return a single model.
-% YES: Optimize each trace individually, returning a model array
-%      and a single idealization combining all results.
+% Optimize each trace individually, returning a model array
 if params.seperately,
     if ~params.quiet,
         wbh = parfor_progressbar(nTraces,'Idealizing traces separately...');
@@ -98,23 +85,20 @@ if params.seperately,
     end
     
     % Use multi-process execution only for large datasets.
-    constants = cascadeConstants;
-    if nTraces*nFrames > 1e5 && constants.enable_parfor,
+    if nTraces*nFrames > 1e5 && cascadeConstants('enable_parfor'),
         pool = gcp;
         M = pool.NumWorkers;
     else
         M = 0;  % Single-thread execution.
     end
     
-    dwt = cell(nTraces,1);
     LL  = zeros(nTraces,1);
+    idl = zeros(size(data));
     
     % Optimize each trace seperately.
     parfor (n=1:nTraces,M)
-%     for n=1:nTraces,
-        [newDWT,model(n),newLL] = runSKM( data(n,:), ...
+        [idl(n,:),model(n),newLL] = runSKM( data(n,:), ...
                                      sampling, initialModel, params );
-        dwt{n} = newDWT{1};
         LL(n) = newLL(end);
         
         if ~isempty(wbh) && mod(n,10)==0,
@@ -123,31 +107,36 @@ if params.seperately,
     end
     if ~isempty(wbh), close(wbh); end
     
+% Optimize one model with all traces together.
 else
-    % Optimize a single model and idealize all data using this model.
-    [dwt,model,LL] = runSKM(data, sampling, initialModel, params);
+    [idl,model,LL] = runSKM(data, sampling, initialModel, params);
 end
 
 
-% Add dwell in zero-state until end of trace, if requested
+idlTotal = zeros( origSize );
+idlTotal( ~params.exclude, :) = idl;
+
+
+% % Add dwell in zero-state until end of trace, if requested
 if params.zeroEnd,
-    for i=1:nTraces,
-        states = dwt{i}(:,1);
-        times  = dwt{i}(:,2);
-        if numel(states)<1, continue; end
-        
-        remainder = nFrames-sum(times)-1;
-        if remainder<=0, continue; end
-        
-        if states(end)==1
-            times(end) = times(end)+remainder;
-        else
-            states = [states ; 1];
-            times  = [times ; remainder];
-        end
-        
-        dwt{i} = [states times];
-    end
+    error('zeroEnd param not supported')
+%     for i=1:nTraces,
+%         states = dwt{i}(:,1);
+%         times  = dwt{i}(:,2);
+%         if numel(states)<1, continue; end
+%         
+%         remainder = nFrames-sum(times)-1;
+%         if remainder<=0, continue; end
+%         
+%         if states(end)==1
+%             times(end) = times(end)+remainder;
+%         else
+%             states = [states ; 1];
+%             times  = [times ; remainder];
+%         end
+%         
+%         dwt{i} = [states times];
+%     end
 end
 
 
@@ -160,7 +149,7 @@ end %function skm
 
 
 %% SKM CORE METHOD
-function [dwt,model,LL,offsets] = runSKM(data, sampling, initialModel, params)
+function [idlClasses,model,LL] = runSKM(data, sampling, initialModel, params)
 
 nTraces = size(data,1);
 nStates = initialModel.nStates;
@@ -180,11 +169,12 @@ A  = model.calcA(sampling/1000);  %transition probability matrix.
 
 while( itr < params.maxItr ),
 
-    % Idealize the data using the Viterbi algorithm (slow step)
+    % Idealize the data using the Viterbi algorithm (slow step).
+    % idl is the state (NOT class) assignment at each point.
     imu    = mu( model.class );
     isigma = sigma( model.class );
     
-    [dwt,idl,offsets,vLL] = idealize( data, [imu isigma], p0, A );
+    [idl,vLL] = idealize( data, [imu isigma], p0, A );
     LL(itr) = sum(vLL)/nTraces;
     
     
@@ -205,7 +195,7 @@ while( itr < params.maxItr ),
     
     % Re-estimate transition probability matrix (kinetic parameters).
     if params.fixRates<1,
-        A = estimateA(dwt,nStates);
+        A = estimateA( idlToDwt(idl), nStates );
     end
     
     
@@ -222,11 +212,6 @@ while( itr < params.maxItr ),
     % Convert state-list idealization to class-list.
     idlClasses = classes( idl+1 );
     idlClasses = reshape( idlClasses, size(idl) );
-    for i=1:size(idl,1)
-        trace = idlClasses(i,:);
-        if all(trace<=0), continue; end  %nothing here...
-        dwt{i} = RLEncode(  trace(1:find(trace>0,1,'last'))  );
-    end
     
     
     % Re-estimate FRET model parameters using idealization
@@ -255,10 +240,6 @@ while( itr < params.maxItr ),
     itr = itr+1;
 
 end %for each iteration...
-
-% Convert state list into class list for idealization
-idl = classes( idl+1 );
-reshape( idlClasses, size(idl) );
 
 
 % Save final parameter values back into model

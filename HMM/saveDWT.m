@@ -1,4 +1,4 @@
-function saveDWT(filename, idealization, offsets, model, sampling )
+function saveDWT(filename, varargin)
 % SAVEDWT  Saves a QuB-format idealization dwell time file
 %     
 %   saveDWT( FILE, DWT, OFFSETS, MODEL, SAMPLING )
@@ -10,6 +10,10 @@ function saveDWT(filename, idealization, offsets, model, sampling )
 %   All necessary conversion are made within this function.
 %   OFFSETS is an array of indexes for the start of each segment
 %   into the parent data file (.qub.txt).
+%
+%   saveDWT( FILE, IDL, MODEL, SAMPLING )
+%   Save a .dwt file using the state assignment matrix IDL instead of a cell
+%   array of dwell-time series.
 %
 %   See also: loadDWT.
 
@@ -27,20 +31,30 @@ function saveDWT(filename, idealization, offsets, model, sampling )
 % 1	40
 
 
+narginchk(4,5);
+nargoutchk(0,0);
+
+
+% Process dwell-time series input arguments
+if iscell(varargin{1})
+    [dwt, offsets, model, sampling] = varargin{:};
+
+elseif isnumeric(varargin{1})
+    [idl, model, sampling] = varargin{:};
+    [dwt,offsets] = idlToDwt(idl);
+else
+    error('Invalid idealization input. Should be cell array or assignment matrix')
+end
+
+
 % If model is a qub model structure, convert it into the expected form.
-if isstruct(model),
-    mu = model.mu(model.class);
-    sigma = model.sigma(model.class);
-    
-    model = [ reshape(mu,numel(mu),1) reshape(sigma,numel(sigma),1) ];
+if isa(model,'QubModel') || isstruct(model)
+    model = [to_col(model.mu) to_col(model.sigma)];
 end
 
 
 % verify input arguments
-assert( iscell(idealization), 'Idealization must be a cell array' );
-assert( numel(idealization)==numel(offsets), 'Offsets do not match idealization' );
-
-nSegments = numel(idealization);
+assert( numel(dwt)==numel(offsets), 'Offsets do not match idealization' );
 
 
 % Switch to row order so that (:) creates a sequence of mean+stdev pairs
@@ -59,7 +73,7 @@ m = model;
 fid = fopen(filename,'w');
 disp( ['Saving to ' filename] );
 
-for segId=1:nSegments,
+for segId=1:numel(dwt),
     
     % Get the model used for this trace, if applicable.
     if iscell(model),
@@ -68,7 +82,7 @@ for segId=1:nSegments,
     nStates = size(m,1);
     
     % Get dwell-time for the current segment, convert to ms.
-    segment = idealization{segId};
+    segment = dwt{segId};
     offset  = offsets(segId)*sampling;
     segment(:,2) = segment(:,2)*sampling;
     

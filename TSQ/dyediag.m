@@ -248,7 +248,8 @@ for i=1:nFiles,
     % Total intensity is scaled to 1 on average, analogous to cy5forQuB.
     % Note: model re-estimation includes the photobleached state, which may
     % not be ideal for getting blinking kinetics.
-    dwt = skm( data.total/output.intensity(i), data.sampling, params.model, skmParams );
+    idl = skm( data.total/output.intensity(i), data.sampling, params.model, skmParams );
+    [dwt,offsets] = idlToDwt(idl);
     assert( numel(dwt)==data.nTraces, 'Idealization size mismatch' );
     
     % FIXME: consider a filter for brief events after photobleaching.
