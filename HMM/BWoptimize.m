@@ -1,15 +1,12 @@
-function [optModel,LL] = BWoptimize( observations, sampling, model, params )
+function [optModel,LL] = BWoptimize( observations, sampling, model, paramInput )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
-%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, NSTATES, PARAMS )
+%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, MODEL, PARAMS )
+%    Learn an optimal model 
 %    Uses the Baum-Welch parameter optimization method to discovery HMM
 %    parametrs which best fit the observed data (OBSERVATIONS).  The number
 %    of states in the optimized model can be specified (nStates).
 %    DT specifies the timestep (sampling interval) in sec.
-%    
-%    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, MODEL, PARAMS )
-%    Same as above, with initial values for state mean (MU) and stdev
-%    (SIGMA) of emission.
 %
 %    See the definition of the MODEL structure in qub_createModel
 %    for details of how to input initial conditions and constraints
@@ -21,7 +18,6 @@ function [optModel,LL] = BWoptimize( observations, sampling, model, params )
 %   .maxItr     1x1   Max number of iterations before terminating
 %   .convLL     1x1   Stop if LL converges within this threshold
 %   .convGrad   1x1   Stop if all rates converge within this treshold
-%   .boostrapN  1x1   Calculate errors using bootstrapping (N=value)
 %   .showItr    1x1   Report on each iteration to the console (not impl.)
 %   -----------------------------------------------------------------------
 %   Other options, such as those specific to qub_milOptimize, are ignored.
@@ -33,8 +29,7 @@ function [optModel,LL] = BWoptimize( observations, sampling, model, params )
 %    very rapidly once mu and sigma converge.  Try several starting points
 %    to be sure you have the best fit (highest LL).
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
-% TODO: allow options.seperately, add Q matrix to results!
+%   Copyright 2007-2018 Cornell University All Rights Reserved.
 
 % Format of the A-matrix:
 %   1..N = lowest to highest FRET values (same order as mu, sigma, p0).
@@ -52,104 +47,80 @@ function [optModel,LL] = BWoptimize( observations, sampling, model, params )
 %% ----------- PARSE INPUT PARAMETER VALUES -----------
 %FIXME: use inputParser
 
-% PARSE REQUIRED PARAMETER VALUES
-% if ~isstruct( model ),
-%     nStates  = model;
-%     model = qub_createModel(nStates);
-% else
-    nStates = size(model.rates,1);
-    nClass  = numel(model.mu);
-    assert( nStates==nClass, 'SKM: aggregate states not supported.' );
-    assert(qub_verifyModel(model),'Invalid model');
-% end
+narginchk(3,4);
+nargoutchk(0,2);
 
-% 
-if nargin < 3,
-    params = struct([]);
+% Verify model input.
+nStates = size(model.rates,1);
+nClass  = numel(model.mu);
+assert( nStates==nClass, 'SKM: aggregate states not supported.' );
+assert(qub_verifyModel(model),'Invalid model');
+
+% Set default values for any paramaters not specified.
+params.maxItr   = 100;
+params.convLL   = 1e-4;
+% params.convGrad = 1e-3;  %not implemented yet.
+params.quiet    = false;
+params.fixRates = false; %FIXME: should ultimately be in the model.
+params.zeroEnd  = false;
+params.seperately = false;
+
+if nargin>=4
+    params = mergestruct(params, paramInput);
 end
 
+% Check parameters
 if isfield(model,'fixRates') && any(model.fixRates(:)),
     warning('BW:fixRates','Fixing specific rates not support!');
 end
-
-if isfield(params,'seperately') && params.seperately,
-    error('Individual trace analysis not yet supported!');
+if params.seperately,
+    warning('Individual trace analysis not yet supported!');
 end
-
-if isfield(params,'deadtime'),
+if isfield(params,'deadtime')
     warning('BW:deadtime','Deadtime correction not supported');
 end
-
-% PARSE OPTIONAL PARAMETER VALUES: re-estimation constraints
-if isfield(model,'fixMu')
-    params(1).fixMu = to_row(model.fixMu);
-end
-if ~isfield(params,'fixMu')
-    params(1).fixMu = zeros(1,nStates); %all are re-estimated
-end
-
-if isfield(model,'fixSigma')
-    params.fixSigma = to_row(model.fixSigma);
-end
-if ~isfield(params,'fixSigma')
-    params.fixSigma = zeros(1,nStates); %all are re-estimated
-end
-
-% PARSE OPTIONAL PARAMETER VALUES: options
-if ~isfield(params,'maxItr')
-    params.maxItr = 100;
-end
-
-if ~isfield(params,'convLL')
-    params.convLL = 1e-4;
-end
-
 if isfield(params,'convGrad')
     warning('BW:convGrad','convGrad not yet implemented');
-    %for A: params.convGrad = 1e-3;
-end
-
-if ~isfield(params,'bootstrapN')
-    params.bootstrapN = 0;
-end
-
-if ~isfield(params,'quiet')
-    params.quiet = 0;
 end
 
 
 
 %% -----------------------  RUN BAUM-WELCH  ----------------------- %%
-wbh = waitbar(0,'Running Baum-Welch...');
+% Launch parallel pool for processig larger data sets in parallel.
+wbh = waitbar(0,'Starting parallel pool...');
+if numel(observations)>1e5 && cascadeConstants('enable_parfor'),
+    pool = gcp;
+    M = pool.NumWorkers;
+else
+    M = 0;
+end
 
-params.muMask = 1-params.fixMu;
-params.sigmaMask = 1-params.fixSigma;
-
+% Initialize parameter values
 observations = max(-0.5, min(1.5,observations));  %remove outlier values
-
-% Obtain parameter estimates for complete sample.
-initialValues = {model.calcA(sampling/1000) to_row(model.mu) to_row(model.sigma) to_row(model.p0)};
 LL = zeros(0,1);
 dL = Inf;
-
-[~,mu_start,sigma_start,~] = initialValues{:};
-[A,mu,sigma,p0] = initialValues{:};
+A  = model.calcA(sampling/1000);
+p0 = to_row(model.p0);
+[mu,mu_start]       = deal( to_row(model.mu) );
+[sigma,sigma_start] = deal( to_row(model.sigma) );
 
 % Run Baum-Welch optimization iterations until convergence
+waitbar(0,wbh,'Running Baum-Welch...');
+
 for n = 1:params.maxItr
-    [LL(n),A,mu,sigma,p0,ps] = BWiterate2(observations,A,mu,sigma,p0);
+    [LL(n),A,mu,sigma,p0] = BWiterate(observations,A,mu,sigma,p0,M);
    
-    if any(isnan(A(:))) || any(isnan(mu)) || any(isnan(sigma)) || ...
-        any(isnan(p0))  || any(isnan(ps))
+    if any(isnan(A(:))) || any(isnan(mu)) || any(isnan(sigma)) || any(isnan(p0))
         disp('Warning: NaN parameter values in BWoptimize');
     end
   
-    % Apply re-estimation constraints
-    mu    = mu.*params.muMask       + mu_start.*(1-params.muMask);
-    sigma = sigma.*params.sigmaMask + sigma_start.*(1-params.sigmaMask);
+    % Enforce crude re-estimation constraints.
+    % FIXME: are there better ways apply constraints? 
+    mu(model.fixMu) = mu_start(model.fixMu);
+    mu(model.fixSigma) = sigma_start(model.fixSigma);
     
     % Update progress bar
-    if n>1, dL=LL(n)-LL(n-1); end
+    if n>1, dL = LL(n)-LL(n-1); end
     progress = max( n/params.maxItr, log10(dL)/log10(params.convLL) );
     waitbar(progress, wbh);
     
@@ -162,7 +133,9 @@ for n = 1:params.maxItr
     if dL<0, disp('Warning: Baum-Welch is diverging!'); end
     if abs(dL)<=params.convLL, break; end
 end
-
+if n>=params.maxItr
+    disp('Warning: Baum-Welch exceeded maximum number of iterations');
+end
 close(wbh);
 
 % Save results
@@ -181,7 +154,7 @@ end %function BWoptimize
 
 %% ----------- BAUM-WELCH PARAMETER ESTIMATION ROUTINE -----------
 
-function [LLtot,eA,eMU,eSIG,p0s,ps] = BWiterate2( observations, A, mus, sigmas, p0s )
+function [LLtot,eA,eMU,eSIG,p0s] = BWiterate( observations, A, mus, sigmas, p0s, M )
 % Performs one iteration of adapted Baum-Welch algorithm to return log-likelihood
 % and re-estimated model parameters [A,mus,sigmas,p0s] as well as overall fractional
 % occupancy of each state ps (which is not a model term but we get for
@@ -213,22 +186,14 @@ p0tot = zeros(1,Nstates);
 Etot  = zeros(Nstates,Nstates);
 lambda_cell = cell(nTraces,1);
 
-% Use multi-process execution only for large datasets.
-constants = cascadeConstants;
-if numel(observations)>1e5 && constants.enable_parfor,
-    pool = gcp;
-    M = pool.NumWorkers;
-else
-    M = 0;  % Single-thread execution.
-end
 
-parfor (n=1:nTraces, M)  %for each trace **with at least 5 datapoints**
+parfor (n=1:nTraces, M)
   NT = traceLengths(n);
-  obs = observations(n,1:NT);
+  obs = observations(n,:);
 
   % Calculate transition probabilities at each point in time using the
   % forward/backward algorithm. LLc1 is the final backward LL.
-  [E,alphas,LLc1] = BWtransition(obs,A,mus,sigmas,p0s);
+  [E,alphas,LLc1] = BWtransition( obs(1:NT), A, mus, sigmas, p0s );
   
 %   if any( isnan(LLc1) )
 %       fprintf('BW:NaN: NaN found at %d\n',n);
@@ -261,16 +226,15 @@ Osave = zeros( totalLength, 1 );
 
 for n=1:nTraces,
    NT = traceLengths(n);
-   lamb_tot( starts(n)+(1:NT-1), : ) = lambda_cell{n};  %really slow
+   lamb_tot( starts(n)+(1:NT-1), : ) = lambda_cell{n};
    Osave( starts(n)+(1:NT-1) ) = observations( n, 1:NT-1 );
 end
- 
 % lamb_tot = cat(1,lambda_cell{:});  %why doesn't this work?
 
 
 % Calculate total occupancy of each state
-ps = sum(lamb_tot);
-ps = ps/sum(ps);
+% ps = sum(lamb_tot);
+% ps = ps/sum(ps);
 
 
 % Re-estimate rate parameters (A matrix)
@@ -285,12 +249,11 @@ end
 eA = Etot;
 
 
-% Re-estimate emmission parameters (stdev and mean)
-Osave = Osave';
-
+% Re-estimate emmission parameters (stdev and mean).
 % Applies a weight (lambda_i = prob. of being in state i) to each
 % datapoint to generate the mean and stdev for each state.
 % Weights comes from forward/backward probabilities.
+Osave = Osave';
 eMU = zeros(1,Nstates);
 eSIG = zeros(1,Nstates);
 
@@ -313,19 +276,14 @@ end
 % with a state that is not occupied...
 eSIG = max(0.02,eSIG);
 
-% Calc....
+
 p0s = p0tot/nTraces;
-LLtot = LLtot/nTraces;  % return LL per trial -- though not necessary...
-
-
-% disp( [ps' eMU' eSIG'] );
-% disp('\n');
-
+LLtot = LLtot/nTraces;  % LL per trial
 
 assert( all(eA(:)>=0), 'Invalid estimated A matrix' );
 assert( all(p0s>=0), 'Invalid estimated p0 vector' );
 
 
-end
+end %function BWiterate
 
 

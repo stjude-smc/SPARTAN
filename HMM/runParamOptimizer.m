@@ -1,12 +1,6 @@
 function [dwtfile,outModel,LL] = runParamOptimizer(model,trcfile,options)
 % batchKinetics: run parameter optimization
 
-% Setup algorithm settings
-skmOptions.maxItr = options.maxItr;
-skmOptions.convLL = 1e-4;
-skmOptions.seperately = options.seperately;
-skmOptions.exclude = options.exclude;
-
 % Remove intermediate files from previous runs.
 warning('off','MATLAB:DELETE:FileNotFound');
 delete('resultTree.mat','bwmodel.qmf');
@@ -28,14 +22,15 @@ else
     input = data.fret;
 end
 
+
 % Idealize data using user-specified algorithm...
 switch upper(options.idealizeMethod)
 case upper('Segmental k-means'),
-    [dwt,optModel,LL,offsets] = skm( input, data.sampling, model, skmOptions );
+    [dwt,optModel,LL,offsets] = skm( input, data.sampling, model, options );
 
 case upper('Baum-Welch'),
-    skmOptions.seperately = false;  %individual fitting not supported yet.
-    [optModel,LL] = BWoptimize( input, data.sampling, model, skmOptions );
+    options.seperately = false;  %individual fitting not supported yet.
+    [optModel,LL] = BWoptimize( input, data.sampling, model, options );
 
     % Idealize using optimized parameters
     fretModel = [to_col(optModel.mu) to_col(optModel.sigma)];
