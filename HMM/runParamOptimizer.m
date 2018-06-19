@@ -33,7 +33,7 @@ case upper('Baum-Welch'),
     [optModel,idl] = BWoptimize( input, data.sampling, model, options );
 
 case upper('ebFRET'),
-    [idl,optModel] = runEbFret(input, model);
+    [idl,optModel] = runEbFret(input, model, options);
 
 case upper('Thresholding'),
     error('Thresholding not implemented')

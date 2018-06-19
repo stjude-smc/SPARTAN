@@ -1,4 +1,4 @@
-function [idl,optModels,LL,selfanalysis] = runEbFret(data, model, varargin)
+function [idlTotal,optModels,LL,selfanalysis] = runEbFret(data, model, params)
 % runEbFret  Empirical Bayes model optimization and idealization.
 %   
 %   [IDL,MODEL] = runVbFret(DATA,STATES) finds the most likely model given the
@@ -22,6 +22,8 @@ function [idl,optModels,LL,selfanalysis] = runEbFret(data, model, varargin)
 
 narginchk(2,Inf);
 
+    
+
     wbh = waitbar(0,'Running ebFRET...');
     dL = 0.3;
 
@@ -38,6 +40,9 @@ narginchk(2,Inf);
     if ischar(data), data=loadTraces(data); end
     if isa(data,'TracesFret'), data=data.fret; end
     if ~isnumeric(data), error('Invalid FRET data input'); end
+    
+    origSize = size(data);
+    data = data(~params.exclude,:);
     
     model = copy(model); %we don't want to modify in place.
     nStates = model.nStates; %2:3;
@@ -138,6 +143,9 @@ narginchk(2,Inf);
         
         idl(i,1:numel(v)) = v;
     end
+    
+    idlTotal = zeros(origSize);
+    idlTotal( ~params.exclude, :) = idl;
     
     LL = L(end);
     
