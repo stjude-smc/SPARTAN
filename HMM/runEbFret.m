@@ -1,4 +1,4 @@
-function [idlTotal,optModels,LL,selfanalysis] = runEbFret(data, model, params)
+function [idlTotal,optModels,LL,selfanalysis] = runEbFret(data, dt, model, params)
 % runEbFret  Empirical Bayes model optimization and idealization.
 %   
 %   [IDL,MODEL] = runVbFret(DATA,STATES) finds the most likely model given the
@@ -121,34 +121,43 @@ narginchk(2,Inf);
     end
     
     
-    % Construct outputs for batchKinetics
-    idl = zeros(size(data));  %state sequences
-    optModels = repmat(model, [nTraces,1]);
+    % Save mean parameters of prior distribution as new model parameters.
+    % The EB prior is essentially the distribution that encompasses all of
+    % the observed parameter values from all of the traces.
+    result = selfanalysis(nStates);
     
-    a = selfanalysis(nStates);
-    allStates = mean( [a.posterior.mu], 2 );  %ensemble average emission model (median?)
+    optModels = model;
+    optModels.mu = result.prior.mu;
+
+    u_a = 0.5 .* result.prior.nu;
+    u_b = 0.5 ./ result.prior.W;
+    optModels.sigma = (u_a./u_b) .^ -0.5;  %state_stdev.m
+    
+    A = result.prior.A ./ sum(result.prior.A,2);
+    optModels.rates = (A-eye(size(A))) / (dt/1000);  %eq. 170
+    
+    
+    % Re-assign idealization state assignments to fall into the closest
+    % ensemble class by FRET value (so all traces are consistent).
+    idl = zeros(size(data));  %state sequences
     
     for i=1:nTraces,
-        traceStates = a.posterior(i).mu;
-        optModels(i).mu = traceStates;
-        %fixme: assign other parameters.
-        
-        % Pool states with similar means -- toward ensemble averages.
-        v = a.viterbi(i).state;
+        traceStates = result.posterior(i).mu;
+        v = result.viterbi(i).state;
         
         for k=1:numel(traceStates),
-            d = abs(allStates-traceStates(k));
+            d = abs(optModels.mu-traceStates(k));
             v(v==k) = find(d==min(d),1,'first');
         end
         
         idl(i,1:numel(v)) = v;
     end
     
+    % 
     idlTotal = zeros(origSize);
     idlTotal( ~params.exclude, :) = idl;
     
     LL = L(end);
-    
     close(wbh);
 end
 
