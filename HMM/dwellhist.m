@@ -156,6 +156,7 @@ fits = zeros( numel(dwellaxis), nStates );
 if isfield(params,'model') && ~isempty(params.model)
     % Calculate mean dwells times, optionally removing zero-state paths.
     rates = params.model.rates;
+    rates( logical(eye(size(rates))) ) = 0;  %remove diagonals
     
     if isfield(params,'removeBlinks') && params.removeBlinks
         rates = rates(2:end,2:end);

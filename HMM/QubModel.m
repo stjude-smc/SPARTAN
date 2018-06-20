@@ -396,7 +396,8 @@ methods
             str = 'Model parameter size mismatch';
         end
 
-        if any( model.rates<0 | isinf(model.rates) ),
+        r = model.rates( ~logical(eye(model.nStates)) );  %ignore diagonal elements.
+        if any( r<0 | isinf(r) ),
             str = 'Negative or infinite rates not allowed.';
         end
         
