@@ -1,4 +1,4 @@
-function [optModel,idlTotal,LL] = BWoptimize( observations, sampling, model, paramInput )
+function [idlTotal,optModel,LL] = BWoptimize( observations, sampling, model, paramInput )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
 %    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, MODEL, PARAMS )

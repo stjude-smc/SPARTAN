@@ -30,7 +30,7 @@ case upper('Segmental k-means'),
 
 case upper('Baum-Welch'),
     options.seperately = false;  %individual fitting not supported yet.
-    [optModel,idl] = BWoptimize( input, data.sampling, model, options );
+    [idl,optModel] = BWoptimize( input, data.sampling, model, options );
 
 case upper('ebFRET'),
     [idl,optModel] = runEbFret(input, data.sampling, model, options);
