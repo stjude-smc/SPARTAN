@@ -25,11 +25,6 @@ function [shist,histmax] = statehist(varargin)
 
 [ax,args] = axescheck(varargin{:});
 
-if numel(args)<3,
-    constants = cascadeConstants;
-    args{3} = constants.defaultMakeplotsOptions;
-end
-
 % Get filenames from user if not passed
 if numel(args)<2
     args{1} = getFile('*.dwt','Choose QuB dwt file:');
@@ -37,6 +32,11 @@ if numel(args)<2
     
     args{2} = getFile('*.traces','Choose traces file:');
     if isempty(args{2}), return; end
+end
+
+if numel(args)<3,
+    constants = cascadeConstants;
+    args{3} = constants.defaultMakeplotsOptions;
 end
 
 [dwt_input,traces_input,options] = args{1:3};
@@ -93,8 +93,6 @@ fret_axis = options.fret_axis;
 shist = zeros( numel(fret_axis), nStates+1 );
 shist(:,1) = fret_axis;
 
-idl(idl==0&fret~=0) = 1; %otherwise the zero state is just blinks!
-
 for j=1:nStates,
     newdata = hist( fret(idl==j), fret_axis ) /numel(fret);
     shist(:,j+1) = newdata;
@@ -121,7 +119,6 @@ histdata = [zeros(1,nStates); histdata; zeros(1,nStates)];
 
 % If requested, remove 0-FRET peak and renormalize
 if options.ignoreState0
-    nStates = nStates-1;
     histdata = histdata(:,2:end);
     histdata = 100*histdata ./ sum(histdata(:));
 end
@@ -136,7 +133,7 @@ hold(ax,'on');
 set(ax,'ColorOrder',options.colors);
 
 % Draw translucent, filled area underneath curves
-for j=1:nStates
+for j=1:size(histdata,2)
     patch( histdata(:,j), bins, options.colors(j,:), ...
             'EdgeColor','none','FaceAlpha',0.25, 'Parent',ax );
 end
