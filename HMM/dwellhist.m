@@ -1,4 +1,4 @@
-function varargout = dwellhist(dwtfilename, inputParams)
+function varargout = dwellhist(varargin)
 %dwellhist  Dwell-time histograms
 % 
 %   [X,HIST] = dwellhist(FILES) dwell-time histograms for each .dwt file in 
@@ -6,14 +6,15 @@ function varargout = dwellhist(dwtfilename, inputParams)
 %   array with files in rows and states in columns size=[nFiles,nStates].
 %   The X are the bin edges in seconds.
 %
-%   [X,HIST,FITS] = dwellhist(...) also calculates fit lines (FITS) for each 
+%   [X,HIST,FITS] = dwellhist(FILES) also calculates fit lines (FITS) for each 
 %   state using the mean dwell time parameters provided in the optional 
 %   parameter meanDwellTime (see below). One column in FITS per state.
 %   Bins are the same as for histograms.
 %
-%   dwellhist() prompts the user for a list of files.
+%   dwellhist(...) without output parameters creates a new figure to display
+%   the calculated dwell-time histograms.
 %
-%   dwellhist(...,PARAMS) give optional parameters in struct PARAMS:
+%   dwellhist(FILES,PARAMS) give optional parameters in struct PARAMS:
 %
 %      'removeBlinks': Remove dwells in dark states (class 1). Default=true.
 %                      Dwells broken up by such blinks are merged, with the
@@ -31,28 +32,54 @@ function varargout = dwellhist(dwtfilename, inputParams)
 %                      'file'  - all states; sum of all histograms per file=1.
 %                      'time'  - dwell counts per second of observation time
 %
-%      'meanDwellTime': mean dwell-time model parameters for fit lines, one per state
+%      'model':        QubModel object for displaying expected distributions
 %
-%   See also: dwellplots, lifetime_exp, loadDwelltimes, removeBlinks.
+%   See also: lifetime_exp, loadDwelltimes, removeBlinks.
 
-%   Copyright 2007-2016 Cornell University All Rights Reserved.
+%   Copyright 2007-2018 Cornell University All Rights Reserved.
 
 
-%% ---- USER TUNABLE PARAMETERS ----
 
+%% Process input arguments
+
+% Extract first argument graphics handle (figure or axes)
+if nargin>=1 && all(ishandle(varargin{1})) && strcmpi(get(varargin{1},'type'), 'figure')
+    hFig = varargin{1};
+    varargin = varargin(2:end);
+else
+    if nargout==0, hFig=figure; end
+end
+
+[varargout{1:nargout}] = deal([]);
+set(hFig,'pointer','watch'); drawnow;
+
+
+% Prompt user for file names if not given.
+if numel(varargin)<1,
+    dwtfilename = getFiles('*.dwt','Choose dwell-time files');
+else
+    dwtfilename = varargin{1};
+end
+if ischar(dwtfilename), dwtfilename={dwtfilename}; end
+dwtfilename = findDwt(dwtfilename,'raiseError');
+if numel(dwtfilename)==0, return; end
+
+
+% Assign default parameter values
 persistent params;
 
-if isempty(params),
+if isempty(params)
     %FIXME: these should be defined in cascadeConstants?
     params.logX = true;
     params.dx = 0.4;
     params.removeBlinks = true;
     params.normalize = 'state';
 end
+params.model = [];
 
 % Merge options, giving the user's options precedence.
-if nargin>1,
-    params = mergestruct( params, inputParams );
+if numel(varargin)>1,
+    params = mergestruct( params, varargin{2} );
 end
 
 % Check parameters
@@ -62,27 +89,8 @@ end
 
 
 
-%% Prompt user for file names if not given.
-[varargout{1:nargout}] = deal([]);
+%% Get dwell times from file
 
-% Get list of .dwt files to load
-if nargin<1,
-    dwtfilename = getFiles('*.dwt','Choose dwell-time files');
-end
-if ischar(dwtfilename), dwtfilename={dwtfilename}; end
-dwtfilename = findDwt(dwtfilename,'raiseError');
-if numel(dwtfilename)==0, return; end
-
-
-% If there are no outputs requested, display instead.
-if nargout==0,
-    dwellplots(dwtfilename,params);
-    return;
-end
-
-
-
-%%
 nFiles = numel(dwtfilename);
 dwells  = cell(nFiles,1);  %consolidated list of dwell times in each state
 sampling = zeros(nFiles,1);
@@ -125,7 +133,6 @@ end
 
 
 
-
 %% Calculate dwell time bins (EDGES)
 if ~params.logX,
     % Linear X-axis in seconds.
@@ -146,6 +153,7 @@ else
     dlx = dwellaxis(2:end) - dwellaxis(1:end-1);
     dlx = [dlx dlx(end)];
 end
+
 
 
 %% Calculate distribution fit lines
@@ -224,16 +232,112 @@ for file=1:nFiles,
 end
 
 
-% Combine histograms into a matrix for saving.
 if params.logX,
     dwellaxis = exp(dwellaxis);
 end
 
-output = {dwellaxis,histograms,fits};
-[varargout{1:nargout}] = output{1:nargout};
+
+% If output requested, just return the histogram data.
+% If no output requested, display the histograms instead.
+% If an axis is given and output is requested, do both. FIXME
+if nargout>0
+    output = {dwellaxis,histograms,fits};
+    [varargout{1:nargout}] = output{1:nargout};
+    return;
+end
+
+
+
+%% Display plots, one state per panel.
+
+% Find a good zoom axis range for viewing all of the histograms.
+h = [histograms{:}];
+ymax = 1.1*max(h(:));
+
+if params.logX,
+    xmax = dwellaxis(end);
+else
+    xmax = dwellaxis(  find( sum(h>0.01,2), 1, 'last' )  );
+end
+
+% If expected mean dwell times provided, show them as fit lines.
+% Here, calculate normalization constants and change histogram line style.
+if isfield(params,'model') && ~isempty(params.model)
+    lineStyle = 'b.';
+else
+    lineStyle = '-';
+end
+
+% Choose ordinate label based on normalization
+if params.logX
+    switch params.normalize
+        case {'none','off'}
+            ordinate = 'Counts';
+        case 'state'
+            ordinate = 'Counts (%)';
+        case 'file'
+            ordinate = 'Counts (% of file)';
+        case 'time'
+            ordinate = 'Counts s^{-1}';
+        otherwise
+            error('Invalid normalization setting');
+    end
+else
+    ordinate = 'Dwell Survival (%)';
+end
+
+
+% Draw survival plots and fit lines, if model parameters given.
+ax = zeros(nStates,1);
+
+for state=1:nStates,
+    ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
+
+    if params.logX,
+        semilogx( ax(state), dwellaxis, [histograms{:,state}], lineStyle, 'LineWidth',2 );
+    else
+        plot( ax(state), dwellaxis, [histograms{:,state}], lineStyle, 'LineWidth',2 );
+    end
+    
+    ylabel(ax(state), ordinate);
+    xlim( ax(state), [dwellaxis(1) xmax] );
+    ylim( ax(state), [0 ymax] );
+    title(ax(state), sprintf('State %d',state) );
+end
+
+% Draw fit lines
+if isfield(params,'model') && ~isempty(params.model)
+    for state=1:nStates,
+        hold( ax(state), 'on' );
+        plot( ax(state), dwellaxis, fits(:,state), 'r-' );
+        hold( ax(state), 'off' );
+    end
+end
+
+xlabel( ax(end), 'Time (s)' );
+legend( ax(end), trimtitles(dwtfilename) );
+linkaxes( ax,'xy' );
+set(hFig,'pointer','arrow'); drawnow;
+
+
+% Add menu items for adjusting settings and saving output to file
+prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
+fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
+types{4} = {'none','state','file','time'};
+cb = @(~,~)settingdlg(params,fields,prompt,types,@dwellhist,{hFig,dwtfilename});
+output = [to_col(dwellaxis) horzcat(histograms{:})];
+
+defaultFigLayout( hFig, @(~,~)dwellhist(getFiles('*.dwt'),params), ...
+                      @(~,~)dwellhist(hFig,getFiles('*.dwt'),params), ...
+                      {@exportTxt,dwtfilename,output}, ...
+       {'Change settings...',cb; ...
+        %'Reset settings',@(~,~)dwellhist(hFig,dwtfilename) ...  %FIXME!
+        'Copy output',{@clipboardmat,output}}  );
 
 
 end %function dwellhist
+
+
 
 
 
@@ -247,6 +351,40 @@ for i=1:numel(values),
     [~,idx(i)] = min( abs(bins-values(i)) );
     newVal(i) = bins(idx(i));
 end
+
+end
+
+
+
+
+%% ------ Save results to file for plotting in Origin
+function exportTxt(~,~,files,output)
+% Callback function for the "save histograms" button in the histogram figure.
+
+names = trimtitles(files);
+nFiles = numel(names);
+nStates = (size(output,2)-1)/nFiles;
+
+% Ask the user for an output filename.
+[f,p] = uiputfile('*.txt','Select output filename',[mfilename '.txt']);
+if f==0, return; end  %user hit cancel.
+outFilename = fullfile(p,f);
+
+
+% Output header lines
+fid = fopen(outFilename,'w');
+fprintf(fid,'Time (s)');
+
+for state=1:nStates,
+    for i=1:nFiles
+        fprintf(fid,'\tState%d %s',state,names{i});
+    end
+end
+fprintf(fid,'\n');
+fclose(fid);
+
+% Output histogram data
+dlmwrite(outFilename, output, 'delimiter','\t', '-append');
 
 end
 
