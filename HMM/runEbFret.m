@@ -95,6 +95,9 @@ narginchk(2,Inf);
                 dL = (L(it)-L(it-1)) / abs(L(it));  %relative change in likelihood score
                 %fprintf('it %02d   L %.5e    dL %.2e\n', it, L(it), dL);
             end
+            if ~ishandle(wbh) || ~isvalid(wbh)
+                error('spartan:op_cancelled','Operation cancelled by user');
+            end
             progress = max( it/max_iter, log10(dL)/log10(threshold) );
             waitbar(progress, wbh);
 

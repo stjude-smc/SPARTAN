@@ -140,7 +140,7 @@ methods
     % Update the progress bar by Nitr iterations (or 1 if not specified).
         if nargin<2,  Nitr = 1;  end
         if ~exist(this.ipcfile,'file'),
-            error('parfor_progressbar:cancelled','Operation cancelled by user');
+            error('spartan:op_cancelled','Operation cancelled by user');
         end
     
         fid = fopen(this.ipcfile, 'a');

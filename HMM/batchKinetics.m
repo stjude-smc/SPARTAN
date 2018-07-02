@@ -331,7 +331,6 @@ function handles = btnExecute_Callback(hObject, ~, handles)
 idxfile  = get(handles.lbFiles,'Value');
 trcfile  = handles.dataFilenames{idxfile};
 
-
 % Get options from traceViewer
 options = handles.options;
 options.dataField = handles.traceViewer.dataField;
@@ -368,10 +367,10 @@ else
     try
         [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
     catch e
-        if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
-            set(handles.txtStatus,'String',['Error: ' e.message]);
+        if ~strcmpi(e.identifier,'spartan:op_cancelled')
             errordlg(['Error: ' e.message]);
         end
+        set(handles.txtStatus,'String',['Error: ' e.message]);
         set(handles.figure1,'pointer','arrow');
         return;
     end
@@ -465,12 +464,10 @@ try
     data = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
     saveTraces( fullfile(p,f), data );
 catch e
-    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-        set(handles.txtStatus,'String','Operation cancelled by user');
-    else
+    if ~strcmpi(e.identifier,'spartan:op_cancelled')
         errordlg( ['Error: ' e.message], mfilename );
-        set(handles.txtStatus,'String',['Error: ' e.message]);
     end
+    set(handles.txtStatus,'String',['Error: ' e.message]);
     set(handles.figure1,'pointer','arrow');
     return;
 end
@@ -532,12 +529,10 @@ try
     data = simphotons( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
     saveTraces( fullfile(p,f), data );
 catch e
-    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-        set(handles.txtStatus,'String','Operation cancelled by user');
-    else
+    if ~strcmpi(e.identifier,'spartan:op_cancelled')
         errordlg( ['Error: ' e.message], mfilename );
-        set(handles.txtStatus,'String',['Error: ' e.message]);
     end
+    set(handles.txtStatus,'String',['Error: ' e.message]);
     set(handles.figure1,'pointer','arrow');
     return;
 end
@@ -593,12 +588,10 @@ set(handles.txtStatus,'String','Simulating...'); drawnow;
 try
     simulateMovie(handles.traceViewer.data, [],[], newOpt);
 catch e
-    if strcmpi(e.identifier,'parfor_progressbar:cancelled')
-        set(handles.txtStatus,'String','Operation cancelled by user');
-    else
-        set(handles.txtStatus,'String',['Error: ' e.message]);
+    if ~strcmpi(e.identifier,'spartan:op_cancelled')
         errordlg(['Error: ' e.message]);
     end
+    set(handles.txtStatus,'String',['Error: ' e.message]);
 end
 set(handles.txtStatus,'String','Finished.'); drawnow;
 set(handles.figure1,'pointer','arrow');

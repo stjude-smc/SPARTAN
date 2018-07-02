@@ -125,6 +125,9 @@ for n = 1:params.maxItr
     % Update progress bar
     if n>1, dL = LL(n)-LL(n-1); end
     progress = max( n/params.maxItr, log10(dL)/log10(params.convLL) );
+    if ~ishandle(wbh) || ~isvalid(wbh)
+        error('spartan:op_cancelled','Operation cancelled by user');
+    end
     waitbar(progress, wbh);
     
 %     if ~params.quiet
