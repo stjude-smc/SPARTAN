@@ -145,6 +145,12 @@ plot( ax, histdata, bins, 'LineWidth',1.5 );
 totalHist = sum( histdata, 2 );
 plot( ax, totalHist, bins, 'k-', 'LineWidth',1.5 );
 
+% Formatting -- duplicated in makeplots...
+ylim(ax, options.fretRange);
+xlabel(ax,'Counts (%)' );
+ylabel(ax, 'FRET');  %fixme
+set(ax, 'YGrid','on', 'Box','on');
+
 histmax = max( totalHist(bins>0.05) );
 
 

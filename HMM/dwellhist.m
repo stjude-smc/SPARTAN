@@ -43,10 +43,25 @@ function varargout = dwellhist(varargin)
 %% Process input arguments
 
 % Extract first argument graphics handle (figure or axes)
-if nargin>=1 && all(ishandle(varargin{1})) && strcmpi(get(varargin{1},'type'), 'figure')
-    hFig = varargin{1};
+ax = [];
+oneAx = false;      %if true, collapse all plots into one axes.
+soloWindow = true;  %if true, add menu controls for stand-alone execution
+
+if nargin>=1 && all(ishandle(varargin{1}))
+    if strcmpi(get(varargin{1},'type'), 'figure')
+        hFig = varargin{1};
+    elseif strcmpi(get(varargin{1},'type'), 'axes')
+        ax = varargin{1};
+        hFig = ancestor(ax,'figure');
+        oneAx = isscalar(ax);
+        cla(ax,'reset');
+    else
+        error('Invalid first input argument');
+    end
     varargin = varargin(2:end);
+    soloWindow = false;
 else
+    % Display results in a new figure if no outputs requested.
     if nargout==0, hFig=figure; end
 end
 
@@ -166,7 +181,7 @@ if isfield(params,'model') && ~isempty(params.model)
     rates = params.model.rates;
     rates( logical(eye(size(rates))) ) = 0;  %remove diagonals
     
-    if isfield(params,'removeBlinks') && params.removeBlinks
+    if params.removeBlinks
         rates = rates(2:end,2:end);
     end
     
@@ -260,14 +275,6 @@ else
     xmax = dwellaxis(  find( sum(h>0.01,2), 1, 'last' )  );
 end
 
-% If expected mean dwell times provided, show them as fit lines.
-% Here, calculate normalization constants and change histogram line style.
-if isfield(params,'model') && ~isempty(params.model)
-    lineStyle = 'b.';
-else
-    lineStyle = '-';
-end
-
 % Choose ordinate label based on normalization
 if params.logX
     switch params.normalize
@@ -287,40 +294,71 @@ else
 end
 
 
+% If expected mean dwell times provided, show them as fit lines.
+% Here, calculate normalization constants and change histogram line style.
+if isfield(params,'model') && ~isempty(params.model)
+    lineStyle = '.';
+else
+    lineStyle = '-';
+end
+
 % Draw survival plots and fit lines, if model parameters given.
-ax = zeros(nStates,1);
+colors = QubModelViewer.colors( (1+params.removeBlinks):end );
 
-for state=1:nStates,
-    ax(state) = subplot( nStates, 1, state, 'Parent',hFig );
-
-    if params.logX,
-        semilogx( ax(state), dwellaxis, [histograms{:,state}], lineStyle, 'LineWidth',2 );
+for state=1:nStates
+    
+    % Establish axes to plot in for all possible input choices
+    if oneAx
+        if isempty(ax)
+            ax = axes('Parent',hFig);
+        end
+        curAx = ax;
     else
-        plot( ax(state), dwellaxis, [histograms{:,state}], lineStyle, 'LineWidth',2 );
+        if numel(ax) < state
+            ax(state) = subplot( nStates, 1, state, 'Parent',hFig ); %#ok<AGROW>
+        end
+        curAx = ax(state);
+    end
+
+    % Plot dwell times as Sine-Sigworth (log scale) or surfival plot (linear)
+    if params.logX,
+        semilogx( curAx, dwellaxis, [histograms{:,state}], lineStyle, 'Color',colors{state} );
+        set( curAx,'XTick',10.^(-4:4) )
+    else
+        plot( curAx, dwellaxis, [histograms{:,state}], lineStyle, 'Color',colors{state} );
+    end
+    hold( curAx, 'on' );
+
+    % Draw fit lines, if applicable. (skip legend by setting HandleVisibility)
+    if isfield(params,'model') && ~isempty(params.model)
+        plot( curAx, dwellaxis, fits(:,state), '-', 'Color',colors{state}, 'HandleVisibility','off' );
     end
     
-    ylabel(ax(state), ordinate);
-    xlim( ax(state), [dwellaxis(1) xmax] );
-    ylim( ax(state), [0 ymax] );
-    title(ax(state), sprintf('State %d',state) );
-end
-
-% Draw fit lines
-if isfield(params,'model') && ~isempty(params.model)
-    for state=1:nStates,
-        hold( ax(state), 'on' );
-        plot( ax(state), dwellaxis, fits(:,state), 'r-' );
-        hold( ax(state), 'off' );
+    ylabel(curAx, ordinate);
+    xlim(  curAx, [dwellaxis(1) xmax] );
+    ylim(  curAx, [0 ymax] );
+    if ~oneAx
+        title( curAx, sprintf('State %d',state) );
+        hold( curAx, 'off' );
     end
 end
 
-xlabel( ax(end), 'Time (s)' );
-legend( ax(end), trimtitles(dwtfilename) );
-linkaxes( ax,'xy' );
+
+if oneAx
+    lines = strsplit(sprintf('State #%d_',1:nStates),'_');
+    legend( ax, lines(1:end-1) );
+else
+    legend( ax(end), trimtitles(dwtfilename) );
+    linkaxes(ax,'xy');
+end
+xlabel( ax(end), 'Dwell Time (s)' );
 set(hFig,'pointer','arrow'); drawnow;
 
+if ~soloWindow, return; end
 
-% Add menu items for adjusting settings and saving output to file
+
+
+%% Add menu items for adjusting settings and saving output to file
 prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
 fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
 types{4} = {'none','state','file','time'};
@@ -335,6 +373,7 @@ defaultFigLayout( hFig, @(~,~)dwellhist(getFiles('*.dwt'),params), ...
         'Copy output',{@clipboardmat,output}}  );
 
 
+    
 end %function dwellhist
 
 

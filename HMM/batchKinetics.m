@@ -390,6 +390,12 @@ if get(handles.chkUpdateModel,'Value'),
     handles.traceViewer.showModelLines();
 end
 
+% Display summary plots of the results to the GUI
+statehist( handles.axResult1, dwtfname, trcfile );
+tplot( handles.axResult2, tdplot(dwtfname,trcfile) );  ylabel( handles.axResult2, '');
+dhparam.model = optModel;
+dwellhist( handles.axResult3, dwtfname, dhparam );
+
 guidata(hObject,handles);
 enableControls(handles);
 set(handles.figure1,'pointer','arrow');
