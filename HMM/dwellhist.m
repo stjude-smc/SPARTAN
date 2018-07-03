@@ -152,10 +152,12 @@ end
 if ~params.logX,
     % Linear X-axis in seconds.
     dwellaxis = 0:sampling:maxTime;
+    fitaxis = dwellaxis;
 else
     % Create a log time axis with a fixed number of bins.
     % histcounts uses bin edges of E(k) <= X(i) < E(k+1).
     dwellaxis = log(sampling):params.dx:log(maxTime*3);
+    fitaxis = -5:0.1:5;  %fine-grained axis for theoretical fit curves.
     
     % Force the bins edges to be exact intervals of the time resolution.
     % The histogram will better sample the discrete nature of the data.
@@ -167,39 +169,6 @@ else
     % Normalization factor to account for varying-sized bins.
     dlx = dwellaxis(2:end) - dwellaxis(1:end-1);
     dlx = [dlx dlx(end)];
-end
-
-
-
-%% Calculate distribution fit lines
-% Parameter values are provided by batchKinetics (final optimized model).
-% Full normalization is done in the next section.
-fits = zeros( numel(dwellaxis), nStates );
-
-if isfield(params,'model') && ~isempty(params.model)
-    % Calculate mean dwells times, optionally removing zero-state paths.
-    rates = params.model.rates;
-    rates( logical(eye(size(rates))) ) = 0;  %remove diagonals
-    
-    if params.removeBlinks
-        rates = rates(2:end,2:end);
-    end
-    
-    tau = zeros(nStates,1);
-    for i=1:nStates,
-        tau(i) = 1 ./ sum( rates(i,:) );
-    end
-    
-    for state=1:nStates,
-        if params.logX,
-            z = dwellaxis - log( tau(state) );
-            e = exp( z - exp(z) );
-            fits(:,state) = e/sum(e);
-        else
-            e = exppdf(dwellaxis, tau(state));
-            fits(:,state) = e/max(e);
-        end
-    end
 end
 
 
@@ -237,9 +206,6 @@ for file=1:nFiles,
                     normFact = ndwells(state)/sum(totalTime(file,:));
             end
             histdata = normFact * histdata;
-            if file==1,
-                fits(:,state) = normFact * fits(:,state);
-            end
         end
         
         histograms{file,state} = to_col(histdata);
@@ -247,8 +213,42 @@ for file=1:nFiles,
 end
 
 
+
+%% Calculate distribution fit lines
+% Parameter values are provided by batchKinetics (final optimized model).
+% Full normalization is done in the next section.
+fits = zeros( numel(fitaxis), nStates );
+
+if isfield(params,'model') && ~isempty(params.model)
+    % Calculate mean dwells times, optionally removing zero-state paths.
+    rates = params.model.rates;
+    rates( logical(eye(size(rates))) ) = 0;  %remove diagonals
+    
+    if params.removeBlinks
+        rates = rates(2:end,2:end);
+    end
+    
+    tau = zeros(nStates,1);
+    for i=1:nStates,
+        tau(i) = 1 ./ sum( rates(i,:) );
+    end
+    
+    for state=1:nStates,
+        if params.logX,
+            z = fitaxis - log( tau(state) );
+            e = exp( z - exp(z) );
+            fits(:,state) = max(histograms{1,state}) * e/max(e);  %FIXME: can the correct value be calculated?
+        else
+            e = exppdf(fitaxis, tau(state));
+            fits(:,state) = e/max(e);
+        end
+    end
+end
+
+
 if params.logX,
     dwellaxis = exp(dwellaxis);
+    fitaxis = exp(fitaxis);
 end
 
 
@@ -331,7 +331,7 @@ for state=1:nStates
 
     % Draw fit lines, if applicable. (skip legend by setting HandleVisibility)
     if isfield(params,'model') && ~isempty(params.model)
-        plot( curAx, dwellaxis, fits(:,state), '-', 'Color',colors{state}, 'HandleVisibility','off' );
+        plot( curAx, fitaxis, fits(:,state), '-', 'Color',colors{state}, 'HandleVisibility','off' );
     end
     
     ylabel(curAx, ordinate);
