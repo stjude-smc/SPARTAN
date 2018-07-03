@@ -34,12 +34,14 @@ if numel(args)<2
     if isempty(args{2}), return; end
 end
 
-if numel(args)<3,
-    constants = cascadeConstants;
-    args{3} = constants.defaultMakeplotsOptions;
+options = cascadeConstants('defaultMakeplotsOptions');
+if numel(args)>=3,
+    options = mergestruct( options, args{3} );
 end
 
-[dwt_input,traces_input,options] = args{1:3};
+[dwt_input,traces_input] = args{1:2};
+colors = QubModelViewer.colors;
+
 
 
 %% Load data
@@ -81,7 +83,7 @@ nStates = max(idl(:));
 
 
 % --- Truncate traces so they match the display length in makeplots
-if isfield(options,'truncate_statehist') && options.truncate_statehist,
+if options.truncate_statehist,
     traceLen = options.contour_length;
     idl  = idl(:,1:traceLen);
     fret = fret(:,1:traceLen);
@@ -94,19 +96,27 @@ shist = zeros( numel(fret_axis), nStates+1 );
 shist(:,1) = fret_axis;
 
 for j=1:nStates,
-    newdata = hist( fret(idl==j), fret_axis ) /numel(fret);
+    newdata = hist( fret(idl==j), fret_axis ) /sum(idl(:)~=0);
     shist(:,j+1) = newdata;
 end
 
 % Normalize histogram height to plot with most molecules (see makeplots)
-if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+if options.cplot_normalize_to_max,
     shist(:,2:end) = shist(:,2:end) * nTraces/options.cplot_normalize_to_max;
 end
 
 
 %% Plot, if applicable
-if isempty(ax), return; end
-cla(ax);
+if isempty(ax)
+    if nargin>0
+        % Do not make plots if raw data is requested
+        return;
+    else
+        ax = gca;
+    end
+end
+cla(ax,'reset');
+
 
 bins = shist(:,1);
 histdata = shist(:,2:end)*100;
@@ -121,25 +131,26 @@ histdata = [zeros(1,nStates); histdata; zeros(1,nStates)];
 if options.ignoreState0
     histdata = histdata(:,2:end);
     histdata = 100*histdata ./ sum(histdata(:));
+    colors = colors(2:end);
 end
 
 % If the option is set, rescale so that plots with only a few
 % molecules show low occupancy in the statehist.
-if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
+if options.cplot_normalize_to_max,
     histdata = histdata * nTraces/options.cplot_normalize_to_max;
 end
 
 hold(ax,'on');
-set(ax,'ColorOrder',options.colors);
+set(ax,'ColorOrder',vertcat(colors{:}));
 
 % Draw translucent, filled area underneath curves
 for j=1:size(histdata,2)
-    patch( histdata(:,j), bins, options.colors(j,:), ...
+    patch( histdata(:,j), bins, colors{j}, ...
             'EdgeColor','none','FaceAlpha',0.25, 'Parent',ax );
 end
 
 % Draw state FRET histograms as solid lines
-plot( ax, histdata, bins, 'LineWidth',1.5 );
+plot( ax, histdata, bins, '--', 'LineWidth',1.5 );
 
 % Add a line with total occupancy.
 totalHist = sum( histdata, 2 );
