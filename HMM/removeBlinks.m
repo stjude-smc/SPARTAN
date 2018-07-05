@@ -67,8 +67,8 @@ for i=1:numel(dwt),
         elseif j<nDwells,
             times(j-1) = times(j-1) + floor(times(j)/2);
             times(j+1) = times(j+1) +  ceil(times(j)/2);
-            times(j) = 0;
         end
+        times(j) = 0;
         
     end %for each dwell
     
