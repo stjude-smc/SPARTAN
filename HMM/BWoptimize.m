@@ -53,8 +53,11 @@ nargoutchk(0,2);
 % Verify model input.
 nStates = size(model.rates,1);
 nClass  = numel(model.mu);
-assert( nStates==nClass, 'SKM: aggregate states not supported.' );
-assert(qub_verifyModel(model),'Invalid model');
+assert( nStates==nClass, 'Aggregate states not supported.' );
+[ok,msg] = model.verify();
+if ~ok, error(msg);
+elseif ~isempty(msg), warning(msg);
+end
 
 % Set default values for any paramaters not specified.
 params.maxItr   = 100;

@@ -60,6 +60,9 @@ narginchk(2,Inf);
     for i=1:nTraces,
         lt = find(data(i,:)~=0,1,'last');
         xall{i} = double( data(i,1:lt)' );
+        
+        % Add zero-FRET noise so all traces have a zero-FRET state.
+        xall{i} = [ xall{i}; randn(20,1)*0.05 ];
     end
     nFrames = cellfun(@numel,xall);
     
@@ -158,7 +161,7 @@ narginchk(2,Inf);
     
     % 
     idlTotal = zeros(origSize);
-    idlTotal( ~params.exclude, :) = idl;
+    idlTotal( ~params.exclude, :) = idl(:,1:origSize(2));
     
     LL = L(end);
     close(wbh);

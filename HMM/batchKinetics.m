@@ -74,8 +74,6 @@ handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
 methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'};
-if isempty(which('ebfret.analysis.hmm.vbayes')), methods(3)=[]; end
-
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -356,6 +354,9 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
         return;
     end
     
+    % Run MIL, only updating model rates.
+    % NOTE: optModel will have the .qubTree model values, which only reflect 
+    % the model as originally loaded from file. FIXME.
     optModel = milOptimize(dwtfname, handles.model, options);
     handles.model.rates = optModel.rates;
     handles.modelViewer.redraw();
@@ -378,15 +379,15 @@ else
     handles.dwtFilenames{idxfile} = dwtfname;
     handles.traceViewer.idl = loadIdl(dwtfname, handles.traceViewer.data);
     handles.traceViewer.showTraces();
-end
 
-if get(handles.chkUpdateModel,'Value'),
-    handles.model.rates = optModel.rates;
-    handles.model.mu    = optModel.mu;
-    handles.model.sigma = optModel.sigma;
-    handles.model.p0    = optModel.p0;
-    handles.modelViewer.redraw();
-    handles.traceViewer.showModelLines();
+    if get(handles.chkUpdateModel,'Value'),
+        handles.model.rates = optModel.rates;
+        handles.model.mu    = optModel.mu;
+        handles.model.sigma = optModel.sigma;
+        handles.model.p0    = optModel.p0;
+        handles.modelViewer.redraw();
+        handles.traceViewer.showModelLines();
+    end
 end
 
 % Display summary plots of the results to the GUI
