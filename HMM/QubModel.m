@@ -422,22 +422,22 @@ methods
         end
     end
     
-    % Calculate the transition probability matrix (A), which is a discrete
-    % version of the rate matrix (Q). dt is the timestep in seconds.
-    function A = calcA( model, dt )        
+    % Matrix of rate constants normalized so that rows sum to zero.
+    function Q = calcQ(model)
         Q = model.rates;
         I = logical(eye(size(Q)));
         Q(I) = 0;
         Q(I) = -sum( Q,2 );
-        A = expm( Q.*dt );
     end
     
-    % Calculate the initial state probabilities (p0) expected if the system
-    % is in equilibrium. This is calculated from the rate matrix.
-    % Since this approximation uses the (discrete) probability matrix A,
-    % the time step (dt, in seconds) is also needed.
-    function p = calcEquilibriumP0( model, dt )
-        if nargin<2, dt=1; end  %1ms approximation
+    % Probability of transitioning within the time step dt (in seconds).
+    % Same size and indexing as the rate matrix Q.
+    function A = calcA( model, dt )
+        A = expm( model.calcQ().*dt );
+    end
+    
+    % Eqiulibrium state probabilities (p0) assuming the system is ergodic.
+    function p = calcEquilibriumP0( model )
         
         if any( sum(model.rates)==0 & sum(model.rates,2)'==0 ),
             % If there are isolated parts of the model, how do we know which 
@@ -446,10 +446,11 @@ methods
             warning('Isolated states may produce unexpected p0 estimates.');
         end
         
-        A = model.calcA( dt );
-        p = A^10000;
-        p = p(1,:);
-        p = p/sum(p);
+        % See Single-Channel Recording (1997), ISBN 978-1-4419-1230-5,
+        % pg. 597 (eq. 17, section 3.2.2, chapter 20).
+        U = ones(1, model.nStates);
+        S = [ model.calcQ() U' ];
+        p = U * (S * S')^-1;
     end
     
     

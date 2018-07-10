@@ -115,7 +115,6 @@ for i=1:nFiles,
     % ignoring the zero-FRET state if applicable.
     if params.removeBlinks,
         [dwells{i},sampling(i)] = loadDwelltimes( dwtfilename{i}, 'removeBlinks' );
-        dwells{i} = dwells{i}(2:end);
     else
         [dwells{i},sampling(i)] = loadDwelltimes( dwtfilename{i} );
     end
@@ -127,17 +126,17 @@ if ~all(sampling==sampling(1)),
 end
 sampling = sampling(1)/1000;  %convert to seconds.
 
-nStates = cellfun(@numel, dwells);
-if ~all(nStates==nStates(1)),
+nClasses = cellfun(@numel, dwells);
+if ~all(nClasses==nClasses(1)),
     warning('Idealization models have a different number of states');
 end
-nStates = max(nStates);
+nClasses = max(nClasses);
 
 
 % Get dwell time limits for setting axes limits later.
 maxTime = 0;  %longest dwell in seconds
-totalTime = zeros(nFiles,nStates);
-meanTime  = zeros(nFiles,nStates);  %mean dwell-time per state/file.
+totalTime = zeros(nFiles,nClasses);
+meanTime  = zeros(nFiles,nClasses);  %mean dwell-time per state/file.
 
 for i=1:nFiles,
     dwellc = dwells{i};
@@ -157,7 +156,7 @@ else
     % Create a log time axis with a fixed number of bins.
     % histcounts uses bin edges of E(k) <= X(i) < E(k+1).
     dwellaxis = log(sampling):params.dx:log(maxTime*3);
-    fitaxis = -5:0.1:5;  %fine-grained axis for theoretical fit curves.
+    fitaxis = (-5:0.1:5)';  %fine-grained axis for theoretical fit curves.
     
     % Force the bins edges to be exact intervals of the time resolution.
     % The histogram will better sample the discrete nature of the data.
@@ -174,12 +173,12 @@ end
 
 
 %% Calculate histograms and optional fit lines
-histograms = cell(nFiles,nStates);
+histograms = cell(nFiles,nClasses);
 
 for file=1:nFiles,
     ndwells = cellfun(@numel,dwells{file});
             
-    for state=1:nStates,
+    for state=1:nClasses,
         % Small constant ensures dwells fall in the correct histogram bin.
         dwellc = dwells{file}{state} +sampling/10;
         
@@ -216,39 +215,62 @@ end
 
 %% Calculate distribution fit lines
 % Parameter values are provided by batchKinetics (final optimized model).
-% Full normalization is done in the next section.
-fits = zeros( numel(fitaxis), nStates );
+% FIXME: no corrections are made for missed events!
+fits = zeros( numel(fitaxis), nClasses );
 
 if isfield(params,'model') && ~isempty(params.model)
-    % Calculate mean dwells times, optionally removing zero-state paths.
-    rates = params.model.rates;
-    rates( logical(eye(size(rates))) ) = 0;  %remove diagonals
     
-    if params.removeBlinks
-        rates = rates(2:end,2:end);
-    end
+    m  = params.model;
+    Q  = m.calcQ();               %Normalized rate matrix (rows sum to zero)
+    p0 = m.calcEquilibriumP0();   %State probabities at equilibrium
     
-    tau = zeros(nStates,1);
-    for i=1:nStates,
-        tau(i) = 1 ./ sum( rates(i,:) );
-    end
-    
-    for state=1:nStates,
-        if params.logX,
-            z = fitaxis - log( tau(state) );
-            e = exp( z - exp(z) );
-            fits(:,state) = max(histograms{1,state}) * e/max(e);  %FIXME: can the correct value be calculated?
-        else
-            e = exppdf(fitaxis, tau(state));
-            fits(:,state) = e/max(e);
+    for class=1:nClasses,
+        inclass = m.class==class;  %true for states in the same class as the current state
+        Na = sum(inclass);         %number of states in this class
+
+        % Time constants are the eigenvalues of the submatrix of Q that
+        % contains all states in the current class (Qaa). See pg. 603.
+        Qaa = Q(inclass,inclass);
+        [X,lambda] = eig(-Qaa);
+        tau = 1./diag(lambda);
+        
+        % Pre-exponential terms (sum to 1)
+        Qfa = Q(~inclass,inclass); %rates into current class
+        phi0 = ( p0(~inclass) * Qfa )  ./  ( p0(~inclass) * Qfa * ones(Na,1) );
+        Y = X^-1;
+        a = zeros(Na,1);
+        for i=1:Na
+            A = X(:,i) * Y(i,:);  %spectral matrices. See eq. 89, pg. 616
+            a(i) = -tau(i) * phi0 * A * Qaa * ones(Na,1);  %eq. 41, pg. 604
         end
+
+        % Calculate exponential mixture distribution
+        expdist = 0;
+        for i=1:Na
+            if params.logX
+                % Log scale: Sigowrth & Sine (1987) Biophys. J 52, p. 1047.
+                z = fitaxis - log( tau(i) );
+                expdist = expdist + a(i) * exp( z - exp(z) );
+            else
+                % Linear exponential decay
+                expdist = expdist + a(i) * exp( -fitaxis ./ tau(i) );
+            end
+        end
+        
+        % Scale to data. FIXME
+        fits(:,class) = max(histograms{1,class}) * expdist/max(expdist);
     end
 end
-
 
 if params.logX,
     dwellaxis = exp(dwellaxis);
     fitaxis = exp(fitaxis);
+end
+
+% Remove dark state
+if params.removeBlinks
+    histograms(:,1) = [];
+    fits(:,1) = [];
 end
 
 
@@ -302,9 +324,12 @@ else
     lineStyle = '-';
 end
 
-% Draw survival plots and fit lines, if model parameters given.
-colors = QubModelViewer.colors( (1+params.removeBlinks):end );
+% Use QuB model colors for state lines for consistency.
+colors = QubModelViewer.colors;
+if params.removeBlinks, colors(1)=[]; end
 
+% Draw dwell-time histograms for each state
+nStates = size(histograms,2);
 for state=1:nStates
     
     % Establish axes to plot in for all possible input choices
