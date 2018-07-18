@@ -31,17 +31,6 @@ function [idlTotal,optModel,LL] = BWoptimize( observations, sampling, model, par
 
 %   Copyright 2007-2018 Cornell University All Rights Reserved.
 
-% Format of the A-matrix:
-%   1..N = lowest to highest FRET values (same order as mu, sigma, p0).
-%   A(2,3) = Prob( i=2, j=3 )
-%   A(3)   = A(3->1)  -- because MATLAB is column major
-%
-%   1->1  1->2  1->3  ..  1->N
-%   2->1  2->2  2->3  ..  2->N
-%   3->1  3->2  3->3  ..  3->N
-%    ..    ..    ..   ..  .. 
-%   N->1  N->2  N->3  ..  N->N
-%
 
 
 %% ----------- PARSE INPUT PARAMETER VALUES -----------
@@ -110,15 +99,16 @@ p0 = to_row(model.p0);
 [mu,mu_start]       = deal( to_row(model.mu) );
 [sigma,sigma_start] = deal( to_row(model.sigma) );
 
-% Run Baum-Welch optimization iterations until convergence
 waitbar(0,wbh,'Running Baum-Welch...');
 
 for n = 1:params.maxItr
+    % Reestimate model parameters using the Baum-Welch algorithm
     [LL(n),A,mu,sigma,p0] = BWiterate(observations,A,mu,sigma,p0,M);
    
-    if any(isnan(A(:))) || any(isnan(mu)) || any(isnan(sigma)) || any(isnan(p0))
+    if any(isnan(A(:))) || any( isnan(mu) | isnan(sigma) | isnan(p0))
         disp('Warning: NaN parameter values in BWoptimize');
     end
+    if any(A<0 | p0<0), error('Invalid A or p0'); end
   
     % Enforce crude re-estimation constraints.
     % FIXME: are there better ways apply constraints? 
@@ -147,6 +137,12 @@ if n>=params.maxItr
 end
 close(wbh);
 
+
+% Return idealized traces if requested
+idlTotal = zeros( origSize );
+idl = idealize( observations, [to_col(mu) to_col(sigma)], p0, A );
+idlTotal( ~params.exclude, :) = idl;
+
 % Save results
 optModel = copy(model);
 optModel.mu    = mu;
@@ -156,14 +152,6 @@ A( logical(eye(size(A))) ) = 0;
 optModel.rates = A/(sampling/1000);
 LL = LL(end);
 
-% Return idealized traces if requested
-if nargin>=2
-    idlTotal = zeros( origSize );
-    fretModel = [to_col(optModel.mu) to_col(optModel.sigma)];
-    idl = idealize( observations, fretModel, optModel.p0, model.calcA(sampling/1000) );
-    idlTotal( ~params.exclude, :) = idl;
-end
-
 
 end %function BWoptimize
 
@@ -172,134 +160,56 @@ end %function BWoptimize
 
 %% ----------- BAUM-WELCH PARAMETER ESTIMATION ROUTINE -----------
 
-function [LLtot,eA,eMU,eSIG,p0s] = BWiterate( observations, A, mus, sigmas, p0s, M )
-% Performs one iteration of adapted Baum-Welch algorithm to return log-likelihood
-% and re-estimated model parameters [A,mus,sigmas,p0s] as well as overall fractional
-% occupancy of each state ps (which is not a model term but we get for
-% free)
+function [LLtot,A,mu,sigma,p0] = BWiterate( observations, A, mu, sigma, p0, M )
+% Optimize model parameters using the Baum-Welch algorithm
 
-assert( all(A(:)>=0), 'Invalid A matrix' );
-assert( all(p0s(:)>=0), 'Invalid p0 vector' );
-
-Nstates = length(mus);
-
-% Get the photobleaching point of each trace
-traceLengths = zeros( 1,size(observations,1) );
-
-for i=1:size(observations,1),
-    trace = observations(i,:);
-    NT = find(trace~=0, 1,'last');
-    if isempty(NT), NT=0; end
-    traceLengths(i) = NT;
-end
-
-% Remove all traces that are very short
-observations = observations( traceLengths>=5, : );
-traceLengths = traceLengths( traceLengths>=5 );
 nTraces = size(observations,1);
-
-% intialize variables assigned in loop
-LLtot = 0;
-p0tot = zeros(1,Nstates);
-Etot  = zeros(Nstates,Nstates);
-lambda_cell = cell(nTraces,1);
-
+[LLtot, p0tot, Etot] = deal(0);
+gamma_tot = [];
+obs_tot = [];
 
 parfor (n=1:nTraces, M)
-  NT = traceLengths(n);
+% for n=1:nTraces
   obs = observations(n,:);
+  
+  % Remove donor bleaching at the end of each trace
+  nFrames = find(obs~=0, 1,'last')-1;
+  if ~isempty(nFrames)
+      if nFrames<5, continue; end  %ignore very short traces
+      obs = obs(1:nFrames);
+  end
 
   % Calculate transition probabilities at each point in time using the
-  % forward/backward algorithm. LLc1 is the final backward LL.
-  [E,alphas,LLc1] = BWtransition( obs(1:NT), A, mus, sigmas, p0s );
+  % forward/backward algorithm.
+  [E,gamma,LL] = BWtransition( obs, A, mu, sigma, p0 );
+  LLtot = LLtot + LL;
+  Etot = Etot+E;
+  p0tot = p0tot + gamma(1,:);
   
-%   if any( isnan(LLc1) )
-%       fprintf('BW:NaN: NaN found at %d\n',n);
-%       break;
-%   end
-  
-  LLtot = LLtot + log(sum(alphas(NT,:)))+LLc1;
+  % Accumulate trace data and most likely state assignments for
+  % emission parameter re-estimation below.
+  gamma_tot = [gamma_tot; gamma];
+  obs_tot = [obs_tot obs];
+end
+p0 = p0tot/nTraces;
+LLtot = LLtot/nTraces;
 
-  % The re-estimated A matrix is simply the average of the transition
-  % probability all every point in the dataset
-  % (normalization at end of loop)
-  lambdas = zeros(NT-1,Nstates);
-  for t = 1:NT-1
-    Etot  = Etot + E{t};
-	lambdas(t,:) = sum(E{t},2); %probability of the state at time=t
-  end
-  p0tot = p0tot + lambdas(1,:); %unnormalized initial probability
-  
-  lambda_cell{n} = lambdas;
+% Reestimate transition probability matrix (A).
+% SUM_t(E) is the expected number of each type of transition.
+A = Etot ./ sum(Etot,2);   %normalized so rows sum to 1
+
+% Reestimate emmission parameters (stdev and mean).
+% Weighted average using gamma(t,i) = P(state i at time t) weights.
+for n = 1:size(gamma_tot,2)  %for each state
+  gamma = gamma_tot(:,n)/sum(gamma_tot(:,n)); %normalized weights
+
+  mu(n) = obs_tot * gamma;                      % =sum(data_i * gamma_i)
+  sigma(n) = sqrt( (obs_tot-mu(n)).^2 * gamma );   % 1xN * Nx1 = 1x1
 end
 
+% Prevent stdev from converging to zero (e.g., single data point in state).
+sigma = max(0.02,sigma);
 
-% lamb_tot = unnormalized probability of being in state i at time t
-% with the concatinated observation sequence (Osave)
-totalLength = sum(traceLengths-1);  %size of output array
-starts = [1 cumsum(traceLengths-1)]-1;  %index into output array
-
-lamb_tot = zeros(totalLength,Nstates);
-Osave = zeros( totalLength, 1 );
-
-for n=1:nTraces,
-   NT = traceLengths(n);
-   lamb_tot( starts(n)+(1:NT-1), : ) = lambda_cell{n};
-   Osave( starts(n)+(1:NT-1) ) = observations( n, 1:NT-1 );
-end
-% lamb_tot = cat(1,lambda_cell{:});  %why doesn't this work?
-
-
-% Calculate total occupancy of each state
-% ps = sum(lamb_tot);
-% ps = ps/sum(ps);
-
-
-% Re-estimate rate parameters (A matrix)
-% Enorm contains information only from the final trace and therefor
-% would be a poor way to do this, but that's the way it came.
-
-% This is calculated by summing the transition probability matrix
-% (trellice) at every time point and normalizing.
-for m = 1:Nstates
-    Etot(m,:) = Etot(m,:)/sum(lamb_tot(:,m));
-end
-eA = Etot;
-
-
-% Re-estimate emmission parameters (stdev and mean).
-% Applies a weight (lambda_i = prob. of being in state i) to each
-% datapoint to generate the mean and stdev for each state.
-% Weights comes from forward/backward probabilities.
-Osave = Osave';
-eMU = zeros(1,Nstates);
-eSIG = zeros(1,Nstates);
-
-for n = 1:Nstates
-  gamma = lamb_tot(:,n)/sum(lamb_tot(:,n)); %normalized weights
-
-  eMU(n) = Osave * gamma;                      % =sum(Osave_i * z_i)
-  eSIG(n) = sqrt( (Osave-eMU(n)).^2 * gamma );   % 1xN * Nx1 = 1x1
-  
-  if isnan(eSIG(n)) || isnan(eMU(n)),
-    fprintf('BW:NaN: NaN found at %d\n',n);
-    break;
-  end
-end
-
-% Maintain an absolute minimum for sigma to prevent errors.
-% This happens when only a single datapoint contributes to parameter
-% estimates -- there is no variance.
-% Ideally, a higher probability should be assigned to the solution
-% with a state that is not occupied...
-eSIG = max(0.02,eSIG);
-
-
-p0s = p0tot/nTraces;
-LLtot = LLtot/nTraces;  % LL per trial
-
-assert( all(eA(:)>=0), 'Invalid estimated A matrix' );
-assert( all(p0s>=0), 'Invalid estimated p0 vector' );
 
 
 end %function BWiterate

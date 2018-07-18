@@ -1,56 +1,85 @@
-function [eps,alphas,LLcarry] = BWtransition( O, A, mus, sigmas, p0 )
+function [Etot,gamma,LL] = BWtransition( data, A, mu, sigma, p0 )
+% Forward-backward algorithm for hidden Markov modeling
 %
-% Usage: [eps,alphas,LLcarry] = BWtransition( O, A, mus, sigmas, p0 )
+%   [eps,alphas,LL] = BWtransition( DATA, A, mu, sigma, p0 )
+%   DATA is a vector of experimental data values (FRET trace).
+%   A is the transition probability matrix.
+%   MU/SIGMA are the mean/stdev of each state's Gaussian emission distribution.
+%   P0 are the initial probabilities of each state.
 %
-% Calculates probability of transition between states for each time
-% point given model [A,mus,sigmas,p0] following adapted Baum-Welch algorithm
-%
-% DAB 2008.3.30
+%   See also: batchKinetics, bwOptimize, forwardBackward.
 
-%   Copyright 2008-2015 Cornell University All Rights Reserved.
+%   Copyright 2008-2018 Cornell University All Rights Reserved.
 
 
-NT = length(O);
-Nstates = size(A,1);
+narginchk(5,5);
+nargoutchk(1,3);
+p0 = reshape(p0, 1, numel(p0));  %ensure row vector
 
-% Calculate emmission probabilities at each timepoint
-% if the emmission came from each of the posssible states
-% C = 0.3989422804014327./sigmas; %gaussian leading coefficient
-% C = 1./sqrt(2*pi*sigmas); %gaussian leading coefficient
-% D = (2*sigmas.^2);  %exponential denominator
 
-Bx = zeros( NT,Nstates );
-for i=1:Nstates
-%     Bx(:,i) = C(i) .* exp(-  ((O-mus(i)).^2) ./ D(i)  );
-    Bx(:,i) = normpdf( O, mus(i), sigmas(i) )/6;
+%% Calculate emmission probabilities at each timepoint
+% The division by 6 keeps the observation probabilities <1 (negative LL).
+nFrames = numel(data);
+nStates = size(A,1);
+
+Bx = zeros(nFrames, nStates);
+for i=1:nStates
+    Bx(:,i) = normpdf( data, mu(i), sigma(i) )/6;
 end
 
-% Calculate forward (alpha) and backward (beta) probabilities
-% forward  = prob. of obs. up to time t and the current state is i
-% backward = prob. of obs. following time t and the current state is i
-[alphas LLcarry] = BWforward(Bx,A,p0);
-[betas LL2] = BWbackward(Bx,A);
+
+%% Forward probabilities
+% alpha(t,i) = P( observations 1..t & state(t)=i | model )
+alpha = zeros(nFrames, nStates);
+nrm = zeros(nFrames,1);
+
+alpha(1,:) = p0 .* Bx(1,:);
+nrm(1) = 1./sum(alpha(1,:));
+alpha(1,:) = alpha(1,:) * nrm(1);
+
+for t=2:nFrames
+    %alpha(t,j) = SUM_i( alpha(t-1,i)*A(i,j) ) * B(t,j)
+    alpha(t,:) = (alpha(t-1,:) * A) .* Bx(t,:);
+
+    nrm(t) = 1./sum(alpha(t,:));  %normalization prevents float underflow
+    alpha(t,:) = alpha(t,:) * nrm(t);
+end
+
+LL = -sum( log(nrm) );
 
 
-% Don't try to optimize this loop
-% Epsilon = prob. of getting to state i (alpha) with state j following (beta)
-%   at time t, with the transition between these states and the emission
-%   at that state (prob. of observation) included.
-%   probability of being in state i at time t and going to state j,
-%   given the current model 
-% 
-% In other words, Epsilon is a the transition probability matrix at time=t
-%   given complete knowledge of the sequence preceeding and following.
+%% Backward probabilities
+% beta(t,i) = P( observations t+1..end | state(t)=i & model )
+beta = zeros(nFrames, nStates);
+beta(nFrames,:) = 1;
 
-eps = cell(NT-1,1);
-es = zeros(Nstates,Nstates);
-for t = 1:NT-1  %for each datapoint
-  for i = 1:Nstates
-    for j = 1:Nstates  %each possible start/end state pair
-      es(i,j) = alphas(t,i)*betas(t+1,j) * A(i,j) .* Bx(t+1,j);
+for t = nFrames-1:-1:1
+    %beta(t,i) = SUM_j(  A(i,j) * B(t+1,j) * beta(t+1,j)  )
+    beta(t,:) = A *  ( beta(t+1,:) .* Bx(t+1,:) )'  * nrm(t);
+end
+
+
+%% Calculate probability of being in each state at each time:
+% gamma(t,i) = P( state(t)=i | all obseravtions & model )
+% SUM_t(gamma) is the expected number of times each state is occupied.
+% Summing E terms below is equivalent, but slower.
+gamma = alpha .* beta;
+gamma = bsxfun( @rdivide, gamma, sum(gamma,2) );  %normalized at each time t
+
+
+%% E = Joint prob. of being in state i at time t AND state j and time t+1.
+% In other words, the transition probability t->t+1 given all observed data.
+% SUM_t(E) is the expected number of each type of transition.
+% See eq. 37 of Rabiner 1989.
+Etot = zeros(nStates);
+es = zeros(nStates);
+
+for t=1:nFrames-1  %for each datapoint
+    %E(t,i,j) = alpha(t,i) * A(i,j) * B(t+1,j) * beta(t+1,j) / norm(E(i,j))
+    for i=1:nStates
+        es(i,:) = alpha(t,i) * A(i,:) .* Bx(t+1,:) .* beta(t+1,:);
     end
-  end
-  eps{t} = es / sum(es(:)); %normalize
+    Etot = Etot + es / sum(es(:)); %normalize
 end
 
-% eps should be a 3D matrix instead of cell array for speed!
+
