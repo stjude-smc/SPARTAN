@@ -36,9 +36,9 @@ dt = data.sampling/1000;  %time resolution in seconds
 
 
 % Define default optional arguments, mostly taken from fmincon
-options.maxIter  = 1000;
+options.maxIter  = 200;
 options.convLL   = 10^-6;   %OptimalityTolerance in fmincon (sort of)
-options.convGrad = 10^-10;  %StepTolerance in fmincon
+options.convGrad = 10^-8;  %StepTolerance in fmincon
 options.verbose  = false;
 if nargin>=4
     options = mergestruct(options, optionsInput);
@@ -52,16 +52,15 @@ if options.verbose, fminopt.Display='iter'; end
 
 % Define optimization function and initial parameter values.
 % NOTE: mplIter optimizes the variance (sigma^2).
-input = data.fret(1,:);
-optFun = @(x)mplIter(input, dt, model.p0, model.class, x);
+optFun = @(x)mplIter(data.fret, dt, model.p0, model.class, x);
 x0 = [ model.mu(:)'  model.sigma(:)'.^2  model.rates(~I)' ];
 
 % Constrained version.
 % NOTE: fmincon doesn't like x0=lb or x0=ub in any parameter and will 'fix'
 % things in ways that can break the bounds, so I added -eps to the minimum rate
 % in hopes that the actual minimum is 0.
-lb = [  -ones(1,nStates)  0.01^2*ones(1,nStates)  -eps*ones(1,nRates) ];
-ub = [ 2*ones(1,nStates)  0.3^2 *ones(1,nStates)  10/dt*ones(1,nRates) ];
+lb = [    -ones(1,nStates)  0.01^2*ones(1,nStates)   -eps*ones(1,nRates) ];
+ub = [ 1.5*ones(1,nStates)  0.15^2*ones(1,nStates)  3/dt*ones(1,nRates) ];
 [optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,ub,[],fminopt );
 
 % Save results
@@ -77,7 +76,6 @@ optModel.rates(I) = 0;
 
 
 end %function mplOptimize
-
 
 
 
@@ -100,12 +98,12 @@ switch state
           
     case 'done'
         % Once optimizer completes, plot how parameters change over iterations
-        X = X(1:optimValues.iteration+1,:);
+        X = X(1:optimValues.iteration,:);
         
         figure;
         for i=1:numel(x)
             ax(i) = subplot(1,numel(x),i);
-            plot(1:optimValues.iteration+1, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+            plot(1:optimValues.iteration, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
             if i==1
                 xlabel('Iteration');
                 ylabel('Param. Value');
@@ -113,7 +111,7 @@ switch state
             %title('mu2');
         end
         linkaxes(ax, 'x');
-        xlim(ax(1), [1,optimValues.iteration+1]);
+        xlim(ax(1), [1,optimValues.iteration]);
 end
 
 
