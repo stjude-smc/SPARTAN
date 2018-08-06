@@ -35,7 +35,7 @@ function [idlTotal,optModel,LL] = BWoptimize( observations, sampling, model, par
 
 %% ----------- PARSE INPUT PARAMETER VALUES -----------
 %FIXME: use inputParser
-
+tic;
 narginchk(3,4);
 nargoutchk(0,2);
 
@@ -80,13 +80,6 @@ end
 
 %% -----------------------  RUN BAUM-WELCH  ----------------------- %%
 % Launch parallel pool for processig larger data sets in parallel.
-wbh = waitbar(0,'Starting parallel pool...');
-if numel(observations)>1e5 && cascadeConstants('enable_parfor'),
-    pool = gcp;
-    M = pool.NumWorkers;
-else
-    M = 0;
-end
 
 % Initialize parameter values
 origSize = size(observations);  %before exlusions
@@ -99,16 +92,16 @@ p0 = to_row(model.p0);
 [mu,mu_start]       = deal( to_row(model.mu) );
 [sigma,sigma_start] = deal( to_row(model.sigma) );
 
-waitbar(0,wbh,'Running Baum-Welch...');
+wbh = waitbar(0,'Running Baum-Welch...');
 
 for n = 1:params.maxItr
     % Reestimate model parameters using the Baum-Welch algorithm
-    [LL(n),A,mu,sigma,p0] = BWiterate(observations,A,mu,sigma,p0,M);
+    [LL(n),A,mu,sigma,p0] = BWiterate(observations,A,mu,sigma,p0);
    
     if any(isnan(A(:))) || any( isnan(mu) | isnan(sigma) | isnan(p0))
         disp('Warning: NaN parameter values in BWoptimize');
     end
-    if any(A<0 | p0<0), error('Invalid A or p0'); end
+    if any(A(:)<0) || any(p0<0), error('Invalid A or p0'); end
   
     % Enforce crude re-estimation constraints.
     % FIXME: are there better ways apply constraints? 
@@ -152,6 +145,8 @@ A( logical(eye(size(A))) ) = 0;
 optModel.rates = A/(sampling/1000);
 LL = LL(end);
 
+disp(toc);
+
 
 end %function BWoptimize
 
@@ -160,7 +155,7 @@ end %function BWoptimize
 
 %% ----------- BAUM-WELCH PARAMETER ESTIMATION ROUTINE -----------
 
-function [LLtot,A,mu,sigma,p0] = BWiterate( observations, A, mu, sigma, p0, M )
+function [LLtot,A,mu,sigma,p0] = BWiterate( observations, A, mu, sigma, p0 )
 % Optimize model parameters using the Baum-Welch algorithm
 
 nTraces = size(observations,1);
@@ -168,8 +163,7 @@ nTraces = size(observations,1);
 gamma_tot = [];
 obs_tot = [];
 
-parfor (n=1:nTraces, M)
-% for n=1:nTraces
+for n=1:nTraces
   obs = observations(n,:);
   
   % Remove donor bleaching at the end of each trace
@@ -196,7 +190,7 @@ LLtot = LLtot/nTraces;
 
 % Reestimate transition probability matrix (A).
 % SUM_t(E) is the expected number of each type of transition.
-A = Etot ./ sum(Etot,2);   %normalized so rows sum to 1
+A = bsxfun(@rdivide, Etot, sum(Etot,2));   %normalized so rows sum to 1
 
 % Reestimate emmission parameters (stdev and mean).
 % Weighted average using gamma(t,i) = P(state i at time t) weights.
