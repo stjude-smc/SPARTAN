@@ -45,21 +45,36 @@ if nargin>=4
 end
 
 % Construct options for fmincon.
-fminopt = optimoptions('fmincon', 'Display','iter', 'SpecifyObjectiveGradient',true, ...
-                       'MaxIterations',options.maxIter, 'StepTolerance',options.convGrad, ...
-                       'OptimalityTolerance',options.convLL, 'OutputFcn',@outfun);
-if options.verbose, fminopt.Display='iter'; end
+fminopt = optimoptions('fmincon');
+% if options.verbose
+    fminopt.Display='iter';
+    fminopt.OutputFcn = @outfun;
+% end
+
+try
+    % Legacy version for MATLAB R2015a and before
+    fminopt.MaxIter = options.maxIter;
+    fminopt.TolX    = options.convGrad;
+    fminopt.TolFun  = options.convLL;
+    fminopt.GradObj = 'on';
+catch
+    fminopt.MaxIterations            = options.maxIter;
+    fminopt.StepTolerance            = options.convGrad;
+    fminopt.OptimalityTolerance      = options.convLL;
+    fminopt.SpecifyObjectiveGradient = 'true';
+end
 
 % Define optimization function and initial parameter values.
 % NOTE: mplIter optimizes the variance (sigma^2).
-optFun = @(x)mplIter(data.fret, dt, model.p0, model.class, x);
+fret = data.fret(1:100,:);
+optFun = @(x)mplIter(fret, dt, model.p0, model.class, x);
 x0 = [ model.mu(:)'  model.sigma(:)'.^2  model.rates(~I)' ];
 
 % Constrained version.
 % NOTE: fmincon doesn't like x0=lb or x0=ub in any parameter and will 'fix'
 % things in ways that can break the bounds, so I added -eps to the minimum rate
 % in hopes that the actual minimum is 0.
-lb = [    -ones(1,nStates)  0.01^2*ones(1,nStates)   -eps*ones(1,nRates) ];
+lb = [    -ones(1,nStates)  0.01^2*ones(1,nStates)  -eps*ones(1,nRates) ];
 ub = [ 1.5*ones(1,nStates)  0.15^2*ones(1,nStates)  3/dt*ones(1,nRates) ];
 [optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,ub,[],fminopt );
 

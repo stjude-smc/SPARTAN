@@ -60,6 +60,7 @@ for s=1:nStates
 end
 
 
+
 %% Calculate log likelihood and partial derivatives for each trace.
 LL = 0;
 dLL_mu     = zeros(1, numel(mu));
@@ -74,62 +75,18 @@ for n=1:nTraces
     nFrames = numel(trace);
     if nFrames<10, continue; end  %skip extremely short traces
     
-    % Calculate emmission probabilities at each timepoint.
-    % The factor of 100 ensures that observation probabilities are always less than
-    % 1.0 (so log likelihood sign doesn't invert). This is the effective number of
-    % bins for the distribution.
-    observProb = zeros(nFrames, nStates);  %B matrix
+    % Calculate emmission probabilities at each timepoint
+    observProb = zeros(nFrames, nStates);
     for i=1:nStates
-        class = classidx(i);
-        observProb(:,i) = normpdf( trace, mu(class), sigma(class) );
+        observProb(:,i) = exp(-0.5 * ((trace - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
     end
-    observProb = observProb+eps;  %avoid underflow to zero.
-
-
-    %% Calculate forward/backward probabilities and log likelihood
-    % Values are repeatedly scaled to prevent underflow of machine precision
-    % NOTE: X * diag(Y) = X .* Y if X and Y are vectors of same size/orientation.
-    % NOTE: this is the slowest step because of the direct iteration over frames.
-    %       Consider implementing only this part as a mex function.
-    % FIXME: identical to BWtransition. should combine.
-
-    % Forward probabilities
-    % alpha(t,i) = P( observations 1..t & state(t)=i | model )
-    alpha = zeros(nFrames, nStates);
-    nrm = zeros(nFrames,1);
-
-    alpha(1,:) = p0 .* observProb(1,:);
-    nrm(1) = 1./sum(alpha(1,:));
-    alpha(1,:) = alpha(1,:) * nrm(1);
-
-    for t=2:nFrames
-        %alpha(t,j) = SUM_i( alpha(t-1,i)*A(i,j) ) * B(t,j)
-        alpha(t,:) = (alpha(t-1,:) * transitionProb) .* observProb(t,:);
-
-        nrm(t) = 1./sum(alpha(t,:));  %normalization prevents float underflow
-        alpha(t,:) = alpha(t,:) * nrm(t);
-    end
-
-    LL = LL + -sum( log(nrm) );
-
-    % Backward probabilities.
-    % beta(t,i) = P( observations t+1..end | state(t)=i & model )
-    beta = zeros(nFrames, nStates);
-    beta(nFrames,:) = 1;
-
-    for t=nFrames-1:-1:1
-        %beta(t,i) = SUM_j(  A(i,j) * B(t+1,j) * beta(t+1,j)  )
-        beta(t,:) = transitionProb * (observProb(t+1,:) .* beta(t+1,:))' * nrm(t);
-    end
-
-    % gamma(t,i) = P( state(t)=i | all obseravtions & model )
-    % SUM_t(gamma) is the expected number of times each state is occupied.
-    gamma = alpha .* beta;
-    gamma = bsxfun( @rdivide, gamma, sum(gamma,2) );  %normalized at each time t
-
-
-    %% Calculate partial derivatives of LL (see eq. 12-19)
+    observProb = observProb+eps;  %prevent rows of all zeros
     
+    % Get partial probabilities using the forward-backward algorithm
+    [LLtrace,alpha,beta,gamma] = BWtransition( p0, transitionProb, observProb );
+    LL = LL+LLtrace;
+    
+    % Calculate partial derivatives of LL (see eq. 12-19)
     % Gradient of initial probabilities can be calculated like this, but in 
     % practice optimizing this parameter isn't worth the effort. Instead, we 
     % (plan to) calculate it from the final backward probabilities beta(:,1). FIXME
@@ -176,8 +133,6 @@ end
 % diagonal elements are implied.
 % Constant factors comes form the normalization for normpdf above.
 dLL = [dLL_mu dLL_sigma2 dLL_k(~I)'];
-
-% dLL = dLL*100;
 
 % Return opposite of LL and dLL since to convert maximizing LL into minimizing
 % -LL for use with fminunc/fmincon.
