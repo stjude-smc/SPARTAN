@@ -45,6 +45,8 @@
 #ifdef MEX_FCN
 #include "mex.h"
 #include "matrix.h"
+#define NUMEL(X) mxGetNumberOfElements(X)
+#define ISVECTOR(X) ( mxGetN(X)!=1 && mxGetN(X)!=1 )
 #endif
 
 #ifndef NDEBUG
@@ -57,13 +59,16 @@ using namespace Eigen;
 //prevent Eigen from allocating anything for debugging.
 //Eigen::set_is_malloc_allowed(false);
 
+const double PI=3.141592653589793238463;
 
 
 
 // Calculate forward probabilities
 //double* pAlpha, double* pBeta, double* pGamma, double* pE )  //outputs
-double forwardBackward(  const double* pp0, const double* pA, const double* pB, \
-                         const int nStates, const int nObs, \
+//(data, mu, sigma, p0, A);
+double forwardBackward(  const double* pData, const double* pMu, const double* pSigma, \
+                         const double* pp0,   const double* pA, \
+                         const int nStates,   const int nObs, \
                          double* pAlpha, double* pBeta, double* pGamma, double* pE)
                          
 {
@@ -71,17 +76,25 @@ double forwardBackward(  const double* pp0, const double* pA, const double* pB, 
     
     // Create Eigen matrix wrappers around input pointers to Matlab data.
     // Note that both Eigen and Matlab are column major.
+    Map<const ArrayXd> data(pData, nObs);
     Map<const RowVectorXd> p0(pp0, nStates);
     Map<const MatrixXd> A(pA, nStates, nStates);
-    Map<const MatrixXd> B(pB, nObs, nStates);
     
+    
+    // Calculate emission probabilities (B matrix).
+    // The small constant avoid rows that sum to zero
+    // Matlab: Bx(:,i) = exp(-0.5 * ((data - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
+    MatrixXd B(nObs, nStates);
+    
+    for( int i=0; i<nStates; ++i )
+        B.col(i) = exp(-0.5 * square((data-pMu[i])/pSigma[i])) / (sqrt(2*PI) * pSigma[i])  + 1e-15;
     
     // Calculate forward probability for each timepoint in the series.
     // alpha(t,i) = P( observations 1..t & state(t)=i | model )
     // alpha(t,j) = SUM_i[ alpha(t-1,i) * A(i,j) * B(t,j) ]
     if(pAlpha==NULL) return LL;
     Map<MatrixXd> alpha( pAlpha, nObs,nStates );
-    VectorXd nrm(nObs);  //scaling coefficients
+    ArrayXd nrm(nObs);  //scaling coefficients
     
     alpha.row(0) = p0.cwiseProduct( B.row(0) );
     nrm(0) = 1/alpha.row(0).sum();
@@ -96,7 +109,7 @@ double forwardBackward(  const double* pp0, const double* pA, const double* pB, 
         nrm(t) = 1/alpha.row(t).sum();
         alpha.row(t) = alpha.row(t) * nrm(t);
     }
-    LL = -log(nrm.array()).sum();  //log likelihood = -sum( log(nrm) )
+    LL = -log(nrm).sum();
     
     
     // Calculate backward probabilities
@@ -117,6 +130,8 @@ double forwardBackward(  const double* pp0, const double* pA, const double* pB, 
     // Calculate probability of being in each state at each time:
     // gamma(t,i) = P( state(t)=i | all obseravtions & model )
     // SUM_t(gamma) is the expected number of times each state is occupied.
+    // NOTE: converting these statements to the equivalent ArrayXXd version
+    // produces slightly different results for unknown reasons.
     if(pGamma==NULL) return LL;
     Map<MatrixXd> gamma(pGamma, nObs,nStates);
     
@@ -148,8 +163,9 @@ double forwardBackward(  const double* pp0, const double* pA, const double* pB, 
 
 
 //Matlab entry point
-//FORMAT: [LL,alpha,beta,gamma,E] = forwardBackward( p0, A, B )
+//FORMAT: [LL,alpha,beta,gamma,E] = forwardBackward( data, mu, sigma, p0, A )
 //
+// FIXME: does not support degenerate states!
 // FIXME: for now we require alpha output. but may only want LL.
 //
 //<plhs> contains left-hand-side (<nlhs> of them), for return value
@@ -160,29 +176,31 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     double LL = 0;
     
     //Verify number of input/output arguments
-    if( nrhs!=3 )
+    if( nrhs!=5 )
         mexErrMsgTxt( "Incorrect number of input arguments" );
     
     if( nlhs>5 || nlhs<2 )
         mexErrMsgTxt( "Incorrect number of output arguments" );
     
-    mwSize nObs    = mxGetM(prhs[2]);  //number of frames in input data
-    mwSize nStates = mxGetN(prhs[2]);
+    mwSize nObs    = NUMEL(prhs[0]);  //number of frames in input data
+    mwSize nStates = NUMEL(prhs[3]);  //number of kinetic states
+    //mwSize nClass = NUMEL(prhs[1]);  //number of distinct FRET values
     
     
     //Verify all arguments are valid and have matching dimensions
+    for( int i=0; i<nrhs; ++i )
+        if( !mxIsDouble(prhs[i]) || mxIsComplex(prhs[i]) )
+            mexErrMsgTxt( "All arguments must be real doubles." );
+    
+    if( !ISVECTOR(prhs[0]) || !ISVECTOR(prhs[1]) || !ISVECTOR(prhs[2]) )
+        mexErrMsgTxt( "Data, mu, and sigma must be vectors." );
+    
     if( nStates<1 || nObs<1 )
         mexErrMsgTxt( "Data or model empty?" );
     
-    if( !mxIsDouble(prhs[0]) || !mxIsDouble(prhs[1]) || !mxIsDouble(prhs[2]) || \
-        mxIsComplex(prhs[0]) || mxIsComplex(prhs[1]) || mxIsComplex(prhs[2]) )
-        mexErrMsgTxt( "All argument must be real doubles" );
-    
-    if( mxGetM(prhs[0])!=1 || mxGetN(prhs[0])!=nStates )
-        mexErrMsgTxt( "Argument 1 (p0) size is not correct. Should be a 1 x nStates row vector" );
-    
-    if( mxGetM(prhs[1])!=nStates || mxGetN(prhs[1])!=nStates )
-        mexErrMsgTxt( "Argument 2 (transition probabilities) has an invalid size. Should be nStates x nStates" );
+    if( NUMEL(prhs[1])!=nStates  || NUMEL(prhs[2])!=nStates   || \
+        mxGetM(prhs[4])!=nStates || mxGetN(prhs[4])!=nStates  )
+        mexErrMsgTxt( "Parameter size mismatch: number of states not equal. (Degenerate states not supported)" );
 
     
     //Allocate output arrays
@@ -199,20 +217,22 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     
     //Run the forward backward algorithm, save results into output pointers.
     try {
-        LL = forwardBackward( mxGetPr(prhs[0]), mxGetPr(prhs[1]), \
-                              mxGetPr(prhs[2]), nStates, nObs, \
+        //data, mu, sigma, p0, A, nStates, nObs, alpha, beta, gamma, E.
+        LL = forwardBackward( mxGetPr(prhs[0]), mxGetPr(prhs[1]), mxGetPr(prhs[2]), \
+                              mxGetPr(prhs[3]), mxGetPr(prhs[4]), nStates, nObs,    \
                               pAlpha, pBeta, pGamma, pE );
     } catch (const std::exception& e) {
         // Gracefully catch errors in Eigen (presumably only in debug mode).
         // Requires the eigen_assert declaration above.
         std::ostringstream fmt;
-        fmt << "forwardBackward internal failure: " << e.what();
+        fmt << "forwardBackward.mex internal failure: " << e.what();
         mexErrMsgTxt( fmt.str().c_str() );
     }
     
     plhs[0] = mxCreateDoubleScalar(LL);
     return;
 }
+
 #endif
 
 

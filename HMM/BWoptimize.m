@@ -118,7 +118,7 @@ for n = 1:params.maxItr
     
 %     if ~params.quiet
         fprintf( '   Iter %d: %.2e %.2e\n', n, LL(n), dL);
-%         disp( [mu' sigma' p0' A] );
+        disp( [mu' sigma' p0' A] );
 %     end
     
     % Check for convergence
@@ -175,17 +175,21 @@ for n=1:nTraces
 
   % Calculate transition probabilities at each point in time using the
   % forward/backward algorithm.
-  [E,gamma,LL] = BWtransition( obs, A, mu, sigma, p0 );
+  [LL,~,~,gamma,E] = BWtransition( obs, A, mu, sigma, p0 );
+  
   LLtot = LLtot + LL;
   Etot = Etot+E;
   p0tot = p0tot + gamma(1,:);
   
   % Accumulate trace data and most likely state assignments for
   % emission parameter re-estimation below.
-  gamma_tot = [gamma_tot; gamma];
-  obs_tot = [obs_tot obs];
+  gamma_tot = [gamma_tot gamma'];    %#ok<AGROW>
+  obs_tot = [obs_tot obs];           %#ok<AGROW>
 end
-p0 = p0tot/nTraces;
+gamma_tot = gamma_tot';
+
+% Normalize. FIXME: what about short traces that were skipped???
+p0    = p0tot/nTraces;
 LLtot = LLtot/nTraces;
 
 % Reestimate transition probability matrix (A).
@@ -194,11 +198,12 @@ A = bsxfun(@rdivide, Etot, sum(Etot,2));   %normalized so rows sum to 1
 
 % Reestimate emmission parameters (stdev and mean).
 % Weighted average using gamma(t,i) = P(state i at time t) weights.
-for n = 1:size(gamma_tot,2)  %for each state
-  gamma = gamma_tot(:,n)/sum(gamma_tot(:,n)); %normalized weights
+% FIXME: check whether mu and sigma should have simultaneous updates or not...
+gamma_tot = bsxfun(@rdivide, gamma_tot, sum(gamma_tot)); 
 
-  mu(n) = obs_tot * gamma;                      % =sum(data_i * gamma_i)
-  sigma(n) = sqrt( (obs_tot-mu(n)).^2 * gamma );   % 1xN * Nx1 = 1x1
+for n = 1:size(gamma_tot,2)  %for each state
+  mu(n) = obs_tot * gamma_tot(:,n);                      % =sum(data_i * gamma_i)
+  sigma(n) = sqrt( (obs_tot-mu(n)).^2 * gamma_tot(:,n) );   % 1xN * Nx1 = 1x1
 end
 
 % Prevent stdev from converging to zero (e.g., single data point in state).

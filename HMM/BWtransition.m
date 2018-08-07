@@ -1,4 +1,4 @@
-function [Etot,gamma,LL,alpha,beta] = BWtransition( data, A, mu, sigma, p0 )
+function [LL,alpha,beta,gamma,Etot] = BWtransition( data, A, mu, sigma, p0 )
 % Forward-backward algorithm for hidden Markov modeling
 %
 %   [eps,alphas,LL] = BWtransition( DATA, A, mu, sigma, p0 )
@@ -14,7 +14,15 @@ function [Etot,gamma,LL,alpha,beta] = BWtransition( data, A, mu, sigma, p0 )
 
 narginchk(5,5);
 nargoutchk(1,5);
-p0 = reshape(p0, 1, numel(p0));  %ensure row vector
+
+
+% If available, use the compiled version. Fallback on Matlab below otherwise.
+% try
+    data = double(data);
+    [LL,alpha,beta,gamma,Etot] = forwardBackward(data, mu, sigma, p0, A);
+    return;
+% catch
+% end
 
 
 %% Calculate emmission probabilities at each timepoint
@@ -24,15 +32,8 @@ nStates = size(A,1);
 
 Bx = zeros(nFrames, nStates);
 for i=1:nStates
-    Bx(:,i) = normpdf( data, mu(i), sigma(i) );
-end
-
-
-% Run compiled version if available. Fallback on Matlab otherwise.
-try
-    [LL,alpha,beta,gamma,Etot] = forwardBackward(p0, A, Bx);
-    return;
-catch
+    %Bx(:,i) = normpdf( data, mu(i), sigma(i) );
+    Bx(:,i) = exp(-0.5 * ((data - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
 end
 
 
@@ -41,6 +42,7 @@ end
 alpha = zeros(nFrames, nStates);
 nrm = zeros(nFrames,1);
 
+p0 = reshape(p0, 1, numel(p0));  %ensure row vector
 alpha(1,:) = p0 .* Bx(1,:);
 nrm(1) = 1./sum(alpha(1,:));
 alpha(1,:) = alpha(1,:) * nrm(1);
