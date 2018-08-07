@@ -56,38 +56,34 @@
 
 #include <Eigen/Dense>
 using namespace Eigen;
-//prevent Eigen from allocating anything for debugging.
-//Eigen::set_is_malloc_allowed(false);
 
-const double PI=3.141592653589793238463;
+//const double PI=3.141592653589793238463;
 
 
 
 // Calculate forward probabilities
 //double* pAlpha, double* pBeta, double* pGamma, double* pE )  //outputs
 //(data, mu, sigma, p0, A);
-double forwardBackward(  const double* pData, const double* pMu, const double* pSigma, \
-                         const double* pp0,   const double* pA, \
-                         const int nStates,   const int nObs, \
-                         double* pAlpha, double* pBeta, double* pGamma, double* pE)
+double forwardBackward( const double* pp0, const double* pA, const double* pB, \
+                        const int nStates,   const int nObs, \
+                        double* pAlpha, double* pBeta, double* pGamma, double* pE)
                          
 {
     double LL=0;
     
     // Create Eigen matrix wrappers around input pointers to Matlab data.
     // Note that both Eigen and Matlab are column major.
-    Map<const ArrayXd> data(pData, nObs);
     Map<const RowVectorXd> p0(pp0, nStates);
     Map<const MatrixXd> A(pA, nStates, nStates);
+    Map<const MatrixXd> B(pB, nObs, nStates);
     
     
     // Calculate emission probabilities (B matrix).
-    // The small constant avoid rows that sum to zero
-    // Matlab: Bx(:,i) = exp(-0.5 * ((data - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
-    MatrixXd B(nObs, nStates);
+    //Map<const ArrayXd> data(pData, nObs);
+    //MatrixXd B(nObs, nStates);
+    //for( int i=0; i<nStates; ++i )
+    //    B.col(i) = exp(-0.5 * square((data-pMu[i])/pSigma[i])) / (sqrt(2*PI) * pSigma[i])  + 1e-15;
     
-    for( int i=0; i<nStates; ++i )
-        B.col(i) = exp(-0.5 * square((data-pMu[i])/pSigma[i])) / (sqrt(2*PI) * pSigma[i])  + 1e-15;
     
     // Calculate forward probability for each timepoint in the series.
     // alpha(t,i) = P( observations 1..t & state(t)=i | model )
@@ -163,7 +159,7 @@ double forwardBackward(  const double* pData, const double* pMu, const double* p
 
 
 //Matlab entry point
-//FORMAT: [LL,alpha,beta,gamma,E] = forwardBackward( data, mu, sigma, p0, A )
+//FORMAT: [LL,alpha,beta,gamma,E] = forwardBackward( p0, A, B )
 //
 // FIXME: does not support degenerate states!
 // FIXME: for now we require alpha output. but may only want LL.
@@ -176,15 +172,14 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     double LL = 0;
     
     //Verify number of input/output arguments
-    if( nrhs!=5 )
+    if( nrhs!=3 )
         mexErrMsgTxt( "Incorrect number of input arguments" );
     
     if( nlhs>5 || nlhs<2 )
         mexErrMsgTxt( "Incorrect number of output arguments" );
     
-    mwSize nObs    = NUMEL(prhs[0]);  //number of frames in input data
-    mwSize nStates = NUMEL(prhs[3]);  //number of kinetic states
-    //mwSize nClass = NUMEL(prhs[1]);  //number of distinct FRET values
+    mwSize nObs    = mxGetM(prhs[2]);  //number of frames in input data
+    mwSize nStates = mxGetN(prhs[2]);
     
     
     //Verify all arguments are valid and have matching dimensions
@@ -192,14 +187,13 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
         if( !mxIsDouble(prhs[i]) || mxIsComplex(prhs[i]) )
             mexErrMsgTxt( "All arguments must be real doubles." );
     
-    if( !ISVECTOR(prhs[0]) || !ISVECTOR(prhs[1]) || !ISVECTOR(prhs[2]) )
-        mexErrMsgTxt( "Data, mu, and sigma must be vectors." );
+    if( !ISVECTOR(prhs[0]) )
+        mexErrMsgTxt( "First argument (p0) must be a vector." );
     
     if( nStates<1 || nObs<1 )
         mexErrMsgTxt( "Data or model empty?" );
     
-    if( NUMEL(prhs[1])!=nStates  || NUMEL(prhs[2])!=nStates   || \
-        mxGetM(prhs[4])!=nStates || mxGetN(prhs[4])!=nStates  )
+    if( mxGetM(prhs[1])!=nStates || mxGetN(prhs[1])!=nStates  )
         mexErrMsgTxt( "Parameter size mismatch: number of states not equal. (Degenerate states not supported)" );
 
     
@@ -219,8 +213,7 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
     try {
         //data, mu, sigma, p0, A, nStates, nObs, alpha, beta, gamma, E.
         LL = forwardBackward( mxGetPr(prhs[0]), mxGetPr(prhs[1]), mxGetPr(prhs[2]), \
-                              mxGetPr(prhs[3]), mxGetPr(prhs[4]), nStates, nObs,    \
-                              pAlpha, pBeta, pGamma, pE );
+                              nStates, nObs, pAlpha, pBeta, pGamma, pE );
     } catch (const std::exception& e) {
         // Gracefully catch errors in Eigen (presumably only in debug mode).
         // Requires the eigen_assert declaration above.

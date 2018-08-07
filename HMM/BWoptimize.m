@@ -117,7 +117,7 @@ for n = 1:params.maxItr
     waitbar(progress, wbh);
     
 %     if ~params.quiet
-        fprintf( '   Iter %d: %.2e %.2e\n', n, LL(n), dL);
+        fprintf( '   Iter %d: %.5e %.2e\n', n, LL(n), dL);
         disp( [mu' sigma' p0' A] );
 %     end
     
@@ -159,32 +159,40 @@ function [LLtot,A,mu,sigma,p0] = BWiterate( observations, A, mu, sigma, p0 )
 % Optimize model parameters using the Baum-Welch algorithm
 
 nTraces = size(observations,1);
+nStates = size(A,1);
 [LLtot, p0tot, Etot] = deal(0);
-gamma_tot = [];
-obs_tot = [];
+[gamma_tot,obs_tot] = deal([]);
 
 for n=1:nTraces
-  obs = observations(n,:);
-  
-  % Remove donor bleaching at the end of each trace
-  nFrames = find(obs~=0, 1,'last')-1;
-  if ~isempty(nFrames)
-      if nFrames<5, continue; end  %ignore very short traces
-      obs = obs(1:nFrames);
-  end
+    obs = observations(n,:);
 
-  % Calculate transition probabilities at each point in time using the
-  % forward/backward algorithm.
-  [LL,~,~,gamma,E] = BWtransition( obs, A, mu, sigma, p0 );
-  
-  LLtot = LLtot + LL;
-  Etot = Etot+E;
-  p0tot = p0tot + gamma(1,:);
-  
-  % Accumulate trace data and most likely state assignments for
-  % emission parameter re-estimation below.
-  gamma_tot = [gamma_tot gamma'];    %#ok<AGROW>
-  obs_tot = [obs_tot obs];           %#ok<AGROW>
+    % Remove donor bleaching at the end of each trace
+    nFrames = find(obs~=0, 1,'last')-1;
+    if ~isempty(nFrames)
+        if nFrames<5, continue; end  %ignore very short traces
+        obs = obs(1:nFrames);
+    end
+
+    % Calculate emmission probabilities at each timepoint
+    % The division by 6 keeps the observation probabilities <1 (negative LL).
+    B = zeros(nFrames, nStates);
+    for i=1:nStates
+        %B(:,i) = normpdf( data, mu(i), sigma(i) );
+        B(:,i) = exp(-0.5 * ((obs - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
+    end
+
+    % Calculate transition probabilities at each point in time using the
+    % forward/backward algorithm.
+    [LL,~,~,gamma,E] = BWtransition( p0, A, B );
+
+    LLtot = LLtot + LL;
+    Etot = Etot+E;
+    p0tot = p0tot + gamma(1,:);
+
+    % Accumulate trace data and most likely state assignments for
+    % emission parameter re-estimation below.
+    gamma_tot = [gamma_tot gamma'];    %#ok<AGROW>
+    obs_tot = [obs_tot obs];           %#ok<AGROW>
 end
 gamma_tot = gamma_tot';
 
@@ -202,8 +210,8 @@ A = bsxfun(@rdivide, Etot, sum(Etot,2));   %normalized so rows sum to 1
 gamma_tot = bsxfun(@rdivide, gamma_tot, sum(gamma_tot)); 
 
 for n = 1:size(gamma_tot,2)  %for each state
-  mu(n) = obs_tot * gamma_tot(:,n);                      % =sum(data_i * gamma_i)
-  sigma(n) = sqrt( (obs_tot-mu(n)).^2 * gamma_tot(:,n) );   % 1xN * Nx1 = 1x1
+    mu(n) = obs_tot * gamma_tot(:,n);                      % =sum(data_i * gamma_i)
+    sigma(n) = sqrt( (obs_tot-mu(n)).^2 * gamma_tot(:,n) );   % 1xN * Nx1 = 1x1
 end
 
 % Prevent stdev from converging to zero (e.g., single data point in state).

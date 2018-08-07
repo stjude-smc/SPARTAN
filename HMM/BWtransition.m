@@ -1,7 +1,7 @@
-function [LL,alpha,beta,gamma,Etot] = BWtransition( data, A, mu, sigma, p0 )
+function varargout = BWtransition( p0, A, Bx )
 % Forward-backward algorithm for hidden Markov modeling
 %
-%   [eps,alphas,LL] = BWtransition( DATA, A, mu, sigma, p0 )
+%   [LL,alpha,beta,gamma,Etot] = BWtransition( DATA, A, mu, sigma, p0 )
 %   DATA is a vector of experimental data values (FRET trace).
 %   A is the transition probability matrix.
 %   MU/SIGMA are the mean/stdev of each state's Gaussian emission distribution.
@@ -12,28 +12,15 @@ function [LL,alpha,beta,gamma,Etot] = BWtransition( data, A, mu, sigma, p0 )
 %   Copyright 2008-2018 Cornell University All Rights Reserved.
 
 
-narginchk(5,5);
+narginchk(3,3);
 nargoutchk(1,5);
+[nFrames,nStates] = size(Bx);
 
-
-% If available, use the compiled version. Fallback on Matlab below otherwise.
-% try
-    data = double(data);
-    [LL,alpha,beta,gamma,Etot] = forwardBackward(data, mu, sigma, p0, A);
+% Use compile version if possible
+try
+    [varargout{1:nargout}] = forwardBackward(p0, A, Bx);
     return;
-% catch
-% end
-
-
-%% Calculate emmission probabilities at each timepoint
-% The division by 6 keeps the observation probabilities <1 (negative LL).
-nFrames = numel(data);
-nStates = size(A,1);
-
-Bx = zeros(nFrames, nStates);
-for i=1:nStates
-    %Bx(:,i) = normpdf( data, mu(i), sigma(i) );
-    Bx(:,i) = exp(-0.5 * ((data - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
+catch
 end
 
 
@@ -91,5 +78,10 @@ for t=1:nFrames-1  %for each datapoint
     end
     Etot = Etot + es / sum(es(:)); %normalize
 end
+
+% Save result to output
+% FIXME: only calculate variables if requested!
+output = {LL,alpha,beta,gamma,Etot};
+[varargout{1:nargout}] = output{1:nargout};
 
 
