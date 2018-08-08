@@ -72,9 +72,14 @@ for i=1:numel(dwt),
         
     end %for each dwell
     
+    
     % Rebuild dwell-times to remove empty blink dwells and merge dwells that
     % were broken up by blinks.
-    dwt(i) = idlToDwt(  dwtToIdl([classes times])  );
+    if sum(times)>0
+        dwt(i) = idlToDwt(  dwtToIdl([classes times])  );
+    else
+        dwt{i} = [];
+    end
                 
 end %for each trace
 
