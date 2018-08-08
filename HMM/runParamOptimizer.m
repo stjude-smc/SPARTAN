@@ -24,18 +24,21 @@ end
 
 
 % Idealize data using user-specified algorithm...
-switch upper(options.idealizeMethod)
-case upper('Segmental k-means'),
+switch upper(options.idealizeMethod(1:3))
+case 'SEG'
     [idl,optModel] = skm( input, data.sampling, model, options );
 
-case upper('Baum-Welch'),
+case 'BAU'
     options.seperately = false;  %individual fitting not supported yet.
     [idl,optModel] = BWoptimize( input, data.sampling, model, options );
 
-case upper('ebFRET'),
+case 'EBF'
     [idl,optModel] = runEbFret(input, data.sampling, model, options);
+    
+case 'MPL'
+    [idl,optModel] = mplOptimize( input, data.sampling, model, options );
 
-case upper('Thresholding'),
+case upper('THR'),
     error('Thresholding not implemented')
     %[dwt,offsets] = tIdealize(data, model);
     %optModel = model;

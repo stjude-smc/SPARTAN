@@ -73,7 +73,7 @@ options.dataField = 'fret';  %which
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
-methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)'};
+methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)','MPL (Experimental)'};
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -773,14 +773,18 @@ switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
     case {'SE','BA'}  %SKM, Baum-Welch
         prompt = {'Analyze traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
         fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
-    
+        
     case {'VB','EB'}  %vb/ebFRET
         prompt = {'Min states','Max states','Max restarts:','Max iterations:','Convergence'};
         fields = {'minStates', 'maxStates', 'maxRestarts',  'maxItr',         'threshold'};
     
-    case 'MI'  %MIL
+    case {'MI','MP'}  %MIL = Maximum Interval Likelihood
         prompt = {'Max iterations:'};  %'Dead time (frames):'
         fields = {'maxItr'};  %'deadTime'
+    
+%     case 'MP'  %MPL = Maximum Point Likelihood
+%         prompt = {'Max iterations:','LL threshold','Gradient threshold'};
+%         fields = {'maxItr',         'convLL',      'convGrad'};
         
     otherwise
         return;

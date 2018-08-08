@@ -174,10 +174,8 @@ for n=1:nTraces
     end
 
     % Calculate emmission probabilities at each timepoint
-    % The division by 6 keeps the observation probabilities <1 (negative LL).
     B = zeros(nFrames, nStates);
     for i=1:nStates
-        %B(:,i) = normpdf( data, mu(i), sigma(i) );
         B(:,i) = exp(-0.5 * ((obs - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
     end
 

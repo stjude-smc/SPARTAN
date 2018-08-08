@@ -1,4 +1,4 @@
-function [optModel,LL] = mplOptimize(data, model, optionsInput)
+function [idl,optModel,LL] = mplOptimize(fret, dt, model, optionsInput)
 % mplOptimize  Maximum Point Likelihood model optimization
 %
 %   [optModel,LL] = mplOptimize(DATA, MODEL, OPTIONS)
@@ -26,14 +26,14 @@ function [optModel,LL] = mplOptimize(data, model, optionsInput)
 %   Copyright 2018 Cornell University All Rights Reserved.
 
 
-narginchk(2,3);
-nargoutchk(1,2);
+narginchk(3,4);
+nargoutchk(1,3);
 
 nStates = model.nStates;
 I = logical(eye(nStates));
 rateMask = ~I & model.rates~=0;
 nRates = sum(rateMask(:));
-dt = data.sampling/1000;  %time resolution in seconds
+dt = dt/1000;  %convert to seconds/frame
 
 
 % Define default optional arguments, mostly taken from fmincon
@@ -43,6 +43,9 @@ options.convGrad = 10^-8;  %StepTolerance in fmincon
 options.verbose  = true;
 if nargin>=4
     options = mergestruct(options, optionsInput);
+end
+if isfield(options,'exclude') && any(options.exclude)
+    error('Excluding traces not supported by MPL yet');
 end
 
 % Construct options for fmincon.
@@ -67,7 +70,7 @@ end
 
 % Define optimization function and initial parameter values.
 % NOTE: mplIter optimizes the variance (sigma^2).
-optFun = @(x)mplIter(data.fret(1:100,:), dt, model.p0, model.class, rateMask, x);
+optFun = @(x)mplIter(fret(1:100,:), dt, model.p0, model.class, rateMask, x);
 x0 = [ model.mu(:)'  model.sigma(:)'.^2  model.rates(rateMask)'  ];
 
 % Constrained version.
@@ -88,6 +91,9 @@ optModel.sigma = sqrt( optParam(nStates + (1:nStates)) );
 rates = optParam(2*nStates + 1:end);
 optModel.rates(rateMask) = rates;
 optModel.rates(I) = 0;
+
+% Idealize traces if requested.
+idl = idealize( fret, [to_col(optModel.mu) to_col(optModel.sigma)], optModel.p0, optModel.calcA(dt) );
 
 
 end %function mplOptimize
