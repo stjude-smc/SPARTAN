@@ -31,7 +31,8 @@ nargoutchk(1,2);
 
 nStates = model.nStates;
 I = logical(eye(nStates));
-nRates = sum(~I(:));
+rateMask = ~I & model.rates~=0;
+nRates = sum(rateMask(:));
 dt = data.sampling/1000;  %time resolution in seconds
 
 
@@ -39,17 +40,17 @@ dt = data.sampling/1000;  %time resolution in seconds
 options.maxIter  = 200;
 options.convLL   = 10^-6;   %OptimalityTolerance in fmincon (sort of)
 options.convGrad = 10^-8;  %StepTolerance in fmincon
-options.verbose  = false;
+options.verbose  = true;
 if nargin>=4
     options = mergestruct(options, optionsInput);
 end
 
 % Construct options for fmincon.
-fminopt = optimoptions('fmincon');
-% if options.verbose
+fminopt = optimoptions('fmincon', 'Algorithm','trust-region-reflective');  %'SQP');  %,'interior-point');
+if options.verbose
     fminopt.Display='iter';
     fminopt.OutputFcn = @outfun;
-% end
+end
 
 try
     % Legacy version for MATLAB R2015a and before
@@ -66,16 +67,15 @@ end
 
 % Define optimization function and initial parameter values.
 % NOTE: mplIter optimizes the variance (sigma^2).
-fret = data.fret(1:100,:);
-optFun = @(x)mplIter(fret, dt, model.p0, model.class, x);
-x0 = [ model.mu(:)'  model.sigma(:)'.^2  model.rates(~I)' ];
+optFun = @(x)mplIter(data.fret(1:100,:), dt, model.p0, model.class, rateMask, x);
+x0 = [ model.mu(:)'  model.sigma(:)'.^2  model.rates(rateMask)'  ];
 
 % Constrained version.
 % NOTE: fmincon doesn't like x0=lb or x0=ub in any parameter and will 'fix'
 % things in ways that can break the bounds, so I added -eps to the minimum rate
 % in hopes that the actual minimum is 0.
-lb = [    -ones(1,nStates)  0.01^2*ones(1,nStates)  -eps*ones(1,nRates) ];
-ub = [ 1.5*ones(1,nStates)  0.15^2*ones(1,nStates)  3/dt*ones(1,nRates) ];
+lb = [ -0.5*ones(1,nStates)  0.01^2*ones(1,nStates)   -eps*ones(1,nRates) ];
+ub = [  1.5*ones(1,nStates)  0.15^2*ones(1,nStates)  10/dt*ones(1,nRates) ];
 [optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,ub,[],fminopt );
 
 % Save results
@@ -84,9 +84,9 @@ optModel = copy(model);  %do not modify model in place
 optModel.mu    = optParam(1:nStates);
 optModel.sigma = sqrt( optParam(nStates + (1:nStates)) );
 
+% rates = exp( optParam(2*nStates + 1:end) );
 rates = optParam(2*nStates + 1:end);
-rates( rates<10^-6 ) = 0;  %simplify infintesimal rates to zero
-optModel.rates(~I) = rates;
+optModel.rates(rateMask) = rates;
 optModel.rates(I) = 0;
 
 
@@ -101,31 +101,41 @@ function stop = outfun(x,optimValues,state)
 % optimization for debugging
 
 persistent X;
+persistent dX;
 stop=false;  %if true, optimizer terminates early.
 
 switch state
     case 'init'
-        X = zeros( 1000, numel(x) );
+        X  = zeros( 1000, numel(x) );
+        dX = zeros( 1000, numel(x) );
           
     case 'iter'
         % Keep track of parameter values at each iteration
-        X(optimValues.iteration+1,:) = x;
+        X(optimValues.iteration+1,:)  = x;
+        dX(optimValues.iteration+1,:) = optimValues.gradient;
           
     case 'done'
         % Once optimizer completes, plot how parameters change over iterations
-        X = X(1:optimValues.iteration,:);
+        X  = X(1:optimValues.iteration,:);
+        dX = dX(1:optimValues.iteration,:);
         
         figure;
         for i=1:numel(x)
-            ax(i) = subplot(1,numel(x),i);
+            ax(1,i) = subplot(2,numel(x),i);
             plot(1:optimValues.iteration, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
             if i==1
-                xlabel('Iteration');
                 ylabel('Param. Value');
             end
             %title('mu2');
+            
+            ax(2,i) = subplot(2,numel(x),numel(x)+i);
+            plot(1:optimValues.iteration, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+            if i==1
+                xlabel('Iteration');
+                ylabel('Gradient');
+            end
         end
-        linkaxes(ax, 'x');
+        linkaxes(ax(:), 'x');
         xlim(ax(1), [1,optimValues.iteration]);
 end
 

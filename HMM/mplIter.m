@@ -1,4 +1,4 @@
-function [LL,dLL] = mplIter(data, dt, p0, classidx, params)
+function [LL,dLL] = mplIter(data, dt, p0, classidx, rateMask, params)
 % Maximum Point Likelihood algorithm (MPL)
 %
 %   [LL,dLL] = mplIter(DATA, DT, RATES, p0, CLASSIDX, PARAMS)
@@ -22,9 +22,12 @@ function [LL,dLL] = mplIter(data, dt, p0, classidx, params)
 
 %   Copyright 2018 Cornell University All Rights Reserved.
 
+% disp(params);
+
+
 
 %% Process input arguments
-narginchk(5,5);
+narginchk(6,6);
 nargoutchk(0,2);
 
 nStates = numel(p0);
@@ -37,13 +40,14 @@ nTraces = size(data,1);
 % Unpack parameters from fminunc input vector
 mu     = params( 1:nStates );
 sigma2 = params( nStates   + (1:nStates) );
-rates  = params( 2*nStates + 1:end );
+sigma2(sigma2<1e-6) = 1e-7;  %steer optimizer from zero or negative sigma.
 sigma = sqrt(sigma2);
 
 Q = zeros(nStates);
+Q(rateMask) = params( 2*nStates + 1:end );
 I = logical(eye(nStates));
-Q(~I) = rates;
 Q(I) = -sum(Q,2);
+
 
 % Calculate transition probability matrix (A) using spectral matrices.
 % See pg. 615 of 1995 book "Single Channel Recording". See eq. 6 in Qin 2000.
@@ -58,7 +62,6 @@ for s=1:nStates
     spectralMatrix{s} = righteig(:,s) * lefteig(s,:);
     transitionProb = transitionProb  +  exp(eigval(s)*dt) * spectralMatrix{s};
 end
-
 
 
 %% Calculate log likelihood and partial derivatives for each trace.
@@ -123,7 +126,14 @@ dLL_k = zeros(nStates);
 for i=1:nStates
     for j=1:nStates
         if i==j, continue; end
-        dA_dk = derivative_A_by_rate( i,j, spectralMatrix, eigval, dt);
+        
+        % Derivative of rate matrix Q by a specific rate constant (k_i,j) is 1 at the
+        % corresponding location in Q, -1 on the diagonal, and zero otherwise.
+        dQdk = zeros(nStates);
+        dQdk(i,j) =  1;
+        dQdk(i,i) = -1;
+        
+        dA_dk = derivative_A_by_rate( dQdk, spectralMatrix, eigval, dt);
         dLL_k(i,j) = dLL_A(:)' * dA_dk(:);
     end
 end
@@ -132,7 +142,7 @@ end
 % optimizer. dLL_k includes derivatives only for off diagonals since the
 % diagonal elements are implied.
 % Constant factors comes form the normalization for normpdf above.
-dLL = [dLL_mu dLL_sigma2 dLL_k(~I)'];
+dLL = [dLL_mu dLL_sigma2 dLL_k(rateMask)'];
 
 % Return opposite of LL and dLL since to convert maximizing LL into minimizing
 % -LL for use with fminunc/fmincon.
@@ -140,12 +150,13 @@ LL = -LL;
 dLL = -dLL;
 
 
+
 end  %function mplIter
 
 
 
 %%
-function output = derivative_A_by_rate( idxIn,idxOut, spectralMatrix, eigval, dt)
+function output = derivative_A_by_rate( dQdk, spectralMatrix, eigval, dt)
 % Derivative of the probability matrix A w/r/t a specific rate constant
 % See eq. 17 of Qin 2000.
 % NOTE: since only two delements of dQdk are nonzero (and one is the opposite of
@@ -153,12 +164,6 @@ function output = derivative_A_by_rate( idxIn,idxOut, spectralMatrix, eigval, dt
 
 nStates = numel(eigval);
 output = 0;
-
-% Derivative of rate matrix Q by a specific rate constant (k_i,j) is 1 at the
-% corresponding location in Q, -1 on the diagonal, and zero otherwise.
-dQdk = zeros(nStates);
-dQdk(idxIn,idxOut) = 1;
-dQdk(idxIn,idxIn) = -1;
 
 % % Taylor series approximation
 % for n=1:20
