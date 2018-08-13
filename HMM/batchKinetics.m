@@ -353,11 +353,12 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
         set(handles.figure1,'pointer','arrow');
         return;
     end
+    [dwt,sampling] = loadDWT(dwtfname);
     
     % Run MIL, only updating model rates.
     % NOTE: optModel will have the .qubTree model values, which only reflect 
     % the model as originally loaded from file. FIXME.
-    optModel = milOptimize(dwtfname, handles.model, options);
+    optModel = milOptimize(dwt, sampling/1000, handles.model, options);
     handles.model.rates = optModel.rates;
     handles.modelViewer.redraw();
 else
