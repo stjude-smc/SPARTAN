@@ -49,7 +49,7 @@ if isfield(options,'exclude') && any(options.exclude)
 end
 
 % Construct options for fmincon.
-fminopt = optimoptions('fmincon', 'Algorithm','trust-region-reflective');  %'SQP');  %,'interior-point');
+fminopt = optimoptions('fmincon');
 if options.verbose
     fminopt.Display='iter';
     fminopt.OutputFcn = @outfun;
@@ -60,12 +60,12 @@ try
     fminopt.MaxIter = options.maxIter;
     fminopt.TolX    = options.convGrad;
     fminopt.TolFun  = options.convLL;
-    fminopt.GradObj = 'on';
+%     fminopt.GradObj = 'on';
 catch
     fminopt.MaxIterations            = options.maxIter;
     fminopt.StepTolerance            = options.convGrad;
     fminopt.OptimalityTolerance      = options.convLL;
-    fminopt.SpecifyObjectiveGradient = 'true';
+%     fminopt.SpecifyObjectiveGradient = true;
 end
 
 % Define optimization function and initial parameter values.
@@ -83,14 +83,15 @@ ub = [  1.5*ones(1,nStates)  0.15^2*ones(1,nStates)  10/dt*ones(1,nRates) ];
 
 % Save results
 optModel = copy(model);  %do not modify model in place
-% optModel.p0    = beta(:,1);   %FIXME: get p0 from forward-backward directly
 optModel.mu    = optParam(1:nStates);
 optModel.sigma = sqrt( optParam(nStates + (1:nStates)) );
+optModel.rates(:) = 0;
+optModel.rates(rateMask) = optParam(2*nStates + 1:end);
 
-% rates = exp( optParam(2*nStates + 1:end) );
-rates = optParam(2*nStates + 1:end);
-optModel.rates(rateMask) = rates;
-optModel.rates(I) = 0;
+% Use forward-backward algorithm to estimate initial probabilities.
+% We don't directly optimize these parameters because the gradients are
+% constant.
+% [~,~,~,gamma] = BWtransition();
 
 % Idealize traces if requested.
 idl = idealize( fret, [to_col(optModel.mu) to_col(optModel.sigma)], optModel.p0, optModel.calcA(dt) );
