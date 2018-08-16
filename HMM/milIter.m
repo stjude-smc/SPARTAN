@@ -12,19 +12,20 @@ narginchk(6,6);
 nargoutchk(0,1);
 
 
-
 %% Construct normalized rate matrix (Q) from input rates
 nStates = numel(classidx);
 Q = zeros(nStates);
 Q(rateMask) = rates;
-Q = Q+eps; %
 Q( logical(eye(nStates)) ) = -sum(Q,2);  %normalize so rows sum to zero
-% disp(Q);
 
 % Adjust rates to account for missed events (referred to as eQ in literature).
-% if ~isempty(dt)
-%     Q = dtAdjustedQ(Q, 0.8*dt, classidx);
-% end
+% NOTE: this seems to add significantly to the number of iterations needed to
+% converge. Maybe something is wrong with this function?
+if ~isempty(dt)
+    Q = dtAdjustedQ(Q, 0.75*dt, classidx);
+end
+
+% Q = Q+eps; %avoid errors due to zero rate constants
 
 % Use equilibrium probabilities if initial probabilities not specified.
 % See eq. 17 on pg. 597 (chapter 20) of "Single Channel Recording" (1995).
@@ -70,7 +71,8 @@ for traceID=1:numel(dwt)
     alpha_k = to_row( p0(classidx==dwellClass(1)) );  %initial probabilities
     
     for k=1:nDwells
-        a = classidx==dwellClass(k);
+        aa = dwellClass(k);
+        a = classidx==aa;  %states in current observed class
         
         % Calculate expm(Qaa*t)
         if sum(a)==1
@@ -79,8 +81,8 @@ for traceID=1:numel(dwt)
         else
             % Spectral expansion of matrix exponential (see eq. 19)
             obsProb = eps;  %avoid zero probabilities with disallowed transitions.
-            for i=1:numel( spectra{a} )
-                obsProb = obsProb + spectra{a}{i} * exp( eigvals{a}(i) * dwellTimes(k) );
+            for i=1:numel( spectra{aa} )
+                obsProb = obsProb + spectra{aa}{i} * exp( eigvals{aa}(i) * dwellTimes(k) );
             end
         end
         
@@ -91,7 +93,7 @@ for traceID=1:numel(dwt)
             % Termination:: marginalize over states from all other classes
             % since the target class of the final transition is unknown.
             obsProb = obsProb * Q(a,~a);
-            obsProb = obsProb * ones( size(obsProb,1), 1 );
+            obsProb = obsProb * ones( size(obsProb,2), 1 );
         end
         
         % Calculate normalized forward probabilities for log-likelihood
