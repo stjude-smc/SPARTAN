@@ -1,4 +1,4 @@
-function varargout = BWtransition( p0, A, Bx )
+function varargout = BWtransition( p0, A, varargin )
 % Forward-backward algorithm for hidden Markov modeling
 %
 %   [LL,alpha,beta,gamma,Etot] = BWtransition( DATA, A, mu, sigma, p0 )
@@ -12,9 +12,26 @@ function varargout = BWtransition( p0, A, Bx )
 %   Copyright 2008-2018 Cornell University All Rights Reserved.
 
 
-narginchk(3,3);
+narginchk(3,5);
 nargoutchk(1,5);
-[nFrames,nStates] = size(Bx);
+
+
+if nargin>3
+    [obs,mu,sigma] = varargin{:};
+    nFrames = numel(obs);
+    nStates = numel(mu);
+    
+    % Calculate emmission probabilities at each timepoint
+    Bx = zeros(nFrames, nStates);
+    for i=1:nStates
+        Bx(:,i) = exp(-0.5 * ((obs - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
+    end
+else
+    % Observation probabilities provided directly
+    Bx = varargin{1};
+    [nFrames,nStates] = size(Bx);
+end
+
 
 % Use compile version if possible
 try

@@ -159,7 +159,6 @@ function [LLtot,A,mu,sigma,p0] = BWiterate( observations, A, mu, sigma, p0 )
 % Optimize model parameters using the Baum-Welch algorithm
 
 nTraces = size(observations,1);
-nStates = size(A,1);
 [LLtot, p0tot, Etot] = deal(0);
 [gamma_tot,obs_tot] = deal([]);
 
@@ -173,15 +172,9 @@ for n=1:nTraces
         obs = obs(1:nFrames);
     end
 
-    % Calculate emmission probabilities at each timepoint
-    B = zeros(nFrames, nStates);
-    for i=1:nStates
-        B(:,i) = exp(-0.5 * ((obs - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
-    end
-
     % Calculate transition probabilities at each point in time using the
     % forward/backward algorithm.
-    [LL,~,~,gamma,E] = BWtransition( p0, A, B );
+    [LL,~,~,gamma,E] = BWtransition( p0, A, obs, mu, sigma );
 
     LLtot = LLtot + LL;
     Etot = Etot+E;
