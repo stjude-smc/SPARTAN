@@ -1,4 +1,4 @@
-function [optModel,LL] = milOptimize(input, dt, model, optionsInput)
+function [optModel,LL] = milOptimize(dwt, dt, model, optionsInput)
 % mplOptimize  Maximum Point Likelihood model optimization
 %
 %   [optModel,LL] = milOptimize(DWT, DT, MODEL, OPTIONS)
@@ -26,14 +26,6 @@ function [optModel,LL] = milOptimize(input, dt, model, optionsInput)
 narginchk(3,4);
 nargoutchk(1,2);
 
-% Process input arguments
-% if ischar(input)
-%     dwt = loadDWT(input);
-% elseif iscell(input)
-    dwt = input;
-% else
-%     error('Invalid input: should be a file path or cell array of dwell times');
-% end
 
 % Construct a mask to select only rates from connected states.
 % FIXME: this excludes connections where ONE rate is zero...
@@ -44,8 +36,8 @@ nRates = sum(rateMask(:));
 
 % Define default optional arguments, mostly taken from fmincon
 options.maxIter  = 100;
-options.convLL   = 10^-6;   %OptimalityTolerance in fmincon (sort of)
-options.convGrad = 10^-6;  %StepTolerance in fmincon (sort of)
+options.convLL   = 10^-8;   %OptimalityTolerance in fmincon (sort of)
+options.convGrad = 10^-8;  %StepTolerance in fmincon (sort of)
 options.verbose  = true;
 if nargin>=4
     options = mergestruct(options, optionsInput);
@@ -87,7 +79,7 @@ dwt( cellfun(@isempty,dwt) ) = [];  %remove any now-empty traces
 
 % Define optimization function and initial parameter values.
 % NOTE: mplIter optimizes the variance (sigma^2).
-optFun = @(x)milIter(dwt, dt, model.class, rateMask, x);
+optFun = @(x)milIter(dwt, dt, model.p0, model.class, rateMask, x);
 x0 = model.rates(rateMask)';
 
 % Constrained version.
