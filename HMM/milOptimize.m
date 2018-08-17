@@ -1,24 +1,27 @@
 function [optModel,LL] = milOptimize(dwt, dt, model, optionsInput)
-% mplOptimize  Maximum Point Likelihood model optimization
+% milOptimize  Maximum Interval Likelihood (MIL) model optimization
 %
 %   [optModel,LL] = milOptimize(DWT, DT, MODEL, OPTIONS)
 %   Finds a model (optModel) that maximizes the probability of the experimental
 %   dwell times (dwt) given the model parameters, expressed as the log 
 %   likelihood (LL). For algorithm details, see the milIter function, which 
-%   implements the likelihood function and its partial derivatives for 
-%   optimization with a standard optimizer (fmincon here).
+%   implements the likelihood function for optimization with fmincon.
 %
 %   DWT is a cell array, one element per trace, each of which contains class
-%   numbers and dwell times (seconds) in the first and second column, resp.
-%   DT is the measurement dead time in seconds (not used!).
-%   MODEL is a QubModel object.
-%   OPTIONS is a struct with additional settings (all fields optional):
-%     .maxIter:  maximum number of iterations (200)
-%     .convLL:   termination condition (tolerance) in LL values.
-%     .convGrad: termination condition for parameter values.
-%     .verbose:  display information about each iteration for debugging.
+%     numbers and dwell times (seconds) in the first and second column, resp.
+%   DT is the measurement sampling interval in seconds.
+%   MODEL is a QubModel object, providing initial parameter values.
 %
-%   See also: milIter, mplIter, mplOptimize, bwOptimize, batchKinetics.
+%   OPTIONS is a struct with any additional settings (all fields optional):
+%     .maxIter:  maximum number of iterations (150)
+%     .convLL:   termination tolerance in LL values.
+%     .convGrad: termination tolerance for parameter step size.
+%     .verbose:  print information about each iteration for debugging.
+%     .updateModel: modify input model object in each iteration (false).
+%                Enables rate constants to be viewed during optimization.
+%     .removeBleaching: remove final dwell in dark state (true).
+%
+%   See also: milIter, fmincon, batchKinetics, mplOptimize, bwOptimize.
 
 %   Copyright 2018 Cornell University All Rights Reserved.
 
@@ -35,10 +38,8 @@ rateMask = ~I & model.rates~=0;
 nRates = sum(rateMask(:));
 
 % Define default optional arguments, mostly taken from fmincon
-options.maxIter  = 100;
-options.convLL   = 10^-8;   %OptimalityTolerance in fmincon (sort of)
-options.convGrad = 10^-8;  %StepTolerance in fmincon (sort of)
-options.verbose  = true;
+options = struct('maxIter',150,  'convLL',10^-5, 'convGrad',10^-5, ...
+                 'verbose',true, 'updateModel',false, 'removeBleaching',true);
 if nargin>=4
     options = mergestruct(options, optionsInput);
 end
@@ -47,57 +48,38 @@ if isfield(options,'exclude') && any(options.exclude)
 end
 
 % Construct options for fmincon.
-fminopt = optimoptions('fmincon');
-fminopt.DiffMaxChange = 1;
+fminopt = optimoptions('fmincon', 'UseParallel',cascadeConstants('enable_parfor') );
 if options.verbose
     fminopt.Display='iter';
     fminopt.OutputFcn = @outfun;
 end
+fminopt.MaxIter = options.maxIter;
+fminopt.TolX    = options.convGrad;
+fminopt.TolFun  = options.convLL;
 
-try
-    % Legacy version for MATLAB R2015a and before
-    fminopt.MaxIter = options.maxIter;
-    fminopt.TolX    = options.convGrad;
-    fminopt.TolFun  = options.convLL;
-%     fminopt.GradObj = 'on';
-catch
-    fminopt.MaxIterations            = options.maxIter;
-    fminopt.StepTolerance            = options.convGrad;
-    fminopt.OptimalityTolerance      = options.convLL;
-%     fminopt.SpecifyObjectiveGradient = true;
-end
-
-% If requested, remove dark state dwells at end of each trace.
-% This can make fitting converge much faster.
+% Remove dark state dwells at end of each trace (faster convergence).
 % FIXME: assumes dark state is lowest class value.
-for i=1:numel(dwt)
-    if dwt{i}(end,1)==1
-        dwt{i}(end,:) = [];
+if options.removeBleaching
+    for traceID=1:numel(dwt)
+        if dwt{traceID}(end,1)==1
+            dwt{traceID}(end,:) = [];
+        end
     end
 end
 dwt( cellfun(@isempty,dwt) ) = [];  %remove any now-empty traces
 
-% Define optimization function and initial parameter values.
-% NOTE: mplIter optimizes the variance (sigma^2).
+% Run fmincon optimizing with weak constraints to avoid negative rates.
+% (fminunc works just as well; negative rates just cause harmless restarts).
 optFun = @(x)milIter(dwt, dt, model.p0, model.class, rateMask, x);
 x0 = model.rates(rateMask)';
-
-% Constrained version.
-% NOTE: fmincon doesn't like x0=lb or x0=ub in any parameter and will 'fix'
-% things in ways that can break the bounds, so I added -eps to the minimum rate
-% in hopes that the actual minimum is 0.
-lb =  -eps*ones(1,nRates);
-ub = 10/dt*ones(1,nRates);
-[optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,ub,[],fminopt );
+lb =     zeros(1,nRates);
+% ub = 3/dt*ones(1,nRates);
+[optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,[],[],fminopt );
 
 % Save results
 optModel = copy(model);  %do not modify model in place
 optModel.rates(:) = 0;
 optModel.rates(rateMask) = optParam;
-
-
-end %function mplOptimize
-
 
 
 
@@ -108,47 +90,65 @@ function stop = outfun(x,optimValues,state)
 
 persistent X;
 persistent dX;
+persistent wbh;
 stop=false;  %if true, optimizer terminates early.
+itr = optimValues.iteration;
 
 switch state
     case 'init'
         X  = zeros( 1000, numel(x) );
         dX = zeros( 1000, numel(x) );
+        wbh = waitbar(0,'Running MIL...');
           
     case 'iter'
         % Keep track of parameter values at each iteration
-        X(optimValues.iteration+1,:)  = x;
-        dX(optimValues.iteration+1,:) = optimValues.gradient;
-        %disp(x);
-          
+        X(itr+1,:)  = x;
+        dX(itr+1,:) = optimValues.gradient;
+        
+        if options.updateModel
+            model.rates(rateMask) = x;
+            drawnow;
+        end
+        
+        progress = max( itr/options.maxItr, log10(optimValues.stepsize)/log10(options.convLL) );
+        if ~ishandle(wbh) || ~isvalid(wbh)
+            stop=true; %user closed waitbar
+            return;
+        end
+        if itr>1,  waitbar( max(0,min(1,progress)), wbh );  end
+        
     case 'done'
+        if ishandle(wbh), close(wbh); end
+        if ~options.verbose, return; end
+        
         % Once optimizer completes, plot how parameters change over iterations
-        X  = X(1:optimValues.iteration,:);
-        dX = dX(1:optimValues.iteration,:);
-        %[idxin,idxout] = find(rateMask);  %state numbers for each transition type.
+        X  = X(1:itr,:);
+        dX = dX(1:itr,:);
+        [idxin,idxout] = find(rateMask);  %state numbers for each transition type.
         
         figure;
         for i=1:numel(x)
             ax(1,i) = subplot(2,numel(x),i);
-            plot(1:optimValues.iteration, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+            plot( 1:itr, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
             if i==1
                 ylabel('Param. Value');
             end
-            %title( sprintf('k%d->%d',idxin(i),idxout(i)) );
+            title( sprintf('k%d->%d',idxin(i),idxout(i)) );
             
             ax(2,i) = subplot(2,numel(x),numel(x)+i);
-            plot(1:optimValues.iteration, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+            plot( 1:itr, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
             if i==1
                 xlabel('Iteration');
                 ylabel('Gradient');
             end
         end
         linkaxes(ax(:), 'x');
-        try
-            xlim(ax(1), [1,optimValues.iteration]);
-        catch
-        end
+        xlim(ax(1), [1,itr+1]);
 end
 
-
 end %function outfun
+
+
+
+end %function mplOptimize
+

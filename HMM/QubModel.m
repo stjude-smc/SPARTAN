@@ -58,12 +58,15 @@ properties (SetAccess=protected, GetAccess=protected, Transient, Hidden)
     % UpdateModel event listener
     % FIXME: loading (incl. w/ parfor) will need to recreate listener!
     updateListener;
+    rateUpdateListener;
+    muteListeners = false;
 end
 
 events
     % Event triggered after model parameters have been changed, and the model
     % is verified to be valid.
     UpdateModel;
+    UpdateRates;
 end
 
 
@@ -145,11 +148,17 @@ methods
         obj.verify();
         obj.updateListener = addlistener(obj, {'mu','fixMu','sigma','fixSigma','rates'}, ...
                                         'PostSet',@obj.UpdateModel_Callback);
+        obj.rateUpdateListener = addlistener(obj, {'rates'}, 'PostSet',@obj.UpdateRates_Callback);
     end
     
     function UpdateModel_Callback(obj,varargin)
-        if enableListener(obj.updateListener),
+        if ~obj.muteListeners
             notify(obj,'UpdateModel');
+        end
+    end
+    function UpdateRates_Callback(obj,varargin)
+        if ~obj.muteListeners
+            notify(obj,'UpdateRates');
         end
     end
     
@@ -249,7 +258,9 @@ methods
     
     function revert(model,varargin)
     % Revert to the state of the file before any modifications.
-        enableListener(model.updateListener, false);
+    
+        % Wait until model is finalized to notify listeners
+        model.muteListeners = true;
         
         newmodel = QubModel(model.filename);
         mco   = ?QubModel;
@@ -260,8 +271,9 @@ methods
             model.(props{i}) = newmodel.(props{i});
         end
 
-        enableListener(model.updateListener, true);
+        model.muteListeners = false;
         notify(model,'UpdateModel');  %inform listeners model has changed.
+        notify(model,'UpdateRates');
     end
     
     
@@ -326,7 +338,7 @@ methods
         % FIXME: what about empty models?
         narginchk(2,4);
         
-        enableListener(model.updateListener, false);
+        model.muteListeners = true;
         
         if nargin<3,
             newMu = max(model.mu) + 0.1;
@@ -341,13 +353,13 @@ methods
         model.fixSigma(newClass) = false;
         
         model.verify();
-        enableListener(model.updateListener, true);
+        model.muteListeners = false;
         notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
     function removeState(model,id)
     % Add a new state to the model
-        enableListener(model.updateListener, false);
+        model.muteListeners = true;
         
         % Remove state from variables
         fields = {'class','p0','x','y'};
@@ -364,7 +376,7 @@ methods
         model.fixRates(:,id) = [];
         
         model.verify();
-        enableListener(model.updateListener, true);
+        model.muteListeners = false;
         notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     

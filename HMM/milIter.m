@@ -7,9 +7,14 @@ function LL = milIter(dwt, dt, p0, classidx, rateMask, rates)
 %     columns, respectively.
 %   classidx is an Nx1 vector of the class number associated with each state.
 
+% NOTE: may need to add eps to rate matrix and obsProb in order to prevent zeros
+% from creeping in that will give NaN LL. But dead time correction seems to make
+% this unnecessary.
+
 
 narginchk(6,6);
 nargoutchk(0,1);
+
 
 
 %% Construct normalized rate matrix (Q) from input rates
@@ -21,11 +26,7 @@ Q( logical(eye(nStates)) ) = -sum(Q,2);  %normalize so rows sum to zero
 % Adjust rates to account for missed events (referred to as eQ in literature).
 % NOTE: this seems to add significantly to the number of iterations needed to
 % converge. Maybe something is wrong with this function?
-if ~isempty(dt)
-    Q = dtAdjustedQ(Q, 0.75*dt, classidx);
-end
-
-% Q = Q+eps; %avoid errors due to zero rate constants
+Q = dtAdjustedQ(Q, 0.7*dt, classidx);
 
 % Use equilibrium probabilities if initial probabilities not specified.
 % See eq. 17 on pg. 597 (chapter 20) of "Single Channel Recording" (1995).
@@ -34,6 +35,7 @@ end
 %     S = [ Q U' ];
 %     p0 = U * (S * S')^-1;
 % end
+
 
 
 %% Construct spectral matrices for each submatrix of Q that describes rate
@@ -77,10 +79,10 @@ for traceID=1:numel(dwt)
         % Calculate expm(Qaa*t)
         if sum(a)==1
            % Scalar version (no degenerate states)
-           obsProb = exp( Q(a,a) * dwellTimes(k) ) + eps;
+           obsProb = exp( Q(a,a) * dwellTimes(k) );
         else
             % Spectral expansion of matrix exponential (see eq. 19)
-            obsProb = eps;  %avoid zero probabilities with disallowed transitions.
+            obsProb = 0;
             for i=1:numel( spectra{aa} )
                 obsProb = obsProb + spectra{aa}{i} * exp( eigvals{aa}(i) * dwellTimes(k) );
             end
@@ -95,6 +97,7 @@ for traceID=1:numel(dwt)
             obsProb = obsProb * Q(a,~a);
             obsProb = obsProb * ones( size(obsProb,2), 1 );
         end
+        obsProb(obsProb==0)=eps;  %avoid underflow errors
         
         % Calculate normalized forward probabilities for log-likelihood
         alpha_k = alpha_k * obsProb;
@@ -105,11 +108,10 @@ for traceID=1:numel(dwt)
 
     % Calculate -log likelihood from normalization coefficients.
     % The negative factor will make the minimizer find the maximum LL.
-    % NOTE: this is in units of log( probability per frame ) ??
-    assert( ~any(isnan(log(anorm))) );
     LL = LL + sum( log(anorm) );
     
 end %for each trace
+
 
 
 

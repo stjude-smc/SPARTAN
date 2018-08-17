@@ -32,9 +32,11 @@ properties (SetAccess=protected, GetAccess=public)
     hRate = [];       %handles to text above rates
     
     draggedBox = [];  %state box currently being dragged (if any)
+    rateUpdateListener = [];
 end
 
 properties (GetAccess=public, Constant)
+    
     % Display settings
     %                k       r       b     dark g      y       m
     colors     = {[0 0 0],[1 0 0],[0 0 1],[0 0.7 0],[1 1 0],[1 0 1]};  % class colors
@@ -95,6 +97,9 @@ methods
     end
     title(this.ax, f, 'interpreter', 'none');
     
+    % Set up listener to redraw when model parameters are changed externally
+    this.rateUpdateListener = addlistener( this.model,'UpdateRates', @(s,e)this.updateRateLabels() );
+    
     end %constructor
     
     
@@ -103,6 +108,8 @@ methods
     
     function redraw(this)
     % Completely redraw all GUI elements
+    
+    this.rateUpdateListener.Enabled = false;
 
     % Formatting options:
     textFormat = {'Parent',this.ax,'FontSize',8, 'FontWeight','bold', ...
@@ -183,9 +190,26 @@ methods
     uimenu( menu, 'Label','Revert to saved', 'Callback', @this.revert_callback, 'Separator','on' );
     uimenu( menu, 'Label','Save model as...', 'Callback', @this.save_callback );
     set(this.ax, 'UIContextMenu', menu);
+    
+    this.rateUpdateListener.Enabled = true;
 
     end %function showModel
     
+    
+    function updateRateLabels(this)
+    % Update displayed rate numbers to match the internal model.
+    
+    conn = this.model.connections;
+    
+    for i=1:size(conn,1),
+        kf = this.model.rates( conn(i,1), conn(i,2) );
+        kr = this.model.rates( conn(i,2), conn(i,1) );
+        
+        set( this.hRate(i,1), 'String',num2str(kf,2) );
+        set( this.hRate(i,2), 'String',num2str(kr,2) );
+    end    
+        
+    end %function updateRates
     
     
     function moveLines(this)
@@ -236,7 +260,7 @@ methods
 
     %% -----------------------   CALLBACK FUNCTIONS   ----------------------- %%
 
-    function editRate_callback(this, hObject, ~, rateID)
+    function editRate_callback(this, ~, ~, rateID)
     % Called whenever one of the rate labels is clicked.
     
     % Ask the user for the new value for the rate constant.
@@ -246,9 +270,7 @@ methods
     if isempty(a), return; end  %user hit cancel
 
     % Save the value.
-    a = str2double(a);
-    this.model.rates( rateID(1), rateID(2) ) = a;
-    set(hObject,'String', num2str(a,2) );
+    this.model.rates( rateID(1), rateID(2) ) = str2double(a);
 
     % Redraw if a connection was removed.
     if this.model.rates( rateID(1), rateID(2) )==0 && this.model.rates( rateID(2), rateID(1) )==0
@@ -336,11 +358,15 @@ methods
 
     function removeState_callback(this,varargin)
     % State box context menu option to remove selected state.
+        this.rateUpdateListener.Enabled = false;
+        
         stateID = get(gco,'UserData');
         this.hBox(stateID)  = [];
         this.hText(stateID) = [];
         this.model.removeState(stateID);
         this.redraw();
+        
+        this.rateUpdateListener.Enabled = true;
     end
     
     
@@ -356,6 +382,7 @@ methods
         if isempty(dst)||isnan(dst), return; end  %user hit cancel
 
         src = get(gco,'UserData');
+        this.rateUpdateListener.Enabled = false;
 
         % Add connection by setting non-zero values in rate matrix,
         % but do not modify if the connection already exists
@@ -365,6 +392,7 @@ methods
         end
         
         this.redraw();
+        this.rateUpdateListener.Enabled = true;
     end
 
 
@@ -395,8 +423,10 @@ methods
     function revert_callback(this,varargin)
     % Save the current model to file.
         if ~isempty(this.model.filename)
+            this.rateUpdateListener.Enabled = false;
             this.model.revert();
             this.redraw();
+            this.rateUpdateListener.Enabled = true;
         end
     end
 
