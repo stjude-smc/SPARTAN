@@ -49,6 +49,10 @@ Q(I) = -sum(Q,2);
 % Calculate discrete-time transition probabilities (A) from rate matrix
 transitionProb = expm( Q*dt );
 
+% Duplicate emission parameters for degenerate states
+mu = mu(classidx);
+sigma = sigma(classidx);
+
 
 %% Calculate log likelihood and partial derivatives for each trace.
 LL = 0;
@@ -61,16 +65,8 @@ for n=1:size(data,1)
     nFrames = numel(trace);
     if nFrames<5, continue; end  %skip extremely short traces
     
-    % Calculate emmission probabilities at each timepoint
-    observProb = zeros(nFrames, nStates);
-    for i=1:nStates
-        c = classidx(i);
-        observProb(:,i) = exp(-0.5 * ((trace - mu(c))./sigma(c)).^2) ./ (sqrt(2*pi) .* sigma(c));
-    end
-    observProb( all(observProb==0,2), : ) = eps;  %prevent rows of all zeros
-    
     % Get partial probabilities using the forward-backward algorithm
-    [LLtrace,~] = BWtransition( p0, transitionProb, observProb/100 );
+    [LLtrace,~] = BWtransition( p0, transitionProb, trace, mu, sigma );
     LL = LL+LLtrace;
 
 end %for each trace

@@ -7,7 +7,7 @@ function varargout = BWtransition( p0, A, varargin )
 %   MU/SIGMA are the mean/stdev of each state's Gaussian emission distribution.
 %   P0 are the initial probabilities of each state.
 %
-%   See also: batchKinetics, bwOptimize, forwardBackward.
+%   See also: batchKinetics, mplOptimize, bwOptimize, forwardBackward.
 
 %   Copyright 2008-2018 Cornell University All Rights Reserved.
 
@@ -21,11 +21,15 @@ if nargin>3
     nFrames = numel(obs);
     nStates = numel(mu);
     
-    % Calculate emmission probabilities at each timepoint
+    % Calculate emmission probabilities at each timepoint.
+    % The factor of 100 simulates the PMF w/ bin size 0.01 (and ensures
+    % probabilities always less than 1).
     Bx = zeros(nFrames, nStates);
     for i=1:nStates
-        Bx(:,i) = exp(-0.5 * ((obs - mu(i))./sigma(i)).^2) ./ (sqrt(2*pi) .* sigma(i));
+        Bx(:,i) = exp( -0.5* ((obs - mu(i)) ./ sigma(i)).^2 ) ./ (sqrt(2*pi) .* sigma(i)) / 100;
     end
+    Bx( all(Bx==0,2), : ) = eps;  %prevent rows of all zeros
+
 else
     % Observation probabilities provided directly
     Bx = varargin{1};
@@ -33,7 +37,7 @@ else
 end
 
 
-% Use compile version if possible
+% Use compiled version if available
 try
     [varargout{1:nargout}] = forwardBackward(p0, A, Bx);
     return;

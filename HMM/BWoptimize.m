@@ -40,9 +40,6 @@ narginchk(3,4);
 nargoutchk(0,2);
 
 % Verify model input.
-nStates = size(model.rates,1);
-nClass  = numel(model.mu);
-assert( nStates==nClass, 'Aggregate states not supported.' );
 [ok,msg] = model.verify();
 if ~ok, error(msg);
 elseif ~isempty(msg), warning(msg);
@@ -50,7 +47,7 @@ end
 
 % Set default values for any paramaters not specified.
 params.maxItr   = 100;
-params.convLL   = 1e-4;
+params.convLL   = 1e-5;
 % params.convGrad = 1e-3;  %not implemented yet.
 params.quiet    = false;
 params.fixRates = false; %FIXME: should ultimately be in the model.
@@ -96,9 +93,9 @@ wbh = waitbar(0,'Running Baum-Welch...');
 
 for n = 1:params.maxItr
     % Reestimate model parameters using the Baum-Welch algorithm
-    [LL(n),A,mu,sigma,p0] = BWiterate(observations,A,mu,sigma,p0);
+    [LL(n),p0,A,mu,sigma] = BWiterate( p0, A, observations, mu, sigma, model.class );
    
-    if any(isnan(A(:))) || any( isnan(mu) | isnan(sigma) | isnan(p0))
+    if any(isnan(A(:))) || any(isnan(p0)) || any( isnan(mu) | isnan(sigma) )
         disp('Warning: NaN parameter values in BWoptimize');
     end
     if any(A(:)<0) || any(p0<0), error('Invalid A or p0'); end
@@ -112,13 +109,14 @@ for n = 1:params.maxItr
     if n>1, dL = LL(n)-LL(n-1); end
     progress = max( n/params.maxItr, log10(dL)/log10(params.convLL) );
     if ~ishandle(wbh) || ~isvalid(wbh)
-        error('spartan:op_cancelled','Operation cancelled by user');
+        disp('Baum-Welch manually terminately before convergence by user');
+        break;
     end
     waitbar(progress, wbh);
     
 %     if ~params.quiet
         fprintf( '   Iter %d: %.5e %.2e\n', n, LL(n), dL);
-        disp( [mu' sigma' p0' A] );
+        disp( [mu(model.class)' sigma(model.class)' p0' A] );
 %     end
     
     % Check for convergence
@@ -128,22 +126,37 @@ end
 if n>=params.maxItr
     disp('Warning: Baum-Welch exceeded maximum number of iterations');
 end
-close(wbh);
 
+if ishandle(wbh) && isvalid(wbh)
+    close(wbh);
+end
 
-% Return idealized traces if requested
+% Idealize traces if requested.
+% FIXME: idealize should properly handle degenerate states
+imu    = mu( model.class );
+isigma = sigma( model.class );
+idl = idealize( observations, [to_col(imu) to_col(isigma)], p0, A );
+classes = [0; to_col(model.class)];
+idl = reshape( classes(idl+1), size(idl) );
+
+% Give zeros to excluded traces to indicate they were not idealized.
 idlTotal = zeros( origSize );
-idl = idealize( observations, [to_col(mu) to_col(sigma)], p0, A );
 idlTotal( ~params.exclude, :) = idl;
+
 
 % Save results
 optModel = copy(model);
 optModel.mu    = mu;
 optModel.sigma = sigma;
 optModel.p0    = p0;
-A( logical(eye(size(A))) ) = 0;
-optModel.rates = A/(sampling/1000);
 LL = LL(end);
+
+% Convert transition probabilities to rates, setting any rates to zero
+% that are not connected in the original model. There doesn't seem to be
+% a way to enforce this constraint during optimization with Baum-Welch.
+% NOTE: A/dt gives approximate rates, but logm(A)/dt seems more correct.
+optModel.rates = logm(A) / (sampling/1000);
+optModel.rates( model.rates==0 ) = 0;
 
 disp(toc);
 
@@ -155,7 +168,7 @@ end %function BWoptimize
 
 %% ----------- BAUM-WELCH PARAMETER ESTIMATION ROUTINE -----------
 
-function [LLtot,A,mu,sigma,p0] = BWiterate( observations, A, mu, sigma, p0 )
+function [LLtot,p0,A,mu,sigma] = BWiterate( p0, A, observations, mu, sigma, classidx )
 % Optimize model parameters using the Baum-Welch algorithm
 
 nTraces = size(observations,1);
@@ -174,7 +187,7 @@ for n=1:nTraces
 
     % Calculate transition probabilities at each point in time using the
     % forward/backward algorithm.
-    [LL,~,~,gamma,E] = BWtransition( p0, A, obs, mu, sigma );
+    [LL,~,~,gamma,E] = BWtransition( p0, A, obs, mu(classidx), sigma(classidx) );
 
     LLtot = LLtot + LL;
     Etot = Etot+E;
@@ -195,18 +208,26 @@ LLtot = LLtot/nTraces;
 % SUM_t(E) is the expected number of each type of transition.
 A = bsxfun(@rdivide, Etot, sum(Etot,2));   %normalized so rows sum to 1
 
+% Combine probabilities from each class of degenerate states
+nClass = max(classidx);
+gamma_combined = zeros( size(gamma_tot,1), nClass );
+
+for c=1:max(classidx)
+    gamma_combined(:,c) = sum( gamma_tot(:,classidx==c), 2 );
+end
+
 % Reestimate emmission parameters (stdev and mean).
 % Weighted average using gamma(t,i) = P(state i at time t) weights.
 % FIXME: check whether mu and sigma should have simultaneous updates or not...
-gamma_tot = bsxfun(@rdivide, gamma_tot, sum(gamma_tot)); 
+gamma_combined = bsxfun(@rdivide, gamma_combined, sum(gamma_combined)); 
 
-for n = 1:size(gamma_tot,2)  %for each state
-    mu(n) = obs_tot * gamma_tot(:,n);                      % =sum(data_i * gamma_i)
-    sigma(n) = sqrt( (obs_tot-mu(n)).^2 * gamma_tot(:,n) );   % 1xN * Nx1 = 1x1
+for c = 1:nClass
+    mu(c) = obs_tot * gamma_combined(:,c);                      % =sum(data_i * gamma_i)
+    sigma(c) = sqrt( (obs_tot-mu(c)).^2 * gamma_combined(:,c) );   % 1xN * Nx1 = 1x1
 end
 
 % Prevent stdev from converging to zero (e.g., single data point in state).
-sigma = max(0.02,sigma);
+sigma = max(0.01,sigma);
 
 
 
