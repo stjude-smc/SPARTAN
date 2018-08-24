@@ -49,10 +49,11 @@ end
 params.maxItr   = 100;
 params.convLL   = 1e-5;
 % params.convGrad = 1e-3;  %not implemented yet.
-params.quiet    = false;
+params.verbose  = true;
 params.fixRates = false; %FIXME: should ultimately be in the model.
 params.zeroEnd  = false;
 params.seperately = false;
+params.updateModel = false;
 params.exclude  = false( size(observations,1), 1 );
 
 if nargin>=4
@@ -66,30 +67,28 @@ end
 if params.seperately,
     warning('Individual trace analysis not yet supported!');
 end
-if isfield(params,'deadtime')
-    warning('BW:deadtime','Deadtime correction not supported');
-end
-if isfield(params,'convGrad')
-    warning('BW:convGrad','convGrad not yet implemented');
-end
 
 
 
 %% -----------------------  RUN BAUM-WELCH  ----------------------- %%
-% Launch parallel pool for processig larger data sets in parallel.
 
-% Initialize parameter values
+wbh = waitbar(0,'Running Baum-Welch...');
+
+rateMask = model.rates~=0;
+
+% Remove excluded traces from analysis.
 origSize = size(observations);  %before exlusions
 observations = observations( ~params.exclude, : );
-observations = max(-0.5, min(1.5,observations));  %remove outlier values
+observations = max(-0.5, min(1.5,observations));  %clip outlier values
+
 LL = zeros(0,1);
 dL = Inf;
-A  = model.calcA(sampling/1000);
+
+% Initialize parameter values
+A = model.calcA(sampling/1000);
 p0 = to_row(model.p0);
 [mu,mu_start]       = deal( to_row(model.mu) );
 [sigma,sigma_start] = deal( to_row(model.sigma) );
-
-wbh = waitbar(0,'Running Baum-Welch...');
 
 for n = 1:params.maxItr
     % Reestimate model parameters using the Baum-Welch algorithm
@@ -102,8 +101,15 @@ for n = 1:params.maxItr
   
     % Enforce crude re-estimation constraints.
     % FIXME: are there better ways apply constraints? 
-    mu(model.fixMu) = mu_start(model.fixMu);
+    mu(model.fixMu)    = mu_start(model.fixMu);
     mu(model.fixSigma) = sigma_start(model.fixSigma);
+    
+    % Update input model during iterations (for display in batchKinetics)
+    if params.updateModel
+        Q = logm(A) / (sampling/1000);
+        model.rates(rateMask) = Q(rateMask);
+        [model.mu, model.sigma, model.p0] = deal(mu,sigma,p0);
+    end
     
     % Update progress bar
     if n>1, dL = LL(n)-LL(n-1); end
@@ -114,10 +120,10 @@ for n = 1:params.maxItr
     end
     waitbar(progress, wbh);
     
-%     if ~params.quiet
+    if params.verbose
         fprintf( '   Iter %d: %.5e %.2e\n', n, LL(n), dL);
         disp( [mu(model.class)' sigma(model.class)' p0' A] );
-%     end
+    end
     
     % Check for convergence
     if dL<0, disp('Warning: Baum-Welch is diverging!'); end
@@ -131,8 +137,7 @@ if ishandle(wbh) && isvalid(wbh)
     close(wbh);
 end
 
-% Idealize traces if requested.
-% FIXME: idealize should properly handle degenerate states
+% Idealize traces using optimized model
 imu    = mu( model.class );
 isigma = sigma( model.class );
 idl = idealize( observations, [to_col(imu) to_col(isigma)], p0, A );
@@ -146,9 +151,7 @@ idlTotal( ~params.exclude, :) = idl;
 
 % Save results
 optModel = copy(model);
-optModel.mu    = mu;
-optModel.sigma = sigma;
-optModel.p0    = p0;
+[optModel.mu, optModel.sigma, optModel.p0] = deal(mu, sigma, p0);
 LL = LL(end);
 
 % Convert transition probabilities to rates, setting any rates to zero

@@ -57,6 +57,7 @@
 #include <Eigen/Dense>
 using namespace Eigen;
 
+
 //const double PI=3.141592653589793238463;
 
 
@@ -94,7 +95,7 @@ double forwardBackward( const double* pp0, const double* pA, const double* pB, \
     
     alpha.row(0) = p0.cwiseProduct( B.row(0) );
     nrm(0) = 1/alpha.row(0).sum();
-    alpha.row(0) = alpha.row(0) * nrm(0);
+    alpha.row(0) *= nrm(0);
 
     for( int t=1; t<nObs; ++t )
     {
@@ -103,7 +104,7 @@ double forwardBackward( const double* pp0, const double* pA, const double* pB, \
         
         // Normalize, keeping coefficient for scaling of backward probabilities
         nrm(t) = 1/alpha.row(t).sum();
-        alpha.row(t) = alpha.row(t) * nrm(t);
+        alpha.row(t) *= nrm(t);
     }
     LL = -log(nrm).sum();
     
@@ -117,10 +118,7 @@ double forwardBackward( const double* pp0, const double* pA, const double* pB, \
     beta.row(nObs-1).array() = 1;
     
     for( int t=nObs-2; t>=0; --t )
-    {
-        VectorXd temp = A * B.row(t+1).asDiagonal() * beta.row(t+1).transpose();
-        beta.row(t) = temp.transpose() * nrm(t);
-    }
+        beta.row(t) = A * B.row(t+1).asDiagonal() * beta.row(t+1).transpose() * nrm(t);
     
     
     // Calculate probability of being in each state at each time:
@@ -129,11 +127,10 @@ double forwardBackward( const double* pp0, const double* pA, const double* pB, \
     // NOTE: converting these statements to the equivalent ArrayXXd version
     // produces slightly different results for unknown reasons.
     if(pGamma==NULL) return LL;
-    Map<MatrixXd> gamma(pGamma, nObs,nStates);
     
+    Map<ArrayXXd> gamma(pGamma, nObs,nStates);
     gamma = alpha.cwiseProduct( beta );
-    VectorXd gnorm = gamma.array().rowwise().sum();
-    gamma = gamma.cwiseQuotient( gnorm.replicate(1,nStates) );  //slow??
+    gamma.colwise() /= gamma.rowwise().sum();
     
     
     // Calculate instantaneous transition probabilities.
@@ -141,7 +138,7 @@ double forwardBackward( const double* pp0, const double* pA, const double* pB, \
     if(pE==NULL) return LL;
     Map<MatrixXd> Etot(pE, nStates,nStates);
     MatrixXd es(nStates, nStates);
-
+    
     for( int t=0; t<nObs-1; ++t )
     {
         //E(t,i,j) = alpha(t,i) * A(i,j) * B(t+1,j) * beta(t+1,j) / norm(E(i,j))

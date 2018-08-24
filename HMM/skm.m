@@ -246,8 +246,11 @@ end %for each iteration...
 model.mu = mu;
 model.sigma = sigma;
 model.p0 = p0;
-model.rates = A / (sampling/1000);
-model.rates(logical(eye(size(A)))) = 0;
+
+% Convert transition probabilities to rates, setting any rates to zero
+% that are not connected in the original model.
+model.rates = logm(A) / (sampling/1000);
+model.rates( initialModel.rates==0 ) = 0;
 
 % if ~params.quiet,
 %     fprintf('SKM: Finished after %d iterations with LL=%f\n',itr,LL(end));
