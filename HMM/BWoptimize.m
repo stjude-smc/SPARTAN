@@ -48,7 +48,7 @@ end
 % Set default values for any paramaters not specified.
 params.maxItr   = 100;
 params.convLL   = 1e-5;
-% params.convGrad = 1e-3;  %not implemented yet.
+params.convGrad = 1e-5;
 params.verbose  = true;
 params.fixRates = false; %FIXME: should ultimately be in the model.
 params.zeroEnd  = false;
@@ -84,15 +84,16 @@ observations = max(-0.5, min(1.5,observations));  %clip outlier values
 LL = zeros(0,1);
 dL = Inf;
 
+
 % Initialize parameter values
 A = model.calcA(sampling/1000);
 p0 = to_row(model.p0);
-[mu,mu_start]       = deal( to_row(model.mu) );
-[sigma,sigma_start] = deal( to_row(model.sigma) );
+mu = to_row(model.mu);
+sigma = to_row(model.sigma);
 
 for n = 1:params.maxItr
     % Reestimate model parameters using the Baum-Welch algorithm
-    [LL(n),p0,A,mu,sigma] = BWiterate( p0, A, observations, mu, sigma, model.class );
+    [LL(n),p0_new,A_new,mu_new,sigma_new] = BWiterate( p0, A, observations, mu, sigma, model.class );
    
     if any(isnan(A(:))) || any(isnan(p0)) || any( isnan(mu) | isnan(sigma) )
         disp('Warning: NaN parameter values in BWoptimize');
@@ -101,11 +102,18 @@ for n = 1:params.maxItr
   
     % Enforce crude re-estimation constraints.
     % FIXME: are there better ways apply constraints? 
-    mu(model.fixMu)    = mu_start(model.fixMu);
-    mu(model.fixSigma) = sigma_start(model.fixSigma);
+    mu(~model.fixMu)       = mu_new(~model.fixMu);
+    sigma(~model.fixSigma) = sigma_new(~model.fixSigma);
     
-    % Update input model during iterations (for display in batchKinetics)
+    % Calculate step size (for convergence)
+    step = norm( [p0_new(:)'-p0(:)' A_new(:)'-A(:)' mu_new(:)'-mu(:)' sigma_new(:)'-sigma(:)'] );
+    
+    % Update model parameters
+    p0 = p0_new;
+    A  = A_new;
+    
     if params.updateModel
+        % Modify input model for display in batchKinetics GUI.
         Q = logm(A) / (sampling/1000);
         model.rates(rateMask) = Q(rateMask);
         [model.mu, model.sigma, model.p0] = deal(mu,sigma,p0);
@@ -113,21 +121,22 @@ for n = 1:params.maxItr
     
     % Update progress bar
     if n>1, dL = LL(n)-LL(n-1); end
-    progress = max( n/params.maxItr, log10(dL)/log10(params.convLL) );
+    progress = max( [n/params.maxItr, log10(dL)/log10(params.convLL), log10(step)/log10(params.convGrad)] );
     if ~ishandle(wbh) || ~isvalid(wbh)
-        disp('Baum-Welch manually terminately before convergence by user');
+        disp('Baum-Welch manually terminated before convergence by user');
         break;
     end
     waitbar(progress, wbh);
     
     if params.verbose
-        fprintf( '   Iter %d: %.5e %.2e\n', n, LL(n), dL);
+        fprintf( '   Iter %d:\t%.5e\t%.2e\t%.2e\n', n, LL(n), dL, step);
         disp( [mu(model.class)' sigma(model.class)' p0' A] );
     end
     
     % Check for convergence
     if dL<0, disp('Warning: Baum-Welch is diverging!'); end
     if abs(dL)<=params.convLL, break; end
+    if step<=params.convGrad, break; end
 end
 if n>=params.maxItr
     disp('Warning: Baum-Welch exceeded maximum number of iterations');
