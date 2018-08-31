@@ -135,8 +135,8 @@ methods
         this.hLine(i) = line( 0,0, lineFormat{:} );
 
         % Display rate numbers
-        this.hRate(i,1) = text( 0,0, num2str(k0(1),2), textFormat{:}, 'Color',[0 0 0] );
-        this.hRate(i,2) = text( 0,0, num2str(k0(2),2), textFormat{:}, 'Color',[0 0 0] );
+        this.hRate(i,1) = text( 0,0, num2str(k0(1),3), textFormat{:}, 'Color',[0 0 0] );
+        this.hRate(i,2) = text( 0,0, num2str(k0(2),3), textFormat{:}, 'Color',[0 0 0] );
 
         % Add callbacks for changing the rate constants.
         set( this.hRate(i,1), 'ButtonDownFcn', {@this.editRate_callback,states}         );
@@ -205,8 +205,8 @@ methods
         kf = this.model.rates( conn(i,1), conn(i,2) );
         kr = this.model.rates( conn(i,2), conn(i,1) );
         
-        set( this.hRate(i,1), 'String',num2str(kf,2) );
-        set( this.hRate(i,2), 'String',num2str(kr,2) );
+        set( this.hRate(i,1), 'String',num2str(kf,3) );
+        set( this.hRate(i,2), 'String',num2str(kr,3) );
     end    
         
     end %function updateRates

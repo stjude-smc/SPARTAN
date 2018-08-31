@@ -61,8 +61,7 @@ handles.output = hObject;
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
-options.bootstrapN = 1;
-options.deadTime = 0.5;
+options.updateModel = true;  %update model viewer during optimization
 options.seperately = true; %SKM: analyze each trace individually
 options.maxItr = 100;
 options.minStates = 1;
@@ -73,7 +72,7 @@ options.dataField = 'fret';  %which
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
-methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Rate Optimizer)','MPL (Experimental)'};
+methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL','MPL'};
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -333,6 +332,7 @@ trcfile  = handles.dataFilenames{idxfile};
 options = handles.options;
 options.dataField = handles.traceViewer.dataField;
 options.exclude = handles.traceViewer.exclude;
+options.updateModel = get(handles.chkUpdateModel,'Value');
 
 % Verify external modules installed
 if strcmpi(options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hmm.vbayes'))
@@ -346,6 +346,7 @@ set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
 if strcmpi(options.idealizeMethod(1:3),'MIL')
+    options.updateModel = true;
     dwtfname = handles.dwtFilenames{idxfile};
     
     if isempty(dwtfname) || ~exist(dwtfname,'file'),
@@ -770,25 +771,22 @@ enableControls(handles);
 function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Change idealization settings
 
+% Parameters common to all methods
+prompt = {'Max iterations'};
+fields = {'maxItr'};
+
 switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
     case {'SE','BA'}  %SKM, Baum-Welch
-        prompt = {'Analyze traces individually:', 'Max iterations:'}; %'LL Convergence:', 'Grad. Convergence:'
-        fields = {'seperately', 'maxItr'};  %'gradLL', 'gradConv'
+        prompt = [prompt, {'Analyze traces individually:'}]; %'LL Convergence:', 'Grad. Convergence:'
+        fields = [fields, {'seperately'}];  %'gradLL', 'gradConv'
         
     case {'VB','EB'}  %vb/ebFRET
-        prompt = {'Min states','Max states','Max restarts:','Max iterations:','Convergence'};
-        fields = {'minStates', 'maxStates', 'maxRestarts',  'maxItr',         'threshold'};
+        prompt = {'Min states','Max states','Max restarts:','Convergence'};
+        fields = {'minStates', 'maxStates', 'maxRestarts',  'threshold'};
     
-    case {'MI','MP'}  %MIL = Maximum Interval Likelihood
-        prompt = {'Max iterations:'};  %'Dead time (frames):'
-        fields = {'maxItr'};  %'deadTime'
-    
-%     case 'MP'  %MPL = Maximum Point Likelihood
-%         prompt = {'Max iterations:','LL threshold','Gradient threshold'};
-%         fields = {'maxItr',         'convLL',      'convGrad'};
-        
-    otherwise
-        return;
+%     case {'MI','MP'}  %MIL or MPL
+%         prompt = {'LL threshold','Gradient threshold'};
+%         fields = {'convLL',      'convGrad'};
 end
 
 options = settingdlg(handles.options, fields, prompt);
