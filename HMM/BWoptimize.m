@@ -84,6 +84,10 @@ observations = max(-0.5, min(1.5,observations));  %clip outlier values
 LL = zeros(0,1);
 dL = Inf;
 
+% Monitor parameter values for debugging
+%muIter    = zeros(model.nClasses, params.maxItr);
+%sigmaIter = zeros(model.nClasses, params.maxItr);
+%QIter     = zeros(sum(rateMask(:)),  params.maxItr);
 
 % Initialize parameter values
 A = model.calcA(sampling/1000);
@@ -117,6 +121,10 @@ for n = 1:params.maxItr
         Q = logm(A) / (sampling/1000);
         model.rates(rateMask) = Q(rateMask);
         [model.mu, model.sigma, model.p0] = deal(mu,sigma,p0);
+        
+        %muIter(:,n) = mu;
+        %sigmaIter(:,n) = sigma;
+        %QIter(:,n) = Q(rateMask)';
     end
     
     % Update progress bar

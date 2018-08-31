@@ -63,7 +63,7 @@ optFun = @(x)mplIter(fret, dt, model.p0, model.class, rateMask, x);
 x0 = [ model.mu(:)' model.sigma(:)' model.rates(rateMask)' ];
 
 lb = [ -0.3*ones(1,nClass)  0.01*ones(1,nClass)     zeros(1,nRates) ];
-ub = [  1.2*ones(1,nClass)  0.12*ones(1,nClass) 3/dt*ones(1,nRates) ];
+ub = [  1.2*ones(1,nClass)  0.12*ones(1,nClass) 10/dt*ones(1,nRates) ];
 [optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,ub,[],fminopt );
 
 % Save results
@@ -88,22 +88,22 @@ function stop = outfun(x,optimValues,state)
 % Called in each iteration of fmincon optimizer to track the progress of
 % optimization for debugging
 
-persistent X;
-persistent dX;
+% persistent X;
+% persistent dX;
 persistent wbh;
 stop=false;  %if true, optimizer terminates early.
 itr = optimValues.iteration;
 
 switch state
     case 'init'
-        X  = zeros( 1000, numel(x) );
-        dX = zeros( 1000, numel(x) );
+%         X  = zeros( 1000, numel(x) );
+%         dX = zeros( 1000, numel(x) );
         wbh = waitbar(0,'Running MPL...');
           
     case 'iter'
         % Keep track of parameter values at each iteration
-        X(itr+1,:)  = x;
-        dX(itr+1,:) = optimValues.gradient;
+%         X(itr+1,:)  = x;
+%         dX(itr+1,:) = optimValues.gradient;
         
         if options.updateModel
             model.mu    = x( 1:nClass );
@@ -123,29 +123,29 @@ switch state
         if ishandle(wbh), close(wbh); end
         if ~options.verbose, return; end
         
-        % Once optimizer completes, plot how parameters change over iterations
-        X  = X(1:itr,:);
-        dX = dX(1:itr,:);
-        
-        figure;
-        for i=1:numel(x)
-            ax(1,i) = subplot(2,numel(x),i);
-            plot(1:itr, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
-            if i==1
-                ylabel('Param. Value');
-            end
-            %title('mu2');
-            
-            ax(2,i) = subplot(2,numel(x),numel(x)+i);
-            plot(1:itr, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
-            if i==1
-                xlabel('Iteration');
-                ylabel('Gradient');
-            end
-        end
-        linkaxes(ax(:), 'x');
-        xlim(ax(1), [1,itr+1]);
-        disp(X);
+        % For debugging: plot change in parameters during optimization
+%         X  = X(1:itr,:);
+%         dX = dX(1:itr,:);
+%         
+%         figure;
+%         for i=1:numel(x)
+%             ax(1,i) = subplot(2,numel(x),i);
+%             plot(1:itr, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+%             if i==1
+%                 ylabel('Param. Value');
+%             end
+%             %title('mu2');
+%             
+%             ax(2,i) = subplot(2,numel(x),numel(x)+i);
+%             plot(1:itr, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+%             if i==1
+%                 xlabel('Iteration');
+%                 ylabel('Gradient');
+%             end
+%         end
+%         linkaxes(ax(:), 'x');
+%         xlim(ax(1), [1,itr+1]);
+%         disp(X);
 end
 
 end %function outfun

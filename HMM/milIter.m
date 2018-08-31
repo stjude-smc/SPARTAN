@@ -69,12 +69,20 @@ for traceID=1:numel(dwt)
     dwellTimes = dwt{traceID}(:,2)*dt;  %observed time in each dwell in seconds
     nDwells = numel(dwellClass);
     
-    anorm = zeros(nDwells,1);  %normalization constants at each time
+    anorm = ones(nDwells,1);  %normalization constants at each time
     alpha_k = to_row( p0(classidx==dwellClass(1)) );  %initial probabilities
     
     for k=1:nDwells
         aa = dwellClass(k);
         a = classidx==aa;  %states in current observed class
+        
+        % If this is the final dwell in the dark state, don't include it
+        % in the analysis, since it adds no useful information.
+        % FIXME: assumes dark state is the first class.
+        if k==nDwells && aa==1
+            anorm(k) = [];
+            break;
+        end
         
         % Calculate expm(Qaa*t)
         if sum(a)==1

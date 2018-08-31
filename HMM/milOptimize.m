@@ -44,7 +44,7 @@ if nargin>=4
     options = mergestruct(options, optionsInput);
 end
 if isfield(options,'exclude') && any(options.exclude)
-    error('Excluding traces not supported by MIL yet');
+    warning('Excluding traces not supported by MIL yet');
 end
 
 % Construct options for fmincon.
@@ -57,16 +57,15 @@ fminopt.MaxIter = options.maxIter;
 fminopt.TolX    = options.convGrad;
 fminopt.TolFun  = options.convLL;
 
-% Remove dark state dwells at end of each trace (faster convergence).
-% FIXME: assumes dark state is lowest class value.
-if options.removeBleaching
-    for traceID=1:numel(dwt)
-        if dwt{traceID}(end,1)==1
-            dwt{traceID}(end,:) = [];
-        end
+% For each trace, fill end with a dark state dwell. This removes the
+% uncertainty in the final term, but the dwell time isn't used.
+% FIXME: what about traces that don't actually bleach at the end?
+% FIXME: assumes first class is zero dark state.
+for traceID=1:numel(dwt)
+    if dwt{traceID}(end,1)~=1
+        dwt{traceID}(end+1,:) = [1 1];
     end
 end
-dwt( cellfun(@isempty,dwt) ) = [];  %remove any now-empty traces
 
 % Run fmincon optimizing with weak constraints to avoid negative rates.
 % (fminunc works just as well; negative rates just cause harmless restarts).
@@ -88,22 +87,22 @@ function stop = outfun(x,optimValues,state)
 % Called in each iteration of fmincon optimizer to track the progress of
 % optimization for debugging
 
-persistent X;
-persistent dX;
+% persistent X;
+% persistent dX;
 persistent wbh;
 stop=false;  %if true, optimizer terminates early.
 itr = optimValues.iteration;
 
 switch state
     case 'init'
-        X  = zeros( 1000, numel(x) );
-        dX = zeros( 1000, numel(x) );
+%         X  = zeros( 1000, numel(x) );
+%         dX = zeros( 1000, numel(x) );
         wbh = waitbar(0,'Running MIL...');
           
     case 'iter'
-        % Keep track of parameter values at each iteration
-        X(itr+1,:)  = x;
-        dX(itr+1,:) = optimValues.gradient;
+%         % Keep track of parameter values at each iteration
+%         X(itr+1,:)  = x;
+%         dX(itr+1,:) = optimValues.gradient;
         
         if options.updateModel
             model.rates(rateMask) = x;
@@ -121,29 +120,29 @@ switch state
         if ishandle(wbh), close(wbh); end
         if ~options.verbose, return; end
         
-        % Once optimizer completes, plot how parameters change over iterations
-        X  = X(1:itr,:);
-        dX = dX(1:itr,:);
-        [idxin,idxout] = find(rateMask);  %state numbers for each transition type.
-        
-        figure;
-        for i=1:numel(x)
-            ax(1,i) = subplot(2,numel(x),i);
-            plot( 1:itr, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
-            if i==1
-                ylabel('Param. Value');
-            end
-            title( sprintf('k%d->%d',idxin(i),idxout(i)) );
-            
-            ax(2,i) = subplot(2,numel(x),numel(x)+i);
-            plot( 1:itr, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
-            if i==1
-                xlabel('Iteration');
-                ylabel('Gradient');
-            end
-        end
-        linkaxes(ax(:), 'x');
-        xlim(ax(1), [1,itr+1]);
+        % OFor debugging, plot how parameters change over iterations
+%         X  = X(1:itr,:);
+%         dX = dX(1:itr,:);
+%         [idxin,idxout] = find(rateMask);  %state numbers for each transition type.
+%         
+%         figure;
+%         for i=1:numel(x)
+%             ax(1,i) = subplot(2,numel(x),i);
+%             plot( 1:itr, X(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+%             if i==1
+%                 ylabel('Param. Value');
+%             end
+%             title( sprintf('k%d->%d',idxin(i),idxout(i)) );
+%             
+%             ax(2,i) = subplot(2,numel(x),numel(x)+i);
+%             plot( 1:itr, dX(:,i)', 'k.-', 'MarkerFaceColor',[1 0 1]);
+%             if i==1
+%                 xlabel('Iteration');
+%                 ylabel('Gradient');
+%             end
+%         end
+%         linkaxes(ax(:), 'x');
+%         xlim(ax(1), [1,itr+1]);
 end
 
 end %function outfun
