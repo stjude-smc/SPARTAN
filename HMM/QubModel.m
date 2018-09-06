@@ -24,10 +24,8 @@ properties (SetAccess=public, GetAccess=public, SetObservable)
     sigma;     %stdev of FRET (noise)
     rates;     %rate constants (i,j) is i->j
     
-    % Fitting constraints.
-    % If 1, value is not re-estimated/changed during model optimization.
-    % QuB supports many types of constraints and none are really supported.
-    % This variables are only (currently) set in MATLAB code. FIXME
+    % If true, do not optimize the specified parameter.
+    % These logical arrays are the same size as rates, mu, sigma arrays.
     fixRates;
     fixMu;
     fixSigma;
@@ -35,6 +33,16 @@ properties (SetAccess=public, GetAccess=public, SetObservable)
     %Internal display data (must be public for QubModelViewer)
     x = [];
     y = [];
+    
+    % The two fields below are public, but should not be modified except by
+    % qub_loadModel and qub_saveModel...
+    % Full path and name of the model file that was loaded.
+    filename = [];
+    
+    % Structure containing the .qmf format tree of all model information.
+    % This includes many parameters we don't use but QuB expects.
+    % This is only updated when a .qmf file is saved to disk.
+    qubTree;
 end
 
 % Model properties derived from model parameters (above).
@@ -42,16 +50,6 @@ properties (SetAccess=immutable, GetAccess=public, Dependent)
     nStates;
     nClasses;
     connections;
-end
-
-properties (SetAccess=protected, GetAccess=public)
-    % Full path and name of the model file that was loaded. This cannot be
-    % changed by the user.
-    filename = [];
-    
-    % Structure containing the .qmf format tree of all model information.
-    % This includes many parameters we don't use but QuB expects.
-    qubTree;
 end
 
 properties (SetAccess=protected, GetAccess=protected, Transient, Hidden)
@@ -74,74 +72,34 @@ methods
     %%%%%%%%%%%%%%%%%%%  CONSTRUCTOR & SERIALIZATION  %%%%%%%%%%%%%%%%%%%%
     
     function obj = QubModel( input )
-    % Create a new QubModel object. Inputs can be a .qmf file, a struct with the
-    % same fields as a QubModel, or a QubModel object to copy.
         
-        % parfor seems to create empty objects it doesn't use. Silently ignore.
-        if nargin<1, return;  end
+        if nargin<1, return; end  %Empty object constructor
         
-        % Copy another QubModel object
+        % Copy another QubModel object.
         if nargin==1 && isa(input,'QubModel')
             obj = copy(input);
             obj.verify();
             return;
-        
-        % Load from a model struct (see qub_loadModel.m)
-        elseif isstruct(input),
-            m = input;
+            
+        % Create a new model only specifying the number of states
+        elseif isscalar(input)
+            obj.initModel(input);
             
         % Load from file
-        elseif ischar(input),
-            m = qub_loadModel( input );
-            obj.filename = input;
-            
-        % New model with a given number of states
-        elseif isscalar(input) && numel(input)==1,
-            m = qub_createModel(input);
+        elseif ischar(input)
+            [~,~,e] = fileparts(input);
+            if strcmpi(e,'.qmf')
+                obj = qub_loadModel(input);
+            elseif strcmpi(e,'.model') || strcmpi(e,'.mat')
+                temp = load(input,'-mat');
+                if temp.version>=2, error('Model file version format is not supported'); end
+                obj = temp.model;
+            else
+                error('Invalid model file format');
+            end
             
         else
             error('Unexpected input for QubModel constructor');
-        end
-        
-        % Set default values for optional fields
-        N = length(m.rates);
-        obj.fixRates = false( size(m.rates) );
-        obj.fixMu    = false( size(m.mu)    );
-        obj.fixSigma = false( size(m.sigma) );
-        if ~isfield(m,'class'),
-            obj.class = (1:length(m.rates))';  %assumes no degenerate states!
-        end
-        
-        % Copy all relevant fields from input to object properties.
-        mco   = ?QubModel;
-        props = {mco.PropertyList.Name};
-        
-        for i=1:numel(props),
-            if isfield(m,props{i}) && ~mco.PropertyList(i).Dependent,
-                obj.(props{i}) = m.(props{i});
-            end
-        end
-        
-        % Extract model display settings from qubTree.
-        if isempty(obj.x) || isempty(obj.y),
-            if ~isempty(obj.qubTree)
-                obj.x = zeros( obj.nStates,1 );
-                obj.y = zeros( obj.nStates,1 );
-                for i=1:obj.nStates,
-                    obj.x(i) = obj.qubTree.States.State(i).x.data;
-                    obj.y(i) = obj.qubTree.States.State(i).y.data;
-                end
-            else
-                % Default locations, scaled below.
-                obj.x = (1:N)';
-                obj.y = obj.class;
-            end
-
-            % Rescale coordinates to properly fit in the box.
-            obj.x = obj.x-min(obj.x);
-            obj.y = obj.y-min(obj.y);
-            obj.x = 75*obj.x/max(obj.x) +10;
-            obj.y = 75*obj.y/max(obj.y) +12;
         end
         
         % Verify the model parameters make sense.
@@ -160,104 +118,51 @@ methods
         if ~obj.muteListeners
             notify(obj,'UpdateRates');
         end
-    end
+    end 
+    
+    
     
     
     %% ----------------------   SERIALIZATION   ---------------------- %%
-    function save( model, fname )
-        % Save the model to file. The code is essentially the same as
-        % qub_saveModel, but that code can't be used directly since it
-        % assumes the model is a struct, not an class object.
-        narginchk(2,2);
-        
-        % If no filename is given, update the original model file.
-        if nargin>=2,
-            model.filename = fname;
-        end
-        model.verify();
+    
+    function initModel(obj,ns)
+        % Initialize a valid model given only the number of states
+        obj.class = (1:ns)';
+        obj.mu    = (0:1/ns:1-(1/ns))';
+        obj.sigma = ones(ns,1) * 0.06;
+        obj.p0    = ones(ns,1) / ns;
+        obj.rates = ones(ns);
+        obj.rates( eye(ns)==1 ) = 0;
 
-        % Use loaded QuB tree or create a new one with default values.
-        % NOTE: QuB expects index variables to have integer type!
-        if ~isempty(model.qubTree)
-            outputTree = model.qubTree;
-            
-            if isfield(outputTree,'VRevs'),
-                outputTree = rmfield(outputTree,'VRevs');
-            end
+        obj.fixMu    = false(ns,1);
+        obj.fixSigma = false(ns,1);
+        obj.fixRates = false(ns);
+
+        [obj.x, obj.y] = deal( linspace(11,86,ns)' );
+    end
+    
+    
+    function save( model, filename )
+        % Save the model to file
+        [~,~,e] = fileparts(filename);
+        if strcmpi(e,'.qmf')
+            qub_saveModel(model, filename);
+        elseif strcmpi(e,'.model') || strcmpi(e,'.mat')
+            version = 1.0; %#ok<NASGU>
+        save(filename, 'model','version');
         else
-            s = struct();
-            outputTree = struct('States',s,'Rates',s,'Constraints',s,'ConstraintsAmpVar',s, ...
-                      'ExtraKineticPars',s, 'ChannelCount',int32(1), 'Amps',0:9, 'Stds',repmat(0.06,1,10), ...
-                      'Conds',zeros(1,10), 'NAr',zeros(1,10), 'Ars',s, 'VRev',int32(0));
-
-            outputTree.Properties = struct('ColorBack',16777215,'ColorLine',0, 'ColorRate',0, ...
-                'ColorSelected',255, 'ColorFrame',16777215, 'ColorPanel',-2147483633, ...
-                'StateSize',5, 'LineWidth',0, 'AlignToGrid',1, 'UseGlobalCond',0, ...
-                'ScrollRates',1, 'DiagonalRates',0, 'ShowK1',0, 'EnforceConstraints',1, ...
-                'MarginH',5, 'MarginV',5);
-            
-            outputTree = datanode(outputTree); %Add .data and .dataType fields
+            error('Unrecognized model output format');
         end
-        
-        % Update FRET parametes from current model
-        nClass = numel(model.mu);
-        outputTree.Amps.data(1:nClass) = model.mu;
-        outputTree.Stds.data(1:nClass) = model.sigma;
-        
-        % Generate states and save initial probabilities.
-        % Class numbers are zero-based.
-        s = struct('x',num2cell(model.x), 'y',num2cell(model.y), ...
-                   'Class',num2cell(int32(model.class-1)), 'Pr',num2cell(model.p0), ...
-                   'Gr',num2cell(zeros(size(model.p0))) );
-        outputTree.States.State = datanode(s);
-
-        % Generate rate connections
-        rateTemplate = struct('States',0:1, 'k0',[0 0], 'k1',[0 0], 'dk0',[0 0], ...
-             'dk1',[0 0], 'P',[0 0], 'Q',[0 0], 'PValue',struct(),'QValue',struct() );
-        rateTemplate.PNames.PName = {'Ligand','Ligand'};
-        rateTemplate.QNames.QName = {'Voltage','Voltage'};
-        rateTemplate.RateFormats.RateFormat = {'',''};
-        rateTemplate = datanode(rateTemplate);
-        
-        outputTree.Rates = [];
-        conn = model.connections;
-        for i=1:size(conn,1),
-            st = conn(i,:); %src and dst state numbers.
-            outputTree.Rates.Rate(i) = rateTemplate;
-            outputTree.Rates.Rate(i).States.data = int32(st-1); %zero-based
-            outputTree.Rates.Rate(i).k0.data = ...
-                       [ model.rates(st(1),st(2)) model.rates(st(2),st(1)) ];
-        end
-
-        % Generate rate constraints
-        % if isfield(model,'fixRates')
-        %     outputTree.Constraints.FixRate = struct( ...
-        %                                 'data',[],'HasValue',[],'Value',[] );
-        %     f = struct([]);
-        %     
-        %     for i=1:nStates,
-        %         for j=1:nStates,
-        %             if i==j || i>j, continue; end
-        %             if ~model.fixRates(i,j), continue; end
-        % 
-        %             nPairs = nPairs+1;
-        %             f(nPairs).data = [i,j];
-        %             f(nPairs).HasValue.data = 0;
-        %             f(nPairs).Value = 0.0;
-        %         end
-        %     end
-        %     
-        %     outputTree.Constraints.FixRate = f;
-        % end
-
-        % Save the resulting to QUB_Tree .qmf file
-        qub_saveTree(outputTree, model.filename, 'ModelFile');
-        model.qubTree = outputTree;
     end
     
     
     function revert(model,varargin)
     % Revert to the state of the file before any modifications.
+    
+        if isempty(model.filename)
+            warning('Cannot revert temporary models');
+            return;
+        end
     
         % Wait until model is finalized to notify listeners
         model.muteListeners = true;
@@ -469,47 +374,6 @@ methods
 end %public methods
 
 end  %classdef
-
-
-
-
-
-function node = datanode(input)
-% Convert struct to a format acceptable to qub_saveTree().
-% Converts leaf nodes to structs with .data and .dataType elements.
-
-    if ischar(input),
-        node.data = input;
-        node.dataType = 3;
-        
-    elseif isfloat(input)
-        node.data = input;
-        node.dataType = 13;
-        
-    elseif isinteger(input) || islogical(input)
-        node.data = input;
-        node.dataType = 9;
-        
-    elseif iscell(input)
-        for i=1:numel(input)
-            node(i) = datanode(input{i});
-        end
-        
-    elseif isstruct(input)
-        node = struct();
-        fn = fieldnames(input);
-        for i=1:numel(input),
-            for f=1:numel(fn)
-                node(i).(fn{f}) = datanode(input(i).(fn{f}));
-            end
-        end
-        
-    else
-        error('Invalid type');
-    end
-    
-end
-
 
 
 

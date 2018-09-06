@@ -1,110 +1,95 @@
-function model = qub_loadModel(modelFilenameInput)
+function model = qub_loadModel(input)
 % qub_loadModel  Loads a model file created by QuB
 %     
-%   [DMODEL] = qub_loadModel( filename )
-%   Loads a qub model file (.qmf) -- specifically, this converts the
-%   QUB_Tree object imbedded in a .qmf file into a structure, as
-%   defined in qub_createModel.
+%   MODEL = qub_loadModel( FILENAME ) loads the QuB-compatible .qmf file
+%   specified in the string FILENAME, constructing a new QubModel modelect
+%   MODEL.
 %
-%  http://www.qub.buffalo.edu
+%   NOTE: this function is provided for compatibility with QuB, but it is
+%   no longer recommended since not all features in the .qmf format are
+%   supported.
+%
+%   See also: QubModel, qub_saveModel.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2018 Cornell University All Rights Reserved.
 
 
-% Disable these pointless warnings in qubtree/treestruct.cpp.
-warning off qubtree:PointerFieldsNotSupported
-warning off qubtree:MatrixFieldsNotSupported
+narginchk(0,1);
+nargoutchk(0,1);
+model = [];
 
 
 % If no model filename is given, prompt the user for it.
 % The selection will be remembered because modelFilename is persistent.
-if nargin<1,
+if nargin<1
     [f,p] = uigetfile('*.qmf','Select a model file...');
-    if f==0,
-        model = [];
-        return;
-    end
-    modelFilename = fullfile(p,f);
-else
-    modelFilename = modelFilenameInput;
+    if f==0, return; end  %user hit cancel.
+    input = fullfile(p,f);
 end
 
-if isstruct(modelFilename),
-    disp('qub_loadModel: Recieved struct as input, assuming it is a ModelFile tree');
-    treeModel = modelFilename;
-    %verify model here
-else
-    if ~exist(modelFilename,'file')
-        error('Model file doesn''t exist');
-    end
 
-    % Load QuBTree object saved to disk representing a model.
-    treeModel = qub_loadTree( modelFilename );
-end
-    
+% Load QUB_Tree modelect from .qmf file and convert to a struct
+[~,~,e] = fileparts(input);
+assert( strcmpi(e,'.qmf'),   'Invalid model file type. Should be .qmf');
+assert( exist(input,'file')==2, 'File does not exist or is not accessible');
 
-% Load initial probabilities
-nStates = numel(treeModel.States.State);
-model.nStates = nStates;
-model.p0 = zeros(nStates,1);
-model.class = zeros(nStates,1);
+warning off qubtree:PointerFieldsNotSupported
+warning off qubtree:MatrixFieldsNotSupported
 
-for i=1:nStates,
-    model.p0(i) = treeModel.States.State(i).Pr.data;
-    model.class(i) = treeModel.States.State(i).Class.data +1;
-end
+model = QubModel();
+treeModel = qub_loadTree( input );
+model.qubTree  = treeModel;
+model.filename = input;
 
-if abs(sum(model.p0)-1)>0.02,
-    warning('qub_loadModel:p0norm','Initial probabilities (p0) not normalized?');
-end
-    
-% Load FRET parameters
-nClass = max(model.class);
-model.nClasses = nClass;
-model.mu = treeModel.Amps.data(1:nClass);
-model.sigma = treeModel.Stds.data(1:nClass);
 
-% Load rates into Q matrix
-nRatePairs = numel( treeModel.Rates.Rate );
-model.rates = zeros(nStates,nStates);
+% Construct model from QUB_Tree values
+ns = numel(treeModel.States.State);
+[model.p0,model.class,model.x,model.y] = deal( zeros(ns,1) );
+states = treeModel.States.State;
 
-for i=1:nRatePairs,
-    rate = treeModel.Rates.Rate(i);
-    
-    src = rate.States.data(1)+1;
-    dst = rate.States.data(2)+1;
-    
-    model.rates(src,dst) = rate.k0.data(1);
-    model.rates(dst,src) = rate.k0.data(2);
-    
-    %in principle, we could use dk0 for errors here
+for i=1:ns
+    model.p0(i)    = states(i).Pr.data;
+    model.class(i) = states(i).Class.data +1;
+    model.x(i)     = states(i).x.data;
+    model.y(i)     = states(i).y.data;
 end
 
-% NOTE: rate constraints not yet implemented!!!!
-% Files that have constraints seem to crash the engine....
+nc = max(model.class);
+model.mu    = treeModel.Amps.data(1:nc);
+model.sigma = treeModel.Stds.data(1:nc);
+model.rates = zeros(ns);
+
+for i=1:numel( treeModel.Rates.Rate )
+    conn = treeModel.Rates.Rate(i);
+    src  = conn.States.data(1)+1;
+    dst  = conn.States.data(2)+1;
+
+    model.rates(src,dst) = conn.k0.data(1);
+    model.rates(dst,src) = conn.k0.data(2);
+end
+
+
+% Extract supported rate constraints. NOTE that many constraint
+% types are not supported and silently ignored!
+[model.fixMu,model.fixSigma] = deal( false(1,nc) );
+model.fixRates = false(ns);
+
 if isfield(treeModel,'Constraints') && isfield(treeModel.Constraints,'FixRate')
-    nFixedRates = numel( treeModel.Constraints.FixRate );
-    model.fixRates = zeros( size(model.rates) );
-    
-    for i=1:nFixedRates
-        cons = treeModel.Constraints.FixRate(i);
-        src = cons.data(1)+1;
-        dst = cons.data(2)+1;
-        
-        model.fixRates(src,dst) = 1;
-        
-%         if cons.HasValue.data~=0,
-%             warning('qub_loadModel:HasValue', ...
-%                        'Fixing rates to particular value not supported');
-%         end
+    for i=1:numel( treeModel.Constraints.FixRate )
+        pair = treeModel.Constraints.FixRate(i).data+1;
+        model.fixRates( pair(1), pair(2) ) = true;
     end    
 end
 
 
-model.qubTree = treeModel;
-if exist('modelFilename','var')
-    model.filename = modelFilename;
-end
+end %function qub_loadModel
+
+
+
+
+
+
+
 
 
 

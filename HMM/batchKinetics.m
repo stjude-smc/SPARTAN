@@ -200,10 +200,14 @@ function btnLoadModel_Callback(hObject, ~, handles, filename)
 % Executes on button press in btnLoadModel.
 % FIXME: allow QubModelViewer to be updated, rather than recreated.
 
-if nargin<4,
+if nargin<4
     % Ask the user for a filename
-    [fname,p] = uigetfile( fullfile(pwd,'*.qmf'), 'Select a QuB model file...' );
-    if fname==0, return; end
+    filter = {'*.model;*.qmf','All model files (*.model;*.qmf)'; ...
+              '*.model','SPARTAN model files (*.model)'; ...
+              '*.qmf','QuB format model files (*.qmf)'; ...
+              '*.*','All Files (*.*)'};
+    [fname,p] = uigetfile(filter, 'Load Model');
+    if isequal(fname,0), return; end
     filename = fullfile(p,fname);
 end
 

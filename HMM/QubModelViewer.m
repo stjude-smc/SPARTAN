@@ -410,12 +410,14 @@ t
 
     function save_callback(this,varargin)
     % Save the current model to file.
-        if ~isempty(this.model.filename)
-            [f,p] = uiputfile(this.model.filename);
-        else
-            [f,p] = uiputfile([pwd filesep '*.qmf']);
-        end
-        if ischar(f),
+    
+        filter = {'*.model','SPARTAN model files (*.model)'; ...
+                  '*.qmf','QuB format model files (*.qmf)'; ...
+                  '*.model;*.qmf','All model files (*.model;*.qmf)'; ...
+                  '*.*','All Files (*.*)'};
+        [f,p] = uiputfile(filter, 'Save Model', this.model.filename);
+
+        if ischar(f)
             fname = fullfile(p,f);
             this.model.save(fname);
             
