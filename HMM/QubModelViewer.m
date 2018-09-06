@@ -257,23 +257,28 @@ methods
     
 
 
-
+t
     %% -----------------------   CALLBACK FUNCTIONS   ----------------------- %%
 
     function editRate_callback(this, ~, ~, rateID)
     % Called whenever one of the rate labels is clicked.
     
-    % Ask the user for the new value for the rate constant.
-    initRate = this.model.rates( rateID(1), rateID(2) );
-    text = sprintf('Enter a new rate constant (%d->%d)',rateID(1),rateID(2));
-    a = inputdlg( text, 'Edit model parameters', 1, {num2str(initRate)} );
-    if isempty(a), return; end  %user hit cancel
+    statePair = num2cell(rateID);
+    value = this.model.rates(statePair{:});
+    fix   = this.model.fixRates(statePair{:});
+    
+    % Prompt user for new rate constant value and whether to fix rate
+    result = struct( 'value',value, 'fix',fix );
+    prompt = { sprintf('Rate constant value (%d->%d):',statePair{:}),  'Fix Rate' };
+    result = settingdlg(result, fieldnames(result), prompt);
+    if isempty(result), return; end  %user hit cancel
 
     % Save the value.
-    this.model.rates( rateID(1), rateID(2) ) = str2double(a);
+    this.model.rates(statePair{:})    = result.value;
+    this.model.fixRates(statePair{:}) = result.fix;
 
     % Redraw if a connection was removed.
-    if this.model.rates( rateID(1), rateID(2) )==0 && this.model.rates( rateID(2), rateID(1) )==0
+    if this.model.rates(statePair{:})==0 && this.model.rates(statePair{:})==0
         this.redraw();
     end
 

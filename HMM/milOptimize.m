@@ -34,7 +34,7 @@ nargoutchk(1,2);
 % FIXME: this excludes connections where ONE rate is zero...
 nStates = model.nStates;
 I = logical(eye(nStates));
-rateMask = ~I & model.rates~=0;
+rateMask = ~I & model.rates~=0 & ~model.fixRates;
 nRates = sum(rateMask(:));
 
 % Define default optional arguments, mostly taken from fmincon
@@ -69,15 +69,14 @@ end
 
 % Run fmincon optimizing with weak constraints to avoid negative rates.
 % (fminunc works just as well; negative rates just cause harmless restarts).
-optFun = @(x)milIter(dwt, dt, model.p0, model.class, rateMask, x);
+optFun = @(x)milIter(dwt, dt, model, x);
 x0 = model.rates(rateMask)';
 lb =     zeros(1,nRates);
-% ub = 3/dt*ones(1,nRates);
+% ub = 10/dt*ones(1,nRates);
 [optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,[],[],fminopt );
 
 % Save results
 optModel = copy(model);  %do not modify model in place
-optModel.rates(:) = 0;
 optModel.rates(rateMask) = optParam;
 
 
@@ -120,7 +119,7 @@ switch state
         if ishandle(wbh), close(wbh); end
         if ~options.verbose, return; end
         
-        % OFor debugging, plot how parameters change over iterations
+        % For debugging, plot how parameters change over iterations
 %         X  = X(1:itr,:);
 %         dX = dX(1:itr,:);
 %         [idxin,idxout] = find(rateMask);  %state numbers for each transition type.
