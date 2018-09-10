@@ -29,11 +29,9 @@ function [idl,optModel,LL] = mplOptimize(fret, dt, model, optionsInput)
 narginchk(3,4);
 nargoutchk(1,3);
 
-nStates = model.nStates;
 nClass  = model.nClasses;
 
-I = logical(eye(nStates));
-rateMask = ~I & model.rates~=0;
+rateMask = ~eye(model.nStates) & model.rates & ~model.fixRates;
 nRates = sum(rateMask(:));
 dt = dt/1000;  %convert to seconds/frame
 
@@ -59,7 +57,7 @@ fminopt.TolX    = options.convGrad;
 fminopt.TolFun  = options.convLL;
 
 % Run fmincon optimizer, with loose contraints to aid convergence.
-optFun = @(x)mplIter(fret, dt, model.p0, model.class, rateMask, x);
+optFun = @(x)mplIter(fret, dt, model, x);
 x0 = [ model.mu(:)' model.sigma(:)' model.rates(rateMask)' ];
 
 lb = [ -0.3*ones(1,nClass)  0.01*ones(1,nClass)     zeros(1,nRates) ];
@@ -70,7 +68,6 @@ ub = [  1.2*ones(1,nClass)  0.12*ones(1,nClass) 10/dt*ones(1,nRates) ];
 optModel = copy(model);  %do not modify model in place
 optModel.mu    = optParam(1:nClass);
 optModel.sigma = optParam(nClass + (1:nClass));
-optModel.rates(:) = 0;
 optModel.rates(rateMask) = optParam(2*nClass + 1:end);
 
 % Idealize traces if requested.

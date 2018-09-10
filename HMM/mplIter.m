@@ -1,4 +1,4 @@
-function LL = mplIter(data, dt, p0, classidx, rateMask, params)
+function LL = mplIter(data, dt, model, params)
 % Maximum Point Likelihood algorithm (MPL)
 %
 %   LL = mplIter(DATA, DT, p0, CLASSIDX, RATEMASK, PARAMS)
@@ -23,35 +23,36 @@ function LL = mplIter(data, dt, p0, classidx, rateMask, params)
 %   Copyright 2018 Cornell University All Rights Reserved.
 
 
-narginchk(6,6);
+narginchk(4,4);
 nargoutchk(0,1);
 
 
 %% Process input arguments
-nStates = numel(classidx);
-nClass  = max(classidx);
 
 % Make sure vectors are the correct orientation.
-p0 = reshape(p0, 1, nStates);
+p0 = reshape(model.p0, 1, model.nStates);
 if isvector(data)
     data = reshape(data, 1, numel(data));
 end
 
 % Unpack parameters from fminunc input vector
-mu    = params( 1:nClass );
-sigma = params( nClass + (1:nClass) );
+mu    = params( 1:model.nClasses );
+sigma = params( model.nClasses + (1:model.nClasses) );
 
-Q = zeros(nStates);
-Q(rateMask) = params( 2*nClass + 1:end );
-I = logical(eye(nStates));
-Q(I) = -sum(Q,2);
+Q = model.rates;
+I = logical(eye(model.nStates));
+rateMask = ~I & Q~=0 & ~model.fixRates;
+Q(rateMask) = params( 2*model.nClasses + 1:end );
+
+I = logical(eye(model.nStates));
+Q(I) = -sum(Q,2);  %normalize so rows sum to zero
 
 % Calculate discrete-time transition probabilities (A) from rate matrix
 transitionProb = expm( Q*dt );
 
 % Duplicate emission parameters for degenerate states
-mu = mu(classidx);
-sigma = sigma(classidx);
+mu = mu(model.class);
+sigma = sigma(model.class);
 
 
 %% Calculate log likelihood and partial derivatives for each trace.
@@ -62,8 +63,7 @@ for n=1:size(data,1)
     trace = data(n,:);
     bleachFrame = find( trace==0, 1, 'first' );
     trace = trace(1:bleachFrame-1);
-    nFrames = numel(trace);
-    if nFrames<5, continue; end  %skip extremely short traces
+    if numel(trace)<5, continue; end  %skip extremely short traces
     
     % Get partial probabilities using the forward-backward algorithm
     [LLtrace,~] = BWtransition( p0, transitionProb, trace, mu, sigma );
