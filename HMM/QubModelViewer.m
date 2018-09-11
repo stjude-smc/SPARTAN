@@ -128,19 +128,14 @@ methods
     this.hRate = zeros( nRates, 2 );
     this.hLine = zeros( nRates, 1 ); %main line and two direction arrows
 
-    for i=1:nRates,
-        states = conn(i,:);
-        k0  = [ this.model.rates(states(1),states(2)) this.model.rates(states(2),states(1)) ];
-
-        this.hLine(i) = line( 0,0, lineFormat{:} );
-
-        % Display rate numbers
-        this.hRate(i,1) = text( 0,0, num2str(k0(1),3), textFormat{:}, 'Color',[0 0 0] );
-        this.hRate(i,2) = text( 0,0, num2str(k0(2),3), textFormat{:}, 'Color',[0 0 0] );
+    for i=1:nRates
+        this.hLine(i)   = line( 0,0, lineFormat{:} );
+        this.hRate(i,1) = text( 0,0, '', textFormat{:} );
+        this.hRate(i,2) = text( 0,0, '', textFormat{:} );
 
         % Add callbacks for changing the rate constants.
-        set( this.hRate(i,1), 'ButtonDownFcn', {@this.editRate_callback,states}         );
-        set( this.hRate(i,2), 'ButtonDownFcn', {@this.editRate_callback,states([2 1])}  );
+        set( this.hRate(i,1), 'ButtonDownFcn', {@this.editRate_callback,conn(i,:)}      );
+        set( this.hRate(i,2), 'ButtonDownFcn', {@this.editRate_callback,conn(i,[2 1])}  );
     end
 
     % Create the lines connecting states and rate number text next to them.
@@ -172,6 +167,7 @@ methods
 
 
     % Position the lines and text in the correct places.
+    this.updateRateLabels();
     this.moveLines();
 
     axis(this.ax,'equal');
@@ -196,20 +192,26 @@ methods
     end %function showModel
     
     
+    
     function updateRateLabels(this)
     % Update displayed rate numbers to match the internal model.
     
     conn = this.model.connections;
     
-    for i=1:size(conn,1),
-        kf = this.model.rates( conn(i,1), conn(i,2) );
-        kr = this.model.rates( conn(i,2), conn(i,1) );
+    for i=1:size(conn,1)
+        states = conn(i,:);
+        kf = this.model.rates( states(1) ,states(2) );
+        kr = this.model.rates( states(2), states(1) );
         
-        set( this.hRate(i,1), 'String',num2str(kf,3) );
-        set( this.hRate(i,2), 'String',num2str(kr,3) );
+        fix(1) = this.model.fixRates( states(1), states(2) )*0.5;
+        fix(2) = this.model.fixRates( states(2), states(1) )*0.5;
+        
+        set( this.hRate(i,1), 'String',num2str(kf,3), 'Color',[0 0 0]+fix(1)  );
+        set( this.hRate(i,2), 'String',num2str(kr,3), 'Color',[0 0 0]+fix(2)  );
     end    
         
     end %function updateRates
+    
     
     
     function moveLines(this)
@@ -257,7 +259,7 @@ methods
     
 
 
-t
+
     %% -----------------------   CALLBACK FUNCTIONS   ----------------------- %%
 
     function editRate_callback(this, ~, ~, rateID)
@@ -276,10 +278,13 @@ t
     % Save the value.
     this.model.rates(statePair{:})    = result.value;
     this.model.fixRates(statePair{:}) = result.fix;
-
-    % Redraw if a connection was removed.
+    
+    % Update rate label colors to highlight any constraints or
+    % completely redraw if a connection was removed.
     if this.model.rates(statePair{:})==0 && this.model.rates(statePair{:})==0
         this.redraw();
+    else
+        this.updateRateLabels();
     end
 
     end %function editRate

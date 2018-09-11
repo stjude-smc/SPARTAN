@@ -1,19 +1,13 @@
 classdef QubModel < matlab.mixin.Copyable
-% HMM model object designed for representing a .qmf model file generated in
-% QuB. Even if QuB isn't involved, we still use this format for all model
-% definitions. The filename cannot be changed once the object is created;
-% a new object should be created to load another file. The exception is
-% when saving a file -- the model is now tied to the newly save file.
+%   FRET observation and kinetic model for HMM analysis and optimization.
 %
 %   QubModel(N)     creates a model with N states/classes.
-%   QubModel(FILE)  loads the given .qmf file.
-%   QubModel(MODEL) creates a copy of a QubModel object or similar struct.
+%   QubModel(FILE)  loads a model from file (.model or .qmf)
+%   QubModel(MODEL) creates a copy of a QubModel object.
 %
-%   See also: qub_loadTree, qub_saveTree.
+%   See also: qub_loadModel, qub_saveModel, QubModelViewer.
 
-%   Copyright 2007-2016 Cornell University All Rights Reserved.
-
-% TODO: support basic constraint types from .qmf format.
+%   Copyright 2007-2018 Cornell University All Rights Reserved.
 
  
 properties (SetAccess=public, GetAccess=public, SetObservable)
@@ -30,13 +24,12 @@ properties (SetAccess=public, GetAccess=public, SetObservable)
     fixMu;
     fixSigma;
     
-    %Internal display data (must be public for QubModelViewer)
+    % State locations for display (0..100; see QubModelViewer)
     x = [];
     y = [];
     
-    % The two fields below are public, but should not be modified except by
-    % qub_loadModel and qub_saveModel...
     % Full path and name of the model file that was loaded.
+    % This should only be modified by the save() method.
     filename = [];
     
     % Structure containing the .qmf format tree of all model information.
