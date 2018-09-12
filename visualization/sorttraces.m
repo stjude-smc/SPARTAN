@@ -671,6 +671,7 @@ set(handles.figure1,'pointer','arrow');
 % --------------------------------------------------------------------
 function mnuExportBin_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Save selected traces and export current bin as text file for Origin.
+% FIXME: should only save .dwt file for exporting bin.
 idxBin = get(hObject,'UserData');
 
 if ~isempty(idxBin)
@@ -1382,9 +1383,13 @@ function btnGettraces_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Display an image of the field-of-view from the movie that the current trace
 % came from and its physical location in each fluorescence channel.
 
-p = fileparts(handles.filename);  %get path of currently loaded file
+try
+    p = fileparts(handles.filename);  %get path of currently loaded file
+    handles.movieViewer = showMovie(handles.data, handles.molecule_no, p);
+catch
+    errordlg('Unable to find corresponding movie file')
+end
 
-handles.movieViewer = showMovie(handles.data, handles.molecule_no, p);
 handles = plotter(handles);
 guidata(hObject,handles);
 

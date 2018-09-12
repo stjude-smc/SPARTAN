@@ -30,28 +30,24 @@ end
 
 
 % Parse trace identifiers to predict original movie filename.
-try
-    id = data.traceMetadata(m).ids;
-    assert( any(id=='#') );
-    output = strsplit(id,'#');
-    [moviePath,~] = deal( output{:} );
-    
-    % Look for the movie in the directory containing the loaded traces file.
-    % using .tif extension if it is .rawtraces etc (in some old versions).
-    [~,f,e] = fileparts2(moviePath);
-    if ~ismember(e, {'.stk','.tif','.tiff'}), e='.tif'; end
-    movieFilename = fullfile(fpath, [f e]);
-catch
-    disp('Failed to find movie source file');
-    return;
+id = data.traceMetadata(m).ids;
+assert( any(id=='#') );
+output = strsplit(id,'#');
+[moviePath,~] = deal( output{:} );
+
+% Look for the movie in the directory containing the loaded traces file.
+% using .tif extension if it is .rawtraces etc (in some old versions).
+[~,f,e] = fileparts2(moviePath);
+if ~ismember(e, {'.stk','.tif','.tiff'}), e='.tif'; end
+movieFilename = fullfile(fpath, [f e]);
+
+if ~exist( movieFilename, 'file' )
+    error('Corresponding movie file not found');
 end
 
 
 % The viewer has been closed or never opened, create one.
 if isempty(viewer) || ~isvalid(viewer)
-    if ~exist( movieFilename, 'file' )
-        error('Corresponding movie file not found');
-    end
     
     % Assemble movie parsing parameters.
     constants = cascadeConstants;
@@ -75,7 +71,7 @@ if isempty(viewer) || ~isvalid(viewer)
 % If trace is from a different file than the one currently load,
 % load the new movie quietly into the existing window.
 else
-    [~,fold] = fileparts2(viewer.movie.filenames{1});
+    [~,fold] = fileparts2(viewer.movie.filename{1});
     if ~strcmp(f, fold),
         viewer.load(movieFilename);
     end
