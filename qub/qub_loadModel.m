@@ -14,18 +14,8 @@ function model = qub_loadModel(input)
 %   Copyright 2007-2018 Cornell University All Rights Reserved.
 
 
-narginchk(0,1);
+narginchk(1,1);
 nargoutchk(0,1);
-model = [];
-
-
-% If no model filename is given, prompt the user for it.
-% The selection will be remembered because modelFilename is persistent.
-if nargin<1
-    [f,p] = uigetfile('*.qmf','Select a model file...');
-    if f==0, return; end  %user hit cancel.
-    input = fullfile(p,f);
-end
 
 
 % Load QUB_Tree modelect from .qmf file and convert to a struct
@@ -38,8 +28,6 @@ warning off qubtree:MatrixFieldsNotSupported
 
 model = QubModel();
 treeModel = qub_loadTree( input );
-model.qubTree  = treeModel;
-model.filename = input;
 
 
 % Construct model from QUB_Tree values

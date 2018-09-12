@@ -28,14 +28,15 @@ properties (SetAccess=public, GetAccess=public, SetObservable)
     x = [];
     y = [];
     
-    % Full path and name of the model file that was loaded.
-    % This should only be modified by the save() method.
-    filename = [];
-    
     % Structure containing the .qmf format tree of all model information.
     % This includes many parameters we don't use but QuB expects.
     % This is only updated when a .qmf file is saved to disk.
     qubTree;
+end
+
+properties (GetAccess=public, SetAccess=protected, Transient)
+    % Full path and name of the model file that was loaded.
+    filename;
 end
 
 % Model properties derived from model parameters (above).
@@ -90,6 +91,7 @@ methods
             else
                 error('Invalid model file format');
             end
+            obj.filename = input;
             
         else
             error('Unexpected input for QubModel constructor');
@@ -142,10 +144,11 @@ methods
             qub_saveModel(model, filename);
         elseif strcmpi(e,'.model') || strcmpi(e,'.mat')
             version = 1.0; %#ok<NASGU>
-        save(filename, 'model','version');
+            save(filename, 'model','version');
         else
             error('Unrecognized model output format');
         end
+        model.filename = filename;
     end
     
     

@@ -29,18 +29,15 @@ function [idl,optModel,LL] = mplOptimize(fret, dt, model, optionsInput)
 narginchk(3,4);
 nargoutchk(1,3);
 
-nClass  = model.nClasses;
-
 rateMask = ~eye(model.nStates) & model.rates & ~model.fixRates;
-nRates = sum(rateMask(:));
 dt = dt/1000;  %convert to seconds/frame
 
 
 % Define default optional arguments, mostly taken from fmincon
-options = struct('maxIter',200,  'convLL',10^-6, 'convGrad',10^-6, ...
+options = struct('maxItr',200,   'convLL',10^-6, 'convGrad',10^-6, ...
                  'verbose',true, 'updateModel',false);
 if nargin>=4
-    options = mergestruct(options, optionsInput);
+    options = mergestruct(options, optionsInput)
 end
 if isfield(options,'exclude') && any(options.exclude)
     warning('Excluding traces not supported by MPL yet');
@@ -52,23 +49,31 @@ if options.verbose
     fminopt.Display='iter';
     fminopt.OutputFcn = @outfun;
 end
-fminopt.MaxIter = options.maxIter;
+fminopt.MaxIter = options.maxItr;
 fminopt.TolX    = options.convGrad;
 fminopt.TolFun  = options.convLL;
 
 % Run fmincon optimizer, with loose contraints to aid convergence.
 optFun = @(x)mplIter(fret, dt, model, x);
-x0 = [ model.mu(:)' model.sigma(:)' model.rates(rateMask)' ];
 
-lb = [ -0.3*ones(1,nClass)  0.01*ones(1,nClass)     zeros(1,nRates) ];
-ub = [  1.2*ones(1,nClass)  0.12*ones(1,nClass) 10/dt*ones(1,nRates) ];
+nMu = sum(~model.fixMu);
+nSigma = sum(~model.fixSigma);
+nRates = sum(rateMask(:));
+
+mu = model.mu(~model.fixMu);
+sigma = model.sigma(~model.fixSigma);
+rates = model.rates(rateMask);
+x0 = [mu(:)' sigma(:)' rates(:)'];
+
+lb = [ -0.3*ones(1,nMu)  0.01*ones(1,nSigma)      zeros(1,nRates) ];
+ub = [  1.2*ones(1,nMu)  0.12*ones(1,nSigma) 10/dt*ones(1,nRates) ];
 [optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,ub,[],fminopt );
 
 % Save results
 optModel = copy(model);  %do not modify model in place
-optModel.mu    = optParam(1:nClass);
-optModel.sigma = optParam(nClass + (1:nClass));
-optModel.rates(rateMask) = optParam(2*nClass + 1:end);
+optModel.mu(~model.fixMu)       = optParam(1:nMu);
+optModel.sigma(~model.fixSigma) = optParam(nMu + (1:nSigma));
+optModel.rates(rateMask)        = optParam(nMu+nSigma + 1:end);
 
 % Idealize traces if requested.
 % FIXME: idealize should properly handle degenerate states
@@ -103,13 +108,13 @@ switch state
 %         dX(itr+1,:) = optimValues.gradient;
         
         if options.updateModel
-            model.mu    = x( 1:nClass );
-            model.sigma = x( nClass + (1:nClass) );
-            model.rates(rateMask) = x( 2*nClass + 1:end );
+            model.mu(~model.fixMu)       = x(1:nMu);
+            model.sigma(~model.fixSigma) = x(nMu + (1:nSigma));
+            model.rates(rateMask)        = x(nMu+nSigma + 1:end);
             drawnow;
         end
         
-        progress = max( itr/options.maxIter, log10(optimValues.stepsize)/log10(options.convLL) );
+        progress = max( itr/options.maxItr, log10(optimValues.stepsize)/log10(options.convLL) );
         if ~ishandle(wbh) || ~isvalid(wbh)
             stop=true; %user closed waitbar
             return;

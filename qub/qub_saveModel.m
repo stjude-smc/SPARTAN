@@ -20,11 +20,6 @@ narginchk(2,2);
 model.verify();
 
 
-% If no filename is given, update the original model file.
-if nargin>=2
-    model.filename = filename;
-end
-
 if ~isempty(model.qubTree)
     % Use the existing QUB_Tree object if available
     outputTree = model.qubTree;
@@ -87,7 +82,7 @@ end
 % end
 
 % Save the resulting to QUB_Tree .qmf file
-qub_saveTree(outputTree, model.filename, 'ModelFile');
+qub_saveTree(outputTree, filename, 'ModelFile');
 model.qubTree = outputTree;
 
 

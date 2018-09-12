@@ -38,7 +38,7 @@ rateMask = ~I & model.rates~=0 & ~model.fixRates;
 nRates = sum(rateMask(:));
 
 % Define default optional arguments, mostly taken from fmincon
-options = struct('maxIter',150,  'convLL',10^-5, 'convGrad',10^-5, ...
+options = struct('maxItr',150,   'convLL',10^-5, 'convGrad',10^-5, ...
                  'verbose',true, 'updateModel',false, 'removeBleaching',true);
 if nargin>=4
     options = mergestruct(options, optionsInput);
@@ -53,7 +53,7 @@ if options.verbose
     fminopt.Display='iter';
     fminopt.OutputFcn = @outfun;
 end
-fminopt.MaxIter = options.maxIter;
+fminopt.MaxIter = options.maxItr;
 fminopt.TolX    = options.convGrad;
 fminopt.TolFun  = options.convLL;
 

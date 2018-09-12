@@ -35,14 +35,21 @@ if isvector(data)
     data = reshape(data, 1, numel(data));
 end
 
+
 % Unpack parameters from fminunc input vector
-mu    = params( 1:model.nClasses );
-sigma = params( model.nClasses + (1:model.nClasses) );
+nMu = sum(~model.fixMu);
+nSigma = sum(~model.fixSigma);
+
+mu = model.mu;
+sigma = model.sigma;
+
+mu(~model.fixMu)    = params( 1:nMu );
+sigma(~model.fixSigma) = params( nMu + (1:nSigma) );
 
 Q = model.rates;
 I = logical(eye(model.nStates));
 rateMask = ~I & Q~=0 & ~model.fixRates;
-Q(rateMask) = params( 2*model.nClasses + 1:end );
+Q(rateMask) = params( nMu+nSigma + 1:end );
 
 I = logical(eye(model.nStates));
 Q(I) = -sum(Q,2);  %normalize so rows sum to zero
