@@ -443,15 +443,17 @@ persistent opt;
 if isempty(opt)
     opt = struct('nTraces',1000, 'nFrames',2000, 'sampling',40, ...
                  'snr',30, 'shotNoise',true, 'gamma',1, ...
-                 'totalIntensity',500, 'stdTotalIntensity',100, ...
-                 'stdPhoton',0, 'totalTimeOn',20 );
+                 'totalIntensity',500, 'stdTotalIntensity',0, ...
+                 'accLife',20, 'donLife',30, 'simExpBleach',true );
 end
-prompt = {'Traces',   'Frames',     'Sampling (ms)', ...
+prompt = {'Traces',   'Frames',     'Integration Time (ms)', ... 
           'Signal:background noise ratio', 'Shot noise', 'Apparent gamma', ...
           'Intensity (photons)', 'Intensity stdev', ...
-          'Excess noise stdev',  'FRET Lifetime (s)'};
+          'Acceptor Lifetime (s)', 'Donor Lifetime (s)', ...
+          'Exponential photobleaching'};
 newOpt = settingdlg(opt, fieldnames(opt), prompt); %, 'Simulation parameters');
 if isempty(newOpt), return; end
+opt = newOpt;
 
 % Get output filename from user.
 [f,p] = uiputfile('sim.traces','Save simulated data as...');
@@ -459,16 +461,12 @@ if f==0, return; end  %user pressed "cancel"
 
 
 % Simulate new data.
-% FIXME: simulate.m should return a valid traces object.
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Simulating...'); drawnow;
 
-opt = newOpt;
-newOpt.stdBackground = opt.totalIntensity/(sqrt(2)*opt.snr);
-newOpt.kBleach = 1/opt.totalTimeOn;
-
 try
-    data = simulate( [opt.nTraces,opt.nFrames], opt.sampling/1000, handles.model, newOpt );
+    newOpt = rmfield(newOpt, {'nTraces','nFrames','sampling'});
+    data = simulate( opt.nTraces,opt.nFrames, opt.sampling/1000, handles.model, newOpt );
     saveTraces( fullfile(p,f), data );
 catch e
     if ~strcmpi(e.identifier,'spartan:op_cancelled')
