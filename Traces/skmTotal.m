@@ -27,19 +27,19 @@ skmParams.quiet = true;
 skmParams.maxItr = 20; %typically 3-5, very rarely more than 10.
 
 % Define a default model: 1) dark, 2) blinking/quenched, 3) ON.
+model = QubModel(3);
 model.p0    = [0.01 0.01 0.98]';
 model.mu    = [0 0.2 1];   %second value defines sensitivity to partially quenched states.
 model.sigma = [0.15 0.15 0.3];
 model.rates = [0        0       0
                0.1      0       2    %bleaching, ressurection rates.
                0.1      1       0];  %bleaching, blinking rate (s-1)
-model = QubModel(model);
 
 % Use a user-defined model instead
-if nargin>=2,
+if nargin>=2
     if isa(modelInput,'QubModel')
         model = modelInput;
-    elseif isstruct(modelInput) || ischar(modelInput),
+    elseif ischar(modelInput)
         model = QubModel(modelInput);
     elseif isnumeric(modelInput) && numel(modelInput)==1
         model.mu(2) = modelInput;

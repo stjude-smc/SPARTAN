@@ -170,14 +170,14 @@ else
 end
 
 % Model for removing dark state noise. Adjust if any state is < 0.4.
-if settings.removeBlinks,
+if settings.removeBlinks
+    model = QubModel(2);
     model.p0    = [0.01 0.99]';
     model.rates = [0 5; 1 0];
     model.mu       = [0.01 0.3];
     model.sigma    = [0.061 0.074];
     model.fixMu    = true(1,2);
     model.fixSigma = true(1,2);
-    model = QubModel(model);
     
     skmParams.quiet = 1;
 end
@@ -193,13 +193,12 @@ for i=1:nFiles
     % Load FRET data
     data = loadTraces( files{i} );
     fret = data.fret( :, pophist_offset+(1:sumlen) );
-    [nTraces,nFrames] = size(fret);
+    nTraces = size(fret,1);
     labels{i} = data.fretAxisLabel;
         
     % Idealize data to 2-state model to eliminate dark-state dwells
-    if settings.removeBlinks,
-        [dwt,~,~,offsets] = skm( fret, data.sampling, model, skmParams );
-        idl = dwtToIdl( dwt, offsets, nFrames, nTraces );
+    if settings.removeBlinks
+        idl = skm( fret, data.sampling, model, skmParams );
     else
         % Use all datapoints for histogram otherwise
         idl = repmat(2,size(fret));

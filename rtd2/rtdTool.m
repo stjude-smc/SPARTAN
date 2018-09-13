@@ -185,7 +185,8 @@ if opt.idlTraces
         fprintf('\n');
         
         currentTraces = loadTraces(opt.fileList{i});
-        [dwt,~,~,offsets] = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
+        idl = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
+        [dwt,offsets] = idlToDwt(idl);
         
         % Save idealizations.
         [path,name,~] = fileparts(opt.fileList{i});
@@ -209,8 +210,9 @@ if opt.idlTraces
                 disp(['Re-idealizing traces: ' selFile]);
                 
                 currentTraces = loadTraces(selFile);
-                [dwt,~,~,offsets] = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
-
+                idl = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
+                [dwt,offsets] = idlToDwt(idl);
+                
                 % Save idealizations.
                 dwtFile = fullfile(path, [name opt.selectPostfix '.qub.dwt']);
                 saveDWT(dwtFile, dwt, offsets, fretModel, currentTraces.sampling);
@@ -220,8 +222,9 @@ if opt.idlTraces
                 disp(['Re-idealizing traces: ' rejFile]);
                 
                 currentTraces = loadTraces(rejFile);
-                [dwt,~,~,offsets] = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
-
+                idl = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
+                [dwt,offsets] = idlToDwt(idl);
+                
                 % Save idealizations.
                 dwtFile = fullfile(path, [name opt.rejectPostfix '.qub.dwt']);
                 saveDWT(dwtFile, dwt, offsets, fretModel, currentTraces.sampling);

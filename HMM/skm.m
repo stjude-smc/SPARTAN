@@ -85,7 +85,7 @@ if params.seperately,
     end
     
     % Use multi-process execution only for large datasets.
-    if nTraces*nFrames > 1e5 && cascadeConstants('enable_parfor'),
+    if nTraces*nFrames > 1e4 && cascadeConstants('enable_parfor'),
         pool = gcp;
         M = pool.NumWorkers;
     else
@@ -118,25 +118,9 @@ idlTotal( ~params.exclude, :) = idl;
 
 
 % % Add dwell in zero-state until end of trace, if requested
-if params.zeroEnd,
-    error('zeroEnd param not supported')
-%     for i=1:nTraces,
-%         states = dwt{i}(:,1);
-%         times  = dwt{i}(:,2);
-%         if numel(states)<1, continue; end
-%         
-%         remainder = nFrames-sum(times)-1;
-%         if remainder<=0, continue; end
-%         
-%         if states(end)==1
-%             times(end) = times(end)+remainder;
-%         else
-%             states = [states ; 1];
-%             times  = [times ; remainder];
-%         end
-%         
-%         dwt{i} = [states times];
-%     end
+if params.zeroEnd
+    idlTotal(idlTotal==0)=1;
+    idlTotal(params.exclude) = 0;
 end
 
 

@@ -65,7 +65,9 @@ for i = 1:nFiles
     currentTraces = loadTraces(fileList{i});
     
     %idealize with two-state model and save to dwt file
-    [dwellTimes] = skm(currentTraces.fret,currentTraces.sampling,model,skmParams);
+    idl = skm(currentTraces.fret,currentTraces.sampling,model,skmParams);
+    dwellTimes = idlToDwt(idl);
+    
     [filePath,fileName] = fileparts(fileList{i});
     offsets = currentTraces.nFrames*((1:currentTraces.nTraces)-1);
     saveDWT([filePath filesep fileName '_2state.qub.dwt'],dwellTimes, ...
@@ -77,7 +79,7 @@ for i = 1:nFiles
     syncTraces.fileMetadata = currentTraces.fileMetadata;
     
     for j = 1:currentTraces.nTraces
-        currentDwells = dwellTimes{j,1};
+        currentDwells = dwellTimes{j};
         
         dwellOffset = 1;
         for k = 2:size(currentDwells,1)

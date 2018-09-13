@@ -44,6 +44,7 @@ if isempty(params)
     params.saveRejected = false;
 
     % Define a standard internal model
+    model = QubModel(3);
     model.p0    = [0.01 0.01 0.98]';
     model.class = [1 1 2];
     model.mu    = [0 1];
@@ -51,7 +52,7 @@ if isempty(params)
     model.rates = [0        0       0
                    0.01     0       1    %bleaching, ressurection rates.
                    0        1       0];  %bleaching, blinking rate (s-1)
-    params.model = QubModel(model);
+    params.model = (model);
 
     % Show Time-On and Total Time On plots on a log scale (sine-sigworth)
     params.logX = true;

@@ -43,6 +43,7 @@ function varargout = dwellhist(varargin)
 %% Process input arguments
 
 % Extract first argument graphics handle (figure or axes)
+hFig = [];
 ax = [];
 oneAx = false;      %if true, collapse all plots into one axes.
 soloWindow = true;  %if true, add menu controls for stand-alone execution
