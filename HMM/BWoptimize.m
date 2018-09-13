@@ -176,6 +176,10 @@ LL = LL(end);
 % a way to enforce this constraint during optimization with Baum-Welch.
 % NOTE: A/dt gives approximate rates, but logm(A)/dt seems more correct.
 optModel.rates = logm(A) / (sampling/1000);
+if any(optModel.rates<0)
+    optModel.rates = (A-eye(size(A))) / (sampling/1000);
+    disp('logm(A) return negative rates');
+end
 optModel.rates( model.rates==0 ) = 0;
 
 disp(toc);

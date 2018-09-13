@@ -387,11 +387,16 @@ else
     handles.traceViewer.showTraces();
 
     if get(handles.chkUpdateModel,'Value'),
+        handles.model.muteListeners = true;
         handles.model.rates = optModel.rates;
         handles.model.mu    = optModel.mu;
         handles.model.sigma = optModel.sigma;
         handles.model.p0    = optModel.p0;
+        handles.model.muteListeners = false;
         handles.modelViewer.redraw();
+        
+        handles.model.mu = optModel.mu; %trigger update
+        
         handles.traceViewer.showModelLines();
     end
 end

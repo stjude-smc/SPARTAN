@@ -32,6 +32,10 @@ properties (SetAccess=public, GetAccess=public, SetObservable)
     % This includes many parameters we don't use but QuB expects.
     % This is only updated when a .qmf file is saved to disk.
     qubTree;
+    
+    % If true, prevents events from being triggered.
+    % Use this to avoid sending events while updating multiple parameters.
+    muteListeners = false;
 end
 
 properties (GetAccess=public, SetAccess=protected, Transient)
@@ -51,7 +55,6 @@ properties (SetAccess=protected, GetAccess=protected, Transient, Hidden)
     % FIXME: loading (incl. w/ parfor) will need to recreate listener!
     updateListener;
     rateUpdateListener;
-    muteListeners = false;
 end
 
 events

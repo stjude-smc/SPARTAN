@@ -88,7 +88,7 @@ narginchk(2,Inf);
             
             % Exclude any problematic traces from further analysis.
             % These prevent convergence of ensemble parameters.
-            exclude = selfanalysis(a).lowerbound./nFrames>2;
+            exclude = selfanalysis(a).lowerbound./nFrames>3;  %FIXME: need a better threshold
             lb = selfanalysis(a).lowerbound(~exclude) ./ nFrames(~exclude) / sum(~exclude);
             L(it) = sum(lb);
             
@@ -139,8 +139,12 @@ narginchk(2,Inf);
     u_b = 0.5 ./ result.prior.W;
     optModels.sigma = (u_a./u_b) .^ -0.5;  %state_stdev.m
     
-    A = result.prior.A ./ sum(result.prior.A,2);
-    optModels.rates = (A-eye(size(A))) / (dt/1000);  %eq. 170
+    A = bsxfun( @rdivide, result.prior.A, sum(result.prior.A,2) );
+    optModels.rates = logm(A) / (dt/1000);
+    if any(optModel.rates<0)
+        optModels.rates = (A-eye(size(A))) / (dt/1000);  %eq. 170
+        disp('logm(A) return negative rates');
+    end
     
     
     % Re-assign idealization state assignments to fall into the closest
