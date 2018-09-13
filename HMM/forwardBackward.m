@@ -49,10 +49,16 @@ end
 
 
 % Use compiled version if available
+persistent lastWarnTime
 try
     [varargout{1:nargout}] = forwardBackwardx(p0, A, Bx);
     return;
 catch
+    % Display fallback warnings at most every 10 seconds to avoid spam
+    if isempty(lastWarnTime) || toc(lastWarnTime)>10
+        lastWarnTime = tic;
+        disp('Warning: forward-backward mex function failed. Using Matlab version instead');
+    end
 end
 
 
