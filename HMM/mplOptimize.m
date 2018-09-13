@@ -37,7 +37,7 @@ dt = dt/1000;  %convert to seconds/frame
 options = struct('maxItr',200,   'convLL',10^-6, 'convGrad',10^-6, ...
                  'verbose',true, 'updateModel',false);
 if nargin>=4
-    options = mergestruct(options, optionsInput)
+    options = mergestruct(options, optionsInput);
 end
 if isfield(options,'exclude') && any(options.exclude)
     warning('Excluding traces not supported by MPL yet');

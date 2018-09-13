@@ -73,7 +73,7 @@ for n=1:size(data,1)
     if numel(trace)<5, continue; end  %skip extremely short traces
     
     % Get partial probabilities using the forward-backward algorithm
-    [LLtrace,~] = BWtransition( p0, transitionProb, trace, mu, sigma );
+    [LLtrace,~] = forwardBackward( p0, transitionProb, trace, mu, sigma );
     LL = LL+LLtrace;
 
 end %for each trace

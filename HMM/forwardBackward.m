@@ -1,13 +1,24 @@
-function varargout = BWtransition( p0, A, varargin )
+function varargout = forwardBackward( p0, A, varargin )
 % Forward-backward algorithm for hidden Markov modeling
 %
-%   [LL,alpha,beta,gamma,Etot] = BWtransition( DATA, A, mu, sigma, p0 )
-%   DATA is a vector of experimental data values (FRET trace).
-%   A is the transition probability matrix.
-%   MU/SIGMA are the mean/stdev of each state's Gaussian emission distribution.
-%   P0 are the initial probabilities of each state.
+%   LL = forwardBackward( p0, A, DATA, MU, SIGMA )
+%   Returns the log likelihood (LL) of DATA (one FRET trace) given the
+%   specified model: transition probability matrix A, Gaussian observation
+%   probability distribution parameters MU and SIGMA, and initial state 
+%   probabilities p0.
 %
-%   See also: batchKinetics, mplOptimize, bwOptimize, forwardBackward.
+%   LL = forwardBackward( p0, A, B ) specifies observation probabilities 
+%   directly in the matrix B (frames in rows, states in columns).
+%
+%   [LL,alpha,beta,gamma,Etot] = forwardBackward(...)
+%   also returns the forward and backward partial probabilities alpha and
+%   beta, overall state probability gamma, and net transition probability
+%   Etot, which are used by Baum-Welch for optimizing parameter values.
+%
+%   When possible, this function calls an equivalent MEX function coded in
+%   forwardBackward.cpp for speed.
+%
+%   See also: batchKinetics, mplOptimize, bwOptimize.
 
 %   Copyright 2008-2018 Cornell University All Rights Reserved.
 
@@ -29,7 +40,7 @@ if nargin>3
         Bx(:,i) = exp( -0.5* ((obs - mu(i)) ./ sigma(i)).^2 ) ./ (sqrt(2*pi) .* sigma(i)) / 100;
     end
     Bx( all(Bx==0,2), : ) = eps;  %prevent rows of all zeros
-
+    
 else
     % Observation probabilities provided directly
     Bx = varargin{1};
@@ -39,7 +50,7 @@ end
 
 % Use compiled version if available
 try
-    [varargout{1:nargout}] = forwardBackward(p0, A, Bx);
+    [varargout{1:nargout}] = forwardBackwardx(p0, A, Bx);
     return;
 catch
 end
@@ -94,6 +105,8 @@ es = zeros(nStates);
 
 for t=1:nFrames-1  %for each datapoint
     %E(t,i,j) = alpha(t,i) * A(i,j) * B(t+1,j) * beta(t+1,j) / norm(E(i,j))
+    %es = alpha(t,:)' .* A .* Bx(t+1,:) .* beta(t+1,:);  %R2016b and beyond only
+    
     for i=1:nStates
         es(i,:) = alpha(t,i) * A(i,:) .* Bx(t+1,:) .* beta(t+1,:);
     end

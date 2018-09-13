@@ -207,7 +207,7 @@ for n=1:nTraces
 
     % Calculate transition probabilities at each point in time using the
     % forward/backward algorithm.
-    [LL,~,~,gamma,E] = BWtransition( p0, A, obs, mu(classidx), sigma(classidx) );
+    [LL,~,~,gamma,E] = forwardBackward( p0, A, obs, mu(classidx), sigma(classidx) );
 
     LLtot = LLtot + LL;
     Etot = Etot+E;

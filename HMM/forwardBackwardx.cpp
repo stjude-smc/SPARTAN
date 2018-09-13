@@ -1,35 +1,37 @@
-/* forwardBackward  Forward-backward algorithm probabilities
+/* forwardBackward  Forward-backward algorithm for hidden Markov modeling
  * 
- * [alpha,beta,gamma,E] = forwardBackward(p0,A,B)
- * Calculates the forward (alpha) and backward (beta) probabilities.
- * p0 is a vector of initial probabilities for each state.
- * A is the transition probability matrix (rows sum to 1).
- * B is the probability of observing the data at time t (rows) if the hidden
- *   state is i (columns).
+ * [LL,alpha,beta,gamma,E] = forwardBackward(p0,A,B)
+ * Returns the log likelihood (LL) of one FRET trace given model parameters.
+ * p0 are initial state probabilities, A are transition probabilities between
+ * states, and B are Guassian observation probabilities (frames in rows and
+ * states across columns). For parameter optimization in Baum-Welch, the
+ * forward and backward partial probabilities (alpha and beta), state
+ * probabilities at each time (gamma), and average transition probabilities
+ * (E) are calculated if requested.
  *
- * WARNING: assumes no degenerate states!
+ * NOTE: this function requires Eigen3 template library.
+ * http://eigen.tuxfamily.org/dox/
  *
- * See also: forwardBackward.m, bwOptimize, mplOptimize.
+ * See also: forwardBackward.m, bwOptimize, mplOptimize, batchKinetics.
  *
- * NOTE: this function requires Eigen3 template library to be installed.
- * 
  *
+ * Copyright 2008-2018 Cornell University All Rights Reserved.
  */
 
-/* A few notes on Eigen idioms and idiosyncrasies:
+
+/* Notes on Eigen idioms and idiosyncrasies:
  * 
- * 1) Eigen tends to raise abort interrupts instead of exceptions, for example
- *    when you try to multiply mismatched matrices. I added the eigen_assert()
- *    below to make these regular exceptions.
+ * 1) Eigen variables can be arrays, which only support element-wise
+ *    operations, or matrices, which support linear algebra operations.
+ *    The two types can be interconverted with .array() and .matrix().
  *
- * 2) Eigen has no equivalent operators for element-wise multiplication, etc.
- *    Instead, one must use .array() to inform eigen that we don't want to do
- *    any linear algebra.
+ * 2) An set of operations on Eigen variables builds an expression, which
+ *    is only evaluated when necessary. This enables many optimizations.
+ * 
+ * 3) Map<> variables create a Eigen wrapper around existing data allocated
+ *    for example on the heap or Matlab's address space to avoid copying.
  *
- * 3) VectorsXd is a column vector by default. Use RowVectorXd for rows.
- *
- * 4) 
- *
+ * 2) VectorsXd is a column vector by default. Use RowVectorXd for rows.
  *
  */
 
@@ -49,6 +51,9 @@
 #define ISVECTOR(X) ( mxGetN(X)!=1 && mxGetN(X)!=1 )
 #endif
 
+// Raise an error when Eigen encounters an invalid expression, rather than
+// an abort interrupt, which is the default behavior. This allows us to
+// catch the exception rather than crashing.
 #ifndef NDEBUG
 #include <stdexcept>
 #define eigen_assert(X) do { if(!(X)) throw std::runtime_error(#X); } while(false);
@@ -135,6 +140,8 @@ double forwardBackward( const double* pp0, const double* pA, const double* pB, \
     
     // Calculate instantaneous transition probabilities.
     // Used by Baum Welch for estimating the transition probability matrix A.
+    // NOTE: the inner loop below can be done in a single line, but the
+    // correct syntax for eigen with implicit expansion isn't clear.
     if(pE==NULL) return LL;
     Map<MatrixXd> Etot(pE, nStates,nStates);
     MatrixXd es(nStates, nStates);
