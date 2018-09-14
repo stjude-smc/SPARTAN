@@ -30,7 +30,7 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.6.0';
+constants.version = '3.7.0';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
 
@@ -380,17 +380,8 @@ constants.defaultMakeplotsOptions = options;
 
 %% ============================  Other Settings ============================ %%
 
-if isdeployed,
-    constants.modelLocation = pwd;
-else
-    % Blanchard lab model locations.
-    % FIXME: this should be removed in the future.
-    if ispc,
-        constants.modelLocation = 'Z:\SharedDocs\Shared QuB\';
-    else
-        constants.modelLocation = '/media/Z/SharedDocs/Shared QuB/';
-    end
-end
+% Not used
+constants.modelLocation = pwd;
 
 % For MIL (batch kinetics).
 constants.nProcessors = feature('numCores');

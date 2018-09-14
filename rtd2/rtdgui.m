@@ -55,26 +55,21 @@ function rtdgui_OpeningFcn(hObject, eventdata, handles, varargin)
 
 % Choose default command line output for rtdgui
 handles.output = hObject;
-
-% Update handles structure
 guidata(hObject, handles);
-constants = cascadeConstants;
 
-set( handles.figure1, 'Name', ['rtdgui - ' constants.software] );
+set( handles.figure1, 'Name', ['rtdgui - ' cascadeConstants('software')] );
 
 % set default values
-% FIXME: these and the defaults in rtdTool should come from some shared
-% location so that they can all be changed from one place.
-modelfile = fullfile(constants.modelLocation,'tRNA selection','2014_04_18 EColi.qmf');
-if ~exist(modelfile,'file'),
-    [~,f,e] = fileparts(modelfile);
-    modelfile = [f,e];
-end
-
-if exist(modelfile,'file')
-    set(handles.editModelPath,'String',modelfile);
-    updateStateDropdown(hObject,eventdata,handles);
-end
+% modelfile = fullfile(constants.modelLocation,'tRNA selection','2014_04_18 EColi.qmf');
+% if ~exist(modelfile,'file'),
+%     [~,f,e] = fileparts(modelfile);
+%     modelfile = [f,e];
+% end
+% 
+% if exist(modelfile,'file')
+%     set(handles.editModelPath,'String',modelfile);
+%     updateStateDropdown(hObject,eventdata,handles);
+% end
 
 set(handles.selPreFrames,'String','5');
 set(handles.selMinFrames,'String','35');
@@ -96,6 +91,7 @@ end
 % UIWAIT makes rtdgui wait for user response (see UIRESUME)
 % uiwait(handles.figure1);
 
+
 function updateStateDropdown(hObject,eventdata,handles)
 modelPath = get(handles.editModelPath,'String');
 if exist(modelPath,'file')
@@ -113,6 +109,7 @@ else
     errordlg('Invalid model file.');
     set(handles.editModelPath,'String','')
 end
+
 
 % --- Outputs from this function are returned to the command line.
 function varargout = rtdgui_OutputFcn(hObject, eventdata, handles) 

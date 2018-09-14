@@ -383,8 +383,7 @@ defaultOpt.preFrames = 5;                   % frames before point of post-sync
 defaultOpt.totalFrames = 500;               % total post-sync'ed trace length
 defaultOpt.simpleThresh = 0.2;              % threshold for simple post-sync
 
-defaultOpt.kinModel = fullfile(defaultOpt.constants.modelLocation,'tRNA selection',...
-            '2014_04_18 EColi.qmf');        % QuB model for SKM
+defaultOpt.kinModel = '2014_04_18 EColi.qmf';        % QuB model for SKM
 defaultOpt.prodState = 4;                   % productive state number
 defaultOpt.prodDwell = 120;                 % productive dwell (ms)
 

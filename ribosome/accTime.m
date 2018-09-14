@@ -31,13 +31,16 @@ end
 nFiles = numel(tracesFiles);
 if nFiles<1, return; end
 
-% Load model for idealization
-constants = cascadeConstants;
-
-model = QubModel( [constants.modelLocation filesep 'tet_selection.qmf'] );
-model.fixMu    = true( model.nStates,1 );
-model.fixSigma = true( model.nStates,1 );
-fretModel = [model.mu' model.sigma'];
+% Construct simple 3-state idealization model
+model = QubModel(3);
+model.mu    = [0.01 0.25 0.56];
+model.sigma = [0.061 0.8 0.15];
+model.p0 = [0.8 0.1 0.1];
+model.rates = [0    0.1   0     ;
+               0.1  0     0.01  ;
+               0    1e-5  0    ];
+model.fixMu(:)    = true;
+model.fixSigma(:) = true;
 skmParams.quiet = 1;
 
 for i=1:nFiles,
@@ -49,17 +52,14 @@ for i=1:nFiles,
     
     % Load FRET data
     data = loadTraces( tracesFiles{i} );
-    fret = data.fret;
-    [nTraces,traceLen] = size(fret);
     assert( data.time(1)~=1, 'No time axis found' );
-    sampling = data.time(2)-data.time(1);
 
     % Idealize FRET data
     [p,n] = fileparts(tracesFiles{i});
     dwtFilename = fullfile( p, [n '.qub.dwt'] );
-    idl = skm( fret, sampling, model, skmParams );
-    [dwt,offsets] = dwtToIdl(idl);
-    saveDWT( dwtFilename, dwt, offsets, fretModel, sampling );
+    idl = skm( data.fret, data.sampling, model, skmParams );
+    [dwt,offsets] = idlToDwt(idl);
+    saveDWT( dwtFilename, dwt, offsets, model, data.sampling );
     
     % Load idealization
 %     [dwt,sampling,offsets,model] = loadDWT(dwtFilename);
@@ -72,7 +72,7 @@ for i=1:nFiles,
     for j=1:numel(dwt)
 
         states = double( dwt{j}(:,1) );
-        times  = double( dwt{j}(:,2) ) .* sampling/1000;
+        times  = double( dwt{j}(:,2) ) .* data.sampling/1000;
         timeline = cumsum( [0; times] );
 
         % Find the first (if any) dwell in high-FRET longer than cutoffTime sec.
@@ -85,16 +85,16 @@ for i=1:nFiles,
     end
     
     % Save accommodation progression curve to output
-    [N,X] = hist(accTime(accTime>=0), 0:(sampling/1000):sumlen );    
+    [N,X] = hist(accTime(accTime>=0), 0:(data.sampling/1000):sumlen );
     NC = cumsum(N);
 
     N = reshape( N, [1 numel(N)] );
     X = reshape( X, [1 numel(X)] );
 
     if isempty(output)
-        output = [X' (NC/nTraces)'];
+        output = [X' (NC/data.nTraces)'];
     else
-        output = [output (NC/nTraces)'];
+        output = [output (NC/data.nTraces)'];
     end
 
     

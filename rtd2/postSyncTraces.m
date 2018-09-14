@@ -22,14 +22,11 @@ function [] = postSyncTraces(minFrames,preFrames,totalFrames,fileList)
 
 
 %%
-constants = cascadeConstants();
 
 if nargin < 4
     %ask user to select files
     fileList = getFiles('*.traces;*.rawtraces','Select trace files');
 end
-
-nFiles = length(fileList);
 
 %parameters for skm
 skmParams.maxItr = 10;
@@ -37,31 +34,34 @@ skmParams.convLL = 0.01;
 skmParams.zeroEnd = 1;
 skmParams.seperately = 1;
 skmParams.quiet = 1;
-skmParams.fixKinetics = 1;
+skmParams.fixKinetics = 1;  %invalid. fixme
 
 %two-state model for skm
-modelFile = fullfile(constants.modelLocation,'tRNA Selection','090520_FretHist_2State_model.qmf');
+% modelFile = fullfile(constants.modelLocation,'tRNA Selection','090520_FretHist_2State_model.qmf');
+% 
+% % Verify the model file exists. Ask the user if not.
+% if ~exist(modelFile,'file'),
+%     % Try the current directory first.
+%     [~,f,e] = fileparts(modelFile);
+%     modelFile = [f e];
+%     
+%     % If not in the current directory, ask the user to find it.
+%     if ~exist(modelFile,'file'),
+%         [f,p] = uigetfile( modelFile, 'Load tRNA binding model' );
+%         if f==0, return; end  %user hit cancel
+%         modelFile = fullfile(p,f);
+%     end
+% end
 
-% Verify the model file exists. Ask the user if not.
-if ~exist(modelFile,'file'),
-    % Try the current directory first.
-    [~,f,e] = fileparts(modelFile);
-    modelFile = [f e];
-    
-    % If not in the current directory, ask the user to find it.
-    if ~exist(modelFile,'file'),
-        [f,p] = uigetfile( modelFile, 'Load tRNA binding model' );
-        if f==0, return; end  %user hit cancel
-        modelFile = fullfile(p,f);
-    end
-end
+model = QubModel(2);
+model.mu    = [0 0.3];
+model.sigma = [0.053 0.074];
+model.p0    = [0.999 0.001];
+model.rates = [0 20; 20 0];
+model.fixMu(:)    = true;
+model.fixSigma(:) = true;
 
-model = QubModel(modelFile);
-model.fixMu    = true( model.nStates,1 );
-model.fixSigma = true( model.nStates,1 );
-fretModel = [to_col(model.mu) to_col(model.sigma)];
-
-for i = 1:nFiles
+for i = 1:numel(fileList)
     currentTraces = loadTraces(fileList{i});
     
     %idealize with two-state model and save to dwt file
@@ -71,7 +71,7 @@ for i = 1:nFiles
     [filePath,fileName] = fileparts(fileList{i});
     offsets = currentTraces.nFrames*((1:currentTraces.nTraces)-1);
     saveDWT([filePath filesep fileName '_2state.qub.dwt'],dwellTimes, ...
-        offsets, fretModel, currentTraces.sampling);
+        offsets, model, currentTraces.sampling);
       
     % initialize Traces object for selected dwells
     syncTraces = TracesFret(0,totalFrames);
