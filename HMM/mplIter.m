@@ -69,8 +69,10 @@ for n=1:size(data,1)
     % Remove frames after donor photobleaching (which are precisely zero).
     trace = data(n,:);
     bleachFrame = find( trace==0, 1, 'first' );
-    trace = trace(1:bleachFrame-1);
-    if numel(trace)<5, continue; end  %skip extremely short traces
+    if ~isempty(bleachFrame)
+        trace = trace(1:bleachFrame-1);
+        if numel(trace)<5, continue; end  %skip extremely short traces
+    end
     
     % Get partial probabilities using the forward-backward algorithm
     [LLtrace,~] = forwardBackward( p0, transitionProb, trace, mu, sigma );

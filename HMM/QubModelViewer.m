@@ -159,10 +159,9 @@ methods
 
     hFig = ancestor(this.ax,'figure');
     menu = uicontextmenu(hFig);
-    uimenu( menu, 'Label','State properties...', 'Callback', @this.editState_callback   );
-    uimenu( menu, 'Label','Class properties...', 'Callback', @this.editClass_callback  );
-    uimenu( menu, 'Label','Connect to...',       'Callback', @this.connect_callback     );
-    uimenu( menu, 'Label','Remove state',        'Callback', @this.removeState_callback );
+    uimenu( menu, 'Label','Properties...', 'Callback', @this.editState_callback   );
+    uimenu( menu, 'Label','Connect to...', 'Callback', @this.connect_callback     );
+    uimenu( menu, 'Label','Remove state',  'Callback', @this.removeState_callback );
     set([this.hBox; this.hText], 'UIContextMenu', menu);
 
 
@@ -294,55 +293,15 @@ methods
     % Called whenever one of state boxes is clicked.
         if nargin<4,  stateID = get(gco,'UserData');  end
 
-        prompt = {'Start probability:','Class number:'};
-        initVal = { this.model.p0(stateID), this.model.class(stateID) };
-        defaults = cellfun( @num2str, initVal, 'UniformOutput',false );
-        a = inputdlg( prompt, sprintf('Edit state %d',stateID), 1, defaults );
-        if isempty(a), return; end
-
-        % Check validity of inputs
-        a = cellfun(@str2double,a);
-        if a(1)<0 || a(1)>1 || ~ismember(a(2),1:10) || a(2)>this.model.nClasses+1,
-            warndlg('Invalid parameter values');
-            return;
-        end
-
-        % If this is a new class, use reasonable defaults.
-        if a(2) > this.model.nClasses,
-            this.model.addClass( a(2) );
-        end
-        this.model.p0(stateID)    = a(1);
-        this.model.class(stateID) = a(2);
+        output = qubstatedlg(this.model, stateID);
+        if isempty(output), return; end
 
         % If the class number is changed, update the box color as well.
-        set( this.hBox(stateID),  'FaceColor',this.colors{a(2)} );
-        set( this.hText(stateID), 'Color',this.textColors{a(2)} );
+        c = this.model.class(stateID);
+        set( this.hBox(stateID),  'FaceColor',this.colors{c} );
+        set( this.hText(stateID), 'Color',this.textColors{c} );
        
     end %function editState
-
-
-    function editClass_callback(this,varargin)
-    % Change the class number for selected state (context menu callback)
-        classID = this.model.class( get(gco,'UserData') );
-
-        % Prompt user for new values
-        prompt = {'Mean:','Stdev:'};
-        initVal = { this.model.mu(classID), this.model.sigma(classID) };
-        defaults = cellfun( @num2str, initVal, 'UniformOutput',false );
-        a = inputdlg( prompt, sprintf('Edit class %d',classID), 1, defaults );
-
-        % Check for valid values and save
-        if ~isempty(a),
-            a = cellfun(@str2double,a);
-            if any(isnan(a)),
-                warndlg('Invalid values');
-                return;
-            end
-
-            this.model.mu(classID)    = a(1);
-            this.model.sigma(classID) = a(2);
-        end
-    end
 
 
     function addState_callback(this,varargin)
@@ -470,8 +429,11 @@ methods
 
     function stateClicked_callback(this,varargin)
     % State box was clicked. Start dragging if single left click.
-        if strcmpi( get(gcf,'SelectionType'), 'normal' ),
+        switch lower( get(gcf,'SelectionType') )
+        case 'normal'
             this.draggedBox = get(gco,'UserData');
+        case 'open'
+            this.editState_callback();
         end
     end
 
