@@ -141,7 +141,7 @@ narginchk(2,Inf);
     
     A = bsxfun( @rdivide, result.prior.A, sum(result.prior.A,2) );
     optModels.rates = logm(A) / (dt/1000);
-    if any(optModel.rates<0)
+    if any(optModels.rates(:)<0)
         optModels.rates = (A-eye(size(A))) / (dt/1000);  %eq. 170
         disp('logm(A) return negative rates');
     end
