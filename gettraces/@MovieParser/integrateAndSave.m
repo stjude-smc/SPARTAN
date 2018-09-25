@@ -105,7 +105,7 @@ end
 
 % Get a list of field locations (channels) to integrate.
 geo = params.geometry;
-traces = zeros(nTraces,nFrames,nCh, stkData.movie.precision);
+traces = zeros(nTraces,nFrames,nCh, 'single');
 idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
 parfor (k=1:nFrames, M)
@@ -114,11 +114,11 @@ parfor (k=1:nFrames, M)
     
     for c=1:nCh
         % Sum intensity within the integration window of each PSF
-        traces(:,k,c) = sum( frame{c}(idx{c}), 1 );       %#ok<PFBNS>
+        traces(:,k,c) = sum( single(frame{c}(idx{c})), 1 );       %#ok<PFBNS>
     
         % Sum intensity from background regions
         if ~isempty(bgFieldIdx) && c==bgFieldIdx
-            bgTrace(k) = mean( frame{c}(bgMask) );
+            bgTrace(k) = mean( single(frame{c}(bgMask)) );
         end
     end
     
@@ -128,7 +128,6 @@ parfor (k=1:nFrames, M)
 end
 
 % Subtract local background
-traces = single(traces);
 bg = stkData.background( params.idxFields );
 for c=1:nCh
     bgt = sum( bg{c}(idx{c}), 1);
