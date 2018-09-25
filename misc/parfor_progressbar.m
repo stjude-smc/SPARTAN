@@ -52,6 +52,8 @@ end
 properties (SetAccess=protected, GetAccess=protected, Hidden)
     ipcfile;  % Path to temporary file for inter-process communication
     htimer;   % Timer object that checks ipcfile for completed iterations
+    iterBuffer=0;    % Number of iterations not yet recorded to file
+    iterBufferTime;  % Time since iterations were last recorded
 end
 
 
@@ -74,6 +76,8 @@ methods
         fid = fopen(this.ipcfile,'w'); fclose(fid);  %create file.
     
         % Create a new waitbar 
+        this.iterBuffer = 0;
+        this.iterBufferTime = tic;
         this.N = N_init;
         this.wbh = waitbar(0, varargin{:});
         
@@ -139,13 +143,25 @@ methods
     function iterate(this, Nitr)
     % Update the progress bar by Nitr iterations (or 1 if not specified).
         if nargin<2,  Nitr = 1;  end
+        
+        % Write iterations to file at most every 200ms to time spent
+        % writing to disk when there are many rapid iterations.
+        if toc(this.iterBufferTime)<0.2
+            this.iterBuffer = this.iterBuffer + Nitr;
+            return;
+        end
+        this.iterBufferTime = tic;
+        
+        % Write completed iterations to disk, which is read by the GUI
+        % thread process (tupdate method) to update the waitbar.
         if ~exist(this.ipcfile,'file'),
             error('spartan:op_cancelled','Operation cancelled by user');
         end
     
         fid = fopen(this.ipcfile, 'a');
-        fprintf(fid, '%d\n', Nitr);
+        fprintf(fid, '%d\n', Nitr+this.iterBuffer);
         fclose(fid);
+        this.iterBuffer = 0;
     end
     
     
