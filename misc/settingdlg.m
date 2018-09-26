@@ -115,6 +115,7 @@ StInfo.BackgroundColor    = FigColor;
 
 EdInfo=StInfo;
 EdInfo.BackgroundColor = 'white';
+EdInfo.KeyPressFcn = @doFigureKeyPress;
 
 BtnInfo=StInfo;
 BtnInfo.Style               = 'pushbutton';
@@ -241,7 +242,7 @@ set(InputFig,'Position',getnicedialoglocation(FigPos,get(InputFig,'Units')));
 
 uicontrol(InputFig, BtnInfo, ...
   'Position'   ,[ FigWidth-2*BtnWidth-2*DefOffset DefOffset BtnWidth BtnHeight ] , ...
-  'String'     ,'OK', ...
+  'String'     ,'OK', 'FontWeight','bold', ...
   'Tag'        ,'OK'        , ...
   'UserData'   ,'OK'          ...
   );
@@ -282,6 +283,8 @@ while ishghandle(InputFig)
     % Close dialog with no output if user closes dialog or clicks Cancel.
     if ~ishghandle(InputFig), break; end
     if strcmp(get(InputFig,'UserData'),'Cancel'), break; end
+    
+    drawnow;  %make sure controls have updated before getting their values
 
     % User clicked OK. Verify input is correct. If not, try again.
     % FIXME: handle fields with multiple allowed types (number, string).
@@ -315,7 +318,6 @@ while ishghandle(InputFig)
             valid(i) = false;
         end
     end %for each dialog field
-    
 
     if all(valid),
         % All inputs are valid. Exit returning inputs.

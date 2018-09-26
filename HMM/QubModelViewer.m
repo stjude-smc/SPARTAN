@@ -113,7 +113,8 @@ methods
 
     % Formatting options:
     textFormat = {'Parent',this.ax,'FontSize',8, 'FontWeight','bold', ...
-              'HorizontalAlignment','center', 'VerticalAlignment','middle' };
+              'HorizontalAlignment','center', 'VerticalAlignment','middle', ...
+              'ButtonDownFcn',@this.editRate_callback};
     lineFormat = {'Parent',this.ax, 'Color','k', 'LineWidth',2 };
 
     % Create a window for the model, or use one if given.
@@ -130,12 +131,8 @@ methods
 
     for i=1:nRates
         this.hLine(i)   = line( 0,0, lineFormat{:} );
-        this.hRate(i,1) = text( 0,0, '', textFormat{:} );
-        this.hRate(i,2) = text( 0,0, '', textFormat{:} );
-
-        % Add callbacks for changing the rate constants.
-        set( this.hRate(i,1), 'ButtonDownFcn', {@this.editRate_callback,conn(i,:)}      );
-        set( this.hRate(i,2), 'ButtonDownFcn', {@this.editRate_callback,conn(i,[2 1])}  );
+        this.hRate(i,1) = text( 0,0, '', textFormat{:}, 'UserData',conn(i,[1 2]) );
+        this.hRate(i,2) = text( 0,0, '', textFormat{:}, 'UserData',conn(i,[2 1]) );
     end
 
     % Create the lines connecting states and rate number text next to them.
@@ -156,6 +153,7 @@ methods
 
     % Add a callback to the box so the properties can be seen and changed.
     set([this.hBox; this.hText], 'ButtonDownFcn', @this.stateClicked_callback );
+    set(this.ax, 'ButtonDownFcn',@this.figClickCallback);
 
     hFig = ancestor(this.ax,'figure');
     menu = uicontextmenu(hFig);
@@ -261,10 +259,10 @@ methods
 
     %% -----------------------   CALLBACK FUNCTIONS   ----------------------- %%
 
-    function editRate_callback(this, ~, ~, rateID)
+    function editRate_callback(this, varargin)
     % Called whenever one of the rate labels is clicked.
     
-    statePair = num2cell(rateID);
+    statePair = num2cell( get(gco,'UserData') );
     value = this.model.rates(statePair{:});
     fix   = this.model.fixRates(statePair{:});
     
@@ -289,9 +287,9 @@ methods
     end %function editRate
 
 
-    function editState_callback(this, ~,~, stateID)
+    function editState_callback(this, varargin)
     % Called whenever one of state boxes is clicked.
-        if nargin<4,  stateID = get(gco,'UserData');  end
+        stateID = get(gco,'UserData');
 
         output = qubstatedlg(this.model, stateID);
         if isempty(output), return; end
@@ -428,11 +426,12 @@ methods
     end
 
     function stateClicked_callback(this,varargin)
-    % State box was clicked. Start dragging if single left click.
         switch lower( get(gcf,'SelectionType') )
         case 'normal'
+            % Single left click: start dragging state box.
             this.draggedBox = get(gco,'UserData');
         case 'open'
+            % Double click: bring up dialog to edit state properties.
             this.editState_callback();
         end
     end
@@ -440,6 +439,13 @@ methods
     function dropObject(this,varargin)
     % Called when the state being dragged is released.
         this.draggedBox = [];
+    end
+    
+    function figClickCallback(this,varargin)
+        if strcmpi( get(gcf,'SelectionType'), 'open' )
+            % User double-clicked background area. Create a new state
+            this.addState_callback();
+        end
     end
 
 
