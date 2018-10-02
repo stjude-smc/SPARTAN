@@ -51,7 +51,7 @@ function listPrograms() %#ok<DEFNU>
 % This is to make compiling to program easier.
 gettraces; autotrace; rtdgui;
 sorttraces; makeplots; frethistComparison;
-batchKinetics; dwellhist; percentTime;
+batchKinetics; dwellhist; percentTime; transitionsPerSecond; occtime;
 crosstalkcorrect; gammacorrect; scaleacceptor;
 forQuB; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
 

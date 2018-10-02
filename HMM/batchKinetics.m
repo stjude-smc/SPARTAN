@@ -363,7 +363,16 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
     % Run MIL, only updating model rates.
     % NOTE: optModel will have the .qubTree model values, which only reflect 
     % the model as originally loaded from file. FIXME.
-    optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+    try
+        optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+    catch e
+        if ~strcmpi(e.identifier,'spartan:op_cancelled')
+            errordlg(['Error: ' e.message]);
+        end
+        set(handles.txtStatus,'String',['Error: ' e.message]);
+        set(handles.figure1,'pointer','arrow');
+        return;
+    end
     handles.model.rates = optModel.rates;
     handles.modelViewer.redraw();
 else
