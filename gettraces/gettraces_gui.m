@@ -126,9 +126,14 @@ varargout{1} = handles.output;
 function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Get filename of input data from user. 
 % Multi-select is for multi-part movies (ordinary TIFFs limited to 2GB).
-[datafile,datapath] = uigetfile( '*.stk;*.tif;*.tiff', 'Choose a movie file', ...
-                                 'MultiSelect','on' );
-if ~iscell(datafile),
+
+filter = {'*.tif;*.tiff;*.stk;*.pma','All supported movie formats (*.tif,*.tiff,*.stk,*.pma)'; ...
+          '*.tif;*.tiff','TIFF image stacks (*.tif, *.tiff)'; ...
+          '*.stk','MetaMorph image stacks (*.stk)'; ...
+          '*.pma','Legacy raw frame data (*.pma)'
+          '*.*','All Files (*.*)'};
+[datafile,datapath] = uigetfile( filter, 'Open movie file', 'MultiSelect','on' );
+if ~iscell(datafile)
     if datafile==0, return; end  %user hit cancel
 end
 handles.stkfile = strcat(datapath,datafile);
@@ -345,7 +350,7 @@ else
 end
 
 % Get list of files in current directory (option: and all subdirectories)
-movieFiles = regexpdir(direct,'^.*\.(tiff?|stk)$',recursive);
+movieFiles = regexpdir(direct,'^.*\.(tiff?|stk|pma)$',recursive);
 nFiles = length(movieFiles);
 
 % Wait for 100ms to give sufficient time for polling file sizes in the
@@ -897,7 +902,7 @@ function mnuViewMontage_Callback(varargin) %#ok<DEFNU>
 % Display multiple movies simultaneously for direct comparison.
 
 % Get movie paths from user
-filter = {'*.tif;*.tiff;*.stk','Movie Files (*.tif;*.tiff)'; ...
+filter = {'*.tif;*.tiff;*.stk;*.pma','Movie Files (*.tif,*.tiff,*.stk,*.pma)'; ...
           '*.*','All Files (*.*)'};
 f = getFiles(filter,'Movie Montage: Select Files');
 if isempty(f), return; end  %user hit cancel.

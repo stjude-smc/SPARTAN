@@ -16,16 +16,6 @@ classdef Movie_STK < Movie
 % other hand, am I making things more complicated than needed?
 
 
-properties (SetAccess=protected, GetAccess=public)
-    % See Movie class for additional standard properties.
-end %end public properties
-
-
-properties (SetAccess=protected, GetAccess=protected),
-    dataOffsets = []; %offsets to data segments in the movie file, with
-                      %one offset per plane (frame).
-end
-
 
 methods
     
@@ -42,12 +32,12 @@ methods
         
         % Read the TIFF file and get all useful header information. The data
         % sections are ignored. Data-access offsets are stored in tiffData.
-        [obj.header,obj.dataOffsets] = readTiffHeader( filename );
+        [obj.header,obj.offsets] = readTiffHeader( filename );
         
         % Extract basic image metadata
         obj.nX = obj.header(1).width;
         obj.nY = obj.header(1).height;
-        obj.nFrames = numel( obj.dataOffsets );
+        obj.nFrames = numel( obj.offsets );
         
         % Generate an approximate time axis. The actual timestamps are in the
         % MM_private1 (UIC1, 33628) field untag tag #16 (CreateTime). The LONG
@@ -73,7 +63,7 @@ methods
         framesRead=0;
         for i=idx,
             % Move to the start of the data section
-            fseek( fid, obj.dataOffsets(i), 'bof' );
+            fseek( fid, obj.offsets(i), 'bof' );
             
             % FIXME: supports only uint16!!
             frame = fread( fid, [obj.nX obj.nY], '*uint16' );
@@ -87,7 +77,7 @@ methods
     
     function data = readFrame( obj, idx )
         fid = fopen( obj.filename );
-        fseek( fid, obj.dataOffsets(idx), 'bof' );
+        fseek( fid, obj.offsets(idx), 'bof' );
         data = fread( fid, [obj.nX obj.nY], '*uint16' )';
         fclose(fid);
     end

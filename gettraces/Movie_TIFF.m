@@ -22,7 +22,6 @@ classdef Movie_TIFF < Movie
 %% ============ PROPERTIES ============= %
 properties (SetAccess=protected, GetAccess=public)
     filetag = '';      % original base filename of movie file series
-    precision='';      % pixel data format and bitrate (usually uint16)
     timestamps = [];   % actual movie timestamps in ms, relative to start.
 
     % See Movie class for additional standard properties.
@@ -32,8 +31,6 @@ end %end public properties
 properties (SetAccess=protected, GetAccess=protected),
     movieHeaders = [];  %metadata for all frames across all files (struct array).
     nFramesPerMovie = [];
-    
-    offsets = {};       %byte offsets to each frame (one file per cell).
     
     useFread = false;   %use fread (faster) if true; imread otherwise.
     swap = false;       %swap byte order if not the same as native (assumed to be little-endian)

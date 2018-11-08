@@ -22,10 +22,12 @@ properties (SetAccess=protected, GetAccess=public)
     nX=0;       % size (in pixels) of x dimension (columns).
     nY=0;       % size (in pixels) of y dimension (rows).
     nFrames=0;  % number of images in the stack.
+    precision='';      % pixel data format and bitrate (usually uint16)
     
     timeAxis=[];   % wall time of the start of each frame (starts with zero).
     
     header = struct([]); %
+    offsets;   % byte offset in file to the start of each frame
     
 end %end public properties
 
@@ -51,7 +53,7 @@ methods (Static)
     function obj = load( filename )
         % Ask the user for a file if none given.
         if nargin<1 || isempty(filename),
-            [f,p] = uigetfile( '*.stk;*.tif;*.tiff', 'Choose a movie file' );
+            [f,p] = uigetfile( '*.stk;*.tif;*.tiff;*.pma', 'Load movie file' );
             if f==0,
                 obj = []; %user hit cancel
                 return;
@@ -65,12 +67,15 @@ methods (Static)
 
         % Load the movie with the appropriate subclass
         [~,~,ext] = fileparts(filename{1});
-        if ~isempty( strfind(ext,'tif') ),
-            obj = Movie_TIFF(filename);
-        elseif strcmp(ext,'.stk'),
-            obj = Movie_STK(filename);
-        else
-            error('Unrecognized movie type');
+        switch lower(ext)
+            case {'.tif','.tiff'}
+                obj = Movie_TIFF(filename);
+            case '.stk'
+                obj = Movie_STK(filename);
+            case '.pma'
+                obj = Movie_PMA(filename);
+            otherwise
+                error('Unrecognized movie type');
         end
     end
     

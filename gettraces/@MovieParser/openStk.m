@@ -6,7 +6,7 @@ function this = openStk(this, input, params)
 narginchk(3,3); %FIXME: get params from cascadeConstants if not given.
 
 % Process input arguments, loading a Movie object
-if isa(input,'Movie_TIFF') || isa(input,'Movie_STK')
+if isa(input,'Movie')
     movie = input;
 elseif iscell(input) || ischar(input)
     movie = Movie.load(input);

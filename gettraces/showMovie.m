@@ -38,7 +38,7 @@ output = strsplit(id,'#');
 % Look for the movie in the directory containing the loaded traces file.
 % using .tif extension if it is .rawtraces etc (in some old versions).
 [~,f,e] = fileparts2(moviePath);
-if ~ismember(e, {'.stk','.tif','.tiff'}), e='.tif'; end
+if ~ismember(e, {'.stk','.tif','.tiff','.pma'}), e='.tif'; end
 movieFilename = fullfile(fpath, [f e]);
 
 if ~exist( movieFilename, 'file' )

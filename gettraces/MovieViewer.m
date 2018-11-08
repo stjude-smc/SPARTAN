@@ -52,7 +52,7 @@ methods
     
     % Load movie from file, prompting user if no arguments given.
     if nargin<1
-        movieInput = getFile('*.tif');
+        movieInput = Movie.load();
         if isempty(movieInput), return; end  %user hit cancel
     end
     

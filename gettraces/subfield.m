@@ -19,7 +19,7 @@ function output = subfield(input, quad, frameIdx)
 
 % Process input arguments
 narginchk(3,3);
-assert( isa(input,'Movie_TIFF') || isa(input,'Movie_STK'), 'Invalid input' );
+assert( isa(input,'Movie'), 'Invalid input' );
 
 szQuad = size(quad);
 assert( numel(szQuad)<=3, 'Invalid dimensions of subfield indexing matrix' );
