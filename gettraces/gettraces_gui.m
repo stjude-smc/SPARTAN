@@ -206,24 +206,24 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
 % Create axes for sub-fields (listed in column-major order, like stk_top)
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
-axopt = {'Visible','off'};
+axopt = {'Visible','off', 'Parent',handles.panView};
 
 switch numel(idxFields)
 case 1
     ax = [];
-    handles.axTotal = axes( handles.panView, 'Position',[0.02 0 0.95 0.95], axopt{:} );
+    handles.axTotal = axes( 'Position',[0.02 0 0.95 0.95], axopt{:} );
     
 case 2
-    ax(1)           = axes( handles.panView, 'Position',[0     0    0.325 0.95], axopt{:} );  %L
-    ax(2)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.95], axopt{:} );  %R
-    handles.axTotal = axes( handles.panView, 'Position',[0.67  0    0.325 0.95], axopt{:} );
+    ax(1)           = axes( 'Position',[0     0    0.325 0.95], axopt{:} );  %L
+    ax(2)           = axes( 'Position',[0.335 0    0.325 0.95], axopt{:} );  %R
+    handles.axTotal = axes( 'Position',[0.67  0    0.325 0.95], axopt{:} );
     
 case {3,4}
-    ax(1)           = axes( handles.panView, 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
-    ax(2)           = axes( handles.panView, 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
-    ax(3)           = axes( handles.panView, 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
-    ax(4)           = axes( handles.panView, 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
-    handles.axTotal = axes( handles.panView, 'Position',[0.67  0.25 0.325 0.47], axopt{:} );
+    ax(1)           = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
+    ax(2)           = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
+    ax(3)           = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
+    ax(4)           = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
+    handles.axTotal = axes( 'Position',[0.67  0.25 0.325 0.47], axopt{:} );
     
 otherwise
     error('Invalid field geometry');
@@ -236,7 +236,7 @@ handles.ax = ax;
 
 if ~isempty(ax)
     for i=1:numel(stkData.stk_top),
-        handles.himshow(i) = image( ax(i), stkData.stk_top{i}, 'CDataMapping','scaled' );
+        handles.himshow(i) = image( stkData.stk_top{i}, 'CDataMapping','scaled', 'Parent',ax(i) );
         set(ax(i), 'UserData',i, 'CLim',[0 val], axopt{:});
     end
     linkaxes( [to_row(ax) handles.axTotal] );
@@ -245,7 +245,7 @@ set( handles.himshow, 'UIContextMenu',handles.mnuField );
 
 % Show total fluorescence channel
 total = sum( cat(3,stkData.stk_top{idxFields}), 3);
-handles.himshow(end+1) = image( handles.axTotal, total, 'CDataMapping','scaled' );
+handles.himshow(end+1) = image( total, 'CDataMapping','scaled', 'Parent',handles.axTotal );
 set(handles.axTotal, 'CLim',[0 val*2], axopt{:} );
 
 if abs(log2( size(total,2)/size(total,1) )) < 1
