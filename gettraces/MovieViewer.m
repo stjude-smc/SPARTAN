@@ -70,10 +70,6 @@ methods
         paramsInput = constants.gettraces_profiles(1);
     end
     
-    if ~isfield(paramsInput,'idxField')
-        [val,idx] = sort( paramsInput.geometry(:) );
-        paramsInput.idxFields = idx(val>0);
-    end
     this.params = paramsInput;
     
     end %function load
@@ -129,37 +125,35 @@ methods
     end
 
     % Create axes for sub-fields (listed in column-major order, like stk_top)
-    axopt = {'Visible','off'};
+    axopt = {'Visible','off', 'Parent',hPanel};
     
-    switch numel(this.params.idxFields)
+    switch numel(this.params.geometry)
     case 1
-        this.ax    = axes( hPanel, 'Position',[0.05  0.15 0.9  0.85], axopt{:} );
+        this.ax    = axes( 'Position',[0.05  0.15 0.9  0.85], axopt{:} );
 
     case 2
-        this.ax    = axes( hPanel, 'Position',[0     0    0.45 0.95], axopt{:} );  %L
-        this.ax(2) = axes( hPanel, 'Position',[0.5   0    0.45 0.95], axopt{:} );  %R
+        this.ax    = axes( 'Position',[0     0    0.45 0.95], axopt{:} );  %L
+        this.ax(2) = axes( 'Position',[0.5   0    0.45 0.95], axopt{:} );  %R
 
     case {3,4}
-        this.ax    = axes( hPanel, 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
-        this.ax(2) = axes( hPanel, 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
-        this.ax(3) = axes( hPanel, 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
-        this.ax(4) = axes( hPanel, 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
+        this.ax    = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
+        this.ax(2) = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
+        this.ax(3) = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
+        this.ax(4) = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
 
     otherwise
         error('Invalid field geometry');
     end
 
     % Show fluorescence fields for all channels
-    % NOTE: all properties are listed in wavelength order. Use idxFields to
-    % translate to the order of physical channels, which may be different.
+    % NOTE: all properties are listed in wavelength order.
     axopt = {'YDir','reverse', 'Color',get(hFig,'Color'), 'Visible','off'};
 
-    for i=1:numel(parser.stk_top),
-        target = this.ax( this.params.idxFields(i) );
-        this.hImg(i) = image( target, parser.stk_top{i}, 'CDataMapping','scaled' );
-        set( target, 'UserData',i, 'CLim',[0 val], axopt{:} );
-        %colormap(target, gettraces_colormap);
+    for i=1:numel(parser.stk_top)
+        this.hImg(i) = image( parser.stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
+        set( this.ax(i), 'UserData',i, 'CLim',[0 val], axopt{:} );
     end
+    
     setAxTitles(this);
     linkaxes( this.ax );
     axOut = this.ax;
@@ -195,11 +189,13 @@ methods
 
     % Create new titles
     p = this.params;
-    for i=1:numel(p.idxFields)  %i is channel index
-        chColor = Wavelength_to_RGB( p.wavelengths(i) );
+    
+    for i=1:numel(this.ax)  %i is channel index
+        idxCh = p.geometry(i);
+        if idxCh==0, continue; end  %skip unused channels
+        chColor = Wavelength_to_RGB( p.wavelengths(idxCh) );
 
-        title( this.ax( p.idxFields(i) ), ...
-               sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},i), ...
+        title( this.ax(i), sprintf('%s (%s) #%d',p.chNames{idxCh},p.chDesc{idxCh},idxCh), ...
                'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
                'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
     end
@@ -221,10 +217,11 @@ methods
     for i=1:numel(coords)
         x = rem( coords{i}(:,1), nx);
         y = rem( coords{i}(:,2), ny);
+        fieldID = find( this.params.geometry==i );
             
         % Translate coordinates from stitched movie to subfield
-        if numel(this.params.idxFields)>1
-            viscircles( this.ax(i), [x y], 3, 'EdgeColor','w' );
+        if numel(this.ax)>1
+            viscircles( this.ax(fieldID), [x y], 3, 'EdgeColor','w' );   %????
         else
             viscircles( this.ax, [x y], 3, 'EdgeColor','w' );
         end

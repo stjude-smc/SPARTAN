@@ -13,13 +13,17 @@ nPx = params.nPixelsToSum;
 hw  = params.nhoodSize;
 Npeaks = size(stkData.peaks,1);
 
+% Get linear index into field list for each channel
+[val,idx] = sort( params.geometry(:) );
+idxFields = idx(val>0);
+
 % Define regions over which to integrate each peak
 nCh = size(stkData.peaks,3);
 [stkData.regionIdx,stkData.bgMask] = deal( cell(size(nCh,1)) );
 intEff = 0;
 
 for i=1:nCh
-    field = stkData.stk_top{ params.idxFields(i) };
+    field = stkData.stk_top{ idxFields(i) };
     [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
     intEff = intEff + eff;

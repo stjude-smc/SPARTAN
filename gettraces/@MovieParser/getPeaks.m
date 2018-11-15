@@ -30,18 +30,22 @@ function stkData = getPeaks(stkData, params)
 %    rejectedTotalPicks = rejected peaks in total intensity image.
 
 % A note on notation: i, indD, indA, etc are indexes into the list of channels
-% as they will appear in the output data (donor,acceptor). params.idxFields and
+% as they will appear in the output data (donor,acceptor). idxFields and
 % quadrants identify the physical position of each channel on the camera chip.
 % When looking into the image, use idxFields.
 
 
 %% Process input arguments
 
+% Get linear index into field list for each channel
+[val,idx] = sort( params.geometry(:) );
+idxFields = idx(val>0);
+
 % If the threshold for detecting intensity peaks is not given, calculate it
 % automatically from the std of background regions at the end of the movie.
 if isempty(params.don_thresh) || params.don_thresh==0
     params.don_thresh = params.thresh_std*stkData.stdbg;
-%     params.don_thresh = params.thresh_std*mean(stkData.stdbg(params.idxFields));  %improved version
+%     params.don_thresh = params.thresh_std*mean(stkData.stdbg(idxFields));  %improved version
 end
 
 
@@ -49,7 +53,7 @@ end
 nCh = numel(params.chNames);
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{},'quality',{});
 indD = find( strcmp(params.chNames,'donor') ); %donor channel to align to.
-fields = stkData.stk_top(params.idxFields);
+fields = stkData.stk_top(idxFields);
 
 
 

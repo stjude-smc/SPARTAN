@@ -52,7 +52,11 @@ else
     end
 
     % Divide image into equal-sized subregions
-    C = mat2cell( input, repmat(idx(1),nr,1), repmat(idx(2),nc,1), imf );
+    if imf==1
+        C = mat2cell( input, repmat(idx(1),nr,1), repmat(idx(2),nc,1) );
+    else
+        C = mat2cell( input, repmat(idx(1),nr,1), repmat(idx(2),nc,1), imf );
+    end
     output = C(quad>0);  %Select requested subfields
 end
 

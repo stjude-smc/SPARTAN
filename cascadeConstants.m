@@ -263,14 +263,6 @@ profiles(end+1) = p;
 % profiles(end+1) = p;
 
 
-% Save indexes for getting wavelength-sorted list of selected fields.
-% DO NOT EDIT
-for i=1:numel(profiles)
-    [val,idx] = sort( profiles(i).geometry(:) );
-    profiles(i).idxFields = idx(val>0);
-end
-
-
 % Set the default settings profile.
 constants.gettraces_profiles = profiles;
 constants.gettraces_defaultProfile = 2;   %sCMOS Cy3/Cy5

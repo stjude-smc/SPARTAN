@@ -195,7 +195,9 @@ set( handles.sldScrub, 'Min',1, 'Max',stkData.nFrames, 'Value',1, ...
      'SliderStep',[1/stkData.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-idxFields = handles.params.idxFields;
+[val,idx] = sort( handles.params.geometry(:) );
+idxFields = idx(val>0); %linear index into params.geometry for each channel
+
 stk_top = cat(3, stkData.stk_top{idxFields} );
 sort_px = sort(stk_top(:));
 val = 2*sort_px( floor(0.99*numel(sort_px)) );
@@ -208,7 +210,7 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 axopt = {'Visible','off', 'Parent',handles.panView};
 
-switch numel(idxFields)
+switch numel(handles.params.geometry)
 case 1
     ax = [];
     handles.axTotal = axes( 'Position',[0.02 0 0.95 0.95], axopt{:} );
@@ -705,7 +707,7 @@ if ~isempty(fileTimer),
     delete(fileTimer);
     set(handles.mnuBatchAuto,'Checked','off');
 end
-
+    
 % Get parameter values associated with the selected profile.
 params = handles.profiles(handles.profile);
 handles.params = params;
@@ -928,20 +930,24 @@ function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to alter field-specific settings (name, wavelength, etc).
 % FIXME: alter settingdlg to make this work somehow?
 
-fieldID = get(gca,'UserData');  %quadrant
-chID = find( find(handles.params.geometry)==fieldID );  %index in parameter list
+fieldID = get(gca,'UserData');  %linear index into params.geometry & axes list
+chID = handles.params.geometry(fieldID);  %associated index into channel list (zero means unused)
+
+% This function is called by both the "Remove Field" and "Change Field"
+% menu options. Determine which was called by the calling handle.
+boolRemoveField = ~isequal(hObject, handles.mnuFieldSettings);
 input = [];
 
-% Prompt for new values and verify validity.
-if isequal(hObject,handles.mnuFieldSettings)
+if ~boolRemoveField
+    % Prompt user to choose new parameter values for selected field.
     prompt = {'Role:', 'Description:', 'Wavelength (nm):', 'Scale intensity by:'};
 
-    if ~isempty(chID)
+    if chID>0
         currentopt = {handles.params.chNames{chID} handles.params.chDesc{chID} ...
                       num2str(handles.params.wavelengths(chID)) ...
                       num2str(handles.params.scaleFluor(chID)) };
     else
-        currentopt = {'','','','1'};
+        currentopt = {'','','','1'};  %defaults for unused channel
     end
 
     answer = inputdlg(prompt, 'Change settings', 1, currentopt);
@@ -987,11 +993,12 @@ end
 if numel(handles.ax)>0
     p = handles.params;
     
-    for i=1:numel(p.idxFields)  %i is channel index
-        chColor = Wavelength_to_RGB( p.wavelengths(i) );
+    for i=1:numel(handles.ax)  %i is channel index
+        idxCh = p.geometry(i);
+        if idxCh==0, continue; end  %skip unused channels
+        chColor = Wavelength_to_RGB( p.wavelengths(idxCh) );
 
-        title( handles.ax( p.idxFields(i) ), ...
-               sprintf('%s (%s) #%d',p.chNames{i},p.chDesc{i},i), ...
+        title( handles.ax(i), sprintf('%s (%s) #%d',p.chNames{idxCh},p.chDesc{idxCh},idxCh), ...
                'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
                'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
     end

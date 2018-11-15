@@ -39,6 +39,10 @@ quiet = params.quiet;
 nTraces = size(stkData.peaks,1);
 nFrames = stkData.nFrames;
 
+% Get linear index into field list for each channel
+[val,idx] = sort( params.geometry(:) );
+idxFields = idx(val>0);
+
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
 chNames = params.chNames( ~cellfun(@isempty,params.chNames) );
@@ -94,7 +98,7 @@ if ~quiet, wbh.message='Extracting traces from movie data'; end
 
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
-% fnames = stkData.fnames(params.idxFields);
+% fnames = stkData.fnames(idxFields);
 [bgTrace,bgFieldIdx,bgMask] = deal([]);
 
 if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
@@ -128,7 +132,7 @@ parfor (k=1:nFrames, M)
 end
 
 % Subtract local background
-bg = stkData.background( params.idxFields );
+bg = stkData.background(idxFields);
 for c=1:nCh
     bgt = sum( bg{c}(idx{c}), 1);
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
@@ -201,7 +205,7 @@ elseif size(geo,3)>1
 else
     quad = {'L','R'};
 end
-quad = quad(params.idxFields);
+quad = quad(idxFields);
 
 for i=1:nCh,
     ch = data.channelNames{i};
