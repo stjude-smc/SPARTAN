@@ -52,6 +52,7 @@ updateSpartan; %check for updates
 constants = cascadeConstants();
 set( handles.figure1, 'Name', ['gettraces - ' constants.software] );
 handles.output = hObject;
+handles.stkData = MovieParser();
 
 % Load colormap for image viewer
 set( handles.figure1, 'Colormap',gettraces_colormap() );
@@ -90,7 +91,7 @@ zoom(handles.figure1,'on');
 % Setup default values for parameter values -- 2-color FRET.
 handles.hProfileMenu = hMenu;
 handles.profiles = profiles;
-handles.params = profiles(handles.profile);
+handles.stkData.params = profiles(handles.profile);
 guidata(hObject, handles);
 
 % Set up GUI elements to reflect the internal parameter values.
@@ -188,14 +189,14 @@ set(handles.tblAlignment, 'Data',{});
 % Load movie data, clearing original to save memory
 set(handles.figure1,'pointer','watch'); drawnow;
 
-stkData = MovieParser( filename, handles.params );  %does not draw from gettraces params!
-handles.stkData = stkData;
+stkData = handles.stkData;
+stkData.openStk(filename);
 
 set( handles.sldScrub, 'Min',1, 'Max',stkData.nFrames, 'Value',1, ...
      'SliderStep',[1/stkData.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-[val,idx] = sort( handles.params.geometry(:) );
+[val,idx] = sort( stkData.params.geometry(:) );
 idxFields = idx(val>0); %linear index into params.geometry for each channel
 
 stk_top = cat(3, stkData.stk_top{idxFields} );
@@ -210,7 +211,7 @@ set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 axopt = {'Visible','off', 'Parent',handles.panView};
 
-switch numel(handles.params.geometry)
+switch numel(stkData.params.geometry)
 case 1
     ax = [];
     handles.axTotal = axes( 'Position',[0.02 0 0.95 0.95], axopt{:} );
@@ -277,7 +278,7 @@ set(handles.btnPlay,'String','Play');
 
 % Read frame of the movie
 idxFrame = round( get(hObject,'Value') );
-allgeo = true( size(handles.params.geometry) );
+allgeo = true( size(handles.stkData.params.geometry) );
 fields = subfield( handles.stkData.movie, allgeo, idxFrame );
 
 for f=1:numel(fields)
@@ -303,7 +304,7 @@ end
 
 stkData = handles.stkData;
 startFrame = round( get(handles.sldScrub,'Value') );
-allgeo = true( size(handles.params.geometry) );
+allgeo = true( size(handles.stkData.params.geometry) );
 
 for i=startFrame:stkData.nFrames
     fields = subfield( stkData.movie, allgeo, i );
@@ -397,7 +398,7 @@ for i=1:nFiles
     
     % Save the traces to file
     mnuFileSave_Callback(hObject, [], handles);
-    nTraces(i) = handles.num;
+    nTraces(i) = size(handles.stkData.peaks,1);;
 end
 
 
@@ -406,7 +407,7 @@ log_fid = fopen( fullfile(direct,'gettraces.log'), 'wt' );
 
 % Log parameter values used in gettraces
 fprintf(log_fid,'GETTRACES PARAMETERS:\n');
-fprintf(log_fid, '%s', evalc('disp(handles.params)'));
+fprintf(log_fid, '%s', evalc('disp(handles.stkData.params)'));
 %FIXME: structure parameters are not displayed here (alignment!)
 
 % Log list of files processed by gettraces
@@ -433,14 +434,13 @@ set(handles.txtProgress,'String','Batch processing: finished.');
 %=======================  PICK PEAKS and SAVE TRACES  =====================
 %==========================================================================
 
-function handles = getTraces_Callback(hObject, ~, handles)
+function handles = getTraces_Callback(~, ~, handles)
 % Find peak locations from total intensity
 
 % Do nothing if no file has been loaded. This function may be triggered by
 % changing the settings fields before a file is open.
-if ~isfield(handles, 'stkfile')
-    return;
-end
+if isempty(handles.stkData.movie),  return;  end
+
 set(handles.tblAlignment, 'Data',{}, 'RowName',{});
 set(handles.figure1,'pointer','watch'); drawnow;
 stkData = handles.stkData;
@@ -450,7 +450,7 @@ delete(findobj(handles.figure1,'type','line')); drawnow;
 
 % Locate single molecules
 try
-    getPeaks(stkData, handles.params);
+    stkData.getPeaks();
 catch e
     if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
         errordlg( ['Error: ' e.message], 'Gettraces' );
@@ -481,7 +481,7 @@ if isempty(stkData.alignStatus),
 % Format: translation deviation (x, y), absolute deviation (x, y)
 else
     a = stkData.alignStatus;
-    handles.params.alignment = a;
+    stkData.params.alignment = a;
     
     tableData = cell(numel(a)-1,6);
     fmt = {'% 0.2f','% 0.2f','% 0.2f','% 0.2f %%','%0.2f','%0.2f'};  %sprintf formats for each field
@@ -499,12 +499,12 @@ else
     end
     
     set( handles.tblAlignment, 'Data',tableData(1:numel(a)-1,:) );
-    set( handles.tblAlignment, 'RowName',handles.params.chDesc(idxShow) );
+    set( handles.tblAlignment, 'RowName',stkData.params.chDesc(idxShow) );
     
     % If the alignment quality (confidence) is low, warn the user.
     methods = {'Alignment Disabled','Aligned from File', ...
                'Auto Aligned (ICP)','Alignment Memorized'};
-    text = methods{handles.params.alignMethod};
+    text = methods{stkData.params.alignMethod};
     
     if isfield(a,'quality') &&  any( [a.quality]<1.1 & [a.quality]>0 ),
         text = [text sprintf(': LOW CONFIDENCE!')];
@@ -550,24 +550,23 @@ set( handles.txtIntegrationStatus, 'ForegroundColor', (eff<70)*[0.9 0 0] );
 
 % Estimate the peak width from pixel intensity distribution.
 set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',stkData.psfWidth) );
-set( handles.txtPSFWidth, 'ForegroundColor', (stkData.psfWidth>handles.params.nPixelsToSum-1)*[0.9 0 0] );
+set( handles.txtPSFWidth, 'ForegroundColor', (stkData.psfWidth>stkData.params.nPixelsToSum-1)*[0.9 0 0] );
 
 
 % Graphically show peak centers
 highlightPeaks( handles );
 
 % Update GUI controls
-handles.num = size(stkData.peaks,1);
-set( handles.nummoles, 'String', sprintf('%d (of %d)',handles.num, ...
-                      size(stkData.rejectedPicks,1)+handles.num) );
+nmol = size(stkData.peaks,1);
+set( handles.nummoles, 'String', sprintf('%d (of %d)',nmol, ...
+                      size(stkData.rejectedPicks,1)+nmol) );
 
 set( [handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs ...
                                      handles.mnuHidePeaks], 'Enable','on');
 set( [handles.mnuAlignSave handles.mnuAlignKeep], ...
-                   'Enable',onoff(handles.params.alignMethod>1) );
+                   'Enable',onoff(stkData.params.alignMethod>1) );
 
 set(handles.figure1,'pointer','arrow');
-guidata(hObject,handles);
 
 % end function
 
@@ -578,9 +577,9 @@ function highlightPeaks(handles)
 
 style = {'LineStyle','none','marker','o'};
 stkData = handles.stkData;
-idxField = find(handles.params.geometry);
+idxField = find(stkData.params.geometry);
 
-if ~isscalar(handles.params.geometry)
+if ~isscalar(stkData.params.geometry)
     for i=1:size(stkData.peaks,3)
         ax = handles.ax( idxField(i) );
 
@@ -631,7 +630,7 @@ set(handles.figure1,'pointer','watch'); drawnow;
 
 % Integrate fluorophore PSFs into fluorescence traces and save to file.
 try
-    integrateAndSave(handles.stkData, filename, handles.params);
+    integrateAndSave(handles.stkData, filename);
 catch e
     if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
         errordlg( ['Error: ' e.message], 'Gettraces' );
@@ -671,14 +670,13 @@ set( handles.scaleSlider, 'Value',val );
 set( handles.scaleSlider, 'max',maximum );
 set( handles.ax, 'CLim',[minimum val] );
 
-if isscalar(handles.params.geometry)  %Single-channel recordings
+if isscalar(handles.stkData.params.geometry)  %Single-channel recordings
     set( handles.axTotal, 'CLim',[minimum val] );
 else
     set( handles.axTotal, 'CLim',[minimum*2 val*2] );
 end
 
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
-guidata(hObject,handles);
 
 % END FUNCTION txtMaxIntensity_Callback
 
@@ -692,7 +690,7 @@ function mnuProfiles_Callback(hObject, ~, handles)
 if nargin<3,  handles = guidata(hObject);  end
 
 % Save any changes to previous profile
-handles.profiles(handles.profile) = handles.params;
+handles.profiles(handles.profile) = handles.stkData.params;
 
 % Mark the new profile as current
 set(handles.hProfileMenu,'Checked','off');
@@ -710,7 +708,7 @@ end
     
 % Get parameter values associated with the selected profile.
 params = handles.profiles(handles.profile);
-handles.params = params;
+handles.stkData.params = params;
 guidata(hObject,handles);
 
 % Set all GUI to defaults of currently selected profile.
@@ -722,7 +720,7 @@ set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
      'Checked','on' );
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
-isMultiColor = ~isscalar(handles.params.geometry);
+isMultiColor = ~isscalar(handles.stkData.params.geometry);
 set( [handles.mnuAlign handles.btnCrosstalk handles.btnScaleAcceptor], ...
                        'Enable',onoff(isMultiColor) );
 set( handles.tblAlignment, 'Visible',onoff(isMultiColor) );
@@ -731,7 +729,7 @@ set( handles.panAlignment, 'Title','Software Alignment', ...
                            'Visible',onoff(isMultiColor) );
 
 % If a movie has already been loaded, reload movie with new setup.
-if isfield(handles,'stkfile')
+if ~isempty(handles.stkData.movie)
     handles = OpenStk( handles.stkfile, handles, hObject );
     set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 end
@@ -745,12 +743,12 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Called when Settings->Customize... menu clicked.
 % Allows the user to temporarily alter settings for the current profile.
 
-params = handles.params;
+params = handles.stkData.params;
 oldParams = params;
 
 % Create options for bgTraceField, which can be empty or a number.
 % (settingdlg doesn't like this, so we have to convert it to string. FIXME)
-nCh = numel(handles.params.chNames);
+nCh = numel(handles.stkData.params.chNames);
 fopt = cellfun(@num2str, num2cell(1:nCh), 'uniform',false);
 fopt = [{''} fopt];
 params.bgTraceField = num2str(params.bgTraceField);
@@ -780,27 +778,27 @@ if ~isempty(params.bgTraceField),
 end
 
 % If a standard profile is renamed, make a custom setting instead.
-if handles.profile < handles.nStandard  && ~strcmpi(params.name,handles.params.name)
+if handles.profile < handles.nStandard  && ~strcmpi(params.name,handles.stkData.params.name)
     if isempty(params.name),
         errordlg('Built-in profiles cannot be deleted. Modify cascadeConstants instead');
         return;
     end
     
     % Overwrite if name matches an existing profile, except built-in.
-    handles.params = params;
+    handles.stkData.params = params;
     handles.profiles(end+1) = params;
     handles.profile = numel(handles.profiles);
 
     % Update settings menu with new item.
     set( handles.hProfileMenu, 'Checked','off' );  %uncheck all
     handles.hProfileMenu(end+1) = uimenu( handles.mnuProfiles, 'Checked','on', ...
-              'Label',handles.params.name, 'Callback',@mnuProfiles_Callback );
+              'Label',handles.stkData.params.name, 'Callback',@mnuProfiles_Callback );
     guidata(hObject,handles);
 
 % Modify existing custom profile
 elseif ~isempty(params.name)
     set( handles.hProfileMenu(handles.profile), 'Label',params.name );
-    handles.params = params;
+    handles.stkData.params = params;
     guidata(hObject,handles);
     
 % Delete profile if name was cleared
@@ -812,14 +810,14 @@ else
     return;
 end
 
-if isfield(handles,'stkData')  %if a movie has been loaded
+if ~isempty(handles.stkData.movie)  %if a movie has been loaded
     
     % Reload movie if changing number of frames to average
     if params.nAvgFrames~=oldParams.nAvgFrames
         OpenStk( handles.stkfile, handles, hObject );
 
     % If molecules were already picked and settings have changed, re-pick.
-    elseif isfield(handles,'stkData') && ~isempty(handles.stkData.peaks)
+    elseif ~isempty(handles.stkData.peaks)
         getTraces_Callback(hObject, [], handles);
     end
     
@@ -931,7 +929,7 @@ function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % FIXME: alter settingdlg to make this work somehow?
 
 fieldID = get(gca,'UserData');  %linear index into params.geometry & axes list
-chID = handles.params.geometry(fieldID);  %associated index into channel list (zero means unused)
+chID = handles.stkData.params.geometry(fieldID);  %associated index into channel list (zero means unused)
 
 % This function is called by both the "Remove Field" and "Change Field"
 % menu options. Determine which was called by the calling handle.
@@ -943,9 +941,9 @@ if ~boolRemoveField
     prompt = {'Role:', 'Description:', 'Wavelength (nm):', 'Scale intensity by:'};
 
     if chID>0
-        currentopt = {handles.params.chNames{chID} handles.params.chDesc{chID} ...
-                      num2str(handles.params.wavelengths(chID)) ...
-                      num2str(handles.params.scaleFluor(chID)) };
+        currentopt = {handles.stkData.params.chNames{chID} handles.stkData.params.chDesc{chID} ...
+                      num2str(handles.stkData.params.wavelengths(chID)) ...
+                      num2str(handles.stkData.params.scaleFluor(chID)) };
     else
         currentopt = {'','','','1'};  %defaults for unused channel
     end
@@ -968,7 +966,7 @@ if ~boolRemoveField
 end
 
 % Save the new parameters
-handles.params = gettraces_setch(handles.params, fieldID, input);
+handles.stkData.params = gettraces_setch(handles.stkData.params, fieldID, input);
 guidata(hObject,handles);
 setAxTitles(handles);
 
@@ -991,7 +989,7 @@ end
 
 % Create new titles
 if numel(handles.ax)>0
-    p = handles.params;
+    p = handles.stkData.params;
     
     for i=1:numel(handles.ax)  %i is channel index
         idxCh = p.geometry(i);
@@ -1019,7 +1017,7 @@ function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Change software alignment mode and re-pick molecules.
 % 1=off, 2=load from file, 3=Auto (ICP), 4=memorize (keep using).
 
-assert( ~isscalar(handles.params.geometry) );
+assert( ~isscalar(handles.stkData.params.geometry) );
 sel = get(hObject,'Position');  %position within the menu, 1=top.
 
 % Load alignment from file, if requested.
@@ -1039,15 +1037,15 @@ if sel==2
         return;
     end
 
-    handles.params.alignment = input.alignment;
+    handles.stkData.params.alignment = input.alignment;
     
 elseif sel==4
     % Can only align memorize a valid alignment.
-    if isempty(handles.params.alignment), return; end
+    if isempty(handles.stkData.params.alignment), return; end
 end
 
 % Re-pick molecules and update GUI with new mode.
-handles.params.alignMethod = sel;
+handles.stkData.params.alignMethod = sel;
 guidata(hObject,handles);
 getTraces_Callback(hObject,[],handles);
 
@@ -1062,7 +1060,7 @@ function btnSaveAlignment_Callback(~, ~, handles)  %#ok<DEFNU>
 % Save current software alignment settings (which may be set to do nothing
 % at all) to file so they can be reloaded later.
 
-if isempty(handles.params.alignment) || isscalar(handles.params.geometry)
+if isempty(handles.stkData.params.alignment) || isscalar(handles.stkData.params.geometry)
     return;  %can't save an invalid alignment
 end
 
@@ -1073,7 +1071,7 @@ alignfile = fullfile( p, [f '_align.mat'] );
 
 if f,
     % FIXME: should also remove abs_dev.
-    alignment = rmfield( handles.params.alignment, {'quality'} );   %#ok<NASGU>
+    alignment = rmfield( handles.stkData.params.alignment, {'quality'} );   %#ok<NASGU>
     save( fullfile(p,f), 'alignment' );
 end
 
@@ -1089,7 +1087,7 @@ end
 function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Callback for button to set crosstalk correction settings.
 
-params = handles.params;
+params = handles.stkData.params;
 nCh = numel(params.chNames);
 if nCh<2, return; end  %no crosstalk
 
@@ -1124,7 +1122,7 @@ if any( isnan(result) | result>1 | result<0 ),
 end
 
 for i=1:numel(src),
-    handles.params.crosstalk(src(i), dst(i)) = result(i);
+    handles.stkData.params.crosstalk(src(i), dst(i)) = result(i);
 end
 
 guidata(hObject,handles);
@@ -1138,7 +1136,7 @@ function btnScaleAcceptor_Callback(hObject, ~, handles) %#ok<DEFNU>
 % that they all have the same apparent brightness (gamma=1).
 
 % Prompt the user for new multipliers for gamma correction.
-params = handles.params;
+params = handles.stkData.params;
 prompts = cellfun( @(a,b)sprintf('%s (%s):',a,b), params.chNames, ...
                                        params.chDesc, 'UniformOutput',false );
 defaults = cellfun(@num2str, num2cell(params.scaleFluor), 'UniformOutput',false);
@@ -1153,7 +1151,7 @@ if any(isnan(result)),
     return;
 end
 
-handles.params.scaleFluor = to_row(result);
+handles.stkData.params.scaleFluor = to_row(result);
 guidata(hObject,handles);
 
 %end function btnCrosstalk_Callback
