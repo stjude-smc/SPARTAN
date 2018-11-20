@@ -71,7 +71,7 @@ if isempty(viewer) || ~isvalid(viewer)
 % If trace is from a different file than the one currently load,
 % load the new movie quietly into the existing window.
 else
-    [~,fold] = fileparts2(viewer.movie.filename{1});
+    [~,fold] = fileparts2(viewer.parser.movie.filename{1});
     if ~strcmp(f, fold),
         viewer.load(movieFilename);
     end

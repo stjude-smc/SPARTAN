@@ -22,10 +22,7 @@ properties (SetAccess=public, GetAccess=public)
 end
 
 properties (SetAccess=protected, GetAccess=public)
-    movie;         % Movie object to be viewed
-    params;        % Gettraces parameters (for geometry field). FIXME
-    background;    % Movie background estimated from MovieParser/openStk.m
-    %stk_top;       % Average of first 10 frames used for molecule picking.
+    parser;        % MovieParser object
     
     ax;            % Handles to subplot axes in montage
     hImg;          % Handle to image viewers
@@ -51,26 +48,24 @@ methods
     narginchk(0,2); nargoutchk(0,1);
     
     % Load movie from file, prompting user if no arguments given.
-    if nargin<1
+    if nargin<1 || isempty(movieInput)
         movieInput = Movie.load();
         if isempty(movieInput), return; end  %user hit cancel
     end
     
-    if ischar(movieInput)
-        this.movie = Movie.load(movieInput);
-    elseif isa(movieInput,'Movie')
-        this.movie = movieInput;
-    else
-        error('Invalid input. Must be filename or Movie object');
-    end
-    
-    % If no parameters given, show raw movie (no subfields)
+    % If no parameters given, use single-color profile (no subfields)
     if nargin<2
         constants = cascadeConstants;
         paramsInput = constants.gettraces_profiles(1);
     end
     
-    this.params = paramsInput;
+    if ischar(movieInput) || isa(movieInput,'Movie')
+         this.parser = MovieParser(movieInput, paramsInput);
+    elseif isa(movieInput,'MovieParser')
+        this.parser = movieInput;
+    else
+        error('Input must be Movie or MovieParser object or path to movie file');
+    end
     
     end %function load
     
@@ -79,7 +74,8 @@ methods
     % Load a different movie using the same settings.
     % We assume this is the exact same type of movie (even the same number of
     % frames). Usually run from sorttraces. FIXME.
-        this.movie = Movie.load(movieInput);
+        this.parser.openStk(movieInput);
+        error('STUB');
         sldScrub_Callback(this, this.sldScrub);  % Redraw field images
     end %function load
     
@@ -109,12 +105,8 @@ methods
     hFig = figure;
     colormap(hFig, gettraces_colormap);
     
-    % Use a movie parser to extract fields and approximate background image.
-    parser = MovieParser(this.movie, this.params);
-    this.background = parser.background;
-    
     % Get intensity scale
-    sort_px = sort( parser.stk_top{1}(:) );
+    sort_px = sort( this.parser.stk_top{1}(:) );
     val = sort_px( floor(0.99*numel(sort_px)) );
     high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
     
@@ -127,7 +119,7 @@ methods
     % Create axes for sub-fields (listed in column-major order, like stk_top)
     axopt = {'Visible','off', 'Parent',hPanel};
     
-    switch numel(this.params.geometry)
+    switch numel(this.parser.params.geometry)
     case 1
         this.ax    = axes( 'Position',[0.05  0.15 0.9  0.85], axopt{:} );
 
@@ -149,8 +141,8 @@ methods
     % NOTE: all properties are listed in wavelength order.
     axopt = {'YDir','reverse', 'Color',get(hFig,'Color'), 'Visible','off'};
 
-    for i=1:numel(parser.stk_top)
-        this.hImg(i) = image( parser.stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
+    for i=1:numel(this.parser.stk_top)
+        this.hImg(i) = image( this.parser.stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
         set( this.ax(i), 'UserData',i, 'CLim',[0 val], axopt{:} );
     end
     
@@ -172,14 +164,16 @@ methods
     set(this.sldIntensity,'min',0, 'max',high, 'value',val);
     
     this.sldScrub = uicontrol(sldStyle{:}, 'position',[0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
-    set( this.sldScrub, 'Min',1, 'Max',this.movie.nFrames, 'Value',1, ...
-           'SliderStep',[1/this.movie.nFrames,0.02] );
+    set( this.sldScrub, 'Min',1, 'Max',this.parser.movie.nFrames, 'Value',1, ...
+           'SliderStep',[1/this.parser.movie.nFrames,0.02] );
     
     this.edTime = uicontrol('Style','Edit', 'Units','normalized', 'Enable','off', ...
             'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
        
     this.btnPlay = uicontrol('style','pushbutton', 'units','normalized', 'String','Play', ...
             'Position',[0.08 0.05 0.08 .05], 'Callback',@this.btnPlay_Callback );
+        
+    zoom(hFig, 'on');
     
     end %function show
     
@@ -188,7 +182,7 @@ methods
     % Set axes titles from imaging profile settings, including colors.
 
     % Create new titles
-    p = this.params;
+    p = this.parser.params;
     
     for i=1:numel(this.ax)  %i is channel index
         idxCh = p.geometry(i);
@@ -212,12 +206,12 @@ methods
     if ~all(ishandle(this.ax)), return; end  %window closed?
     delete( findall(this.ax,'type','Line') );
     
-    [ny,nx] = size( this.background{1} );
+    [ny,nx] = size( this.parser.background{1} );
 
     for i=1:numel(coords)
         x = rem( coords{i}(:,1), nx);
         y = rem( coords{i}(:,2), ny);
-        fieldID = find( this.params.geometry==i );
+        fieldID = find( this.parser.params.geometry==i );
             
         % Translate coordinates from stitched movie to subfield
         if numel(this.ax)>1
@@ -269,11 +263,11 @@ methods
 
     % Read frame of the movie
     idxFrame = this.curFrame;
-    allgeo = true( size(this.params.geometry) );
-    fields = subfield( this.movie, allgeo, idxFrame );
+    allgeo = true( size(this.parser.params.geometry) );
+    fields = subfield( this.parser.movie, allgeo, idxFrame );
 
     for f=1:numel(fields)
-        field = single(fields{f}) - this.background{f};
+        field = single(fields{f}) - this.parser.background{f};
         set( this.hImg(f), 'CData',field );
     end
     set( this.edTime, 'String',[num2str(this.curTime) ' s'] );
@@ -296,13 +290,13 @@ methods
     end
 
     startFrame = this.curFrame;
-    allgeo = true( size(this.params.geometry) );
+    allgeo = true( size(this.parser.params.geometry) );
 
-    for i=startFrame:this.movie.nFrames
-        fields = subfield( this.movie, allgeo, i );
+    for i=startFrame:this.parser.movie.nFrames
+        fields = subfield( this.parser.movie, allgeo, i );
         
         for f=1:numel(fields)
-            field = single(fields{f}) - this.background{f};
+            field = single(fields{f}) - this.parser.background{f};
             set( this.hImg(f), 'CData',field );
         end
 
@@ -325,7 +319,7 @@ methods
     %% ---------------------- Dependent Properties ---------------------- %%
     
     function t = get.curTime(this)
-        t = this.movie.timeAxis(this.curFrame)/1000;
+        t = this.parser.movie.timeAxis(this.curFrame)/1000;
     end
     
     function f = get.curFrame(this)

@@ -29,7 +29,13 @@ function integrateAndSave(stkData, outname, params)
 
 
 % Process input arguments
-narginchk(3,3);
+narginchk(2,3);
+
+if nargin>=2
+    stkData.params = params;
+else
+    params = stkData.params;
+end
 
 
 

@@ -3,7 +3,13 @@ function this = openStk(this, input, params)
 %
 %   STKDATA = openStk(FILENAME, PARMAS)
 
-narginchk(3,3); %FIXME: get params from cascadeConstants if not given.
+narginchk(2,3);
+
+if nargin>=3
+    this.params = params;
+else
+    params = this.params;
+end
 
 % Process input arguments, loading a Movie object
 if isa(input,'Movie')

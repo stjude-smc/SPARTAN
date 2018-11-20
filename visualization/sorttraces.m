@@ -1386,8 +1386,8 @@ function btnGettraces_Callback(hObject, ~, handles) %#ok<DEFNU>
 try
     p = fileparts(handles.filename);  %get path of currently loaded file
     handles.movieViewer = showMovie(handles.data, handles.molecule_no, p);
-catch
-    errordlg('Unable to find corresponding movie file')
+catch e
+    errordlg(['There was a problem loading the movie: ' e.message], mfilename);
 end
 
 handles = plotter(handles);

@@ -1,4 +1,4 @@
-function stkData = getIntegrationWindows(stkData, params)
+function stkData = getIntegrationWindows(stkData,params)
 % For each molecule location in "peaks", find the most intense pixels in
 % its immediate neighborhood (defined by params.nPixelsToSum). These
 % regions are used by integrateAndSave() to sum most of the intensity for
@@ -8,6 +8,14 @@ function stkData = getIntegrationWindows(stkData, params)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
+
+narginchk(1,2);
+
+if nargin>=2
+    stkData.params = params;
+else
+    params = stkData.params;
+end
 
 nPx = params.nPixelsToSum;
 hw  = params.nhoodSize;

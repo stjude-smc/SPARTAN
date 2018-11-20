@@ -41,16 +41,21 @@ properties (GetAccess=public, SetAccess=protected)
     fractionWinOverlap;     % Fraction of pixels used by multiple molecules
 end
 
-% properties (GetAccess=public, SetAccess=public)
-%     params;              % Analysis settings. See cascadeConstants.m
-% end
+
+% FIXME: use set method to update structure and raise event if params is
+% changed.
+properties (GetAccess=public, SetAccess=public)
+    params;              % Analysis settings. See cascadeConstants.m
+end
 
 
 
 methods
     % Constructor
-    function this = MovieParser(input, params)
-        this = openStk(this,input, params);
+    function this = MovieParser(varargin)
+        if nargin>0
+            this = this.openStk( varargin{:} );
+        end
     end
     
     % Open movie and prepare for viewing

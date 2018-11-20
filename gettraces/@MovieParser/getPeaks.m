@@ -37,6 +37,14 @@ function stkData = getPeaks(stkData, params)
 
 %% Process input arguments
 
+narginchk(1,2);
+
+if nargin>=2
+    stkData.params = params;
+else
+    params = stkData.params;
+end
+
 % Get linear index into field list for each channel
 [val,idx] = sort( params.geometry(:) );
 idxFields = idx(val>0);
