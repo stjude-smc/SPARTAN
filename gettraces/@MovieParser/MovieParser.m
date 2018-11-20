@@ -20,7 +20,6 @@ properties (GetAccess=public, SetAccess=protected)
     stk_top;             % Sum of the first 10 frames (cell array of fields).
     background;          % Estimated background image from first 10 frames  (cell array of fields)
     stdbg;               % stdev of background noise at the end of movie (last 10 frames)
-    nFrames;             % number of actual time units
     
     % Picked molecules from getPeaks()
     total_t;             % Registered, total intensity image used for picking
@@ -49,6 +48,14 @@ properties (GetAccess=public, SetAccess=public)
 end
 
 
+properties (Dependent)
+    % Number of frames in the movie after deinterlacing colors.
+    % This will be equal to movie.nFrames unless fluorescence channels
+    % appear as interlaced frames instead of field areas (not common).
+    nFrames;
+end
+
+
 
 methods
     % Constructor
@@ -69,6 +76,13 @@ methods
     
     % Sum fluorescence in integration windows and save fluorescence traces
     integrateAndSave(this, filename, params);
+    
+    % get/set methods
+    function value = get.nFrames(this)
+        % Accounts for channels stacked as separate frames
+        value = this.movie.nFrames / size(this.params.geometry,3); 
+    end
+    
 end
 
 

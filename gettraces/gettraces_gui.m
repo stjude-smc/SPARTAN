@@ -305,7 +305,7 @@ stkData = handles.stkData;
 startFrame = round( get(handles.sldScrub,'Value') );
 allgeo = true( size(handles.params.geometry) );
 
-for i=startFrame:stkData.movie.nFrames
+for i=startFrame:stkData.nFrames
     fields = subfield( stkData.movie, allgeo, i );
     
     for f=1:numel(fields)
