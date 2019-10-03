@@ -65,7 +65,7 @@ for itr=1:maxitr,
     % on the other side at all, are removed.
     sel = dist<params.nPixelsToSum;
     m = moving(idx,:);
-    tform = fitgeotrans( m(sel,:), fixed(sel,:), 'nonreflectivesimilarity' );
+    tform = fitgeotrans( m(sel,:), fixed(sel,:), 'affine' );
 
     % Forward transform (about center of image) to see how we did.
     registered = transformPointsForward( tform, moving );
