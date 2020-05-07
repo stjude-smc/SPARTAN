@@ -238,7 +238,7 @@ methods
     for i=1:nToShow
         y_offset = 1.18*(this.nTracesToShow-i) +0.2;
 
-        for k=2:this.model.nClasses
+        for k=1:this.model.nClasses
             h(end+1) = plot( this.ax, time, y_offset+mu([k k]), ':', ...
                              'Color',QubModelViewer.colors{k}, 'Tag','ModelMarker', 'HitTest','off' ); %#ok<AGROW>
         end

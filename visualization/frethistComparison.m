@@ -192,7 +192,9 @@ labels = cell(nFiles,1);
 for i=1:nFiles
     % Load FRET data
     data = loadTraces( files{i} );
-    fret = data.fret( :, pophist_offset+(1:sumlen) );
+    framesToSum = min(data.nFrames,sumlen);
+    
+    fret = data.fret( :, pophist_offset+(1:framesToSum) );
     nTraces = size(fret,1);
     labels{i} = data.fretAxisLabel;
         
@@ -206,7 +208,7 @@ for i=1:nFiles
     
     % Calculate FRET histograms from many bootstrap datasets
     pophist = zeros(nbins,nBootstrap);
-    fret = fret(:,1:sumlen);
+    fret = fret(:,1:framesToSum);
     
     for s=1:nBootstrap,
         % Construct bootstrap datasets
