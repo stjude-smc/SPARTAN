@@ -171,7 +171,7 @@ if iscell(input)
     input = dwtToIdl(input);
 end
 [nTraces,len] = size(input);
-nStates = max(input);
+nStates = max(input(:));
 
 % Truncate the idealization if necessary
 input = input( :, 1:min(len,params.truncateLength) );
