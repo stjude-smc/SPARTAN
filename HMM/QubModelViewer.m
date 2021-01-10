@@ -39,8 +39,8 @@ properties (GetAccess=public, Constant)
     
     % Display settings
     %                k       r       b     dark g      y       m
-    colors     = {[0 0 0],[1 0 0],[0 0 1],[0 0.7 0],[1 1 0],[1 0 1]};  % class colors
-    textColors = {[1 1 1],[1 1 1],[1 1 1],[1 1 1],  [0 0 0],[0 0 0]};  % class colors
+    colors     = {[0 0 0],[1 0 0],[0 0 1],[0 0.7 0],[0.76 0.66 0.06],[1 0 1]};  % class colors
+    textColors = {[1 1 1],[1 1 1],[1 1 1],[1 1 1],  [1 1 1],         [0 0 0]};  % class colors
     boxsize = 6;
     boxx = [-0.5 0.5  0.5 -0.5]*6;  %coordinates defining a generic box.
     boxy = [ 0.5 0.5 -0.5 -0.5]*6;
