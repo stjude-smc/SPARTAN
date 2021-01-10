@@ -60,7 +60,8 @@ this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 % This is used in getPeaks for automatically choosing a picking threshold.
 % FIXME: in future, get std from each field separately, otherwise difference in
 % the background level (bias) dominate. SEE NEXT SECTION
-endFields = subfield(movie, geoall, this.nFrames-11:this.nFrames-1);
+s = max(1, this.nFrames-11);
+endFields = subfield(movie, geoall, s:this.nFrames-1);
 endBG = sum( cat(4,endFields{:}), 4 );
 endBG = sort(endBG(:));
 endBG = endBG( 1:floor(numel(endBG)*0.75) );
