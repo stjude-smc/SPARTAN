@@ -108,6 +108,11 @@ sx = fretaxis(1):0.001:fretaxis(end);
 sy = spline(fretaxis, frethist', sx);
 plot(cax, sx, sy, 'LineWidth',3);
 
+set(gca,'ColorOrderIndex',1);
+for i=1:nFiles
+    scatter(cax, fretaxis, frethist(:,i));
+end
+
 if params.calcErrorBars,
     for i=1:nFiles,
         errorbar(cax, fretaxis, frethist(:,i), errors(:,i)/2, '.', ...
@@ -120,7 +125,7 @@ end
 hold(cax,'off');
 ylabel( cax, 'Counts (%)' );
 xlabel( cax, label );
-xlim( cax, [0.1 1.0] );
+xlim( cax, [-0.1 1.1] );
 yl = ylim(cax);
 ylim( cax, [0 yl(2)] );
 
@@ -138,8 +143,8 @@ set(hFig,'pointer','arrow'); drawnow;
 
 
 %% Add menus to change settings, get data, open new plots, etc.
-fields = {'removeBlinks', 'calcErrorBars', 'contour_length', 'pophist_offset'};
-prompt = {'Remove blinks:', 'Show error bars:', 'Frames', 'Offset:'};
+fields = {'removeBlinks', 'calcErrorBars', 'contour_length', 'pophist_offset', 'contour_bin_size'};
+prompt = {'Remove blinks:', 'Show error bars:', 'Frames', 'Offset:', 'FRET bin size'};
 
 defaultFigLayout( hFig, @(~,~)frethistComparison(getFiles(),params), ...  %File->New callback
                         @(~,~)frethistComparison(cax,getFiles(),params), ...  %File->Open callaback
@@ -160,7 +165,7 @@ function [fretaxis,frethist,errors,label] = pophist(files,settings)
 % Display settings:
 sumlen = settings.contour_length; % how many frames to use.
 pophist_offset = settings.pophist_offset; % first N frames to throw out.
-fretaxis = settings.fret_axis';
+fretaxis = -0.2:settings.contour_bin_size:1.2; %settings.fret_axis';
 nbins = length(fretaxis);
 
 if settings.calcErrorBars
@@ -202,8 +207,8 @@ for i=1:nFiles
     if settings.removeBlinks
         idl = skm( fret, data.sampling, model, skmParams );
     else
-        % Use all datapoints for histogram otherwise
-        idl = repmat(2,size(fret));
+        % Otherwise, use all datapoints where donor is alive.
+        idl = 2*(fret~=0);
     end
     
     % Calculate FRET histograms from many bootstrap datasets
