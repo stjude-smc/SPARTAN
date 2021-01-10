@@ -430,12 +430,17 @@ methods
             end
         end
         nTraces = sum(nTracesEach);
-        
+
         % Allocate space for new arrays
         for c=1:this.nChannels,
             this.(this.channelNames{c}) = zeros(nTraces,nFrames);
         end
-                
+
+        % Remove traceMetadata fields from starting object that are
+        % not in common with all files.
+        fieldsToRemove = setdiff( fieldnames(this.traceMetadata), traceMetadataFields );
+        this.traceMetadata = rmfield( this.traceMetadata, fieldsToRemove );
+
         % Copy data from each instance into the (now expanded) output.
         this.traceMetadata = to_col(this.traceMetadata);
         traceSoFar = 0;
