@@ -80,7 +80,7 @@ end
 
 % Find traces which fit all the picking criteria (binary array)
 if isfield(criteria,'maxTotalSigma')
-    t = [stats.t];
+    t = [stats(picks).t];
     
     % Fit distribution to a Gaussian function
     bins = 0:(max(t)/50):max(t);
@@ -91,6 +91,7 @@ if isfield(criteria,'maxTotalSigma')
     mu = f.b1;
     sigma = f.c1;
     
+    t = [stats.t];
     picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
     picks = picks & (t > mu - sigma*criteria.maxTotalSigma);
     

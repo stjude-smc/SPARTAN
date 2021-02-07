@@ -91,8 +91,8 @@ for i=1:nFiles,
         for r=1:numel(idlrep)
             reps(r,:) = bootfun(  tracePT(idlrep{r},params)  );
         end
-        meanPT(i,:) = mean(reps);
-        stdPT(i,:)  = std(reps);
+        meanPT(i,:) = mean(reps,1);
+        stdPT(i,:)  = std(reps,1);
         
     otherwise
         error('Unknown errorbar calculation method');
