@@ -755,7 +755,8 @@ if nargin<4, showFits=false; end
 
 if ~isempty(handles.model) && showFits
     params.model = handles.model;
-    dwellhist(handles.dwtFilenames(1), params);
+    idxFile = get(handles.lbFiles, 'Value');
+    dwellhist(handles.dwtFilenames(idxFile), params);
 else
     params.model = [];
     dwellhist(handles.dwtFilenames, params);

@@ -157,7 +157,7 @@ else
     % Create a log time axis with a fixed number of bins.
     % histcounts uses bin edges of E(k) <= X(i) < E(k+1).
     dwellaxis = log(sampling):params.dx:log(maxTime*3);
-    fitaxis = (-5:0.1:5)';  %fine-grained axis for theoretical fit curves.
+    fitaxis = (-5:0.1:10)';  %fine-grained axis for theoretical fit curves.
     
     % Force the bins edges to be exact intervals of the time resolution.
     % The histogram will better sample the discrete nature of the data.
@@ -316,67 +316,70 @@ else
     ordinate = 'Dwell Survival (%)';
 end
 
-
-% If expected mean dwell times provided, show them as fit lines.
-% Here, calculate normalization constants and change histogram line style.
-if isfield(params,'model') && ~isempty(params.model)
-    lineStyle = '.';
-else
-    lineStyle = '-';
-end
-
-% Use QuB model colors for state lines for consistency.
-colors = QubModelViewer.colors;
-if params.removeBlinks, colors(1)=[]; end
-
-% Draw dwell-time histograms for each state
+% Create axes for each state, if not already specified in input
 nStates = size(histograms,2);
 for state=1:nStates
-    
-    % Establish axes to plot in for all possible input choices
-    if oneAx
-        if isempty(ax)
-            ax = axes('Parent',hFig);
-        end
-        curAx = ax;
-    else
-        if numel(ax) < state
-            ax(state) = subplot( nStates, 1, state, 'Parent',hFig ); %#ok<AGROW>
-        end
-        curAx = ax(state);
-    end
-
-    % Plot dwell times as Sine-Sigworth (log scale) or surfival plot (linear)
-    if params.logX,
-        semilogx( curAx, dwellaxis, [histograms{:,state}], lineStyle, 'Color',colors{state} );
-        set( curAx,'XTick',10.^(-4:4) )
-    else
-        plot( curAx, dwellaxis, [histograms{:,state}], lineStyle, 'Color',colors{state} );
-    end
-    hold( curAx, 'on' );
-
-    % Draw fit lines, if applicable. (skip legend by setting HandleVisibility)
-    if isfield(params,'model') && ~isempty(params.model)
-        plot( curAx, fitaxis, fits(:,state), '-', 'Color',colors{state}, 'HandleVisibility','off' );
-    end
-    
-    ylabel(curAx, ordinate);
-    xlim(  curAx, [dwellaxis(1) xmax] );
-    ylim(  curAx, [0 ymax] );
-    if ~oneAx
-        title( curAx, sprintf('State %d',state) );
-        hold( curAx, 'off' );
+    if ~oneAx && numel(ax) < state
+        ax(state) = subplot( nStates, 1, state, 'Parent',hFig ); %#ok<AGROW>
     end
 end
 
 
-if oneAx
-    lines = strsplit(sprintf('State #%d_',1:nStates),'_');
-    legend( ax, lines(1:end-1) );
+% Draw dwell-time histograms for each state
+if isfield(params,'model') && ~isempty(params.model)
+    stateColors = QubModelViewer.colors;
+    if params.removeBlinks, stateColors(1)=[]; end
+    
+    % Show distributions from only one file, coloring by state
+    for state=1:nStates
+        curAx = ax( min(numel(ax),state) );
+
+        % Plot dwell times as Sine-Sigworth (log scale) or surfival plot (linear)
+        if params.logX
+            semilogx( curAx, dwellaxis, [histograms{:,state}], '.', 'Color',stateColors{state} );
+            set( curAx,'XTick',10.^(-4:4) );
+        else
+            plot( curAx, dwellaxis, [histograms{:,state}], '.', 'Color',stateColors{state} );
+        end
+        hold( curAx,'on');
+        plot( curAx, fitaxis, fits(:,state), '-', 'Color',stateColors{state}, 'HandleVisibility','off' );  %hide from legend)
+
+        if ~oneAx
+            hold( curAx,'off');
+            title( curAx, sprintf('State %d',state) );
+        end
+        
+        ylabel(curAx, ordinate);
+        xlim(  curAx, [dwellaxis(1) xmax] );
+        ylim(  curAx, [0 ymax] );
+    end
+        
 else
+    % Overlay dwell-time distributions from many files
+    set(ax,'ColorOrder',distinguishable_colors(nFiles), 'nextplot','replacechildren');
+    
+    for state=1:nStates
+        curAx = ax(state);
+
+        % Plot dwell times as Sine-Sigworth (log scale) or surfival plot (linear)
+        if params.logX
+            semilogx( curAx, dwellaxis, [histograms{:,state}], '.-' );
+            set( curAx,'XTick',10.^(-4:4) );
+        else
+            plot( curAx, dwellaxis, [histograms{:,state}], '.-' );
+        end
+
+        ylabel(curAx, ordinate);
+        xlim(  curAx, [dwellaxis(1) xmax] );
+        ylim(  curAx, [0 ymax] );
+        title( curAx, sprintf('State %d',state) );
+    end
+    
     legend( ax(end), trimtitles(dwtfilename) );
-    linkaxes(ax,'xy');
+    
 end
+
+linkaxes(ax,'xy');
 xlabel( ax(end), 'Dwell Time (s)' );
 set(hFig,'pointer','arrow'); drawnow;
 
