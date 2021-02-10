@@ -40,27 +40,38 @@ function varargout = dwellhist(varargin)
 
 
 
+% Assign default parameter values
+persistent params;
+
+if isempty(params)
+    %FIXME: these should be defined in cascadeConstants?
+    params.logX = true;
+    params.dx = 0.4;
+    params.removeBlinks = true;
+    params.normalize = 'state';
+end
+params.model = [];
+
+
 %% Process input arguments
 
 % Extract first argument graphics handle (figure or axes)
 hFig = [];
 ax = [];
 oneAx = false;      %if true, collapse all plots into one axes.
-soloWindow = true;  %if true, add menu controls for stand-alone execution
 
 if nargin>=1 && all(ishandle(varargin{1}))
     if strcmpi(get(varargin{1},'type'), 'figure')
         hFig = varargin{1};
     elseif strcmpi(get(varargin{1},'type'), 'axes')
         ax = varargin{1};
-        hFig = ancestor(ax,'figure');
+        hFig = ancestor(ax(1),'figure');
         oneAx = isscalar(ax);
         cla(ax,'reset');
     else
         error('Invalid first input argument');
     end
     varargin = varargin(2:end);
-    soloWindow = false;
 else
     % Display results in a new figure if no outputs requested.
     if nargout==0, hFig=figure; end
@@ -80,18 +91,6 @@ if ischar(dwtfilename), dwtfilename={dwtfilename}; end
 dwtfilename = findDwt(dwtfilename,'raiseError');
 if numel(dwtfilename)==0, return; end
 
-
-% Assign default parameter values
-persistent params;
-
-if isempty(params)
-    %FIXME: these should be defined in cascadeConstants?
-    params.logX = true;
-    params.dx = 0.4;
-    params.removeBlinks = true;
-    params.normalize = 'state';
-end
-params.model = [];
 
 % Merge options, giving the user's options precedence.
 if numel(varargin)>1,
@@ -322,6 +321,8 @@ for state=1:nStates
     if ~oneAx && numel(ax) < state
         ax(state) = subplot( nStates, 1, state, 'Parent',hFig ); %#ok<AGROW>
     end
+    curAx = ax( min(numel(ax),state) );
+    cla(curAx, 'reset');
 end
 
 
@@ -360,7 +361,7 @@ else
     
     for state=1:nStates
         curAx = ax(state);
-
+        
         % Plot dwell times as Sine-Sigworth (log scale) or surfival plot (linear)
         if params.logX
             semilogx( curAx, dwellaxis, [histograms{:,state}], '.-' );
@@ -383,7 +384,7 @@ linkaxes(ax,'xy');
 xlabel( ax(end), 'Dwell Time (s)' );
 set(hFig,'pointer','arrow'); drawnow;
 
-if ~soloWindow, return; end
+if oneAx, return; end
 
 
 
@@ -391,14 +392,13 @@ if ~soloWindow, return; end
 prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
 fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
 types{4} = {'none','state','file','time'};
-cb = @(~,~)settingdlg(params,fields,prompt,types,@dwellhist,{hFig,dwtfilename});
 output = [to_col(dwellaxis) horzcat(histograms{:})];
 
-defaultFigLayout( hFig, @(~,~)dwellhist(getFiles('*.dwt'),params), ...
-                      @(~,~)dwellhist(hFig,getFiles('*.dwt'),params), ...
-                      {@exportTxt,dwtfilename,output}, ...
-       {'Change settings...',cb; ...
-        %'Reset settings',@(~,~)dwellhist(hFig,dwtfilename) ...  %FIXME!
+defaultFigLayout( hFig, @(~,~)dwellhist(getFiles('*.dwt'),params),    ...  %File->New
+                        @(~,~)dwellhist(hFig,getFiles('*.dwt'),params), ...  %File->Open
+                       {@exportTxt,dwtfilename,output}, ...
+       {'Change settings...', @(~,~)settingdlg(params,fields,prompt,types,@dwellhist,{hFig,dwtfilename}); ...
+        %'Reset settings',@(~,~)dwellhist(hFig,dwtfilename); ...  %FIXME!!
         'Copy output',{@clipboardmat,output}}  );
 
 
