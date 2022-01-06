@@ -171,8 +171,8 @@ methods
     set(this.ax,'ydir','reverse');  %mimic orientation in QuB
     set(this.ax,'YTick',[]);
     set(this.ax,'XTick',[]);
-    xlim(this.ax,[5 90]);
-    ylim(this.ax,[7 90]);
+    xlim(this.ax,[0 100]);
+    ylim(this.ax,[0 100]);
 
     %---- Add context menu to for additional options
     menu = uicontextmenu(hFig);
