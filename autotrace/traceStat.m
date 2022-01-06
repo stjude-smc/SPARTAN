@@ -221,7 +221,7 @@ for i=1:Ntraces
     % better than diff for finding the drops. The value of NSTD is optimal
     % with our data (~300 photons/frame), but another value may be needed
     % with very low intensity data?
-    filt_total  = medianfilter(total,constants.TAU);
+    filt_total  = movmedian(total,constants.TAU,2);
     dfilt_total = gradient1(filt_total);
     mean_dfilt_total = sum( dfilt_total )/len;
     std_dfilt_total  = std1( dfilt_total );

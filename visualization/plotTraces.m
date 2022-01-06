@@ -271,8 +271,8 @@ function showTrace
     if nrows>=3,
         ax3 = subplot(3,1,3);
         
-        mfd = medianfilter(data.donor(i,:),9);
-        mfa = medianfilter(data.acceptor(i,:),9);
+        mfd = movmedian(data.donor(i,:),9,2);
+        mfa = movmedian(data.acceptor(i,:),9,2);
         
         s = -gradient(mfd).*gradient(mfa);
         s(s<0)=0;
