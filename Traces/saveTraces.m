@@ -28,7 +28,10 @@ if exist(filename,'file'), delete(filename); end
 
 
 % Write header data
-fid = fopen(filename,'Wb');
+[fid,fopenErrorMsg] = fopen(filename,'Wb');
+if fid==-1
+    error('Unable to open output file: %s.', fopenErrorMsg);
+end
 
 fwrite( fid, 0,         'uint32' );  %identifies the new traces format.
 fwrite( fid, 'TRCS',    'char'   );  %format identifier ("magic")
