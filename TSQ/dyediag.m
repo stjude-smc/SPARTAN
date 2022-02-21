@@ -182,7 +182,7 @@ for i=1:nFiles,
     % Fit the background distribution to find a good cutoff to remove
     % traces with low-intensity resurrection (not well-handled by HMM).
     % NOTE: this may exclude traces that blink but do not photobleach.
-    bins = 0:140;
+    bins = 0:300;
     bg = [stats.bg];
     bg = bg( bg>bins(1) & bg<bins(end) );
     N = hist( bg, bins );
@@ -231,6 +231,7 @@ for i=1:nFiles,
     % 3) Calculate signal statistics
     
     % Total intensity distributions
+    t = sort( [stats.t] );
     [output.intensity(i), errors.intensity(i), values(i).intensity] = stdbyfile(t,condition_idx,@median);
     
     [histdata,bins] = hist( t, 40 );
