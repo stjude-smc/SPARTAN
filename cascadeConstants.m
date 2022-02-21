@@ -39,7 +39,7 @@ constants.software = ['Cornell SPARTAN ' constants.version];
 % ---- Algorithm constants that rarely need to be adjusted.
 
 % Constants for calculating certain properties in traceStat for autotrace.
-constants.min_fret = 0.125; % above which consider acceptor dye alive
+constants.min_fret = 0.08; % above which consider acceptor dye alive
 constants.fretEventTreshold = 0.14; % FRET value used for detecting FRET (binding) events
 
 % acclife (FRET lifetime) does not include short events of FRET. This
