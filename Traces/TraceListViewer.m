@@ -123,11 +123,17 @@ methods
 
     this.exclude = false(this.data.nTraces,1);
     
+    sliderMin  = min(this.data.nTraces,this.nTracesToShow);
+    sliderMax  = this.data.nTraces;
+    
     % Update scroll bar limits, disabling listeners to prevent errors.
     enableListener(this.sldTracesListener, false);
     set( this.sldTraces, 'Enable',onoff(this.data.nTraces>this.nTracesToShow), ...
-                         'Min',min(this.data.nTraces,this.nTracesToShow),  ...
-                         'Max',this.data.nTraces, 'Value',this.data.nTraces );
+                         'Min',sliderMin,  ...
+                         'Max',sliderMax, 'Value',this.data.nTraces );
+    if this.data.nTraces > this.nTracesToShow
+        set( this.sldTraces, 'SliderStep', (this.nTracesToShow*[1 10])/sliderMax );
+    end
     set(this.sldTracesX, 'Min',10, 'Max',this.data.nFrames, 'Value',this.data.nFrames);
     enableListener(this.sldTracesListener, true);
 
