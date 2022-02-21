@@ -307,7 +307,7 @@ for i=1:Ntraces
     nDonor = sum(donorRange);
     
     
-    if nDonor >= 2, %was >2
+    if nDonor >= 2
         % Truncate to regions with donor alive
         donor    = donor(donorRange);
         acceptor = acceptor(donorRange);
@@ -315,7 +315,7 @@ for i=1:Ntraces
         % Calculate average amplitudes
         retval(i).d = sum( donor    )/nDonor;
         retval(i).a = sum( acceptor )/nDonor;
-        retval(i).t = retval(i).d + retval(i).a;
+        retval(i).t = mean( donor(1:min(nDonor,10)) + acceptor(1:min(nDonor,10)) );
         
         % Calculate Signal-to-noise ratio and background noise    
         % should be using bg_range for this...
