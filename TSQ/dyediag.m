@@ -165,7 +165,7 @@ for i=1:nFiles,
         fprintf('Only one file for condition #%d. Using bootstrap sampling for error bars\n',i);
     end
     nTraceAll = data.nTraces;  %before filtering.
-    
+        
     % Keep track of which file each trace came from.
     for j=1:numel(condition_data),
         condition_idx = [condition_idx ; repmat(j,condition_data{j}.nTraces,1)];
@@ -216,6 +216,15 @@ for i=1:nFiles,
     
     data.subset(selected);
     condition_idx = condition_idx(selected);
+    
+    % FIXME: traceStat above fills in acceptor and fret fields so that the
+    % Traces object is more typical. But Traces.subset() only operates on
+    % the fields listed in channelNames. This results in a malformed Traces
+    % object that causes errors when saving.
+    if ~isempty(data.acceptor)
+        data.acceptor = data.acceptor(selected,:);
+        data.fret     = data.fret(selected,:);
+    end
     
     
     %-------------------------------------------------------------
@@ -286,13 +295,13 @@ for i=1:nFiles,
     % 6) Save idealization.
     
     % Save rejected traces and idealization.
-%     if params.saveRejected
+    if params.saveRejected
         saveTraces( [basename '_rejected.traces'], data.getSubset(~selected) );
 
         offsets2 = data.nFrames*((1:sum(~selected))-1);
         saveDWT( [basename '_rejected.dwt'], dwt(~selected), offsets2, ...
                                                [mu sigma], data.sampling );
-%     end
+    end
     
     % Save selected traces and idealization.
     data.subset(selected);
@@ -361,13 +370,15 @@ for i=1:nFiles,
     [output.totalTon(i), errors.totalTon(i), values(i).totalTon] = stdbyfile(totalOn,condition_idx);
     
     
-    % Calculate photon yield
+    % Calculate total photons emitted by each each trace
     photons = sum( data.total.*(idl==onState), 2 );
+    
+    % Calculate mean across traces for each movie, report the mean (output)
+    % and stdev (errors) across movies.
     [output.yield(i), errors.yield(i), values(i).yield] = stdbyfile(photons,condition_idx);
     
     drawnow;
 end
-
 
 
 %% Plot dwell-time distributions
