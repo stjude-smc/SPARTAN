@@ -21,7 +21,7 @@ if nargin<3,
     NSTD = constants.NSTD;
 end
 
-total = double(total); %makes medianfilter.mex happy.
+total = double(total);
 
 
 if numel(total)/2000 > 1000 && constants.enable_parfor,
@@ -38,7 +38,7 @@ end
 parfor (i=1:Ntraces, M)
     % Median filter traces to remove high frequency noise and find drops in
     % total intensity to detect bleaching steps (or blinking).
-    dfilt_total = gradient1( movmedian(total(:,i),TAU,2) );
+    dfilt_total = gradient1( movmedian(total(i,:),TAU,2) );
     
     % Exclude "outliers" from std (including bleaching steps).
     % std() should only consider noise, not blinking/bleaching steps.
