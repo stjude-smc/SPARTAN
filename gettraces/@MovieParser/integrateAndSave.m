@@ -57,11 +57,13 @@ dataNames = chNames;
 
 % Create traces object, where the data will be stored.
 if ismember('donor',dataNames)
-    if ismember('acceptor',dataNames),
+    if ismember('acceptor',dataNames)
         dataNames = [dataNames 'fret'];
     end
-    if ismember('acceptor2',dataNames),
+    if ismember('acceptor2',dataNames)
         dataNames = [dataNames 'fret2'];
+    end
+    if any(ismember({'acceptor2','factor'},dataNames))
         data = TracesFret4(nTraces,nFrames,dataNames);
     else
         data = TracesFret(nTraces,nFrames,dataNames);
