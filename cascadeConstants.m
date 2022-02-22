@@ -30,7 +30,7 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.7.0';
+constants.version = '3.8.0';
 constants.software = ['Cornell SPARTAN ' constants.version];
 
 
@@ -94,7 +94,8 @@ cmosCommon.bgTraceField   = ''; %get a background intensity trace for this field
 % Conversion from camera units (ADU) to photons (photoelectrons).
 % See camera calibration datasheet. May depend on which digitizer is selected!
 % If no information is available, comment this line out.
-cmosCommon.photonConversion = 2.04;   % 0.49 e-/ADU  (manual says 0.46?)
+%cmosCommon.photonConversion = 2.04;     % Hamamatsu Flash v2 cameras
+cmosCommon.photonConversion = 4.5455;   % Hamamatsu Fusion cameras
 
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.
@@ -140,7 +141,7 @@ p.chNames     = {'donor','acceptor'};
 p.chDesc      = {'Cy3','Cy5'};
 p.wavelengths = [532 640];
 p.crosstalk   = zeros(2);
-p.crosstalk(1,2) = 0.115;  %donor->acceptor (no bandpass filters!)
+p.crosstalk(1,2) = 0.075;  %donor->acceptor (WITH bandpass filters!)
 p.scaleFluor  = [1 1];
 profiles(end+1) = p;
 
@@ -155,21 +156,32 @@ p.chNames     = {'factor','donor','acceptor'};
 p.chDesc      = {'Cy2','Cy3','Cy5'};
 p.wavelengths = [473 532 640];
 p.crosstalk   = zeros(3);
-% p.crosstalk(1,2) = 0.0;   %Cy2->Cy3 (FIXME)
-p.crosstalk(2,3) = 0.11;   %Cy3->Cy5 (FIXME)
+p.crosstalk(2,3) = 0.075;   %Cy3->Cy5
 p.scaleFluor  = [1 1 1];
 profiles(end+1) = p;
 
 
 p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
-p.geometry    = [1 2; 0 3];  % field order: UL,UR,LL.
+p.geometry    = [1 2; 0 3];  % field order: UL,UR,LR.
 p.chNames     = {'donor','acceptor','acceptor2'};
 p.chDesc      = {'Cy3','Cy5','Cy7'};
 p.wavelengths = [532 640 730];
 p.crosstalk   = zeros(3);
-p.crosstalk(1,2) = 0.11;   %Cy3->Cy5 (same as 2-color; was 0.066 with bandpasses in?)
-p.crosstalk(2,3) = 0.04;   %Cy5->Cy7 (0.015 with bandpasses in?)
-p.scaleFluor  = [1 1 7];  %Multiply Cy5 and Cy7 traces by this amount.
+p.crosstalk(1,2) = 0.075;   %Cy3->Cy5
+p.crosstalk(2,3) = 0.04;    %Cy5->Cy7
+p.scaleFluor  = [1 1 7];
+profiles(end+1) = p;
+
+
+p.name        = 'sCMOS, Multi-Cam (Cy2/Cy3/Cy5/Cy7)';
+p.geometry    = [2 3; 1 4];  % field order: LL,UL,UR,LR.
+p.chNames     = {'donor','acceptor','donor2','acceptor2'};
+p.chDesc      = {'Cy2','Cy3','Cy5','Cy7'};
+p.wavelengths = [473 532 640 730];
+p.crosstalk   = zeros(4);
+p.crosstalk(2,3) = 0.075;   %Cy3->Cy5
+p.crosstalk(3,4) = 0.04;    %Cy5->Cy7
+p.scaleFluor  = [1 1 1 7];
 profiles(end+1) = p;
 
 

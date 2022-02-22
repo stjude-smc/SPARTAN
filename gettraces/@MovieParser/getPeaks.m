@@ -63,6 +63,10 @@ align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{
 indD = find( strcmp(params.chNames,'donor') ); %donor channel to align to.
 fields = stkData.stk_top(idxFields);
 
+if isempty(indD)
+    error('Field named "donor" required for alignment');
+end
+
 
 
 %% Single color or no multicolor without software alignment
