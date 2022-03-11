@@ -100,7 +100,8 @@ cmosCommon.photonConversion = 4.5455;   % Hamamatsu Fusion cameras
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.
 cmosCommon.nAvgFrames     = 10;  %number of frames to average for picking image
-cmosCommon.don_thresh     = 0;   %molecule detection threshold (0=automatic)
+cmosCommon.autoThresh     = true; %automatically calculated a detection threshold
+cmosCommon.don_thresh     = 0;    %molecule detection threshold
 cmosCommon.overlap_thresh = 3.5; %remove molecules that are w/i X pixels.
 cmosCommon.nPixelsToSum   = 9;   %number of pixels to sum per trace
 cmosCommon.nhoodSize      = 2;   %integrate within this neighborhood (px distance from peak)

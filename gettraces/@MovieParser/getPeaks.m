@@ -51,7 +51,7 @@ idxFields = idx(val>0);
 
 % If the threshold for detecting intensity peaks is not given, calculate it
 % automatically from the std of background regions at the end of the movie.
-if isempty(params.don_thresh) || params.don_thresh==0
+if params.autoThresh
     params.don_thresh = params.thresh_std*stkData.stdbg;
 %     params.don_thresh = params.thresh_std*mean(stkData.stdbg(idxFields));  %improved version
 end
