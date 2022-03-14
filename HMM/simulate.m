@@ -91,7 +91,7 @@ parfor (i=1:nTraces,M)
     if saveDwt, dwt{i}=[to_col(double(states)) to_col(dwelltimes)]; end
     
     % Truncate last dwell to fit into time window
-    dwelltimes(end) = dwelltimes(end) - (sum(dwelltimes)-endTimes(i));
+    dwelltimes(end) = endTimes(i) - sum(dwelltimes(1:end-1));
     dwelltimes = to_col(dwelltimes);
     
     
