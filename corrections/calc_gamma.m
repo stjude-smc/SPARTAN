@@ -15,7 +15,14 @@ function gamma = calc_gamma(input, flag)
 %   Gamma is the apparent donor brightness relative to the acceptor.
 %   Here it is estimated from the ratio of increase in donor intensity to the
 %   decrease in acceptor intensity upon acceptor photobleaching.
-%   See Ha et al (1999) PNAS 95, p.893.
+%   See Ha et al (1999) PNAS 95, p.893. Roy et al (2008), Nat Meth
+%   FIXME: 
+%
+%   CAVEATS:
+%   A threshold of 0.2 (before correction) is used to find molecules
+%   showing FRET. If all molecules are below this threshold, the algorithm
+%   will fail. In this case, you could scale manually first and then
+%   fine-tune by running this function.
 % 
 %   See also: gammacorrect, scaleacceptor, crosstalkcorrect.
 
@@ -62,9 +69,7 @@ for i = 1:nTraces
     
     % Use only when the region is long enough for calculation.
     if ~isempty(acc_lt) && acc_lt > 21 && (donor_lt-acc_lt) > 21,
-        Id = data.donor(i,:);
-        Ia = data.acceptor(i,:);
-    
+        
         % Frames before (pre) and after (post) acceptor bleaching.
         pre_range  = acc_lt-21:acc_lt-1;  %before acceptor bleaching
         post_range = acc_lt+1:donor_lt-1;  %after  acceptor bleaching
@@ -78,6 +83,11 @@ for i = 1:nTraces
         
         % Estimate fold changes in fluorophore intensity upon acceptor
         % bleaching, and gamma as the ratio.
+        % NOTE: this is inverted from the Roy 2008 paper, which uses
+        % del-A/delD.
+        Id = data.donor(i,:);
+        Ia = data.acceptor(i,:);
+        
         delta_acc   = mean( Ia(pre_range)  )  -  mean( Ia(post_range) );
         delta_donor = mean( Id(post_range) )  -  mean( Id(pre_range)  );
         gamma(i) = delta_donor / delta_acc;
@@ -100,26 +110,30 @@ gamma = gamma( ~isnan(gamma) );
 % Without this, the std() may not be useful (outliers increase std).
 gamma = gamma( gamma>0 & gamma<10 );
 
-% Ignore any gamma estimates that are two standard deviations from the mean
-% and return the mean gamma estimate.
-% Consider taking the std of the middle 90% or something.
-% median_gamma = median(gamma);
-% std_gamma = std(gamma);
-% gamma = gamma(gamma < (median_gamma + 2*std_gamma) & gamma > (median_gamma - 2*std_gamma));
-
 % Show what fraction of traces could be used to calculate gamma.
 assert( ~isempty(gamma), 'No useful traces found for calculating gamma' );
 
 percentUsed = 100*numel(gamma)/nTraces;
-if percentUsed<5,
+if percentUsed<5 || numel(gamma)<10,
     warning('Only a few traces (%d, %.0f%%) could be used for correction! May not be accurate.', ...
             numel(gamma),percentUsed );
 else
     fprintf('\n%.0f%% of traces were used to calculate gamma.\n',percentUsed);
 end
 
-% Return an average value for apparent gamma.
-gamma = median(gamma);
+try
+    % Gaussian fit to find mean gamma value
+    x = 0:0.1:10;
+    n = hist( gamma, x );
+    f = fit( x', n', 'gauss1');
+    gamma = f.b1;
+    
+    %figure; bar(x,n); hold on; plot(f);
+catch
+    % Failback if fitting fails: use distribution median.
+    gamma = median(gamma);
+end
+
 
 
 end %function calc_gamma
