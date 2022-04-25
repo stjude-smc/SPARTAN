@@ -278,7 +278,7 @@ end
 % If no output requested, display the histograms instead.
 % If an axis is given and output is requested, do both. FIXME
 if nargout>0
-    output = {dwellaxis,histograms,fits};
+    output = {dwellaxis, histograms, [fitaxis fits]};
     [varargout{1:nargout}] = output{1:nargout};
     return;
 end
@@ -393,13 +393,15 @@ prompt = {'Remove blinks:', 'Log scale:', 'Log bin size:', 'Normalization:'};
 fields = {'removeBlinks', 'logX', 'dx', 'normalize'};
 types{4} = {'none','state','file','time'};
 output = [to_col(dwellaxis) horzcat(histograms{:})];
+outFit = [to_col(fitaxis) fits];
 
 defaultFigLayout( hFig, @(~,~)dwellhist(getFiles('*.dwt'),params),    ...  %File->New
                         @(~,~)dwellhist(hFig,getFiles('*.dwt'),params), ...  %File->Open
                        {@exportTxt,dwtfilename,output}, ...
        {'Change settings...', @(~,~)settingdlg(params,fields,prompt,types,@dwellhist,{hFig,dwtfilename}); ...
         %'Reset settings',@(~,~)dwellhist(hFig,dwtfilename); ...  %FIXME!!
-        'Copy output',{@clipboardmat,output}}  );
+        'Copy histograms',{@clipboardmat,output}; ...
+        'Copy fit lines',{@clipboardmat,outFit}   }    );
 
 
     
