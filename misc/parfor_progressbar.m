@@ -78,7 +78,7 @@ methods
         % Create a new waitbar 
         this.iterBuffer = 0;
         this.iterBufferTime = tic;
-        this.N = N_init;
+        this.N = double(N_init);
         this.wbh = waitbar(0, varargin{:});
         
         % Create timer to periodically update the waitbar in the GUI thread.
@@ -157,7 +157,7 @@ methods
         if ~exist(this.ipcfile,'file'),
             error('spartan:op_cancelled','Operation cancelled by user');
         end
-    
+
         fid = fopen(this.ipcfile, 'a');
         fprintf(fid, '%d\n', Nitr+this.iterBuffer);
         fclose(fid);
