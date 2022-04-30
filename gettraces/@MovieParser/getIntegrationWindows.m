@@ -1,4 +1,4 @@
-function stkData = getIntegrationWindows(stkData,params)
+function stkData = getIntegrationWindows(stkData)
 % For each molecule location in "peaks", find the most intense pixels in
 % its immediate neighborhood (defined by params.nPixelsToSum). These
 % regions are used by integrateAndSave() to sum most of the intensity for
@@ -9,21 +9,15 @@ function stkData = getIntegrationWindows(stkData,params)
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
 
-narginchk(1,2);
-
-if nargin>=2
-    stkData.params = params;
-else
-    params = stkData.params;
-end
+params = stkData.params;
 
 nPx = params.nPixelsToSum;
 hw  = params.nhoodSize;
 Npeaks = size(stkData.peaks,1);
 
 % Get linear index into field list for each channel
-[val,idx] = sort( params.geometry(:) );
-idxFields = idx(val>0);
+% [val,idx] = sort( params.geometry(:) );
+% idxFields = idx(val>0);
 
 % Define regions over which to integrate each peak
 nCh = size(stkData.peaks,3);
@@ -31,7 +25,7 @@ nCh = size(stkData.peaks,3);
 intEff = 0;
 
 for i=1:nCh
-    field = stkData.stk_top{ idxFields(i) };
+    field = stkData.stk_top{i};
     [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
     intEff = intEff + eff;

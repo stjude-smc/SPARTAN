@@ -1,4 +1,4 @@
-function integrateAndSave(stkData, outname, params)
+function integrateAndSave(this, outname)
 %integrateAndSave  Sum single molecule PSFs, save as .traces file.
 %
 %   integrateAndSave(STKDATA, PARAMS, TRCNAME)
@@ -25,35 +25,29 @@ function integrateAndSave(stkData, outname, params)
 %   correction, and calculation of derived signals (FRET traces) is all done
 %   here. Then the result is saved as a .rawtraces file with metadata.
 
-%   Copyright 2007-2017 Cornell University All Rights Reserved.
+%   Copyright 2007-2022 All Rights Reserved.
 
 
 % Process input arguments
-narginchk(2,3);
-
-if nargin>=3
-    stkData.params = params;
-else
-    params = stkData.params;
-end
-
+narginchk(2,2);
+params = this.params;
+this.chExtractor.verify();
 
 
 %% Prepare trace output
-movie = stkData.movie;
 quiet = params.quiet;
-nTraces = size(stkData.peaks,1);
-nFrames = stkData.nFrames;
-
-% Get linear index into field list for each channel
-[val,idx] = sort( params.geometry(:) );
-idxFields = idx(val>0);
+nTraces = size(this.peaks,1);
+nFrames = this.nFrames;
 
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
-chNames = params.chNames( ~cellfun(@isempty,params.chNames) );
+chNames = {this.chExtractor.channels.role};
+ignore = isempty(chNames) | strcmpi(chNames,'ignore');
+channels = this.chExtractor.channels(~ignore);
+chNames = {channels.role};
+
 nCh = numel(chNames);
-dataNames = chNames;
+dataNames = chNames;  %will include derived traces like fret.
 
 % Create traces object, where the data will be stored.
 if ismember('donor',dataNames)
@@ -73,7 +67,7 @@ else
 end
 
 % If not available from movie, prompt user for time resolution
-if ~quiet && movie.timeAxis(1)==1,
+if ~quiet && this.chExtractor.movie.timeAxis(1)==1,
     disp('Time axis information is not present in movie!');
     a = inputdlg('Time resolution (ms):','No time axis in movie!');
     a = str2double(a);
@@ -84,7 +78,7 @@ if ~quiet && movie.timeAxis(1)==1,
     end
     data.time = a*( 0:nFrames-1 );
 else
-    data.time = movie.timeAxis;
+    data.time = this.chExtractor.movie.timeAxis;
 end
 
 
@@ -95,7 +89,7 @@ if ~quiet,
 end
 
 % Parallelize large movies, where disk access is faster than image processing. 
-if nTraces*nFrames/2000 > 1500 && cascadeConstants('enable_parfor') && isa(movie,'Movie_TIFF'),
+if nTraces*nFrames/2000 > 1500 && cascadeConstants('enable_parfor')
     pool = gcp;
     M = pool.NumWorkers;
 else
@@ -106,23 +100,25 @@ if ~quiet, wbh.message='Extracting traces from movie data'; end
 
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
-% fnames = stkData.fnames(idxFields);
+% fnames = this.fnames(idxFields);
 [bgTrace,bgFieldIdx,bgMask] = deal([]);
 
 if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
     bgFieldIdx = params.bgTraceField;
     bgTrace = zeros(nFrames,1,'single');
-    bgMask = stkData.bgMask{bgFieldIdx};
+    bgMask = this.bgMask{bgFieldIdx};
 end
 
 % Get a list of field locations (channels) to integrate.
-geo = params.geometry;
 traces = zeros(nTraces,nFrames,nCh, 'single');
-idx = stkData.regionIdx;  %cell array of channels with [pixel index, molecule id] 
+idx = this.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
-parfor (k=1:nFrames, M)
-    % Retrieve next frame and separate fluorescence channels
-    frame = subfield(movie, geo, k);
+% parfor (k=1:nFrames, M)
+for k=1:nFrames
+    % Retrieve next frame and separate fluorescence channels.
+    % FIXME: possible to avoid reading "ignored" data for speed?
+    frame = this.chExtractor.read(k);
+    frame = frame(~ignore);
     
     for c=1:nCh
         % Sum intensity within the integration window of each PSF
@@ -140,7 +136,7 @@ parfor (k=1:nFrames, M)
 end
 
 % Subtract local background
-bg = stkData.background(idxFields);
+bg = this.background;  %(idxFields);
 for c=1:nCh
     bgt = sum( bg{c}(idx{c}), 1);
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
@@ -157,11 +153,20 @@ if ~isempty(bgTrace),
 end
 
 % Convert fluorescence to arbitrary units to photon counts.
-if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
-    traces = traces./params.photonConversion;
+% FIXME: as currently implemented, photonsPerCount is always defined.
+% if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
+%     traces = traces./params.photonConversion;
+if isfield(channels,'photonsPerCount')
+    ppc = reshape( [channels.photonsPerCount], [1 1 numel(channels)] );
+    traces = bsxfun( @times, traces, ppc );
+    
     data.fileMetadata.units = 'photons';
 else
     data.fileMetadata.units = 'AU';
+end
+
+if isfield(params,'zeroMethod'),
+    data.fileMetadata.zeroMethod = params.zeroMethod;
 end
 
 % Add trace data to the Traces output object
@@ -171,23 +176,27 @@ end
 
 % Correct for non-uniform camera sensitivity across the field-of-view.
 % See the biasCorrection field in cascadeConstants.m for details.
-if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
-    for i=1:nCh,
-        chName = data.channelNames{i};
-        x = stkData.peaks(:,1,i);
-        y = stkData.peaks(:,2,i);
-        corr = params.biasCorrection{i}(x,y);
-        data.(chName) = data.(chName)  ./  repmat( corr, [1 nFrames] );
-        %data.(chName) = bsxfun( @rdivide, data.(chName), corr );  %TESTME
-    end
-end
+% if isfield(params,'biasCorrection') && ~isempty(params.biasCorrection),
+%     for i=1:nCh,
+%         chName = data.channelNames{i};
+%         x = this.peaks(:,1,i);
+%         y = this.peaks(:,2,i);
+%         corr = params.biasCorrection{i}(x,y);
+%         data.(chName) = data.(chName)  ./  repmat( corr, [1 nFrames] );
+%         %data.(chName) = bsxfun( @rdivide, data.(chName), corr );  %TESTME
+%     end
+% end
 
-if isfield(params,'zeroMethod'),
-    data.fileMetadata.zeroMethod = params.zeroMethod;
+% Extract relevant correction parameters from imaging profile
+profileIdx = zeros( nCh, 1 );
+for i=1:nCh
+    profileIdx(i) = find( strcmpi(channels(i).name, {params.channels.name}), 1 );
 end
+scaleFluor = params.scaleFluor( profileIdx );
+crosstalk  = params.crosstalk( profileIdx, profileIdx );
 
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
-data = correctTraces( bgsub(data), params.crosstalk, to_col(params.scaleFluor));
+data = correctTraces( bgsub(data), crosstalk, to_col(scaleFluor) );
 data.recalculateFret();
 
 
@@ -198,29 +207,16 @@ if ~quiet,
     wbh.message = 'Saving traces...';
 end
 
-data.fileMetadata.wavelengths = params.wavelengths;
-data.fileMetadata.chDesc = params.chDesc;
-data.fileMetadata.geometry = params.geometry;
+data.fileMetadata.wavelengths = [channels.wavelength];
+data.fileMetadata.chDesc = {channels.name};
+data.fileMetadata.geometry = this.chExtractor.fieldArranagement;  %fixme: ignore=0?
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.
-% For now, these are relative to the full image with side-by-side arranged
-% fields to reproduce old behavior... FIXME someday
-if size(geo,1)==2
-    quad = {'UL','UR';'BL','BR'};
-elseif size(geo,3)>1
-    quad = repmat({'L'}, [1 size(geo,3)]);
-else
-    quad = {'L','R'};
-end
-quad = quad(idxFields);
-
 for i=1:nCh,
     ch = data.channelNames{i};
-    peaks = translatePeaks( stkData.peaks(:,:,i), size(stkData.background{1}), quad{i} );
-    
-    x = num2cell( peaks(:,1) );
-    y = num2cell( peaks(:,2) );
+    x = num2cell( this.peaks(:,1,i) );
+    y = num2cell( this.peaks(:,2,i) );
     [data.traceMetadata.([ch '_x'])] = x{:};
     [data.traceMetadata.([ch '_y'])] = y{:};
 end

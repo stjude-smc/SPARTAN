@@ -1,17 +1,15 @@
 function this = openStk(this, input, params)
-%openStk  gettraces internal function to open a movie file.
-%
-%   STKDATA = openStk(FILENAME, PARMAS)
+% MovieParser function to open a new movie
+% input can be a Movie object or the path to a movie file.
+% params comes from cascadeConstants.m.
 
 narginchk(2,3);
 
 if nargin>=3
     this.params = params;
-else
-    params = this.params;
 end
 
-% Process input arguments, loading a Movie object
+% Load movie from file
 if isa(input,'Movie')
     movie = input;
 elseif iscell(input) || ischar(input)
@@ -19,40 +17,64 @@ elseif iscell(input) || ischar(input)
 else
     error('Invalid input: must be filename or Movie object');
 end
-this.movie = movie;
 
-% Average the first few frames to create an image for finding molecules.
-averagesize = min([params.nAvgFrames this.nFrames]);
+% FIXME: need to re-evaluate the paradigm here. This class ends up doing a
+% ton of manipulation of ChannelExtractor's properties. Does that suggest
+% that this code belongs in that class somehow? Or does it suggest this
+% property should be in this class instead?
 
-geoall = true( size(params.geometry) );  %use all fields, not just selected ones
-fields = subfield( this.movie, geoall, 1:averagesize );
-fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
-
-% Create an estimated background image by sampling the lowest 15-20% of 
-% values in each 6x6 area in the image and interpolating values in between.
-% The block size (den) should be at least 3x the PSF width.
-den = params.bgBlurSize;
-this.background = cell( size(fields) );
-szField = size(fields{1});
-temp = zeros( floor(szField/den) );
-win = 1:den;
-partition = floor( 0.167*(den^2) );  %index of sorted pixel to use
-
-for f=1:numel(fields)
-    % Divide image into den-x-den squares and find 16% lowest value in each.
-    for i=1:size(temp,1),
-        for j=1:size(temp,2),
-            sort_temp = fields{f}(den*(i-1)+win, den*(j-1)+win);
-            sort_temp = sort( sort_temp(:) );
-            temp(i,j) = sort_temp( partition );
-        end
-    end
+% If available and valid, use movie's metadata to assign channels.
+% FIXME: assign any fields not in metadata from params.
+if all( isfield(movie.metadata,{'fieldArrangement','channels'}) )
+    geo = movie.metadata.fieldArrangement;
+    ch = movie.metadata.channels;
     
-    % Rescale the image back to the actual size
-    this.background{f} = imresize(temp, szField, 'bicubic');
+    if all(ismember({ch.name},{this.params.channels.name}))
+        % Replace current channel settings with those from file.
+        try
+            this.chExtractor = ChannelExtractor(movie, geo, ch);
+        catch e
+            warning(e.identifier,'Failed to load channel metadata from movie: %s',e.message);
+            this.chExtractor = [];
+        end
+    else
+       warning('Movie metadata and current profile not compatible');
+       this.chExtractor = [];
+    end
+
+% If no metadata is available in the file, but settings were defined for
+% the previous movie, try to retain them if possible.
+elseif ~isempty(this.chExtractor)
+    geo = this.chExtractor.fieldArranagement;
+    ch  = this.chExtractor.channels;
+    this.chExtractor = ChannelExtractor(movie,geo,ch);
 end
 
+% If this is the first run or metadata was invalid, default to single channel.
+if isempty(this.chExtractor)
+    geo = 1;
+    [~,idx] = min(  abs([this.params.channels.wavelength]-532)  );  %arbitrary
+    ch = this.params.channels(idx);
+    this.chExtractor = ChannelExtractor(movie, geo, ch);
+end
+
+% If no roles given/retained, provide a reasonable guess.
+if ~isfield(this.chExtractor.channels,'role') || isempty(this.chExtractor.channels(1).role)
+    if this.chExtractor.nChannels<4
+        roles = {'donor','acceptor','acceptor2'};
+    else
+        roles = {'donor','acceptor','donor2','acceptor2'};
+    end
+    [this.chExtractor.channels.role] = roles{ 1:this.chExtractor.nChannels };
+end
+
+% Average the first few frames to create an image for finding molecules.
+averagesize = min( [this.params.nAvgFrames this.nFrames] );
+fields = this.chExtractor.read( 1:averagesize );
+fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
+
 % Substract background image
+this.background = moviebg(fields);
 this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 
 % Use the lowest quartile of intensities from the end of the movie to estimate
@@ -61,7 +83,7 @@ this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
 % FIXME: in future, get std from each field separately, otherwise difference in
 % the background level (bias) dominate. SEE NEXT SECTION
 s = max(1, this.nFrames-11);
-endFields = subfield(movie, geoall, s:this.nFrames-1);
+endFields = this.chExtractor.read( s:this.nFrames-1 );
 endBG = sum( cat(4,endFields{:}), 4 );
 endBG = sort(endBG(:));
 endBG = endBG( 1:floor(numel(endBG)*0.75) );
@@ -79,7 +101,8 @@ this.stdbg = std(endBG);
 [this.total_t, this.peaks, this.total_peaks, this.rejectedPicks, this.rejectedTotalPicks,...
  this.fractionOverlapped, this.alignStatus, this.regionIdx, this.bgMask, ...
  this.integrationEfficiency, this.psfWidth, this.fractionWinOverlap ] = deal([]);
-             
+
+
 end %FUNCTION OpenStk
 
 

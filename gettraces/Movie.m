@@ -29,6 +29,12 @@ properties (SetAccess=protected, GetAccess=public)
     header = struct([]); %
     offsets;   % byte offset in file to the start of each frame
     
+    % Standardized metadata struct (all fields optional, may include
+    % additional fields): exposureTime, binning, fieldArrangement,
+    % channels.(name, wavelength, description, photonsPerCount, role).
+    % This just reflects the file's metadata and is not validated.
+    metadata;
+    
 end %end public properties
 
 

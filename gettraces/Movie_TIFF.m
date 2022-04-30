@@ -25,6 +25,7 @@ properties (SetAccess=protected, GetAccess=public)
     timestamps = [];   % actual movie timestamps in ms, relative to start.
 
     % See Movie class for additional standard properties.
+
 end %end public properties
 
 
@@ -187,10 +188,12 @@ methods
             obj.header.MM = parseMetamorphInfo( info.ImageDescription, 1);
         end
         
-        % In new versions (TIFF), the metadata is instead in XML.
-        %if isfield(obj,'ImageDescription'),
-            % TODO
-        %end
+        % Extract metadata from FlashGordon that specifies how to
+        % subdivide image data into spectral channels.
+        % OME-TIFF data will also be in this tag.
+        if isfield(info,'ImageDescription') && startsWith(info(1).ImageDescription,'FlashGordon=')
+            obj.metadata = parseFGImageDescription(info(1).ImageDescription);
+        end
         
         % Determine if the optimized fread version can be used.
         obj.useFread = strcmpi(obj.header.Compression,'Uncompressed') && ...
@@ -206,7 +209,6 @@ methods
         end
         
     end %constructor
-    
     
     
     function data = readFrames( obj, idx )
@@ -253,6 +255,72 @@ end %class Movie_TIFF
 
 
 %% ============ ACCESSORY FUNCTIONS ============= %
+
+function metadata = parseFGImageDescription(input)
+% Image Description (tag 270) text is saved by Flash Gordon to assist in
+% identifying spectral channels that are tiled together in each image.
+
+    metadata = [];
+    output = [];
+    validFields = {'FlashGordon','binning','exposureTime','fieldArrangement'};
+    fieldFormat = {'%s','%s','%f',[]};
+    
+    validChFields = {'name','wavelength','photonsPerCount'};
+    chFieldFormat = {'%s','%d','%f'};
+    
+    % Read lines as name=value pairs, skipping unrecognized fields.
+    input = splitlines(input);
+    for i=1:numel(input)
+        line = split( input{i}, '=' );
+        if numel(line)~=2, continue; end
+        [fieldName,val] = line{:};
+        
+        try
+            % Build channels struct array
+            if startsWith(fieldName,'channel') && fieldName(9)=='.'
+                chID = str2double(fieldName(8));
+                subfield = fieldName(10:end);
+                formatID = strcmp(subfield,validChFields);
+                output.channels(chID).(subfield) = sscanf( val, chFieldFormat{formatID} );
+
+            % FieldArrangement is text to define a matlab-style matrix
+            % that describes how to split image data into channels.
+            elseif strcmpi(fieldName,'fieldArrangement')
+                    assert( all(ismember(val,'1234567890[],;: ')), 'Invalid field arrangement' )
+                    output.fieldArrangement = eval(val);
+            else
+                formatID = strcmp(fieldName,validFields);
+                output.(fieldName) = sscanf( val, fieldFormat{formatID} );
+            end
+        catch
+            warning('Ignoring invalid FlashGordon ImageDescription line: %s',input{i});
+        end
+    end
+    
+    % Verify channel information is valid so it can be used by ChannelExtractor.
+    try
+        nCh = numel(output.channels);
+        fa = output.fieldArrangement(:);
+        wavelength = [output.channels.wavelength];
+        ppc = [output.channels.photonsPerCount];
+        
+        if ~all(fa>=0 & fa<=nCh & sum(fa>0)==nCh)            || ...
+           any(isnan(wavelength)) || numel(wavelength)~=nCh  || ...
+           any(isnan(ppc)) || numel(ppc)~=nCh                || ...
+           any(cellfun(@isempty,{output.channels.name}))
+           error('Invalid channel metadata');
+        end
+    catch
+        warning('FlashGordon metadata not valid; ignoring');
+        return;
+    end
+    
+    metadata = output;  %only return a value if we pass all tests.
+    
+end %function
+
+
+
 
 % Parse the Metamorph camera info tag into respective fields
 % This is only used with old-format (STK) movies from MetaMorph.

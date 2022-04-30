@@ -1,4 +1,4 @@
-function stkData = getPeaks(stkData, params)
+function stkData = getPeaks(stkData)
 % Localizes the peaks of molecules from a summed image of the two channels
 % (in FRET experiments). The selection is made on the total fluorescence
 % intensity image (summing all channels into a single image) to minimize
@@ -37,41 +37,38 @@ function stkData = getPeaks(stkData, params)
 
 %% Process input arguments
 
-narginchk(1,2);
-
-if nargin>=2
-    stkData.params = params;
-else
-    params = stkData.params;
-end
-
-% Get linear index into field list for each channel
-[val,idx] = sort( params.geometry(:) );
-idxFields = idx(val>0);
-
 % If the threshold for detecting intensity peaks is not given, calculate it
 % automatically from the std of background regions at the end of the movie.
-if params.autoThresh
-    params.don_thresh = params.thresh_std*stkData.stdbg;
-%     params.don_thresh = params.thresh_std*mean(stkData.stdbg(idxFields));  %improved version
+if stkData.params.autoThresh
+    stkData.params.don_thresh = stkData.params.thresh_std*stkData.stdbg;
+%     stkData.params.don_thresh = stkData.params.thresh_std*mean(stkData.stdbg(idxFields));  %improved version
 end
 
+params = stkData.params;
 
-% Used by all methods
-nCh = numel(params.chNames);
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{},'quality',{});
-indD = find( strcmp(params.chNames,'donor') ); %donor channel to align to.
-fields = stkData.stk_top(idxFields);
+fields = stkData.stk_top;
 
+% Remove any fields that we are supposed to ignore
+stkData.chExtractor.verify();
+roles = {stkData.chExtractor.channels.role};
+ignore = isempty(roles) | strcmpi(roles,'ignore');
+fields = fields(~ignore);
+roles  = roles(~ignore);
+
+% Choose channel to be used as the alignment reference (donor by default)
+nCh = numel(roles);
+indD = find( strcmpi(roles,'donor') );
 if isempty(indD)
-    error('Field named "donor" required for alignment');
+    warning('No "donor" field; arbitrarily using the first one as the alignment reference');
+    indD = 1;
 end
 
 
 
 %% Single color or no multicolor without software alignment
 
-if params.alignMethod==1 || isscalar(params.geometry)
+if params.alignMethod==1 || nCh==1
     % Sum intensity from all channels without alignment
     total = sum( cat(3,fields{:}), 3 );
     
@@ -85,7 +82,7 @@ end
 
 %% Estimate local misalignment with software alignment is disabled.
 
-if params.alignMethod==1 && ~isscalar(params.geometry)
+if params.alignMethod==1 && nCh>1
     
     % Measure apparent deviation from perfect alignment
     refinedPicks = zeros( size(picks) );
@@ -125,7 +122,7 @@ end
 %% Apply software alignment, if requested.
 % alignMethod: 1=disable, 2=auto (ICP), 3=load from file, 4=memorize.
 
-if ~isscalar(params.geometry) && params.alignMethod>1
+if nCh>1 && params.alignMethod>1
     
     donor = fields{indD};  %reference field for alignment
     total = donor;         %total intensity of registered channel images
@@ -207,7 +204,7 @@ stkData.alignStatus = align;
 
 
 %% Get integration windows
-getIntegrationWindows(stkData, params);
+getIntegrationWindows(stkData);
     
 
 end %function getPeaks

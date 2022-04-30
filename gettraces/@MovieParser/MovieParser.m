@@ -6,20 +6,18 @@ classdef MovieParser < handle
 %   as summing fluorescence fields, detecting molecule locations, finding
 %   integration windows for each, and saving the traces to file.
 %
-%   See also: gettraces_gui.
+%   See also: Movie, ChannelExtractor, gettraces_gui.
 
-%   Copyright 2017 Cornell University All Rights Reserved.
+%   Copyright 2017-2022 All Rights Reserved.
 
 
 
 properties (GetAccess=public, SetAccess=protected)
     % Basic data available when movie is first loaded in openStk().
-    % stk_top, backround, stdbg include ALL fields, even unused ones,
-    % and are arranged in column-major order (not wavelength order!)
-    movie;               % Movie_TIFF or Movie_STK object
-    stk_top;             % Sum of the first 10 frames (cell array of fields).
+    chExtractor;         % ChannelExtractor encapsulates Movie and splits frame data into channels
+    stk_top;             % Average of first 10 frames (cell array of fields).
     background;          % Estimated background image from first 10 frames  (cell array of fields)
-    stdbg;               % stdev of background noise at the end of movie (last 10 frames)
+    stdbg;               % stdev of background noise at the end of movie
     
     % Picked molecules from getPeaks()
     total_t;             % Registered, total intensity image used for picking
@@ -41,10 +39,21 @@ properties (GetAccess=public, SetAccess=protected)
 end
 
 
-% FIXME: use set method to update structure and raise event if params is
-% changed.
+% These can be directly manipulated by the user (gettraces_gui.m)
+% FIXME: use set method to update structure and raise event if changed.
 properties (GetAccess=public, SetAccess=public)
-    params;              % Analysis settings. See cascadeConstants.m
+    % Correction parameters
+    crosstalk;   % Spectral crosstalk fraction (NxN matrix)
+    scaling;     % Scale each channel to account of uneven brightness/detection effiency.
+    %ade;        % Acceptor direct excitation corrections
+    
+    %See chExtractor.channels for name,wavelength,photonsPerCount,description,role.
+    %These are not carried over across movies (resets each time!)
+    
+    % General analysis settings. See cascadeConstants.m.
+    % These are intended to be carried between movies as long as they're
+    % recorded with the same microscope.
+    params;
 end
 
 
@@ -53,6 +62,11 @@ properties (Dependent)
     % This will be equal to movie.nFrames unless fluorescence channels
     % appear as interlaced frames instead of field areas (not common).
     nFrames;
+    
+    % Index of each channel into params.
+    % The values in params include all known cameras for a microscope,
+    % not just the ones in the current file.
+    idxParams;
 end
 
 
@@ -69,20 +83,28 @@ methods
     this = openStk(this, input, params);
     
     % Detect peaks of intensity in registered, total intensity image
-    this = getPeaks(this, params);
+    this = getPeaks(this);
     
     % Find integration windows for each molecule
-    this = getIntegrationWindows(this, params);
+    this = getIntegrationWindows(this);
     
     % Sum fluorescence in integration windows and save fluorescence traces
-    integrateAndSave(this, filename, params);
+    integrateAndSave(this, filename);
     
     % get/set methods
     function value = get.nFrames(this)
         % Accounts for channels stacked as separate frames
-        value = this.movie.nFrames / size(this.params.geometry,3); 
+        value = this.chExtractor.nFrames;
     end
     
+    function value = get.idxParams(this)
+        value = cellfun( @(x)find(strcmpi(x,this.params.chNames)), {this.channels.name} );
+        %fixme: use closest wavelengths instead as a fallback.
+    end
+    
+    
+    %TODO: Need some new methods to allow user to change geometry and
+    %update channel values...
 end
 
 

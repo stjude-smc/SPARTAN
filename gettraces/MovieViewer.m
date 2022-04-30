@@ -22,7 +22,9 @@ properties (SetAccess=public, GetAccess=public)
 end
 
 properties (SetAccess=protected, GetAccess=public)
-    parser;        % MovieParser object
+    movie;         % Movie object to display
+    chExtractor;   % ChannelExtractor object for splitting images into spectral channels
+    background;    % approximate background level
     
     ax;            % Handles to subplot axes in montage
     hImg;          % Handle to image viewers
@@ -42,42 +44,28 @@ end
 
 methods
     %% ---- Constructor ---- %%
-    function this = MovieViewer(movieInput, paramsInput)
+    function this = MovieViewer(input)
     % Create a new movie viewer window.
     
-    narginchk(0,2); nargoutchk(0,1);
+    % Load movie from file. ChannelExtractor will use the movie file's
+    % metadata to determine how to split fields into channels. If no
+    % metadata available, it will default to single-channel.
+    if nargin<1, input=[]; end
     
-    % Load movie from file, prompting user if no arguments given.
-    if nargin<1 || isempty(movieInput)
-        movieInput = Movie.load();
-        if isempty(movieInput), return; end  %user hit cancel
-    end
-    
-    % If no parameters given, use single-color profile (no subfields)
-    if nargin<2
-        constants = cascadeConstants;
-        paramsInput = constants.gettraces_profiles(1);
-    end
-    
-    if ischar(movieInput) || isa(movieInput,'Movie')
-         this.parser = MovieParser(movieInput, paramsInput);
-    elseif isa(movieInput,'MovieParser')
-        this.parser = movieInput;
+    if ischar(input)
+        this.movie = Movie.load(input);
+        this.chExtractor = ChannelExtractor(this.movie);
+    elseif isa(input,'Movie')
+        this.movie = input;
+        this.chExtractor = ChannelExtractor(this.movie);
+    elseif isa(input,'ChannelExtractor')
+        this.chExtractor = input;
+        this.movie = input.movie;
     else
-        error('Input must be Movie or MovieParser object or path to movie file');
+        error('Input must be Movie, path to movie file, or ChannelExtractor');
     end
     
-    end %function load
-    
-    
-    function load(this, movieInput)
-    % Load a different movie using the same settings.
-    % We assume this is the exact same type of movie (even the same number of
-    % frames). Usually run from sorttraces. FIXME.
-        this.parser.openStk(movieInput);
-        error('STUB');
-        sldScrub_Callback(this, this.sldScrub);  % Redraw field images
-    end %function load
+    end %constructor
     
     
     function close(this)
@@ -99,15 +87,28 @@ methods
     
     
     %% ------------------ Display viewer window ------------------ %%
-    function axOut = show(this, hPanel, varargin)
+    function varargout = show(this, hPanel, varargin)
     % Create a new figure displaying movie frames.
+    
+    [varargout{1:nargout}] = deal([]);
     
     hFig = figure;
     colormap(hFig, gettraces_colormap);
     
-    % Get intensity scale
-    sort_px = sort( this.parser.stk_top{1}(:) );
-    val = sort_px( floor(0.99*numel(sort_px)) );
+    % Createa a baseline image from low-intensity areas.
+    stk_top = this.chExtractor.read( 1:min(this.chExtractor.nFrames,10) );
+    stk_top = cellfun( @(x)mean(x,3), stk_top, 'Uniform',false );
+    this.background = moviebg(stk_top);
+    stk_top = cellfun( @minus, stk_top, this.background, 'Uniform',false );
+    
+    px_max = zeros(numel(stk_top),1);
+    
+    for i=1:numel(stk_top)
+        sort_px = sort( stk_top{i}(:) );
+        px_max(i) = sort_px( floor(0.99*numel(sort_px)) );
+    end
+    
+    val = max(px_max);
     high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
     
     % Create a uipanel for axes to sit in.
@@ -118,8 +119,9 @@ methods
 
     % Create axes for sub-fields (listed in column-major order, like stk_top)
     axopt = {'Visible','off', 'Parent',hPanel};
+    nCh = numel(stk_top);
     
-    switch numel(this.parser.params.geometry)
+    switch nCh
     case 1
         this.ax    = axes( 'Position',[0.05  0.15 0.9  0.85], axopt{:} );
 
@@ -128,11 +130,20 @@ methods
         this.ax(2) = axes( 'Position',[0.5   0    0.45 0.95], axopt{:} );  %R
 
     case {3,4}
-        this.ax    = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
-        this.ax(2) = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
+        this.ax    = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
+        this.ax(2) = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
         this.ax(3) = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
         this.ax(4) = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
-
+        
+        % Quad-View optical splitter convention for field order: [green, red; blue, far-red]
+        if nCh==3
+            if this.chExtractor.channels(1).wavelength>500
+                this.ax(1) = [];
+            else
+                this.ax(end) = [];
+            end
+        end
+        
     otherwise
         error('Invalid field geometry');
     end
@@ -141,14 +152,15 @@ methods
     % NOTE: all properties are listed in wavelength order.
     axopt = {'YDir','reverse', 'Color',get(hFig,'Color'), 'Visible','off'};
 
-    for i=1:numel(this.parser.stk_top)
-        this.hImg(i) = image( this.parser.stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
+    for i=1:nCh
+        this.hImg(i) = image( stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
         set( this.ax(i), 'UserData',i, 'CLim',[0 val], axopt{:} );
     end
     
     setAxTitles(this);
     linkaxes( this.ax );
-    axOut = this.ax;
+    if nargout>0, varargout{1}=this.ax; end
+    zoom on;
     
 %     if abs(log2( size(total,2)/size(total,1) )) < 1
         % For roughly symmetric movies, allows for better window resizing.
@@ -164,8 +176,7 @@ methods
     set(this.sldIntensity,'min',0, 'max',high, 'value',val);
     
     this.sldScrub = uicontrol(sldStyle{:}, 'position',[0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
-    set( this.sldScrub, 'Min',1, 'Max',this.parser.movie.nFrames, 'Value',1, ...
-           'SliderStep',[1/this.parser.movie.nFrames,0.02] );
+    set( this.sldScrub, 'Min',1, 'Max',this.movie.nFrames, 'Value',1 );
     
     this.edTime = uicontrol('Style','Edit', 'Units','normalized', 'Enable','off', ...
             'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
@@ -178,20 +189,26 @@ methods
     end %function show
     
     
+    
     function setAxTitles(this)
     % Set axes titles from imaging profile settings, including colors.
 
-    % Create new titles
-    p = this.parser.params;
-    
     for i=1:numel(this.ax)  %i is channel index
-        idxCh = p.geometry(i);
-        if idxCh==0, continue; end  %skip unused channels
-        chColor = Wavelength_to_RGB( p.wavelengths(idxCh) );
+        ch = this.chExtractor.channels(i);
 
-        title( this.ax(i), sprintf('%s (%s) #%d',p.chNames{idxCh},p.chDesc{idxCh},idxCh), ...
-               'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
-               'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
+        if isempty(ch.name)
+            title( this.ax(i), '' );
+        else
+            if isfield(ch,'role') && ~isempty(ch.role)
+                text = sprintf('%s (%s)',ch.name,ch.role);
+            else
+                text = ch.name;
+            end
+            
+            chColor = Wavelength_to_RGB( double(ch.wavelength) );
+            title( this.ax(i), text, 'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
+                   'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
+        end
     end
     
     end %FUNCTION setTitles
@@ -206,12 +223,12 @@ methods
     if ~all(ishandle(this.ax)), return; end  %window closed?
     delete( findall(this.ax,'type','Line') );
     
-    [ny,nx] = size( this.parser.background{1} );
+    [ny,nx] = size( this.background{1} );
 
     for i=1:numel(coords)
         x = rem( coords{i}(:,1), nx);
         y = rem( coords{i}(:,2), ny);
-        fieldID = find( this.parser.params.geometry==i );
+        fieldID = find( this.chExtractor.geometry==i );
             
         % Translate coordinates from stitched movie to subfield
         if numel(this.ax)>1
@@ -255,22 +272,21 @@ methods
 
 
     % --- Executes on slider movement.
-    function sldScrub_Callback(this, varargin)
+    function sldScrub_Callback(this, hObject, varargin)
     % Allows user to scroll through the movie
 
     % Stop any currently playing movies.
     set(this.btnPlay,'String','Play');
 
     % Read frame of the movie
-    idxFrame = this.curFrame;
-    allgeo = true( size(this.parser.params.geometry) );
-    fields = subfield( this.parser.movie, allgeo, idxFrame );
+    idx = floor(get(hObject,'Value'));
+    fields = this.chExtractor.read(idx);
 
     for f=1:numel(fields)
-        field = single(fields{f}) - this.parser.background{f};
+        field = single(fields{f}) - this.background{f};
         set( this.hImg(f), 'CData',field );
     end
-    set( this.edTime, 'String',[num2str(this.curTime) ' s'] );
+    set( this.edTime, 'String',sprintf('%.2f s',this.movie.timeAxis(idx)/1000) );
 
     end %FUNCTION sldScrub_Callback
 
@@ -279,7 +295,6 @@ methods
     % --- Executes on button press in btnPlay.
     function btnPlay_Callback(this, hObject, varargin)
     % Play movie
-    % FIXME: why not call sldScrub_Callback instead?
 
     % Clicking when the button is labeled 'stop' causes the loop below to terminate.
     if strcmpi( get(hObject,'String') ,'Play' )
@@ -289,18 +304,17 @@ methods
         return;
     end
 
-    startFrame = this.curFrame;
-    allgeo = true( size(this.parser.params.geometry) );
+    startFrame = floor(get(this.sldScrub,'Value'));
 
-    for i=startFrame:this.parser.movie.nFrames
-        fields = subfield( this.parser.movie, allgeo, i );
+    for i=startFrame:this.chExtractor.nFrames
+        fields = this.chExtractor.read(i);
         
         for f=1:numel(fields)
-            field = single(fields{f}) - this.parser.background{f};
+            field = single(fields{f}) - this.background{f};
             set( this.hImg(f), 'CData',field );
         end
 
-        set( this.edTime, 'String',sprintf('%.2f s',this.curTime) );
+        set( this.edTime, 'String',sprintf('%.2f s',this.movie.timeAxis(i)/1000) );
         set(this.sldScrub,'Value',i);
         drawnow;
 
@@ -319,11 +333,15 @@ methods
     %% ---------------------- Dependent Properties ---------------------- %%
     
     function t = get.curTime(this)
-        t = this.parser.movie.timeAxis(this.curFrame)/1000;
+        t = this.movie.timeAxis(this.curFrame)/1000;
     end
     
     function f = get.curFrame(this)
         f = round( get(this.sldScrub,'Value') );
+    end
+    
+    function set.curFrame(this,val)
+        set(this.sldScrub,'Value',floor(val));
     end
     
     
