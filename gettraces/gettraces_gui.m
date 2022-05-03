@@ -186,20 +186,16 @@ set(handles.panAlignment, 'ForegroundColor',[0 0 0]);
 set(handles.tblAlignment, 'Data',{});
 
 
-% Load movie data, clearing original to save memory
+% Load movie data
 set(handles.figure1,'pointer','watch'); drawnow;
-
 stkData = handles.stkData;
 stkData.openStk(filename);
 
-set( handles.sldScrub, 'Min',1, 'Max',stkData.nFrames, 'Value',1, ...
-     'SliderStep',[1/stkData.nFrames,0.02] );
+set( handles.sldScrub, 'Min',1, 'Max',stkData.nFrames, 'Value',1 ); %, ...
+%      'SliderStep',[1/stkData.nFrames,0.02] );
 
 % Setup slider bar (adjusting maximum value in image, initially 2x max)
-[val,idx] = sort( stkData.params.geometry(:) );
-idxFields = idx(val>0); %linear index into params.geometry for each channel
-
-stk_top = cat(3, stkData.stk_top{idxFields} );
+stk_top = cat(3, stkData.stk_top{:} );
 sort_px = sort(stk_top(:));
 val = 2*sort_px( floor(0.99*numel(sort_px)) );
 high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
@@ -207,11 +203,11 @@ high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
-% Create axes for sub-fields (listed in column-major order, like stk_top)
+% Create axes for sub-fields
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 axopt = {'Visible','off', 'Parent',handles.panView};
 
-switch numel(stkData.params.geometry)
+switch numel(stkData.stk_top)
 case 1
     ax = [];
     handles.axTotal = axes( 'Position',[0.02 0 0.95 0.95], axopt{:} );
@@ -222,11 +218,20 @@ case 2
     handles.axTotal = axes( 'Position',[0.67  0    0.325 0.95], axopt{:} );
     
 case {3,4}
-    ax(1)           = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
-    ax(2)           = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
-    ax(3)           = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
-    ax(4)           = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
+    ax(1)         = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL (blue)
+    ax(2)         = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL (green)
+    ax(3)         = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR (red)
+    ax(4)         = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR (far-red)
     handles.axTotal = axes( 'Position',[0.67  0.25 0.325 0.47], axopt{:} );
+    
+    % Organize 3-color fields according to Quad-View convention.
+    if numel(stkData.stk_top)==3
+        if stkData.chExtractor.channels(1).wavelength>500
+            ax(1) = [];
+        else
+            ax(end) = [];
+        end
+    end
     
 otherwise
     error('Invalid field geometry');
@@ -238,7 +243,7 @@ handles.himshow = [];
 handles.ax = ax;
 
 if ~isempty(ax)
-    for i=1:numel(stkData.stk_top),
+    for i=1:numel(stkData.stk_top)  %for each spectral channel, in wavelength order
         handles.himshow(i) = image( stkData.stk_top{i}, 'CDataMapping','scaled', 'Parent',ax(i) );
         set(ax(i), 'UserData',i, 'CLim',[0 val], axopt{:});
     end
@@ -247,17 +252,17 @@ end
 set( handles.himshow, 'UIContextMenu',handles.mnuField );
 
 % Show total fluorescence channel
-total = sum( cat(3,stkData.stk_top{idxFields}), 3);
+total = sum( cat(3,stkData.stk_top{:}), 3);
 handles.himshow(end+1) = image( total, 'CDataMapping','scaled', 'Parent',handles.axTotal );
 set(handles.axTotal, 'CLim',[0 val*2], axopt{:} );
 
-if abs(log2( size(total,2)/size(total,1) )) < 1
-    % For roughly symmetric movies, allows for better window resizing.
-    axis( [ax handles.axTotal], 'image' );  %adjust axes size to match image
-else
+% if abs(log2( size(total,2)/size(total,1) )) < 1
+%     % For roughly symmetric movies, allows for better window resizing.
+%     axis( [ax handles.axTotal], 'image' );  %adjust axes size to match image
+% else
     % Allows for better zooming of narrow (high time resolution) movie.
     axis( [ax handles.axTotal], 'equal' );  %keep the axes size fixed.
-end
+% end
 setAxTitles(handles);
 
 guidata(hObject,handles);
@@ -277,9 +282,9 @@ function sldScrub_Callback(hObject, ~, handles) %#ok<DEFNU>
 set(handles.btnPlay,'String','Play');
 
 % Read frame of the movie
-idxFrame = round( get(hObject,'Value') );
-allgeo = true( size(handles.stkData.params.geometry) );
-fields = subfield( handles.stkData.movie, allgeo, idxFrame );
+ch = handles.stkData.chExtractor;
+idxFrame = floor(get(hObject,'Value'));
+fields = ch.read(idxFrame);
 
 for f=1:numel(fields)
     field = single(fields{f}) - handles.stkData.background{f};
@@ -304,10 +309,10 @@ end
 
 stkData = handles.stkData;
 startFrame = round( get(handles.sldScrub,'Value') );
-allgeo = true( size(handles.stkData.params.geometry) );
+if startFrame==stkData.nFrames, startFrame=1; end  %loop
 
 for i=startFrame:stkData.nFrames
-    fields = subfield( stkData.movie, allgeo, i );
+    fields = stkData.chExtractor.read(i);
     
     for f=1:numel(fields)
         field = single(fields{f}) - stkData.background{f};
@@ -398,7 +403,7 @@ for i=1:nFiles
     
     % Save the traces to file
     mnuFileSave_Callback(hObject, [], handles);
-    nTraces(i) = size(handles.stkData.peaks,1);;
+    nTraces(i) = size(handles.stkData.peaks,1);
 end
 
 
@@ -439,7 +444,7 @@ function handles = getTraces_Callback(~, ~, handles)
 
 % Do nothing if no file has been loaded. This function may be triggered by
 % changing the settings fields before a file is open.
-if isempty(handles.stkData.movie),  return;  end
+if isempty(handles.stkData.chExtractor),  return;  end
 
 set(handles.tblAlignment, 'Data',{}, 'RowName',{});
 set(handles.figure1,'pointer','watch'); drawnow;
@@ -499,7 +504,7 @@ else
     end
     
     set( handles.tblAlignment, 'Data',tableData(1:numel(a)-1,:) );
-    set( handles.tblAlignment, 'RowName',stkData.params.chDesc(idxShow) );
+    set( handles.tblAlignment, 'RowName',stkData.chExtractor.channels(idxShow).name );
     
     % If the alignment quality (confidence) is low, warn the user.
     methods = {'Alignment Disabled','Aligned from File', ...
@@ -690,7 +695,7 @@ function mnuProfiles_Callback(hObject, ~, handles)
 if nargin<3,  handles = guidata(hObject);  end
 
 % Save any changes to previous profile
-handles.profiles(handles.profile) = handles.stkData.params;
+%handles.profiles(handles.profile) = handles.stkData.params;
 
 % Mark the new profile as current
 set(handles.hProfileMenu,'Checked','off');
@@ -729,7 +734,7 @@ set( handles.panAlignment, 'Title','Software Alignment', ...
                            'Visible',onoff(isMultiColor) );
 
 % If a movie has already been loaded, reload movie with new setup.
-if ~isempty(handles.stkData.movie)
+if ~isempty(handles.stkData.chExtractor)
     handles = OpenStk( handles.stkfile, handles, hObject );
     set([handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(params.alignMethod>1));
 end
@@ -748,7 +753,8 @@ oldParams = params;
 
 % Create options for bgTraceField, which can be empty or a number.
 % (settingdlg doesn't like this, so we have to convert it to string. FIXME)
-nCh = numel(handles.stkData.params.chNames);
+% FIXME: let user select by channel name!
+nCh = numel(handles.stkData.params.channels);
 fopt = cellfun(@num2str, num2cell(1:nCh), 'uniform',false);
 fopt = [{''} fopt];
 params.bgTraceField = num2str(params.bgTraceField);
@@ -756,15 +762,14 @@ params.bgTraceField = num2str(params.bgTraceField);
 % Create dialog for changing imaging settings
 prompt = {'Name:', 'Picking Threshold Value:', 'Use Automatic Threshold:', 'Auto picking sensitivity:', ...
           'Integration window size (px):', 'Integration neighbhorhood (px):', ...
-          'Minimum separation (px):', 'ADU/photon conversion:', ...
+          'Minimum separation (px):', ...
           'Donor blink detection method:', 'Background trace field:', ...
           'Frames to average for picking:'};
 fields = {'name', 'don_thresh', 'autoThresh', 'thresh_std', 'nPixelsToSum', 'nhoodSize', ...
-          'overlap_thresh', 'photonConversion', 'zeroMethod', 'bgTraceField', ...
-          'nAvgFrames'};
+          'overlap_thresh', 'zeroMethod', 'bgTraceField', 'nAvgFrames'};
 isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
 isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
-types = {[],[],@(x)islogical(x),isNum,isInt,isInt,isNum,isNum,{'off','threshold','skm'},fopt,isInt};
+types = {[],[],@(x)islogical(x),isNum,isInt,isInt,isNum,{'off','threshold','skm'},fopt,isInt};
 
 if handles.profile > handles.nStandard
     prompt{1} = 'Name (clear to remove profile):';
@@ -810,7 +815,7 @@ else
     return;
 end
 
-if ~isempty(handles.stkData.movie)  %if a movie has been loaded
+if ~isempty(handles.stkData.chExtractor)  %if a movie has been loaded
     
     % Reload movie if changing number of frames to average
     if params.nAvgFrames~=oldParams.nAvgFrames
@@ -836,15 +841,15 @@ if isempty(stkData), return; end  %disable button?
 
 % MetaMorph specific metadata
 if isfield(stkData.movie.header,'MM')
-    metadata = stkData.movie.header.MM(1);
-    if isfield( stkData.movie.header, 'MM_wavelength' ),
-        wv = stkData.movie.header.MM_wavelength;
+    metadata = stkData.chExtractor.movie.header.MM(1);
+    if isfield( stkData.chExtractor.movie.header, 'MM_wavelength' ),
+        wv = stkData.chExtractor.movie.header.MM_wavelength;
         metadata.MM_wavelength = wv(wv>100);
     end
     
 % Generic TIFF format metadata
 else
-    metadata = stkData.movie.header;
+    metadata = stkData.chExtractor.movie.header;
 end
 
 % Display metadata fields as a list in a message box.
@@ -926,54 +931,38 @@ m.show();
 
 function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to alter field-specific settings (name, wavelength, etc).
-% FIXME: alter settingdlg to make this work somehow?
 
-fieldID = get(gca,'UserData');  %linear index into params.geometry & axes list
-chID = handles.stkData.params.geometry(fieldID);  %associated index into channel list (zero means unused)
-
-% This function is called by both the "Remove Field" and "Change Field"
-% menu options. Determine which was called by the calling handle.
-boolRemoveField = ~isequal(hObject, handles.mnuFieldSettings);
-input = [];
-
-if ~boolRemoveField
-    % Prompt user to choose new parameter values for selected field.
-    prompt = {'Role:', 'Description:', 'Wavelength (nm):', 'Scale intensity by:'};
-
-    if chID>0
-        currentopt = {handles.stkData.params.chNames{chID} handles.stkData.params.chDesc{chID} ...
-                      num2str(handles.stkData.params.wavelengths(chID)) ...
-                      num2str(handles.stkData.params.scaleFluor(chID)) };
-    else
-        currentopt = {'','','','1'};  %defaults for unused channel
-    end
-
-    answer = inputdlg(prompt, 'Change settings', 1, currentopt);
-    if isempty(answer), return; end   %user hit cancel
-
-    % Validate input
-    if ~isempty(answer{1})
-        if ~ismember(answer{1}, properties(TracesFret4)),
-            errordlg( ['Invalid channel name ' answer{1}] );
-            return;
-        elseif isnan(str2double(answer{3}))
-            errordlg('Invalid wavelength');
-            return;
-        end
-        input = struct( 'chNames',answer{1}, 'chDesc',answer{2}, ...
-           'wavelengths',str2double(answer{3}), 'scaleFluor',str2double(answer{4}) );
-    end
+chID = get(gca,'UserData');
+try
+    handles.stkData.updateChannel( chID );
+catch e
+    errordlg(e.message);
+    return;
 end
 
-% Save the new parameters
-handles.stkData.params = gettraces_setch(handles.stkData.params, fieldID, input);
-guidata(hObject,handles);
+% Update GUI, including picked molecules (if any).
 setAxTitles(handles);
-
-% Reset picking
 if ~isempty( findobj(handles.figure1,'type','line') )
     getTraces_Callback(hObject,[],handles);
 end
+
+% END FUNCTION mnuFieldSettings_Callback
+
+
+
+function mnuFieldArrangement_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Context menu to reset which fields are in the current movie.
+
+try
+    success = handles.stkData.updateFieldArrangement();
+catch e
+    errordlg(e.message);
+    return;
+end
+
+% Reload interface to handle changed number of axes.
+% FIXME: file metadata (if it exists) will override any changes just made!
+if success,  OpenStk(handles.stkfile, handles, hObject);  end
 
 % END FUNCTION mnuFieldSettings_Callback
 
@@ -989,14 +978,13 @@ end
 
 % Create new titles
 if numel(handles.ax)>0
-    p = handles.stkData.params;
     
     for i=1:numel(handles.ax)  %i is channel index
-        idxCh = p.geometry(i);
-        if idxCh==0, continue; end  %skip unused channels
-        chColor = Wavelength_to_RGB( p.wavelengths(idxCh) );
+        c = handles.stkData.chExtractor.channels(i);
+        
+        chColor = Wavelength_to_RGB( double(c.wavelength) );
 
-        title( handles.ax(i), sprintf('%s (%s) #%d',p.chNames{idxCh},p.chDesc{idxCh},idxCh), ...
+        title( handles.ax(i), sprintf('%s (%s)',c.name,handles.stkData.roles{i}), ...
                'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
                'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
     end
@@ -1084,75 +1072,20 @@ end
 %===================  SPECTRAL CORRECTION CALLBACKS  ====================
 %========================================================================
 
-function btnCrosstalk_Callback(hObject, ~, handles)  %#ok<DEFNU>
+function btnCrosstalk_Callback(~, ~, handles)  %#ok<DEFNU>
 % Callback for button to set crosstalk correction settings.
 
-params = handles.stkData.params;
-nCh = numel(params.chNames);
-if nCh<2, return; end  %no crosstalk
-
-% Enumerate all possible crosstalk pairs
-[src,dst] = find( triu(true(nCh),1) );
-
-% Handle two-color special case giving a single value.
-if numel(params.crosstalk)==1,
-    c = zeros(2);
-    c(1,2) = params.crosstalk;
-    params.crosstalk = c;
-end
-
-% Prompt the user crosstalk parameters.
-% Channel names MUST be in order of wavelength!
-prompts  = cell(numel(src), 1);
-defaults = cell(numel(src), 1);
-
-for i=1:numel(src),
-    prompts{i} = sprintf('%s to %s', params.chDesc{src(i)}, params.chDesc{dst(i)} );
-    defaults{i} = num2str( params.crosstalk(src(i),dst(i)) );
-end
-
-result = inputdlg(prompts, 'gettraces', 1, defaults);
-if isempty(result), return; end  %user hit cancel
-result = cellfun(@str2double, result);
-
-% Verify the inputs are valid and save them.
-if any( isnan(result) | result>1 | result<0 ),
-    warndlg('Invalid crosstalk values');
-    return;
-end
-
-for i=1:numel(src),
-    handles.stkData.params.crosstalk(src(i), dst(i)) = result(i);
-end
-
-guidata(hObject,handles);
+handles.stkData.updateCrosstalk();
 
 %end function btnCrosstalk_Callback
 
 
 
-function btnScaleAcceptor_Callback(hObject, ~, handles) %#ok<DEFNU>
+function btnScaleAcceptor_Callback(~, ~, handles) %#ok<DEFNU>
 % Set values for scaling the fluorescence intensity of acceptor channels so
 % that they all have the same apparent brightness (gamma=1).
 
-% Prompt the user for new multipliers for gamma correction.
-params = handles.stkData.params;
-prompts = cellfun( @(a,b)sprintf('%s (%s):',a,b), params.chNames, ...
-                                       params.chDesc, 'UniformOutput',false );
-defaults = cellfun(@num2str, num2cell(params.scaleFluor), 'UniformOutput',false);
-
-result = inputdlg(prompts, 'gettraces', 1, defaults);
-if isempty(result), return; end
-
-% Verify the inputs are valid and save them.
-result = cellfun(@str2double, result);
-if any(isnan(result)),
-    warndlg('Invalid scaling values');
-    return;
-end
-
-handles.stkData.params.scaleFluor = to_row(result);
-guidata(hObject,handles);
+handles.stkData.updateScaling();
 
 %end function btnCrosstalk_Callback
 

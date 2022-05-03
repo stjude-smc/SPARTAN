@@ -79,23 +79,15 @@ constants.blink_nstd=4; % set FRET=0 below threshold (donor is blinking)
 %------------------------
 % Default settings are given here. Unless another value is given in the profile
 % definition, these values are used.
-cmosCommon = struct( 'name','', 'geometry',0, 'idxFields',[], 'chNames',{}, ...
-                       'chDesc',{}, 'wavelengths',[], 'crosstalk',[], ...
-                       'scaleFluor',[],'biasCorrection',{} );
+cmosCommon = [];
 
 % Gettraces GUI settings:
-cmosCommon(1).alignMethod = 3;  %auto/ICP.
+cmosCommon.alignMethod    = 3;  %auto/ICP.
 cmosCommon.skipExisting   = 1;  %batch mode: skip files already processed.
 cmosCommon.recursive      = 1;  %batch mode: search recursively.
 cmosCommon.quiet          = 0;  %don't output debug messages.
 cmosCommon.zeroMethod     = 'threshold';  %method for detecting donor blinks
 cmosCommon.bgTraceField   = ''; %get a background intensity trace for this field (L,R,TR,etc)
-
-% Conversion from camera units (ADU) to photons (photoelectrons).
-% See camera calibration datasheet. May depend on which digitizer is selected!
-% If no information is available, comment this line out.
-%cmosCommon.photonConversion = 2.04;     % Hamamatsu Flash v2 cameras
-cmosCommon.photonConversion = 4.5455;   % Hamamatsu Fusion cameras
 
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.
@@ -110,175 +102,32 @@ cmosCommon.bgBlurSize     = 6;   %background estimation window size (see openStk
 cmosCommon.thresh_std     = 8;   %stdev's of background noise above which to pick molecules
 cmosCommon.alignment = struct([]);
 
-% Default settings for EMCCD (Evolve 512) cameras with 2x2 binning.
-% emccdCommon = cmosCommon;
-% emccdCommon.photonConversion = 100/3.1;  % 10MHz chipset, gain 4 (3x), 100x EM gain
-% emccdCommon.overlap_thresh   = 2.3;      % 
-% emccdCommon.nPixelsToSum     = 4;        % optimal SNR
-% emccdCommon.nhoodSize        = 1;        % 3x3 area
-% emccdCommon.bgBlurSize       = 6;
-
-
 
 %------------------------
-% Settings for particular setups are listed here. Each entry is concatinated
-% onto the end of the list (profiles).
-clear p; clear profiles
-
-%------  sCMOS cameras  -------
+% Each entry in 'profiles' describes all cameras/fields in a microscope,
+% not all of which may be in use for every movie.
+% The channels 'name' field names the spectral band NOT the fluorophore.
+% Channel list should always be in wavelength order!
 p = cmosCommon;
-p.name         = 'sCMOS, Single-channel (Cy3)';
-p.geometry     = 1;
-p.chNames      = {'donor'};
-p.chDesc       = {'Cy3'};
-p.wavelengths  = 532;
-p.scaleFluor   = 1;
-profiles(1)    = p;
-
-
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, L/R)';
-p.geometry    = [1 2];
-p.chNames     = {'donor','acceptor'};
-p.chDesc      = {'Cy3','Cy5'};
-p.wavelengths = [532 640];
-p.crosstalk   = zeros(2);
-p.crosstalk(1,2) = 0.075;  %donor->acceptor (WITH bandpass filters!)
-p.scaleFluor  = [1 1];
-profiles(end+1) = p;
-
-p.name        = 'sCMOS, Twin-Cam (Cy3/Cy5, sequential)';
-p.geometry    = cat(3,1,2);
-profiles(end+1) = p;
-
-
-p.name        = 'sCMOS, Multi-Cam (Cy2/3/5)';
-p.geometry    = [2 3; 1 0];  % field order: LL,UL,UR.
-p.chNames     = {'factor','donor','acceptor'};
-p.chDesc      = {'Cy2','Cy3','Cy5'};
-p.wavelengths = [473 532 640];
-p.crosstalk   = zeros(3);
-p.crosstalk(2,3) = 0.075;   %Cy3->Cy5
-p.scaleFluor  = [1 1 1];
-profiles(end+1) = p;
-
-
-p.name        = 'sCMOS, Multi-Cam (Cy3/Cy5/Cy7)';
-p.geometry    = [1 2; 0 3];  % field order: UL,UR,LR.
-p.chNames     = {'donor','acceptor','acceptor2'};
-p.chDesc      = {'Cy3','Cy5','Cy7'};
-p.wavelengths = [532 640 730];
-p.crosstalk   = zeros(3);
-p.crosstalk(1,2) = 0.075;   %Cy3->Cy5
-p.crosstalk(2,3) = 0.04;    %Cy5->Cy7
-p.scaleFluor  = [1 1 7];
-profiles(end+1) = p;
-
-
-p.name        = 'sCMOS, Multi-Cam (Cy2/Cy3/Cy5/Cy7)';
-p.geometry    = [2 3; 1 4];  % field order: LL,UL,UR,LR.
-p.chNames     = {'donor','acceptor','donor2','acceptor2'};
-p.chDesc      = {'Cy2','Cy3','Cy5','Cy7'};
-p.wavelengths = [473 532 640 730];
+p.name        = 'TIRF 2-3 (Fusion cameras)';
+p.geometry    = [2 3; 1 4];  % field order for mosaic images: LL,UL,UR,LR.
 p.crosstalk   = zeros(4);
 p.crosstalk(2,3) = 0.075;   %Cy3->Cy5
 p.crosstalk(3,4) = 0.04;    %Cy5->Cy7
-p.scaleFluor  = [1 1 1 7];
+p.crosstalk(2,4) = 0.008;   %Cy3->Cy7
+p.scaleFluor     = [1 1 1 5];
+p.channels = struct( 'name',{'Cy2','Cy3','Cy5','Cy7'}, 'description','', ...
+                     'wavelength',{473 532 640 721}, 'photonsPerCount',0.22  );
+profiles = p;
+
+p.name        = 'TIRF 1 (Flash v2 cameras)';
+[p.channels.electronsPerCount] = deal(0.49);
 profiles(end+1) = p;
-
-
-
-% %------  EMCCD cameras  ------
-% p = emccdCommon;
-% p.name        = 'EMCCD, Single-channel (Cy3)';
-% p.geometry    = 1;
-% p.idxFields   = 1; %only one channel
-% p.chNames     = {'donor'};
-% p.chDesc      = {'Cy3'};
-% p.wavelengths = 532;
-% p.scaleFluor  = 1;
-% profiles(end+1) = p;
-% 
-% 
-% p.name        = 'EMCCD, Single-channel (Cy5)';
-% p.wavelengths = 640;
-% p.chDesc      = {'Cy5'};
-% profiles(end+1) = p;
-% 
-% 
-% p = emccdCommon;
-% p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5)';
-% p.geometry    = 2;
-% p.idxFields   = [1 2]; %L/R
-% p.chNames     = {'donor','acceptor'};
-% p.chDesc      = {'Cy3','Cy5'};
-% p.wavelengths = [532 640];
-% p.crosstalk   = zeros(2);
-% p.crosstalk(1,2) = 0.075;  %donor->acceptor
-% p.scaleFluor  = [1 1];
-% % Qinsi's correction for uneven sensitivity of the equipment across the 
-% % field of view in the acceptor (right) side. Fluorescence intensities are
-% % at each point are scaled by the amount calculated by the function.
-% % The function values are listed in the same order as the channels above.
-% p.biasCorrection = {  @(x,y) ones(size(x)),  ...            %donor, LHS
-%                       @(x,y) 0.87854+y*9.45332*10^(-4)  };  %acceptor, RHS
-% profiles(end+1) = p;
-% 
-% 
-% p.name        = 'EMCCD, Dual-Cam (Cy3/Cy5, no binning)';
-% p.nhoodSize   = 2; %5x5 area
-% p.nPixelsToSum = 7;
-% profiles(end+1) = p;
-% 
-% 
-% p = emccdCommon;
-% p.name        = 'Quad-View (Cy3/Cy5 only)';
-% p.geometry    = 4;
-% p.idxFields   = [3 1]; %field order: LL/UL
-% p.chNames     = {'donor','acceptor'};
-% p.chDesc      = {'Cy3','Cy5'};
-% p.wavelengths = [532 640];
-% p.crosstalk   = zeros(2);
-% p.crosstalk(1,2) = 0.13;   %Cy3->Cy5
-% p.scaleFluor  = [1 1];
-% profiles(end+1) = p;
-% 
-% 
-% p = emccdCommon;
-% p.name        = 'Quad-View (Cy3/Cy5/Cy7)';
-% p.geometry    = 4;
-% p.idxFields   = [3 1 2]; % field order: LL/UL/LL
-% p.chNames     = {'donor','acceptor','acceptor2'};
-% p.chDesc      = {'Cy3','Cy5','Cy7'};
-% p.wavelengths = [532 640 730];
-% p.crosstalk   = zeros(4);
-% p.crosstalk(1,2) = 0.12;   %Cy3->Cy5
-% p.crosstalk(2,3) = 0.06;   %Cy5->Cy7 (is this correct???)
-% p.scaleFluor  = [1 1 7];
-% profiles(end+1) = p;
-% 
-% 
-% p.name = 'Quad-View (Cy3/Cy5/Cy7, no binning)';
-% p.nhoodSize = 2; %5x5 area
-% p.nPixelsToSum = 7;
-% profiles(end+1) = p;
-% 
-% 
-% p = emccdCommon;
-% p.name        = 'Quad-View (Cy5/Cy7)';
-% p.geometry    = 4;
-% p.idxFields   = [1 2]; % field order: LL/UL/LL
-% p.chNames     = {'donor','acceptor'};
-% p.chDesc      = {'Cy5','Cy7'};
-% p.wavelengths = [640 730];
-% p.crosstalk   = zeros(2);
-% p.crosstalk(1,2) = 0.11;
-% p.scaleFluor  = [1 1];
-% profiles(end+1) = p;
 
 
 % Set the default settings profile.
 constants.gettraces_profiles = profiles;
-constants.gettraces_defaultProfile = 2;   %sCMOS Cy3/Cy5
+constants.gettraces_defaultProfile = 1;
 constants.gettracesDefaultParams = profiles( constants.gettraces_defaultProfile );
 
 

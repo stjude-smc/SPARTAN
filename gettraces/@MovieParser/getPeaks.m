@@ -51,7 +51,7 @@ fields = stkData.stk_top;
 
 % Remove any fields that we are supposed to ignore
 stkData.chExtractor.verify();
-roles = {stkData.chExtractor.channels.role};
+roles = stkData.roles;
 ignore = isempty(roles) | strcmpi(roles,'ignore');
 fields = fields(~ignore);
 roles  = roles(~ignore);

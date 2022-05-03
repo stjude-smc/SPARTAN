@@ -41,10 +41,10 @@ nFrames = this.nFrames;
 
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
-chNames = {this.chExtractor.channels.role};
+chNames = this.roles;
 ignore = isempty(chNames) | strcmpi(chNames,'ignore');
 channels = this.chExtractor.channels(~ignore);
-chNames = {channels.role};
+chNames = this.roles(~ignore);
 
 nCh = numel(chNames);
 dataNames = chNames;  %will include derived traces like fret.
@@ -188,12 +188,8 @@ end
 % end
 
 % Extract relevant correction parameters from imaging profile
-profileIdx = zeros( nCh, 1 );
-for i=1:nCh
-    profileIdx(i) = find( strcmpi(channels(i).name, {params.channels.name}), 1 );
-end
-scaleFluor = params.scaleFluor( profileIdx );
-crosstalk  = params.crosstalk( profileIdx, profileIdx );
+scaleFluor = params.scaleFluor( this.idxActiveChannels );
+crosstalk  = params.crosstalk( this.idxActiveChannels, this.idxActiveChannels );
 
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = correctTraces( bgsub(data), crosstalk, to_col(scaleFluor) );
@@ -209,7 +205,7 @@ end
 
 data.fileMetadata.wavelengths = [channels.wavelength];
 data.fileMetadata.chDesc = {channels.name};
-data.fileMetadata.geometry = this.chExtractor.fieldArranagement;  %fixme: ignore=0?
+data.fileMetadata.geometry = this.chExtractor.fieldArrangement;  %fixme: ignore=0?
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.

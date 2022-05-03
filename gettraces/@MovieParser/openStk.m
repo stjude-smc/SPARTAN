@@ -18,54 +18,59 @@ else
     error('Invalid input: must be filename or Movie object');
 end
 
-% FIXME: need to re-evaluate the paradigm here. This class ends up doing a
-% ton of manipulation of ChannelExtractor's properties. Does that suggest
-% that this code belongs in that class somehow? Or does it suggest this
-% property should be in this class instead?
+% NOTE: the movie metadata may include significantly more information; we
+% only use the channel names to keep it simple for now.
+metadataFound = false;
 
 % If available and valid, use movie's metadata to assign channels.
-% FIXME: assign any fields not in metadata from params.
-if all( isfield(movie.metadata,{'fieldArrangement','channels'}) )
-    geo = movie.metadata.fieldArrangement;
-    ch = movie.metadata.channels;
+if all( isfield(movie.metadata,{'fieldArrangement','channels'}) ) && ...
+   all( isfield(movie.metadata.channels,{'name','wavelength'})  )
     
-    if all(ismember({ch.name},{this.params.channels.name}))
-        % Replace current channel settings with those from file.
-        try
-            this.chExtractor = ChannelExtractor(movie, geo, ch);
-        catch e
-            warning(e.identifier,'Failed to load channel metadata from movie: %s',e.message);
-            this.chExtractor = [];
-        end
+    profileNames = {this.params.channels.name}; %all possible channel names for loaded profile.
+    metaNames = {movie.metadata.channels.name}; %names listed in movie metadata
+    geo = movie.metadata.fieldArrangement;
+    
+    if ~all( ismember(metaNames,profileNames) )
+        warning('Movie metadata lists channel names that do not match loaded profile! Ignoring');
+    elseif ~issorted([movie.metadata.channels.wavelength])
+        warning('Movie metadata channels not in wavelength order! Ignoring');
+    elseif ~all( geo(:)>=0 & geo(:)<=numel(metaNames) & geo(:)==floor(geo(:)) & sum(geo(:)>0)==numel(metaNames) )
+        warning('Movie metadata field arrangement invalid! Ignoring');
     else
-       warning('Movie metadata and current profile not compatible');
-       this.chExtractor = [];
-    end
+        metadataFound = true;
+        
+        % Create object for extracting spectral channels from frame data.
+        [~,this.idxActiveChannels] = ismember(metaNames, profileNames);
+        ch = this.params.channels(this.idxActiveChannels);
+        this.chExtractor = ChannelExtractor(movie, geo, ch);
 
-% If no metadata is available in the file, but settings were defined for
-% the previous movie, try to retain them if possible.
-elseif ~isempty(this.chExtractor)
-    geo = this.chExtractor.fieldArranagement;
-    ch  = this.chExtractor.channels;
-    this.chExtractor = ChannelExtractor(movie,geo,ch);
-end
+        % If no roles previously assigned or the number of channels has
+        % changed, make a reasonable guess. This will also be done in
+        % whatever function allows the user to change the geometry.
+        nCh = numel( this.idxActiveChannels );
+        if numel(this.roles)~=nCh
+            if nCh<4
+                temp = {'donor','acceptor','acceptor2'};
+                this.roles = temp(1:nCh);
+            else
+                this.roles = {'donor','acceptor','donor2','acceptor2'};
+            end
+        end
+    end
+end %if metadata found
+    
+% If metadata is not available, use existing settings to load new movie.
+% FIXME: this may give an error later if the movie isn't evenly divisible.
+if ~metadataFound && ~isempty(this.chExtractor)
+    this.chExtractor.movie = movie;
 
 % If this is the first run or metadata was invalid, default to single channel.
-if isempty(this.chExtractor)
-    geo = 1;
-    [~,idx] = min(  abs([this.params.channels.wavelength]-532)  );  %arbitrary
-    ch = this.params.channels(idx);
-    this.chExtractor = ChannelExtractor(movie, geo, ch);
-end
-
-% If no roles given/retained, provide a reasonable guess.
-if ~isfield(this.chExtractor.channels,'role') || isempty(this.chExtractor.channels(1).role)
-    if this.chExtractor.nChannels<4
-        roles = {'donor','acceptor','acceptor2'};
-    else
-        roles = {'donor','acceptor','donor2','acceptor2'};
-    end
-    [this.chExtractor.channels.role] = roles{ 1:this.chExtractor.nChannels };
+% Arbitrarily using Cy3 (532) since it is the most commonly used.
+elseif isempty(this.chExtractor)
+    [~,this.idxActiveChannels] = min(  abs([this.params.channels.wavelength]-532)  );
+    ch = this.params.channels(this.idxActiveChannels);
+    this.chExtractor = ChannelExtractor(movie, 1, ch);
+    this.roles = {'donor'};
 end
 
 % Average the first few frames to create an image for finding molecules.

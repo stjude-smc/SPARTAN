@@ -21,7 +21,6 @@ classdef ChannelExtractor < handle
 %       - name (cell array of strings): simple name for each channel.
 %       - wavelength (int): laser line for each channel (for display only).
 %       - photonsPerCount (double): camera units to photons conversion (optional).
-%       - role (string): donor, acceptor, ignore, etc. (optional).
 %
 %   Examples:
 %      ch = struct('name',{'Cy3','Cy5'}, 'wavelength',{532,640}, 'photonsPerCount',0.49);
@@ -40,6 +39,14 @@ classdef ChannelExtractor < handle
 % Copyright 2022 All Rights Reserved.
 
 
+% NOTES
+% - Rename class to ChannelManager and read() to readFrames.
+% - This class will store and manage the current profile (as it relates to
+%   channels) and provide methods for updating values, including correction parameters.
+% - set movie method will merge current state with the new metadata and
+%   give an error if it doesn't match.
+% - 
+
 
 %%
 % Any correction parameters (scaling, crosstalk, ade) provided here should
@@ -47,17 +54,16 @@ classdef ChannelExtractor < handle
 
 properties (SetAccess=public, GetAccess=public)
 
-    movie;          % Movie object for reading raw frame data from file.
-    fieldArranagement = 1;   % matrix describing how to split frame data into channels.
+    movie;                  % Movie object for reading raw frame data from file.
+    fieldArrangement = 1;   % matrix describing how to split frame data into channels.
     
     % struct array describing spectral channels (N):
     % - name (string): generic identifier of the spectral band (e.g., Cy3).
     % - description (string): detail about the sample being imaged.
     % - wavelength (int): emission max or relevant laser line in nm.
     % - photonsPerCount (dbl): conversion from camera units to detected photons.
-    % - role (string): double, acceptor, ignore, etc.
     channels = struct( 'name','Cy3', 'description','', 'wavelength',532, ...
-                       'photonsPerCount',1.0, 'role','' );
+                       'photonsPerCount',1.0 );
     
     % Non-standard settings
     skipFrames = 0;   %number of frames to ignore at the beginning.
@@ -100,24 +106,22 @@ methods
         end
         
         % Load metadata from movie file if available.
-        % If no metadata, assume single-channel (Cy3 donor etc).
-        if nargin<1 && isfield(this.movie.metadata,'channels')
+        if nargin<2 && all( isfield(this.movie.metadata,{'channels','fieldArrangement'}) )
             initCh = this.channels;
             try
-                this.fieldArranagement = this.movie.metadata.fieldArrangement;
+                this.fieldArrangement = this.movie.metadata.fieldArrangement;
                 this.channels = mergeStruct( this.movie.metadata.channels, this.channels, required );
             catch
                 warning('Movie metadata found but invalid. Defaulting to single channel.');
-                this.channels  = initCh;
-                this.fieldArranagement  = 1;
+                this.channels = initCh;
+                this.fieldArranagement = 1;
             end
-        end
         
         % Parse field arrangement and channel list parameters
-        if nargin>2
+        elseif nargin>2
             narginchk(4,4);
             assert( isnumeric(varargin{2}), 'Invalid second input. Should be a numeric matrix' );
-            this.fieldArranagement = varargin{2};
+            this.fieldArrangement = varargin{2};
 
             assert( isstruct(varargin{3}), 'Invalid third input. Should be a struct array' );
             this.channels = mergeStruct( varargin{3}, this.channels, required );
@@ -139,7 +143,7 @@ methods
         assert( all(idx>=1 & idx<=this.nFrames & idx==floor(idx)), 'Invalid index' );
 
         % Parse image data into channels
-        output = splitFrame( this.movie, this.fieldArranagement, idx );
+        output = splitFrame( this.movie, this.fieldArrangement, idx );
         
     end %function readFrames
     
@@ -150,12 +154,12 @@ methods
         assert( isa(this.movie,'Movie') && numel(this.movie)==1 );
         
         % Verify field arrangement make sense with channels struct.
-        szCh = size(this.fieldArranagement);
+        szCh = size(this.fieldArrangement);
         if numel(szCh)>2 && szCh(1:2)>1
             error('Channels may be tiled in space or as concatinated frames, but not both.');
         end
-        assert( all(ismember(this.fieldArranagement(:),0:this.nChannels)), 'Invalid fieldArranagement' );
-        ch = this.fieldArranagement(this.fieldArranagement>0);
+        assert( all(ismember(this.fieldArrangement(:),0:this.nChannels)), 'Invalid fieldArrangement' );
+        ch = this.fieldArrangement(this.fieldArrangement>0);
         assert( numel(unique(ch))==this.nChannels, 'Duplicate channels not allowed' )
         
         % Verify channel fields are single values with correct type.
@@ -172,7 +176,7 @@ methods
     % Number of actual movie frames, after splitting files that have
     % movies from multiple cameras concatinated together.
     function output = get.nFrames(this)
-        output = (this.movie.nFrames-this.skipFrames) / size(this.fieldArranagement,3);
+        output = (this.movie.nFrames-this.skipFrames) / size(this.fieldArrangement,3);
     end
     
     function output = get.nChannels(this)

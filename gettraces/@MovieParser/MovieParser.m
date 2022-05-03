@@ -42,18 +42,16 @@ end
 % These can be directly manipulated by the user (gettraces_gui.m)
 % FIXME: use set method to update structure and raise event if changed.
 properties (GetAccess=public, SetAccess=public)
-    % Correction parameters
-    crosstalk;   % Spectral crosstalk fraction (NxN matrix)
-    scaling;     % Scale each channel to account of uneven brightness/detection effiency.
-    %ade;        % Acceptor direct excitation corrections
-    
-    %See chExtractor.channels for name,wavelength,photonsPerCount,description,role.
-    %These are not carried over across movies (resets each time!)
-    
     % General analysis settings. See cascadeConstants.m.
-    % These are intended to be carried between movies as long as they're
-    % recorded with the same microscope.
+    % The values in params include all known cameras for a microscope,
+    % not just the ones in the current file.
     params;
+    
+    % Each channel's assignment for trace interpretation
+    roles;
+    
+    % Index into params of each channel actually in the current movie.
+    idxActiveChannels;
 end
 
 
@@ -63,10 +61,12 @@ properties (Dependent)
     % appear as interlaced frames instead of field areas (not common).
     nFrames;
     
-    % Index of each channel into params.
-    % The values in params include all known cameras for a microscope,
-    % not just the ones in the current file.
-    idxParams;
+    nChannels;
+end
+
+
+properties (Constant)
+    validRoles = {'ignore','donor','acceptor','donor2','acceptor2','factor','factor2'};
 end
 
 
@@ -97,14 +97,143 @@ methods
         value = this.chExtractor.nFrames;
     end
     
-    function value = get.idxParams(this)
-        value = cellfun( @(x)find(strcmpi(x,this.params.chNames)), {this.channels.name} );
-        %fixme: use closest wavelengths instead as a fallback.
+    function value = get.nChannels(this)
+        % Accounts for channels stacked as separate frames
+        value = numel(this.idxActiveChannels);
     end
     
     
-    %TODO: Need some new methods to allow user to change geometry and
-    %update channel values...
+    
+    %% Update correction parameters
+    
+    
+    function updateCrosstalk(this)
+    % Prompt user for spectral crosstalk values.
+
+        idxCh = this.idxActiveChannels;
+        if this.nChannels<2, return; end  %crosstalk not defined for single color
+
+        % Extract crosstalk sub-matrix associated with active channels
+        crosstalk = this.params.crosstalk( idxCh, idxCh );
+
+        % Enumerate all possible (forward) crosstalk pairs.
+        [src,dst] = find(  triu(true(this.nChannels),1)  );
+
+        % Prompt the user for crosstalk parameters.
+        % Channel names MUST be in order of wavelength!
+        prompts  = cell(numel(src), 1);
+        defaults = cell(numel(src), 1);
+        names = {this.chExtractor.channels.name};
+
+        for i=1:numel(src),
+            prompts{i}  = sprintf( '%s to %s', names{src(i)}, names{dst(i)} );
+            defaults{i} = num2str( crosstalk(src(i),dst(i)) );
+        end
+
+        result = inputdlg(prompts, 'gettraces', 1, defaults);
+        if isempty(result), return; end  %user hit cancel
+        result = cellfun(@str2double, result);
+
+        % Verify the inputs are valid and save them.
+        if any( isnan(result) | result>1 | result<0 ),
+            warndlg('Invalid crosstalk values');
+            return;
+        end
+
+        for i=1:numel(src),
+            crosstalk(src(i), dst(i)) = result(i);
+        end
+        this.params.crosstalk(idxCh,idxCh) = crosstalk;
+
+    end  %function updateCrosstalk
+    
+    function updateScaling(this)
+        % Set values for scaling the fluorescence intensity of acceptor channels so
+        % that they all have the same apparent brightness (gamma=1).
+
+        idxCh = this.idxActiveChannels;
+
+        % Extract subset of channels in the current movie.
+        scaleFluor = this.params.scaleFluor(idxCh);
+
+        % Prompt the user for new multipliers for gamma correction.
+        defaults = cellfun(@num2str, num2cell(scaleFluor), 'UniformOutput',false);
+        result = inputdlg( {this.chExtractor.channels.name}, 'gettraces', 1, defaults );
+        if isempty(result), return; end
+
+        % Verify the inputs are valid and save them.
+        result = cellfun(@str2double, result);
+        if any(isnan(result)),
+            warndlg('Invalid scaling values');
+            return;
+        end
+
+        this.params.scaleFluor(idxCh) = to_row(result);
+
+    end %function updateScaling
+
+    
+    
+    %% Update ChannelExtractor parameters
+    
+    % Update parameter values for a specific channel
+    function updateChannel(this, chID)
+        % Collect current channel parameters as prompt defaults
+        idxParams = this.idxActiveChannels(chID);
+        channel = this.params.channels(idxParams);
+
+        channel.role = this.roles{chID};
+        fields = {'role','name','wavelength','photonsPerCount'};
+        prompt = {'Role:', 'Name:', 'Wavelength (nm):', 'photonsPerCount'};
+        types  = { this.validRoles, {this.params.channels.name}, @isnumeric, @isnumeric };
+        channel = settingdlg(channel, fields, prompt, types, 'Field Settings');
+        
+        % Save the new parameter values
+        if ~isempty(channel)
+            this.roles{chID} = channel.role;
+            channel = rmfield(channel,'role');
+            this.params.channels(idxParams) = channel;
+            this.chExtractor.channels(chID) = channel;
+        end
+    end
+    
+    % Update field arrangement
+    function success = updateFieldArrangement(this)
+        %FIXME: create a custom(?) dialog for setting this.
+        success = false;
+        
+        % Prompt user for field geometry and channel names.
+        prompt = {'Field arrangement:','Name 1','Name 2','Name 3','Name 4'};
+        default = {mat2str(this.chExtractor.fieldArrangement) this.chExtractor.channels.name};
+        [default{numel(default)+1:5}] = deal('');
+        answer = inputdlg(prompt,'Set field arrangement',1,default);
+        if isempty(answer), return; end
+        
+        % Validate input
+        validNames = {'' this.params.channels.name};
+        names = answer(2:end);
+        assert( all(ismember(names,validNames)), 'All channel names must be in current profile' );
+        names = names( ~cellfun(@isempty,names) );
+        
+        geo = str2num(answer{1}); %#ok<ST2NM>
+        assert( ~isempty(geo), 'Invalid field arrangement' );
+        assert( all(geo(:)>=0 & geo(:)<=numel(names) & geo(:)==floor(geo(:)) & sum(geo(:)>0)==numel(names)), 'Invalid field arrangement' );
+        
+        % Reset channelExtractor and roles.
+        [~,this.idxActiveChannels] = ismember(names, {this.params.channels.name});
+        this.chExtractor.fieldArrangement = geo;
+        this.chExtractor.channels = this.params.channels(this.idxActiveChannels);
+        
+        nCh = numel( this.idxActiveChannels );
+        if nCh<4
+            temp = {'donor','acceptor','acceptor2'};
+            this.roles = temp(1:nCh);
+        else
+            this.roles = {'donor','acceptor','donor2','acceptor2'};
+        end
+        
+        success = true;
+    end
 end
 
 
