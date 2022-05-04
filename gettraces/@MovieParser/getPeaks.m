@@ -48,17 +48,11 @@ params = stkData.params;
 
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{},'quality',{});
 fields = stkData.stk_top;
-
-% Remove any fields that we are supposed to ignore
 stkData.chExtractor.verify();
-roles = stkData.roles;
-ignore = isempty(roles) | strcmpi(roles,'ignore');
-fields = fields(~ignore);
-roles  = roles(~ignore);
 
 % Choose channel to be used as the alignment reference (donor by default)
-nCh = numel(roles);
-indD = find( strcmpi(roles,'donor') );
+nCh = numel(fields);
+indD = find( strcmpi(stkData.roles,'donor') );
 if isempty(indD)
     warning('No "donor" field; arbitrarily using the first one as the alignment reference');
     indD = 1;
@@ -138,7 +132,15 @@ if nCh>1 && params.alignMethod>1
         
         % Run iterative closest points algorithm.
         else
-            a = icpalign( donor, target, params );
+            try
+                a = icpalign( donor, target, params );
+            catch e
+                message = sprintf('Alignment to %s failed, using straight translation instead. ', ...
+                                   stkData.chExtractor.channels(i).name );
+                warndlg( [message e.message], 'gettraces warning' );
+                a = struct( 'dx',0,'dy',0, 'theta',0, 'sx',1,'sy',1, ...
+                            'abs_dev',0, 'tform',affine2d(eye(3)) );
+            end
         end
         
         % Register acceptor side so that it is lined up with the donor.

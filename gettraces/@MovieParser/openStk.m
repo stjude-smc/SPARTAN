@@ -49,28 +49,27 @@ if all( isfield(movie.metadata,{'fieldArrangement','channels'}) ) && ...
         % whatever function allows the user to change the geometry.
         nCh = numel( this.idxActiveChannels );
         if numel(this.roles)~=nCh
-            if nCh<4
-                temp = {'donor','acceptor','acceptor2'};
-                this.roles = temp(1:nCh);
-            else
-                this.roles = {'donor','acceptor','donor2','acceptor2'};
-            end
+            this.roles = guessRoles(nCh);
         end
     end
 end %if metadata found
     
 % If metadata is not available, use existing settings to load new movie.
-% FIXME: this may give an error later if the movie isn't evenly divisible.
+% FIXME: this may give an error if the movie isn't evenly divisible.
 if ~metadataFound && ~isempty(this.chExtractor)
     this.chExtractor.movie = movie;
 
-% If this is the first run or metadata was invalid, default to single channel.
-% Arbitrarily using Cy3 (532) since it is the most commonly used.
+% If this is the first run and no metadata available, guess.
 elseif isempty(this.chExtractor)
-    [~,this.idxActiveChannels] = min(  abs([this.params.channels.wavelength]-532)  );
+    geo = guessFieldArrangement(movie, this.params.geometry, this.params.channels);
+    this.idxActiveChannels = sort( geo(geo>0) );
     ch = this.params.channels(this.idxActiveChannels);
-    this.chExtractor = ChannelExtractor(movie, 1, ch);
-    this.roles = {'donor'};
+    
+    for i=1:numel(ch)
+        geo( geo==this.idxActiveChannels(i) ) = i;
+    end
+    this.chExtractor = ChannelExtractor(movie, geo, ch);
+    this.roles = guessRoles( numel(ch) );
 end
 
 % Average the first few frames to create an image for finding molecules.
@@ -111,4 +110,12 @@ this.stdbg = std(endBG);
 end %FUNCTION OpenStk
 
 
-
+function roles = guessRoles(nCh)
+% Make an educated guess of channel roles just based on the number.
+    if nCh<4
+        temp = {'donor','acceptor','acceptor2'};
+        roles = temp(1:nCh);
+    else
+        roles = {'donor','acceptor','donor2','acceptor2'};
+    end
+end

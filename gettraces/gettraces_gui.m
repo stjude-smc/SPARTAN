@@ -504,7 +504,7 @@ else
     end
     
     set( handles.tblAlignment, 'Data',tableData(1:numel(a)-1,:) );
-    set( handles.tblAlignment, 'RowName',stkData.chExtractor.channels(idxShow).name );
+    set( handles.tblAlignment, 'RowName',{stkData.chExtractor.channels(idxShow).name} );
     
     % If the alignment quality (confidence) is low, warn the user.
     methods = {'Alignment Disabled','Aligned from File', ...
@@ -582,11 +582,11 @@ function highlightPeaks(handles)
 
 style = {'LineStyle','none','marker','o'};
 stkData = handles.stkData;
-idxField = find(stkData.params.geometry);
+% idxField = find(stkData.params.geometry);
 
 if ~isscalar(stkData.params.geometry)
     for i=1:size(stkData.peaks,3)
-        ax = handles.ax( idxField(i) );
+        ax = handles.ax(i);  %axes and channels always in wavelength order.
 
         line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
                 style{:}, 'color','w', 'Parent',ax );

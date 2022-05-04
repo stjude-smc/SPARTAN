@@ -42,7 +42,7 @@ nFrames = this.nFrames;
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
 chNames = this.roles;
-ignore = isempty(chNames) | strcmpi(chNames,'ignore');
+ignore = cellfun(@isempty,chNames) | strcmpi(chNames,'ignore');
 channels = this.chExtractor.channels(~ignore);
 chNames = this.roles(~ignore);
 
