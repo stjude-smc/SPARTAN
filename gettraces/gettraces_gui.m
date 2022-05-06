@@ -203,39 +203,56 @@ high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
 set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
 set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
 
-% Create axes for sub-fields
+% Create axes for sub-fields (in column-major order)
 delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
 axopt = {'Visible','off', 'Parent',handles.panView};
 
-switch numel(stkData.stk_top)
+switch stkData.nChannels
 case 1
     ax = [];
     handles.axTotal = axes( 'Position',[0.02 0 0.95 0.95], axopt{:} );
     
 case 2
+    % FIXME: channel order is ignored for this case and the 2x1 arrangement
+    % is not shown as it is in the raw frame data.
     ax(1)           = axes( 'Position',[0     0    0.325 0.95], axopt{:} );  %L
     ax(2)           = axes( 'Position',[0.335 0    0.325 0.95], axopt{:} );  %R
     handles.axTotal = axes( 'Position',[0.67  0    0.325 0.95], axopt{:} );
     
 case {3,4}
-    ax(1)         = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL (blue)
-    ax(2)         = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL (green)
-    ax(3)         = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR (red)
-    ax(4)         = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR (far-red)
+    % Axes listed in column-wise order as they are displayed.
+    ax(1)         = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
+    ax(2)         = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
+    ax(3)         = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
+    ax(4)         = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
     handles.axTotal = axes( 'Position',[0.67  0.25 0.325 0.47], axopt{:} );
     
-    % Organize 3-color fields according to Quad-View convention.
-    if numel(stkData.stk_top)==3
-        if stkData.chExtractor.channels(1).wavelength>500
-            ax(1) = [];
-        else
-            ax(end) = [];
+    geo = stkData.chExtractor.fieldArrangement;
+    if isempty(geo) || size(geo,3)>1
+        % If channels have no spatial coding, use Quad-View convention
+        ax = ax( [2 3; 1 4] );
+        if stkData.nChannels==3
+            if stkData.chExtractor.channels(1).wavelength>500
+                ax(1) = [];
+            else
+                ax(end) = [];
+            end
         end
+    else
+        % If channels are tiled in space, try to keep the same physical
+        % layout here as in the actual frames.
+        temp = zeros(stkData.nChannels,1);  %new axes list
+        for i=1:numel(geo)
+            if geo(i)==0, continue; end
+            temp( geo(i) ) = ax(i);
+        end
+        ax = temp;  %ax(i) now directly corresponds to stk_top(i)
     end
     
 otherwise
     error('Invalid field geometry');
 end
+ax = to_row(ax);
 
 % Show fluorescence fields for all channels
 axopt = {'YDir','reverse', 'Color',get(handles.figure1,'Color'), 'Visible','off'};
@@ -247,7 +264,7 @@ if ~isempty(ax)
         handles.himshow(i) = image( stkData.stk_top{i}, 'CDataMapping','scaled', 'Parent',ax(i) );
         set(ax(i), 'UserData',i, 'CLim',[0 val], axopt{:});
     end
-    linkaxes( [to_row(ax) handles.axTotal] );
+    linkaxes( [ax handles.axTotal] );
 end
 set( handles.himshow, 'UIContextMenu',handles.mnuField );
 
@@ -582,11 +599,10 @@ function highlightPeaks(handles)
 
 style = {'LineStyle','none','marker','o'};
 stkData = handles.stkData;
-% idxField = find(stkData.params.geometry);
 
-if ~isscalar(stkData.params.geometry)
+if stkData.nChannels>1
     for i=1:size(stkData.peaks,3)
-        ax = handles.ax(i);  %axes and channels always in wavelength order.
+        ax = handles.ax(i);
 
         line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
                 style{:}, 'color','w', 'Parent',ax );

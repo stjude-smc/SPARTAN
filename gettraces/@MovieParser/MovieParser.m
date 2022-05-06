@@ -106,7 +106,6 @@ methods
     
     %% Update correction parameters
     
-    
     function updateCrosstalk(this)
     % Prompt user for spectral crosstalk values.
 
@@ -147,6 +146,7 @@ methods
 
     end  %function updateCrosstalk
     
+    
     function updateScaling(this)
         % Set values for scaling the fluorescence intensity of acceptor channels so
         % that they all have the same apparent brightness (gamma=1).
@@ -176,7 +176,7 @@ methods
     
     %% Update ChannelExtractor parameters
     
-    % Update parameter values for a specific channel
+    % Prompt user to alter parameter values for a specific channel
     function updateChannel(this, chID)
         % Collect current channel parameters as prompt defaults
         idxParams = this.idxActiveChannels(chID);
@@ -197,33 +197,39 @@ methods
         end
     end
     
-    % Update field arrangement
+    % Prompt user for field arrangement and channel assignments
     function success = updateFieldArrangement(this)
-        %FIXME: create a custom(?) dialog for setting this.
-        success = false;
+        
+        % Replace field arrangement matrix with indexes into the full list
+        % of allowed channels.
+        geo = this.chExtractor.fieldArrangement;
+        profileNames = {this.params.channels.name};
+        
+        for i=1:numel(geo)
+            if geo(i)==0, continue; end
+            chName = this.chExtractor.channels(geo(i)).name;
+            geo(i) = find(  strcmp(chName, profileNames)  );
+        end
         
         % Prompt user for field geometry and channel names.
-        prompt = {'Field arrangement:','Name 1','Name 2','Name 3','Name 4'};
-        default = {mat2str(this.chExtractor.fieldArrangement) this.chExtractor.channels.name};
-        [default{numel(default)+1:5}] = deal('');
-        answer = inputdlg(prompt,'Set field arrangement',1,default);
-        if isempty(answer), return; end
-        
-        % Validate input
-        validNames = {'' this.params.channels.name};
-        names = answer(2:end);
-        assert( all(ismember(names,validNames)), 'All channel names must be in current profile' );
-        names = names( ~cellfun(@isempty,names) );
-        
-        geo = str2num(answer{1}); %#ok<ST2NM>
-        assert( ~isempty(geo), 'Invalid field arrangement' );
-        assert( all(geo(:)>=0 & geo(:)<=numel(names) & geo(:)==floor(geo(:)) & sum(geo(:)>0)==numel(names)), 'Invalid field arrangement' );
+        geo = fieldArrangementDialog( geo, {this.params.channels.name} );
+        success = ~isempty(geo);
+        if ~success, return; end
         
         % Reset channelExtractor and roles.
-        [~,this.idxActiveChannels] = ismember(names, {this.params.channels.name});
-        this.chExtractor.fieldArrangement = geo;
-        this.chExtractor.channels = this.params.channels(this.idxActiveChannels);
+        this.idxActiveChannels = sort( geo(geo>0) );
+        this.chExtractor.channels = this.params.channels( this.idxActiveChannels );
         
+        % Replace field arrangement matrix with indexes into only the
+        % channels actually used.
+        geoUsed = sort( geo(geo>0) );
+        for i=1:numel(geo)
+            if geo(i)==0, continue; end
+            geo(i) = find( geo(i)==geoUsed );
+        end
+        this.chExtractor.fieldArrangement = geo;
+        
+        % Make a guess as to the new roles
         nCh = numel( this.idxActiveChannels );
         if nCh<4
             temp = {'donor','acceptor','acceptor2'};
@@ -232,7 +238,7 @@ methods
             this.roles = {'donor','acceptor','donor2','acceptor2'};
         end
         
-        success = true;
+        %disp(geo);  disp( {this.chExtractor.channels.name} );
     end
 end
 
