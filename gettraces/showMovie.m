@@ -45,36 +45,36 @@ if ~exist( movieFilename, 'file' )
     error('Corresponding movie file not found');
 end
 
+% If trace is from a different file than the one currently loaded,
+% close the existing viewer; user will have to open the new one.
+% FIXME: would be nice if the transition were seamless, but this is easier.
+if ~isempty(viewer) && isvalid(viewer)
+    [~,fold] = fileparts2(viewer.chExtractor.movie.filename{1});
+    if ~strcmp(f, fold)
+        delete(viewer);
+        return;
+    end
+end
 
-% The viewer has been closed or never opened, create one.
+% If the viewer is not open, launch a new one.
 if isempty(viewer) || ~isvalid(viewer)
     
     % Assemble movie parsing parameters.
-    constants = cascadeConstants;
-    params = constants.gettraces_profiles(1);  %single color
-    params.chNames = data.channelNames;
     try
-        params.wavelengths = data.fileMetadata.wavelengths;
-        params.chDesc      = data.fileMetadata.chDesc;
-        params.geometry    = data.fileMetadata.geometry;  %new in v3.7
+        % Use trace metadata to create a ChannelExtractor
+        ch = struct( 'name',data.fileMetadata.chDesc, ...
+                     'wavelength',num2cell(data.fileMetadata.wavelengths) );
+        ex = ChannelExtractor( movieFilename, data.fileMetadata.geometry, ch );
+        viewer = MovieViewer( ex );
     catch e
-        % If geometry field is not available (older file), gracefully fail by
-        % defaulting to single-color mode (one axis instead of three).
+        % If geometry field is not available (older file), use movie file
+        % metadata or default to single-color if not present.
         disp(e.message);
+        viewer = MovieViewer( movieFilename );
     end
 
-    % Create and show movie viewer
-    viewer = MovieViewer( movieFilename, params );
+    % Show movie viewer window
     viewer.show();
-    
-    
-% If trace is from a different file than the one currently load,
-% load the new movie quietly into the existing window.
-else
-    [~,fold] = fileparts2(viewer.parser.movie.filename{1});
-    if ~strcmp(f, fold),
-        viewer.load(movieFilename);
-    end
 end
 
 

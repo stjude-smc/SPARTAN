@@ -1017,13 +1017,13 @@ else
 end
 
 % Show the molecule location within field of view, if the window is open.
-% try
-if ~isempty(handles.movieViewer) && isvalid(handles.movieViewer)
-    p = fileparts(handles.filename);  %get path of currently loaded file
-    showMovie( handles.movieViewer, handles.data, handles.molecule_no, p );
+try
+    if ~isempty(handles.movieViewer) && isvalid(handles.movieViewer)
+        p = fileparts(handles.filename);  %get path of currently loaded file
+        showMovie( handles.movieViewer, handles.data, handles.molecule_no, p );
+    end
+catch
 end
-% catch
-% end
 
 % Draw molecule location in small panel
 if strcmp( get(handles.axLocation, 'Visible'), 'on'),
@@ -1417,7 +1417,7 @@ end
 
 % Close the molecule location window if open
 try
-    close( get(handles.movieViewer.ax(1),'Parent') );
+    close( handles.movieViewer );
 catch
 end
 

@@ -22,10 +22,10 @@ properties (SetAccess=public, GetAccess=public)
 end
 
 properties (SetAccess=protected, GetAccess=public)
-    movie;         % Movie object to display
-    chExtractor;   % ChannelExtractor object for splitting images into spectral channels
+    chExtractor;   % Encapsulates movie data; splits into spectral channels
     background;    % approximate background level
     
+    hFig;          % Handle to figure
     ax;            % Handles to subplot axes in montage
     hImg;          % Handle to image viewers
     btnPlay;       % Handle to 'Play' button
@@ -52,15 +52,10 @@ methods
     % metadata available, it will default to single-channel.
     if nargin<1, input=[]; end
     
-    if ischar(input)
-        this.movie = Movie.load(input);
-        this.chExtractor = ChannelExtractor(this.movie);
-    elseif isa(input,'Movie')
-        this.movie = input;
-        this.chExtractor = ChannelExtractor(this.movie);
+    if ischar(input) || isa(input,'Movie')
+        this.chExtractor = ChannelExtractor(input);
     elseif isa(input,'ChannelExtractor')
         this.chExtractor = input;
-        this.movie = input.movie;
     else
         error('Input must be Movie, path to movie file, or ChannelExtractor');
     end
@@ -70,16 +65,16 @@ methods
     
     function close(this)
         try
-            close( get(this.ax,'Parent') );
+            close(this.hFig);
             delete(this);
         catch
         end
     end
     
-
+    % Destructor
     function delete(this)
         try
-            delete( get(this.ax(1),'Parent') );
+            close(this.hFig);
         catch
         end
     end %function delete
@@ -92,8 +87,8 @@ methods
     
     [varargout{1:nargout}] = deal([]);
     
-    hFig = figure;
-    colormap(hFig, gettraces_colormap);
+    this.hFig = figure;
+    colormap(this.hFig, gettraces_colormap);
     
     % Createa a baseline image from low-intensity areas.
     stk_top = this.chExtractor.read( 1:min(this.chExtractor.nFrames,10) );
@@ -114,7 +109,7 @@ methods
     % Create a uipanel for axes to sit in.
     % FIXME: handle to panel as argument (for gettraces integration)
     if nargin<2
-        hPanel = uipanel( hFig, 'Position',[0.05  0.15  0.9  0.85], 'BorderType','none' );
+        hPanel = uipanel( this.hFig, 'Position',[0.05  0.15  0.9  0.85], 'BorderType','none' );
     end
 
     % Create axes for sub-fields (listed in column-major order, like stk_top)
@@ -150,7 +145,7 @@ methods
 
     % Show fluorescence fields for all channels
     % NOTE: all properties are listed in wavelength order.
-    axopt = {'YDir','reverse', 'Color',get(hFig,'Color'), 'Visible','off'};
+    axopt = {'YDir','reverse', 'Color',get(this.hFig,'Color'), 'Visible','off'};
 
     for i=1:nCh
         this.hImg(i) = image( stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
@@ -176,7 +171,7 @@ methods
     set(this.sldIntensity,'min',0, 'max',high, 'value',val);
     
     this.sldScrub = uicontrol(sldStyle{:}, 'position',[0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
-    set( this.sldScrub, 'Min',1, 'Max',this.movie.nFrames, 'Value',1 );
+    set( this.sldScrub, 'Min',1, 'Max',this.chExtractor.nFrames, 'Value',1 );
     
     this.edTime = uicontrol('Style','Edit', 'Units','normalized', 'Enable','off', ...
             'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
@@ -184,7 +179,7 @@ methods
     this.btnPlay = uicontrol('style','pushbutton', 'units','normalized', 'String','Play', ...
             'Position',[0.08 0.05 0.08 .05], 'Callback',@this.btnPlay_Callback );
         
-    zoom(hFig, 'on');
+    zoom(this.hFig, 'on');
     
     end %function show
     
@@ -228,7 +223,7 @@ methods
     for i=1:numel(coords)
         x = rem( coords{i}(:,1), nx);
         y = rem( coords{i}(:,2), ny);
-        fieldID = find( this.chExtractor.geometry==i );
+        fieldID = find( this.chExtractor.fieldArrangement==i );
             
         % Translate coordinates from stitched movie to subfield
         if numel(this.ax)>1
@@ -286,7 +281,7 @@ methods
         field = single(fields{f}) - this.background{f};
         set( this.hImg(f), 'CData',field );
     end
-    set( this.edTime, 'String',sprintf('%.2f s',this.movie.timeAxis(idx)/1000) );
+    set( this.edTime, 'String',sprintf('%.2f s',this.chExtractor.timeAxis(idx)/1000) );
 
     end %FUNCTION sldScrub_Callback
 
@@ -314,7 +309,7 @@ methods
             set( this.hImg(f), 'CData',field );
         end
 
-        set( this.edTime, 'String',sprintf('%.2f s',this.movie.timeAxis(i)/1000) );
+        set( this.edTime, 'String',sprintf('%.2f s',this.chExtractor.timeAxis(i)/1000) );
         set(this.sldScrub,'Value',i);
         drawnow;
 
@@ -333,7 +328,7 @@ methods
     %% ---------------------- Dependent Properties ---------------------- %%
     
     function t = get.curTime(this)
-        t = this.movie.timeAxis(this.curFrame)/1000;
+        t = this.chExtractor.timeAxis(this.curFrame)/1000;
     end
     
     function f = get.curFrame(this)

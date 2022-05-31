@@ -767,13 +767,12 @@ function mnuSettingsCustom_Callback(hObject, ~, handles) %#ok<DEFNU>
 params = handles.stkData.params;
 oldParams = params;
 
-% Create options for bgTraceField, which can be empty or a number.
-% (settingdlg doesn't like this, so we have to convert it to string. FIXME)
-% FIXME: let user select by channel name!
-nCh = numel(handles.stkData.params.channels);
-fopt = cellfun(@num2str, num2cell(1:nCh), 'uniform',false);
-fopt = [{''} fopt];
-params.bgTraceField = num2str(params.bgTraceField);
+% Create options for bgTraceField
+if handles.stkData.nChannels>0
+    fopt = [{'None'} handles.stkData.chExtractor.channels.name];
+else
+    fopt = {'None'};
+end
 
 % Create dialog for changing imaging settings
 prompt = {'Name:', 'Picking Threshold Value:', 'Use Automatic Threshold:', 'Auto picking sensitivity:', ...
@@ -791,11 +790,18 @@ if handles.profile > handles.nStandard
     prompt{1} = 'Name (clear to remove profile):';
 end
 
+if ~isempty(params.bgTraceField)
+    params.bgTraceField = fopt( params.bgTraceField+1 );
+else
+    params.bgTraceField = 'None';
+end
+
 params = settingdlg(params, fields, prompt, types);
 if isempty(params), return; end  %user hit cancel
 
-if ~isempty(params.bgTraceField),
-    params.bgTraceField = str2double(params.bgTraceField);
+if ~isempty(params.bgTraceField)
+    params.bgTraceField = find( strcmp(params.bgTraceField,fopt) )-1;
+    if params.bgTraceField==0, params.bgTraceField=''; end
 end
 
 % If a standard profile is renamed, make a custom setting instead.
@@ -1021,7 +1027,7 @@ function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Change software alignment mode and re-pick molecules.
 % 1=off, 2=load from file, 3=Auto (ICP), 4=memorize (keep using).
 
-assert( ~isscalar(handles.stkData.params.geometry) );
+assert( handles.stkData.nChannels>1 );
 sel = get(hObject,'Position');  %position within the menu, 1=top.
 
 % Load alignment from file, if requested.
