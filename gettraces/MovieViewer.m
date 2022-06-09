@@ -172,6 +172,7 @@ methods
     
     this.sldScrub = uicontrol(sldStyle{:}, 'position',[0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
     set( this.sldScrub, 'Min',1, 'Max',this.chExtractor.nFrames, 'Value',1 );
+    set( this.sldScrub, 'SliderStep', [1 10]./this.chExtractor.nFrames );
     
     this.edTime = uicontrol('Style','Edit', 'Units','normalized', 'Enable','off', ...
             'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
@@ -223,14 +224,9 @@ methods
     for i=1:numel(coords)
         x = rem( coords{i}(:,1), nx);
         y = rem( coords{i}(:,2), ny);
-        fieldID = find( this.chExtractor.fieldArrangement==i );
             
         % Translate coordinates from stitched movie to subfield
-        if numel(this.ax)>1
-            viscircles( this.ax(fieldID), [x y], 3, 'EdgeColor','w' );   %????
-        else
-            viscircles( this.ax, [x y], 3, 'EdgeColor','w' );
-        end
+        viscircles( this.ax(i), [x y], 3, 'EdgeColor','w' );
     end
     
     % If zoomed in, recenter on around new peak.

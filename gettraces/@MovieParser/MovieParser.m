@@ -66,7 +66,7 @@ end
 
 
 properties (Constant)
-    validRoles = {'ignore','donor','acceptor','donor2','acceptor2','factor','factor2'};
+    validRoles = {'donor','acceptor','donor2','acceptor2','factor','factor2'};
 end
 
 

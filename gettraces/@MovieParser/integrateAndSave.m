@@ -42,9 +42,7 @@ nFrames = this.nFrames;
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
 chNames = this.roles;
-ignore = cellfun(@isempty,chNames) | strcmpi(chNames,'ignore');
-channels = this.chExtractor.channels(~ignore);
-chNames = this.roles(~ignore);
+channels = this.chExtractor.channels;
 
 nCh = numel(chNames);
 dataNames = chNames;  %will include derived traces like fret.
@@ -116,9 +114,7 @@ idx = this.regionIdx;  %cell array of channels with [pixel index, molecule id]
 % parfor (k=1:nFrames, M)
 for k=1:nFrames
     % Retrieve next frame and separate fluorescence channels.
-    % FIXME: possible to avoid reading "ignored" data for speed?
     frame = this.chExtractor.read(k);
-    frame = frame(~ignore);
     
     for c=1:nCh
         % Sum intensity within the integration window of each PSF
