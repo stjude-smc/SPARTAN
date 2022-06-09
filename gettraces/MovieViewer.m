@@ -19,10 +19,10 @@ classdef MovieViewer < handle
 %% ---------------------------  PROPERTIES  --------------------------- %%
 
 properties (SetAccess=public, GetAccess=public)
+    chExtractor;   % Encapsulates movie data; splits into spectral channels
 end
 
 properties (SetAccess=protected, GetAccess=public)
-    chExtractor;   % Encapsulates movie data; splits into spectral channels
     background;    % approximate background level
     
     hFig;          % Handle to figure
@@ -30,7 +30,8 @@ properties (SetAccess=protected, GetAccess=public)
     hImg;          % Handle to image viewers
     btnPlay;       % Handle to 'Play' button
     sldScrub;      % Handle to scroll bar for scrubbing through time
-    sldIntensity;  % Handle to scroll bar for adjusting intensity levels
+    sldIntensity;  % Handle to scroll bar for adjusting intensity scaling
+    txtMaxIntensity;  % Handle to text box for adjusting intensity scaling
     edTime;        % Text box showing current time
 end
 
@@ -63,21 +64,24 @@ methods
     end %constructor
     
     
-    function close(this)
-        try
-            close(this.hFig);
-            delete(this);
-        catch
-        end
-    end
-    
-    % Destructor
-    function delete(this)
-        try
-            close(this.hFig);
-        catch
-        end
-    end %function delete
+    % If MovieViewer object is deleted, close the associated window.
+    % This is for command line use, where it makes sense, but causes
+    % problems for other uses.
+%     function close(this)
+%         try
+%             close(this.hFig);
+%             delete(this);
+%         catch
+%         end
+%     end
+%     
+%     % Destructor
+%     function delete(this)
+%         try
+%             close(this.hFig);
+%         catch
+%         end
+%     end %function delete
     
     
     
@@ -87,8 +91,16 @@ methods
     
     [varargout{1:nargout}] = deal([]);
     
-    this.hFig = figure;
+    % Create a uipanel for axes to sit in.
+    % FIXME: handle to panel as argument (for gettraces integration)
+    if nargin<2
+        this.hFig = figure;
+        hPanel = uipanel( this.hFig, 'Position',[0 0 1 1], 'BorderType','none' );
+    else
+        this.hFig = ancestor(hPanel,'figure');
+    end
     colormap(this.hFig, gettraces_colormap);
+    delete( findall(hPanel,'type','axes') );
     
     % Createa a baseline image from low-intensity areas.
     stk_top = this.chExtractor.read( 1:min(this.chExtractor.nFrames,10) );
@@ -105,80 +117,109 @@ methods
     
     val = max(px_max);
     high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
-    
-    % Create a uipanel for axes to sit in.
-    % FIXME: handle to panel as argument (for gettraces integration)
-    if nargin<2
-        hPanel = uipanel( this.hFig, 'Position',[0.05  0.15  0.9  0.85], 'BorderType','none' );
-    end
 
     % Create axes for sub-fields (listed in column-major order, like stk_top)
+    % Position is: L,B,W,H
     axopt = {'Visible','off', 'Parent',hPanel};
     nCh = numel(stk_top);
     
     switch nCh
     case 1
-        this.ax    = axes( 'Position',[0.05  0.15 0.9  0.85], axopt{:} );
+        this.ax    = axes( 'Position',[0.07 0.06 0.9 0.9], axopt{:} );
 
     case 2
-        this.ax    = axes( 'Position',[0     0    0.45 0.95], axopt{:} );  %L
-        this.ax(2) = axes( 'Position',[0.5   0    0.45 0.95], axopt{:} );  %R
+        this.ax    = axes( 'Position',[0.07  0.06  0.3 0.9], axopt{:} );  %L
+        this.ax(2) = axes( 'Position',[0.38  0.06  0.3 0.9], axopt{:} );  %R
+        this.ax(3) = axes( 'Position',[0.69  0.06  0.3 0.9], axopt{:} );
 
     case {3,4}
-        this.ax    = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
-        this.ax(2) = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
-        this.ax(3) = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
-        this.ax(4) = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
+        this.ax    = axes( 'Position',[0.07  0.51  0.3 0.45], axopt{:} );  %TL
+        this.ax(2) = axes( 'Position',[0.07  0.06  0.3 0.45], axopt{:} );  %BL
+        this.ax(3) = axes( 'Position',[0.38  0.51  0.3 0.45], axopt{:} );  %TR
+        this.ax(4) = axes( 'Position',[0.38  0.06  0.3 0.45], axopt{:} );  %BR
         
-        % Quad-View optical splitter convention for field order: [green, red; blue, far-red]
-        if nCh==3
-            if this.chExtractor.channels(1).wavelength>500
-                this.ax(1) = [];
-            else
-                this.ax(end) = [];
+        geo = this.chExtractor.fieldArrangement;
+        if isempty(geo) || size(geo,3)>1
+            % If channels have no spatial coding, use Quad-View convention
+            this.ax = this.ax( [2 3; 1 4] );
+            if nCh==3
+                if this.chExtractor.channels(1).wavelength>500
+                    this.ax(1) = [];
+                else
+                    this.ax(end) = [];
+                end
             end
+        else
+            % If channels are tiled in space, try to keep the same physical
+            % layout here as in the actual frames.
+            temp = zeros(nCh,1);  %new axes list
+            for i=1:numel(geo)
+                if geo(i)==0, continue; end
+                temp( geo(i) ) = this.ax(i);
+            end
+            this.ax = temp(temp~=0);  %ax(i) now directly corresponds to stk_top(i)
         end
+        
+        this.ax(end+1) = axes( 'Position',[0.69  0.25 0.3 0.45], axopt{:} );
         
     otherwise
         error('Invalid field geometry');
     end
+    this.ax = to_row(this.ax);
 
     % Show fluorescence fields for all channels
     % NOTE: all properties are listed in wavelength order.
     axopt = {'YDir','reverse', 'Color',get(this.hFig,'Color'), 'Visible','off'};
 
+    this.hImg = [];
     for i=1:nCh
         this.hImg(i) = image( stk_top{i}, 'CDataMapping','scaled', 'Parent',this.ax(i) );
         set( this.ax(i), 'UserData',i, 'CLim',[0 val], axopt{:} );
     end
     
-    setAxTitles(this);
-    linkaxes( this.ax );
-    if nargout>0, varargout{1}=this.ax; end
-    zoom on;
+    % Show total fluorescence channel
+    if nCh>1
+        total = sum( cat(3,stk_top{:}), 3);
+        this.hImg(end+1) = image( total, 'CDataMapping','scaled', 'Parent',this.ax(end) );
+        set(this.ax(end), 'CLim',[0 val*2], axopt{:} );
+    end
     
 %     if abs(log2( size(total,2)/size(total,1) )) < 1
         % For roughly symmetric movies, allows for better window resizing.
         axis( this.ax, 'image' );  %adjust axes size to match image
 %     else
 %         % Allows for better zooming of narrow (high time resolution) movie.
-%         axis( [ax handles.axTotal], 'equal' );  %keep the axes size fixed.
+%         axis( ax, 'equal' );  %keep the axes size fixed.
 %     end
-
-    % Add intensity and time scroll bars and play button.
-    sldStyle = {'style','slider','units','normalized'};
-    this.sldIntensity = uicontrol(sldStyle{:}, 'position',[0.01 0.1 0.025 0.8], 'Callback',@this.sldIntensity_Callback);
-    set(this.sldIntensity,'min',0, 'max',high, 'value',val);
     
-    this.sldScrub = uicontrol(sldStyle{:}, 'position',[0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
+    setAxTitles(this);
+    linkaxes( this.ax );
+    if nargout>0, varargout{1}=this.ax; end
+    zoom on;
+
+    % Add intensity and time scroll bars and play button. (L,B,W,H)
+    % Don't re-create if left from a previous instance of MovieViewer.
+    if isempty(this.sldIntensity)
+        style = {'Parent',hPanel, 'units','normalized', 'style'};
+        this.sldIntensity = uicontrol(style{:}, 'slider', 'Position',...
+               [0.03 0.15 0.035 0.78], 'Callback',@this.sldIntensity_Callback);
+
+        this.sldScrub = uicontrol(style{:}, 'slider', 'position', ...
+                [0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
+
+        this.edTime = uicontrol(style{:},'Edit', 'Enable','off', ...
+                'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
+
+        this.btnPlay = uicontrol(style{:},'pushbutton', 'String','Play', ...
+                'Position',[0.08 0.05 0.08 .05], 'Callback',@this.btnPlay_Callback );
+
+        this.txtMaxIntensity = uicontrol(style{:},'edit', ...
+                'Position',[0.01 0.93 0.08 0.05], 'Callback',@this.txtMaxIntensity_Callback );
+    end
+    set( this.sldIntensity,'min',0, 'max',high, 'value',val);
+    set( this.txtMaxIntensity, 'String',sprintf('%.0f',val) );
     set( this.sldScrub, 'Min',1, 'Max',this.chExtractor.nFrames, 'Value',1 );
     set( this.sldScrub, 'SliderStep', [1 10]./this.chExtractor.nFrames );
-    
-    this.edTime = uicontrol('Style','Edit', 'Units','normalized', 'Enable','off', ...
-            'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
-       
-    this.btnPlay = uicontrol('style','pushbutton', 'units','normalized', 'String','Play', ...
-            'Position',[0.08 0.05 0.08 .05], 'Callback',@this.btnPlay_Callback );
         
     zoom(this.hFig, 'on');
     
@@ -189,7 +230,7 @@ methods
     function setAxTitles(this)
     % Set axes titles from imaging profile settings, including colors.
 
-    for i=1:numel(this.ax)  %i is channel index
+    for i=1:this.chExtractor.nChannels  %i is channel index
         ch = this.chExtractor.channels(i);
 
         if isempty(ch.name)
@@ -206,12 +247,14 @@ methods
                    'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
         end
     end
+    title(this.ax(end),'Total Intensity', 'FontSize',10, 'Visible','on');
     
     end %FUNCTION setTitles
     
     
     
-    function highlightPeaks(this, coords)
+    function highlightMolecule(this, coords)
+    % Used by sorttraces (showMovie).
     % Draw a circle to highlight a molecule's PSF in each channel.
     % Coords is a cell array, one per channels, with x in first col and y in
     % second, with molecules listed in rows.
@@ -220,11 +263,11 @@ methods
     delete( findall(this.ax,'type','Line') );
     
     [ny,nx] = size( this.background{1} );
-
+    
     for i=1:numel(coords)
         x = rem( coords{i}(:,1), nx);
         y = rem( coords{i}(:,2), ny);
-            
+        
         % Translate coordinates from stitched movie to subfield
         viscircles( this.ax(i), [x y], 3, 'EdgeColor','w' );
     end
@@ -236,8 +279,43 @@ methods
         set( this.ax(end), 'XLim',[x-dx x+dx], 'YLim',[y-dy y+dy] );
     end
     
-    end %function highlightPeaks
+    end %function highlightMolecule
+    
+    
+    
+    function highlightPeaks(this, selected, rejected, selectedTotal, rejectedTotal)
+    % Used by gettraces (MovieParser).
+    % Draw a circle to highlight a molecule's PSF in each channel.
+    % Coords is an array of molecules, dimension (x/y), fields.
+    
+    if ~all(ishandle(this.ax)), return; end  %window closed?
+    delete( findall(this.ax,'type','Line') );
+    style = {'LineStyle','none','marker','o'};
+    
+    if size(selected,3)>1
+        for i=1:size(selected,3)
+            line( selected(:,1,i), selected(:,2,i), ...
+                    style{:}, 'color','w', 'Parent',this.ax(i) );
+            line( rejected(:,1,i), rejected(:,2,i), ...
+                    style{:}, 'color',[0.4,0.4,0.4], 'Parent',this.ax(i) );
+        end
+    end
+    
+    % Draw markers on selection points (total intensity composite image).
+    if nargin>2
+        line( selectedTotal(:,1), selectedTotal(:,2), ...
+                style{:}, 'color','y',  'Parent',this.ax(end) );
+        line( rejectedTotal(:,1), rejectedTotal(:,2), ...
+                style{:}, 'color',[0.4,0.4,0.0], 'Parent',this.ax(end) );
+    end
+    
+    end %function highlightMolecule
+    
 
+    
+    function hidePeaks(this)
+        delete(findobj(this.hFig,'type','line'));
+    end %function hidePeaks
     
     
     
@@ -247,16 +325,34 @@ methods
     function sldIntensity_Callback(this, hObject, varargin)
     % Update axes color limits from new slider value
 
-    minimum = get(hObject,'min');
-    maximum = get(hObject,'max');
-
     val = get(hObject,'value');
+    set(this.txtMaxIntensity,'String', sprintf('%.0f',val));
+    this.txtMaxIntensity_Callback(this.txtMaxIntensity);
+
+    end %FUNCTION sldIntensity_Callback
+    
+    
+    
+    % --- Executes on intensity text box change
+    function txtMaxIntensity_Callback(this, hObject, varargin)
+    % Update axes color limits from new slider value
+
+    val = str2double( get(hObject,'String') );
+    minimum = get(this.sldIntensity,'min');
+    maximum = get(this.sldIntensity,'max');
+
     val = max(val,minimum+1); %prevent errors in GUI
     maximum = max(val,maximum);
 
-    set( hObject, 'Value',val );
-    set( hObject, 'max',maximum );
+    set( this.sldIntensity, 'Value',val );
+    set( this.sldIntensity, 'max',maximum );
     set( this.ax, 'CLim',[minimum val] );
+    
+    if numel(this.ax)>1
+        set( this.ax(end), 'CLim',[minimum*2 val*2] );
+    end
+    
+    set(this.txtMaxIntensity,'String', sprintf('%.0f',val));
 
     end %FUNCTION sldIntensity_Callback
 

@@ -92,7 +92,7 @@ for i=1:numel(fluorCh)
         disp(e.message);
     end
 end
-viewer.highlightPeaks(coord);
+viewer.highlightMolecule(coord);
 
 
 end %function showMovie

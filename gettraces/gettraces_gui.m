@@ -191,96 +191,15 @@ set(handles.figure1,'pointer','watch'); drawnow;
 stkData = handles.stkData;
 stkData.openStk(filename);
 
-set( handles.sldScrub, 'Min',1, 'Max',stkData.nFrames, 'Value',1 ); %, ...
-%      'SliderStep',[1/stkData.nFrames,0.02] );
 
-% Setup slider bar (adjusting maximum value in image, initially 2x max)
-stk_top = cat(3, stkData.stk_top{:} );
-sort_px = sort(stk_top(:));
-val = 2*sort_px( floor(0.99*numel(sort_px)) );
-high = min( ceil(val*10), 32000 );  %uint16 maxmimum value
-
-set(handles.scaleSlider,'min',0, 'max',high, 'value', val);
-set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
-
-% Create axes for sub-fields (in column-major order)
-delete( findall(handles.figure1,'type','axes') );  %remvoe old axes
-axopt = {'Visible','off', 'Parent',handles.panView};
-
-switch stkData.nChannels
-case 1
-    ax = [];
-    handles.axTotal = axes( 'Position',[0.02 0 0.95 0.95], axopt{:} );
-    
-case 2
-    % FIXME: channel order is ignored for this case and the 2x1 arrangement
-    % is not shown as it is in the raw frame data.
-    ax(1)           = axes( 'Position',[0     0    0.325 0.95], axopt{:} );  %L
-    ax(2)           = axes( 'Position',[0.335 0    0.325 0.95], axopt{:} );  %R
-    handles.axTotal = axes( 'Position',[0.67  0    0.325 0.95], axopt{:} );
-    
-case {3,4}
-    % Axes listed in column-wise order as they are displayed.
-    ax(1)         = axes( 'Position',[0.0   0.5  0.325 0.47], axopt{:} );  %TL
-    ax(2)         = axes( 'Position',[0     0    0.325 0.47], axopt{:} );  %BL
-    ax(3)         = axes( 'Position',[0.335 0.5  0.325 0.47], axopt{:} );  %TR
-    ax(4)         = axes( 'Position',[0.335 0    0.325 0.47], axopt{:} );  %BR
-    handles.axTotal = axes( 'Position',[0.67  0.25 0.325 0.47], axopt{:} );
-    
-    geo = stkData.chExtractor.fieldArrangement;
-    if isempty(geo) || size(geo,3)>1
-        % If channels have no spatial coding, use Quad-View convention
-        ax = ax( [2 3; 1 4] );
-        if stkData.nChannels==3
-            if stkData.chExtractor.channels(1).wavelength>500
-                ax(1) = [];
-            else
-                ax(end) = [];
-            end
-        end
-    else
-        % If channels are tiled in space, try to keep the same physical
-        % layout here as in the actual frames.
-        temp = zeros(stkData.nChannels,1);  %new axes list
-        for i=1:numel(geo)
-            if geo(i)==0, continue; end
-            temp( geo(i) ) = ax(i);
-        end
-        ax = temp;  %ax(i) now directly corresponds to stk_top(i)
-    end
-    
-otherwise
-    error('Invalid field geometry');
+% Launch or update viewer
+if ~isfield(handles,'viewer')
+    handles.viewer = MovieViewer( stkData.chExtractor );
+else
+    handles.viewer.chExtractor = stkData.chExtractor;
 end
-ax = to_row(ax);
+handles.viewer.show(handles.panView);
 
-% Show fluorescence fields for all channels
-axopt = {'YDir','reverse', 'Color',get(handles.figure1,'Color'), 'Visible','off'};
-handles.himshow = [];
-handles.ax = ax;
-
-if ~isempty(ax)
-    for i=1:numel(stkData.stk_top)  %for each spectral channel, in wavelength order
-        handles.himshow(i) = image( stkData.stk_top{i}, 'CDataMapping','scaled', 'Parent',ax(i) );
-        set(ax(i), 'UserData',i, 'CLim',[0 val], axopt{:});
-    end
-    linkaxes( [ax handles.axTotal] );
-end
-set( handles.himshow, 'UIContextMenu',handles.mnuField );
-
-% Show total fluorescence channel
-total = sum( cat(3,stkData.stk_top{:}), 3);
-handles.himshow(end+1) = image( total, 'CDataMapping','scaled', 'Parent',handles.axTotal );
-set(handles.axTotal, 'CLim',[0 val*2], axopt{:} );
-
-% if abs(log2( size(total,2)/size(total,1) )) < 1
-%     % For roughly symmetric movies, allows for better window resizing.
-%     axis( [ax handles.axTotal], 'image' );  %adjust axes size to match image
-% else
-    % Allows for better zooming of narrow (high time resolution) movie.
-    axis( [ax handles.axTotal], 'equal' );  %keep the axes size fixed.
-% end
-setAxTitles(handles);
 
 guidata(hObject,handles);
 set( handles.figure1, 'pointer','arrow');
@@ -288,66 +207,6 @@ set([handles.btnPickPeaks handles.mnuPick handles.mnuViewMetadata handles.mnuTir
 set([handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs],'Enable','off');
 
 %end function OpenStk
-
-
-
-% --- Executes on slider movement.
-function sldScrub_Callback(hObject, ~, handles) %#ok<DEFNU>
-% Allows user to scroll through the movie
-
-% Stop any currently playing movies.
-set(handles.btnPlay,'String','Play');
-
-% Read frame of the movie
-ch = handles.stkData.chExtractor;
-idxFrame = floor(get(hObject,'Value'));
-fields = ch.read(idxFrame);
-
-for f=1:numel(fields)
-    field = single(fields{f}) - handles.stkData.background{f};
-    set( handles.himshow(f), 'CData',field );
-end
-
-% END FUNCTION sldScrub_Callback
-
-
-
-% --- Executes on button press in btnPlay.
-function btnPlay_Callback(~, ~, handles) %#ok<DEFNU>
-% Play movie
-
-% Clicking when the button is labeled 'stop' causes the loop below to terminate.
-if strcmpi( get(handles.btnPlay,'String') ,'Play' )
-    set(handles.btnPlay,'String','Stop');
-else
-    set(handles.btnPlay,'String','Play');
-    return;
-end
-
-stkData = handles.stkData;
-startFrame = round( get(handles.sldScrub,'Value') );
-if startFrame==stkData.nFrames, startFrame=1; end  %loop
-
-for i=startFrame:stkData.nFrames
-    fields = stkData.chExtractor.read(i);
-    
-    for f=1:numel(fields)
-        field = single(fields{f}) - stkData.background{f};
-        set( handles.himshow(f), 'CData',field );
-    end
-    
-    set(handles.sldScrub,'Value',i);
-    drawnow;
-    
-    % Terminate early if the user clicks the 'Stop' button.
-    state = get(handles.btnPlay,'String');
-    if strcmpi(state,'Play'), return; end
-end
-
-set(handles.btnPlay,'String','Play');
-
-% END FUNCTION btnPlay_Callback
-
 
 
 
@@ -468,7 +327,7 @@ set(handles.figure1,'pointer','watch'); drawnow;
 stkData = handles.stkData;
 
 % Clear any existing selection markers from previous calls.
-delete(findobj(handles.figure1,'type','line')); drawnow;
+handles.viewer.hidePeaks();
 
 % Locate single molecules
 try
@@ -484,13 +343,15 @@ end
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
 % can see what the algorithm is doing.
-val = get(handles.scaleSlider,'value');
-minimum = get(handles.scaleSlider,'min');
-val = max(val,minimum+1);
+% val = get(handles.scaleSlider,'value');
+% minimum = get(handles.scaleSlider,'min');
+% val = max(val,minimum+1);
 
-set( handles.himshow(end), 'CData',stkData.total_t );
-set( handles.axTotal, 'CLim',[minimum*2 val*2] );
-
+% set( handles.himshow(end), 'CData',stkData.total_t );
+% set( handles.axTotal, 'CLim',[minimum*2 val*2] );
+% 
+set( handles.viewer.hImg(end), 'CData',stkData.total_t );
+% set( handles.viewer.ax(end), 'CLim',[minimum*2 val*2] );  %incorrect for single color!
 
 % If no alignment data given (for example in single-channel recordings),
 % don't display any status messages.
@@ -576,7 +437,7 @@ set( handles.txtPSFWidth, 'ForegroundColor', (stkData.psfWidth>stkData.params.nP
 
 
 % Graphically show peak centers
-highlightPeaks( handles );
+handles.viewer.highlightPeaks( stkData.peaks, stkData.rejectedPicks, stkData.total_peaks, stkData.rejectedTotalPicks );
 
 % Update GUI controls
 nmol = size(stkData.peaks,1);
@@ -591,40 +452,6 @@ set( [handles.mnuAlignSave handles.mnuAlignKeep], ...
 set(handles.figure1,'pointer','arrow');
 
 % end function
-
-
-
-function highlightPeaks(handles)
-% Draw circles around each selected fluorescence spot.
-
-style = {'LineStyle','none','marker','o'};
-stkData = handles.stkData;
-
-if stkData.nChannels>1
-    for i=1:size(stkData.peaks,3)
-        ax = handles.ax(i);
-
-        line( stkData.peaks(:,1,i), stkData.peaks(:,2,i), ...
-                style{:}, 'color','w', 'Parent',ax );
-        line( stkData.rejectedPicks(:,1,i), stkData.rejectedPicks(:,2,i), ...
-                style{:}, 'color',[0.4,0.4,0.4], 'Parent',ax );
-    end
-end
-
-% Draw markers on selection points (total intensity composite image).
-line( stkData.total_peaks(:,1), stkData.total_peaks(:,2), ...
-        style{:}, 'color','y',  'Parent',handles.axTotal );
-line( stkData.rejectedTotalPicks(:,1), stkData.rejectedTotalPicks(:,2), ...
-        style{:}, 'color',[0.4,0.4,0.0], 'Parent',handles.axTotal );
-
-% end function highlightPeaks
-
-
-% --- Executes on button press in btnHidePicks.
-function btnHidePicks_Callback(~, ~, handles)  %#ok<DEFNU>
-% Hide the circles drawn to indicate molecule locations.
-delete(findobj(handles.figure1,'type','line'));
-% END FUNCTION btnHidePicks_Callback
 
 
 
@@ -668,38 +495,6 @@ set(handles.figure1,'pointer','arrow'); drawnow;
 %========================================================================
 %======================  VIEW/SETTINGS CALLBACKS  =======================
 %========================================================================
-
-% --- Executes on slider movement.
-function scaleSlider_Callback(hObject, ~, handles)  %#ok<DEFNU>
-% Update axes color limits from new slider value
-val = get(hObject,'value');
-set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
-txtMaxIntensity_Callback(handles.txtMaxIntensity, [], handles);
-% END FUNCTION scaleSlider_Callback
-
-
-function txtMaxIntensity_Callback(hObject, ~, handles)
-% Update axes color limits from new slider value
-val = str2double( get(hObject,'String') );
-minimum = get(handles.scaleSlider,'min');
-maximum = get(handles.scaleSlider,'max');
-
-val = max(val,minimum+1); %prevent errors in GUI
-maximum = max(val,maximum);
-
-set( handles.scaleSlider, 'Value',val );
-set( handles.scaleSlider, 'max',maximum );
-set( handles.ax, 'CLim',[minimum val] );
-
-if isscalar(handles.stkData.params.geometry)  %Single-channel recordings
-    set( handles.axTotal, 'CLim',[minimum val] );
-else
-    set( handles.axTotal, 'CLim',[minimum*2 val*2] );
-end
-
-set(handles.txtMaxIntensity,'String', sprintf('%.0f',val));
-
-% END FUNCTION txtMaxIntensity_Callback
 
 
 
@@ -955,6 +750,7 @@ function mnuFieldSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Context menu to alter field-specific settings (name, wavelength, etc).
 
 chID = get(gca,'UserData');
+if isempty(chID), return; end  %total intensity field
 try
     handles.stkData.updateChannel( chID );
 catch e
@@ -963,7 +759,7 @@ catch e
 end
 
 % Update GUI, including picked molecules (if any).
-setAxTitles(handles);
+handles.viewer.setAxTitles();
 if ~isempty( findobj(handles.figure1,'type','line') )
     getTraces_Callback(hObject,[],handles);
 end
@@ -972,7 +768,7 @@ end
 
 
 
-function mnuFieldArrangement_Callback(hObject, ~, handles) %#ok<DEFNU>
+function mnuFieldArrangement_Callback(~, ~, handles) %#ok<DEFNU>
 % Context menu to reset which fields are in the current movie.
 
 try
@@ -983,37 +779,23 @@ catch e
 end
 
 % Reload interface to handle changed number of axes.
-% FIXME: file metadata (if it exists) will override any changes just made!
-if success,  OpenStk(handles.stkfile, handles, hObject);  end
+if success
+    % Reset GUI to state w/o picked molecules.
+    % This should be a function!
+    set( handles.txtAlignWarning, 'Visible','off' );
+    set([handles.txtOverlapStatus handles.txtIntegrationStatus, ...
+         handles.txtWindowOverlap handles.txtPSFWidth handles.nummoles], ...
+         'String', '');
+    set(handles.panAlignment, 'ForegroundColor',[0 0 0]);
+    set(handles.tblAlignment, 'Data',{});
+    set([handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs],'Enable','off');
+
+    % Update viewer
+    handles.viewer.show(handles.panView);
+end
 
 % END FUNCTION mnuFieldSettings_Callback
 
-
-
-function setAxTitles(handles)
-% Set axes titles from imaging profile settings, including colors.
-
-% Clear any existing titles
-for i=1:numel(handles.ax),
-    title(handles.ax(i),'');
-end
-
-% Create new titles
-if numel(handles.ax)>0
-    
-    for i=1:numel(handles.ax)  %i is channel index
-        c = handles.stkData.chExtractor.channels(i);
-        
-        chColor = Wavelength_to_RGB( double(c.wavelength) );
-
-        title( handles.ax(i), sprintf('%s (%s)',c.name,handles.stkData.roles{i}), ...
-               'BackgroundColor',chColor, 'FontSize',10, 'Visible','on', ...
-               'Color',(sum(chColor)<1)*[1 1 1] ); % White text for dark backgrounds.
-    end
-end
-title(handles.axTotal,'Total Intensity', 'FontSize',10, 'Visible','on');
-
-% END FUNCTION setTitles
 
 
 
