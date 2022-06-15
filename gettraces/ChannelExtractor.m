@@ -64,6 +64,9 @@ properties (SetAccess=public, GetAccess=public)
     % - photonsPerCount (dbl): conversion from camera units to detected photons.
     channels = struct( 'name','Cy3', 'description','', 'wavelength',532, ...
                        'photonsPerCount',1.0 );
+                   
+    % struct array describing illumination periods (ALEX)
+    lasers = [];
     
     % Non-standard settings
     skipFrames = 0;   %number of frames to ignore at the beginning.
@@ -95,6 +98,9 @@ methods
         narginchk(2,4);
         required = {'name','wavelength'};
         
+        % Default value for illumination metadata.
+        %this.lasers = struct('wavelength',532, 'framesActive',1:this.movie.nFrames);
+        
         % First argument: movie file path or Movie object.
         input = varargin{1};
         if ischar(input) || iscell(input)
@@ -106,6 +112,11 @@ methods
         end
         
         % Load metadata from movie file if available.
+        if isfield(this.movie.metadata,'lasers') && ...
+           all( isfield(this.movie.metadata.lasers,{'wavelength','framesActive'}) )
+            this.lasers = this.movie.metadata.lasers;
+        end
+        
         if nargin<2 && all( isfield(this.movie.metadata,{'channels','fieldArrangement'}) )
             initCh = this.channels;
             try
@@ -119,12 +130,16 @@ methods
         
         % Parse field arrangement and channel list parameters
         elseif nargin>2
-            narginchk(4,4);
+            narginchk(4,5);
             assert( isnumeric(varargin{2}), 'Invalid second input. Should be a numeric matrix' );
             this.fieldArrangement = varargin{2};
 
             assert( isstruct(varargin{3}), 'Invalid third input. Should be a struct array' );
             this.channels = mergeStruct( varargin{3}, this.channels, required );
+            
+            if nargin>=5
+                this.lasers = varargin{4};
+            end
         end
         
         % Verify all properties are self-consistent.
@@ -132,6 +147,18 @@ methods
         
     end %function load
     
+    
+    function wavelengths = lasersActive(this, idx)
+        % Return which laser wavelengths are active in frame IDX
+        wavelengths = [];
+        if isempty(this.lasers), return; end
+        
+        for i=1:numel(this.lasers)
+            if any(this.lasers(i).framesActive==idx)
+                wavelengths(end+1) = this.lasers(i).wavelength; %#ok<AGROW>
+            end
+        end
+    end
     
     
     function output = read( this, idx )

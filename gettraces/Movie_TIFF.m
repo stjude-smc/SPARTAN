@@ -262,11 +262,14 @@ function metadata = parseFGImageDescription(input)
 
     metadata = [];
     output = [];
-    validFields = {'FlashGordon','binning','exposureTime','fieldArrangement'};
-    fieldFormat = {'%s','%s','%f',[]};
+    validFields = {'FlashGordon','hardware','binning','exposureTime','fieldArrangement'};
+    fieldFormat = {'%s','%s','%s','%f',[]};
     
     validChFields = {'name','wavelength','photonsPerCount'};
     chFieldFormat = {'%s','%d','%f'};
+    
+    validLaserFields = {'wavelength','dutyCycle','framesActive'};
+    laserFieldFormat = {'%d','%f','%s'};
     
     % Read lines as name=value pairs, skipping unrecognized fields.
     input = splitlines(input);
@@ -282,18 +285,32 @@ function metadata = parseFGImageDescription(input)
                 subfield = fieldName(10:end);
                 formatID = strcmp(subfield,validChFields);
                 output.channels(chID).(subfield) = sscanf( val, chFieldFormat{formatID} );
+                
+            % Illumination struct array
+            elseif startsWith(fieldName,'laser') && fieldName(7)=='.'
+                laserID = str2double(fieldName(6));
+                subfield = fieldName(8:end);
+                formatID = strcmp(subfield,validLaserFields);
+                
+                if strcmpi(subfield,'framesActive')
+                    assert( all(ismember(val,'1234567890[],;: ')), 'Invalid framesActive' );
+                    output.lasers(laserID).(subfield) = eval(val);
+                else
+                    output.lasers(laserID).(subfield) = sscanf( val, laserFieldFormat{formatID} );
+                end
+                
 
             % FieldArrangement is text to define a matlab-style matrix
             % that describes how to split image data into channels.
             elseif strcmpi(fieldName,'fieldArrangement')
-                    assert( all(ismember(val,'1234567890[],;: ')), 'Invalid field arrangement' )
-                    output.fieldArrangement = eval(val);
+                assert( all(ismember(val,'1234567890[],;: ')), 'Invalid field arrangement' )
+                output.fieldArrangement = eval(val);
             else
                 formatID = strcmp(fieldName,validFields);
                 output.(fieldName) = sscanf( val, fieldFormat{formatID} );
             end
         catch
-            warning('Ignoring invalid FlashGordon ImageDescription line: %s',input{i});
+            disp(['Ignoring invalid FlashGordon ImageDescription line: ' input{i}]);
         end
     end
     

@@ -207,7 +207,7 @@ methods
         this.sldScrub = uicontrol(style{:}, 'slider', 'position', ...
                 [0.185 0.05 0.65 .05], 'callback',@this.sldScrub_Callback);
 
-        this.edTime = uicontrol(style{:},'Edit', 'Enable','off', ...
+        this.edTime = uicontrol(style{:},'edit', 'Enable','inactive', ...
                 'Position',[0.85 0.05 0.1 0.05], 'String','0 s');
 
         this.btnPlay = uicontrol(style{:},'pushbutton', 'String','Play', ...
@@ -374,7 +374,12 @@ methods
         set( this.hImg(f), 'CData',field );
     end
     set( this.edTime, 'String',sprintf('%.2f s',this.chExtractor.timeAxis(idx)/1000) );
-
+    
+    % Color the time text by laser wavelength (if metadata available)
+    wavelength = this.chExtractor.lasersActive(idx);
+    if isempty(wavelength), wavelength=0; end
+    set( this.edTime, 'ForegroundColor', 0.8*Wavelength_to_RGB(wavelength(1)) );
+    
     end %FUNCTION sldScrub_Callback
 
 
@@ -390,6 +395,7 @@ methods
         set(hObject,'String','Play');
         return;
     end
+    set( this.edTime, 'ForegroundColor', [0 0 0] );
 
     startFrame = floor(get(this.sldScrub,'Value'));
 
