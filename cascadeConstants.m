@@ -213,8 +213,6 @@ options.cmap = [
 255   0   0 ]/255;
 
 % OPTIONS
-options.no_statehist = false;  % do not use state occupancy histograms
-options.no_tdp       = false;  % do not use TD plots
 options.ignoreState0 = true;   % do not include the first (lowest FRET) state in
                                %    state occupancy histograms
 options.hideText     = false;  % don't display N=, t/s, etc on plots

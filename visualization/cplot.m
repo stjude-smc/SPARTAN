@@ -28,7 +28,6 @@ function varargout = cplot( varargin )
 
 %% Process input arguments
 [cax,args] = axescheck(varargin{:});
-isNewAx = isempty(cax);
 
 if numel(args)<1 || isempty(args{1})
     args{1} = getFile;
@@ -39,8 +38,7 @@ end
 if numel(args)>=2,
     options = args{2};
 else
-    c = cascadeConstants();
-    options = c.defaultMakeplotsOptions;
+    options = cascadeConstants('defaultMakeplotsOptions');
 end
 
 bounds = [1 options.contour_length options.fretRange];
@@ -120,13 +118,11 @@ set(cax,'ytick', 0:0.2:bounds(4));
 bounds(1:2) = time_axis(lims([1 numel(lims)]));
 axis(cax, bounds);
 
-% Add all appearance details only if this is an independent plot.
-if isNewAx,
-    set(gca, 'PlotBoxAspectRatio', [1.5 2 1]);
-    xlabel(cax,'Time (frames)');
-    ylabel(cax,'FRET');
-    zoom(cax,'on');
-end
+% Add all appearance details
+set(cax, 'YGrid','on' );
+xlabel(cax,'Time (s)');  %fixme could be frames
+ylabel(cax,'FRET');
+zoom(cax,'on');
 
 
 

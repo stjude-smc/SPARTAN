@@ -57,12 +57,13 @@ tdpfix(end,end) = 10;  % hack to make colorscale fixed
 % Extra formatting
 set(hand,'LineColor','none');
 colormap(cax,options.cmap);
-set(cax, 'PlotBoxAspectRatio', [1 1 1]);
 ylim(cax, options.fretRange );
 xlim(cax, options.fretRange );
+set(cax, 'xtick',0:0.2:1);
+set(cax, 'ytick',0:0.2:1);
 ylabel(cax,'Final FRET');
 xlabel(cax,'Inital FRET');
-set(cax, 'XGrid','on', 'YGrid','on', 'Box','on');
+set(cax, 'XGrid','on', 'YGrid','on', 'Box','on', 'PlotBoxAspectRatio',[1 1 1]);
 
 
 % Display number of transitions and transition rate.

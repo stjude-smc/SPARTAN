@@ -161,6 +161,7 @@ ylim(ax, options.fretRange);
 xlabel(ax,'Counts (%)' );
 ylabel(ax, 'FRET');  %fixme
 set(ax, 'YGrid','on', 'Box','on');
+set(ax,'ytick', 0:0.2:1);
 
 histmax = max( totalHist(bins>0.05) );
 

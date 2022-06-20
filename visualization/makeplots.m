@@ -80,8 +80,7 @@ defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
 
 if isempty(h1),
     if ~isfield(defaults,'targetAxes')
-        c = cascadeConstants();
-        h1 = figure('Name', [mfilename ' - ' c.software]);
+        h1 = figure('Name', [mfilename ' - ' cascadeConstants('software')]);
     else
         h1 = get(defaults.targetAxes{1,1},'parent');
     end
@@ -249,29 +248,18 @@ options = handles.options;
 dataFilenames = handles.dataFilenames;
 nFiles = numel(dataFilenames);
 
-N = cellfun(@sizeTraces, dataFilenames);
+[N,~,C] = cellfun(@sizeTraces, dataFilenames);
 if isfield(options,'cplot_normalize_to_max') && options.cplot_normalize_to_max,
     options.cplot_normalize_to_max = max(N);
     disp('NOTE: plots are normalized to largest number of traces!');
 end
 
-% Determine which files have dwell-time data so that TD plots should be
-% made. This determines the number of subplot rows ahead of time.
-dwtfnames = strcat(handles.baseFilenames,'.qub.dwt');
-has_dwt = true(nFiles,1);
+% Determine which files are idealized or have ALEX data for third row.
+has_alex = cellfun(@(x)ismember('acceptorDirect',x), C );
+dwtfnames = findDwt(dataFilenames);
+has_dwt   = ~cellfun(@isempty, dwtfnames);
 
-for i=1:nFiles,
-    if ~exist(dwtfnames{i},'file'),
-        dwtfnames{i} = [handles.baseFilenames{i} '.dwt'];
-    end
-    
-    if ~exist(dwtfnames{i},'file'),
-        dwtfnames{i} = [];
-        has_dwt(i) = false;
-    end
-end
-
-if any(has_dwt) && ~options.no_tdp, 
+if any(has_dwt|has_alex), 
     nrows = 3;
 else
     nrows = 2;
@@ -302,7 +290,7 @@ else
     for k=1:nFiles,
         cplotax(k) = subplot(nrows, nFiles, k, axopt{:});
         histax(k)  = subplot(nrows, nFiles, nFiles+k, axopt{:});
-        if nrows>2 && has_dwt(k),
+        if nrows>2 && ( has_dwt(k) || has_alex(k) ),
             tdax(k) = subplot(nrows, nFiles, 2*nFiles+k, axopt{:});
         end
     end
@@ -344,8 +332,10 @@ for k=1:nFiles,
     end
     
     if k>1,
+        % Remove duplicate ticks/labels so panels can be packed better.
         ylabel(cplotax(k), '');
         xlabel(cplotax(k), '');
+        set(cplotax(k),'YTickLabel',[]);
     end
     
     
@@ -360,10 +350,10 @@ for k=1:nFiles,
         end
     end
     
-    if histax(k)==0, continue; end
+    if histax(k)==0, drawnow; continue; end
     
     %---- FRET histogram for if data was not idealized.
-    if ~has_dwt(k) || options.no_statehist
+    if ~has_dwt(k)
         cplotdata = cplotdataAll{k};
         fretaxis = cplotdata(2:end,1);      
         histdata = cplotdata(2:end,2:options.contour_length+1)*100;
@@ -371,29 +361,49 @@ for k=1:nFiles,
         
         histmax(k) = max(max( pophist(fretaxis>0.05) ));
         barh(histax(k), fretaxis, pophist);
+        set(histax(k), 'YGrid','on', 'Box','on');
+        xlabel( histax(k),'Counts (%)' );
+        ylabel( histax(k), options.fretFieldLabel );
+        ylim( histax(k), options.fretRange );
         
     %---- Statehist: FRET histogram for each idealized state.
     else
         [shistAll{k}, histmax(k)] = statehist(histax(k), idl, data, options);
     end
     
-    set(histax(k),'ytick', 0:0.2:1);
-%     drawnow;
+    if k>1
+        % Remove duplicate ticks/labels so panels can be packed better.
+        ylabel( histax(k),'' );
+        xlabel( histax(k), '');
+        set(histax(2:end),'yticklabel',[]);
+    end
     
         
     %% ========================= TD PLOTS ========================= 
-    if nrows<3 || ~has_dwt(k) || tdax(k)==0, continue; end
+    if nrows<3 || tdax(k)==0, drawnow; continue; end
     
-    % Calculate TD plot
-    tdp = tdplot(idl, data, options);
-    if tdp(1,1)==0,
-        disp('Skipping invalid TDP');
-        continue;
+    if has_dwt(k)
+        % Calculate and draw TD plot
+        tdp = tdplot(idl, data, options);
+        if tdp(1,1)==0,
+            disp('Skipping invalid TDP');
+        else
+            tdpAll{k} = tdp;
+            tplot(tdax(k), tdp, options);
+        end
+        
+    elseif has_alex(k)
+        % Draw fret-stoichiometry plot
+        tdpAll{k} = stoichiometryPlot( tdax(k), data, options );
     end
-    tdpAll{k} = tdp;
     
-    % Show TD plot
-    tplot(tdax(k), tdp, options);
+    if k>1
+        % Remove duplicate ticks/labels so panels can be packed better.
+        ylabel( tdax(k), '' );
+        xlabel( tdax(k), '' );
+        set( tdax(k), 'YTickLabel',[] );
+    end
+    
     drawnow;
     
     
@@ -414,43 +424,24 @@ handles.tdpAll = tdpAll;
 guidata(hObject,handles);
 
 
-% Finish formatting all plots, including linking the axes
+% Link axes and format ticks and labels so panels can tightly packed.
 if any(cplotax~=0)
     cplotax = cplotax(cplotax~=0);
     linkaxes( cplotax, 'xy' );
-    ylim( cplotax(1), options.fretRange );
-    
-    ylabel(cplotax(1), options.fretFieldLabel);
-    xlabel(cplotax(1),'Time (s)');  %fixme could be frames
-    set(cplotax(2:end),'YTickLabel',[]);
-    
-    set(cplotax, 'YGrid','on', 'Box','on');
 end
 
 if any(histax~=0),
     histax = histax(histax~=0);
     linkaxes( histax, 'xy' );
-    xlim( histax(1), [0 max(histmax)+0.5] );
-    ylim( histax(1), options.fretRange );
-    
-    xlabel( histax(1),'Counts (%)' );
     ylabel( histax(1), options.fretFieldLabel );
-    set(histax(2:end),'yticklabel',[]);
     
-    set(histax, 'YGrid','on', 'Box','on');
+    % Rescale so that non-zero FRET states are emphasized
+    xlim( histax(1), [0 max(histmax)+0.5] );
 end
 
 if any(tdax~=0),
     tdax = tdax(tdax~=0);
-    linkaxes(tdax, 'xy');
-    ylim(tdax(1), options.fretRange );
-    xlim(tdax(1), options.fretRange );
-    
-    ylabel(tdax(1),'Final FRET');
-    xlabel(tdax(1),'Inital FRET');
-    set(tdax(2:end),'yticklabel',[]);
-    
-    set(tdax, 'XGrid','on', 'YGrid','on', 'Box','on');
+    linkaxes( tdax, 'xy' );
 end
 
 zoom(handles.hFig,'on');
