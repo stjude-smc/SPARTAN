@@ -27,10 +27,14 @@ classdef TracesFret < Traces
 
 % Declaration and initialization of public parameters
 properties (SetAccess=public, GetAccess=public)
-    % Common properties that almost all data will have.
+    % Fluorescence channels
     donor    = [];
-    acceptor = [];
-    fret     = [];
+    acceptor = [];        %acceptor fluoresence upon donor excitation
+    acceptorDirect = [];  %acceptor fluorescence upon direct excitation
+    
+    % Calculated channels
+    fret          = [];   %FRET efficiency
+    stoichiometry = [];   %stoichiometry ratio
 end %end public properties
 
 
@@ -42,7 +46,7 @@ properties (Dependent)
 end
 
 properties (Constant,Hidden=true)
-    % Defines the accepted methods for detecting donor blinking.
+    % Defines the accepted methods for detecting blinking.
     zeroMethodNames = {'off','threshold','skm'};
     zeroMethodDesc  = {'Off','Automatic Threshold','Idealization (SKM)'};
 end
@@ -93,7 +97,8 @@ methods
      %% ================  GET/SET METHODS  ================ %%
      
     function idx = get.idxFluor(this)
-        idx = find(  cellfun( @(x) isempty(strfind(x,'fret')), this.channelNames )  );
+        idx = find(  contains( {'donor','acceptor'}, this.channelNames )  );
+        %idx = find(  cellfun( @(x) isempty(strfind(x,'fret')), this.channelNames )  );
     end
     
     function idx = get.idxFret(this)
@@ -226,8 +231,8 @@ methods
         assert( (islogical(idx)||isnumeric(idx)) && isvector(idx), 'Invalid trace indexes' );
         
         % Realculate FRET efficiency, only in the selected traces.
-        total = this.total(idx,:);
-        this.fret(idx,:) = this.acceptor(idx,:)./total;
+        t = this.total(idx,:);
+        this.fret(idx,:) = this.acceptor(idx,:)./t;
         this.fret( ~isfinite(this.fret) ) = 0;  %NaN can happen in low SNR traces.
         
         % Determine where the donor is on/alive and not dark or quenched
@@ -237,15 +242,15 @@ methods
         
         switch lower(this.fileMetadata.zeroMethod)
             case 'off'
-                alive = thresholdTotal( total, zeros(this.nTraces,1) );
+                alive = thresholdTotal( t, zeros(this.nTraces,1) );
             case 'threshold'
-                alive = thresholdTotal( total, varargin{:} );
+                alive = thresholdTotal( t, varargin{:} );
             case 'skm'
-                alive = skmTotal( total, varargin{:} );
+                alive = skmTotal( t, varargin{:} );
             otherwise
                 warning('Unknown value for fileMetadata.zeroMethod. Defaulting to threshold method.');
                 this.fileMetadata.zeroMethod = 'threshold';
-                alive = thresholdTotal( total );
+                alive = thresholdTotal( t );
         end
         
         % Set FRET to zero when the donor is dark
@@ -253,7 +258,20 @@ methods
         mask(idx,:) = ~alive;
         this.fret(mask) = 0;
         
+        % FIXME: set FRET to zero (or NaN??) when stoichiometry isn't 0.5.
+        
+        
     end %METHOD recalculateFret
+    
+    
+    function recalculateStochiometry(this)
+    % See Kapanidis et al (2004) PNAS 101, p. 8938, equation 4.
+        
+        if ~this.isChannel('acceptorDirect'), return; end
+        
+        this.stoichiometry = this.total ./ (this.total + this.acceptorDirect);
+        
+    end
     
 
 end %methods

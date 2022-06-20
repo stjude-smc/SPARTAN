@@ -10,6 +10,8 @@ if nargin<2,
     constants = cascadeConstants;
 end
 
+[nTraces,len] = size(data.donor);
+
 
 % Determine the type of experiment so we know how to process the data, and
 % insure that the fields make sense.
@@ -34,34 +36,48 @@ end
 % Calculate donor lifetime
 lt = calcLifetime(data.total,constants.TAU,constants.NSTD);
 
+if data.isChannel('acceptorDirect')
+    ltA = calcLifetime(data.acceptorDirect,constants.TAU,constants.NSTD);
+    bgA = zeros(nTraces,1);
+else
+    ltA = [];
+end
+
 
 % Subtract fluorescence intensity so the baseline after photobleaching in
 % zero. For traces that do not photobleach, no correction is made, but the
 % baseline will be close because an estimated background image is
 % subtracted from each frame in gettraces.
 % FIXME: consider making this a method in Traces class
-[nTraces,len] = size(data.donor);
 bg = zeros(nTraces,3);
 
 for m=1:nTraces,
+    
+    % Subtract acceptorDirect signal
+    if ~isempty(ltA)
+        s = ltA(m)+5;  %ignore the frames around the photobleaching event
+        range = s:min(s+constants.NBK,len);
+        nRange = numel(range);
+        if nRange >= 10
+            bgA(m,1) = sum( data.acceptorDirect(m,range) )/nRange;
+        end
+    end
 
     s = lt(m)+5;  %ignore the frames around the photobleaching event
     range = s:min(s+constants.NBK,len);
     nRange = numel(range);
     
-    if nRange<10,
-        continue; %not enough baseline to calculate background. skip trace.
-    end
-
     % Make background correction
-    bg(m,1) = sum( data.donor(m,range) )/nRange;
-    
-    if isFret,
-        bg(m,2) = sum( data.acceptor(m,range) )/nRange;
-    end
-    
-    if isThreeColor,
-        bg(m,3) = sum( data.acceptor2(m,range) )/nRange;
+    if nRange >= 10
+        bg(m,1) = sum( data.donor(m,range) )/nRange;
+
+        if isFret,
+            bg(m,2) = sum( data.acceptor(m,range) )/nRange;
+        end
+
+        if isThreeColor,
+            bg(m,3) = sum( data.acceptor2(m,range) )/nRange;
+        end
     end
 end
 
@@ -69,6 +85,10 @@ data.donor = bsxfun(@minus, data.donor, bg(:,1));
 
 if isFret,
     data.acceptor = bsxfun(@minus, data.acceptor, bg(:,2));
+end
+
+if ~isempty(ltA)
+    data.acceptorDirect = bsxfun(@minus, data.acceptorDirect, bgA(:,1));
 end
 
 if isThreeColor,

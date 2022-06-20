@@ -115,7 +115,10 @@ end
 if isempty(filename), return; end
 set(handles.figure1,'pointer','watch'); drawnow;
 if ~isempty(handles.movieViewer) && isvalid(handles.movieViewer)
-    close(handles.movieViewer);
+    try
+        close(handles.movieViewer);
+    catch
+    end
     handles.movieViewer = [];
 end
 
@@ -1081,6 +1084,11 @@ total = data.total; %Excludes 'factor' and misc channels
 cla( handles.axTotal );
 plot( handles.axTotal, time,total,'k' );
 axis([handles.axTotal handles.axFluor],'auto y');
+
+% Show acceptorDirect signal if present
+if ismember('acceptorDirect',chNames)
+    plot( handles.axTotal, time, data.acceptorDirect, 'r-' );
+end
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),

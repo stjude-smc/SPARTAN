@@ -37,48 +37,15 @@ this.chExtractor.verify();
 %% Prepare trace output
 quiet = params.quiet;
 nTraces = size(this.peaks,1);
-nFrames = this.nFrames;
+nFrames = this.nFrames;  %should be configurable!
 
 % Create channel name list for the final data file. This includes FRET channels,
 % which are not in the movie. chNames includes only fluorescence fields.
 chNames = this.roles;
-channels = this.chExtractor.channels;
-
 nCh = numel(chNames);
 dataNames = chNames;  %will include derived traces like fret.
 
-% Create traces object, where the data will be stored.
-if ismember('donor',dataNames)
-    if ismember('acceptor',dataNames)
-        dataNames = [dataNames 'fret'];
-    end
-    if ismember('acceptor2',dataNames)
-        dataNames = [dataNames 'fret2'];
-    end
-    if any(ismember({'acceptor2','factor'},dataNames))
-        data = TracesFret4(nTraces,nFrames,dataNames);
-    else
-        data = TracesFret(nTraces,nFrames,dataNames);
-    end
-else
-    data = TracesFluor(nTraces,nFrames,dataNames);
-end
-
-% If not available from movie, prompt user for time resolution
-if ~quiet && this.chExtractor.movie.timeAxis(1)==1,
-    disp('Time axis information is not present in movie!');
-    a = inputdlg('Time resolution (ms):','No time axis in movie!');
-    a = str2double(a);
-    if isnan(a),
-        disp('gettraces: Invalid time resolution.');
-        return;
-    elseif isempty(a), return; %user hit cancel.
-    end
-    data.time = a*( 0:nFrames-1 );
-else
-    data.time = this.chExtractor.movie.timeAxis;
-end
-
+lasers = this.chExtractor.lasers;
 
 
 %% Integrate fluorescence intensity in movie to create fluorescence traces
@@ -107,7 +74,9 @@ if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
     bgMask = this.bgMask{bgFieldIdx};
 end
 
-% Get a list of field locations (channels) to integrate.
+
+
+% Get a list of field locations (integration windows) to sum into traces.
 traces = zeros(nTraces,nFrames,nCh, 'single');
 idx = this.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
@@ -119,11 +88,12 @@ for k=1:nFrames
     for c=1:nCh
         % Sum intensity within the integration window of each PSF
         traces(:,k,c) = sum( single(frame{c}(idx{c})), 1 );       %#ok<PFBNS>
+    end
     
-        % Sum intensity from background regions
-        if ~isempty(bgFieldIdx) && c==bgFieldIdx
-            bgTrace(k) = mean( single(frame{c}(bgMask)) );
-        end
+    
+    % Sum intensity from background regions
+    if ~isempty(bgFieldIdx)
+        bgTrace(k) = mean( single(frame{bgFieldIdx}(bgMask)) );
     end
     
     if mod(k,10)==0 && ~quiet,
@@ -138,27 +108,70 @@ for c=1:nCh
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );
 end
 
+% Convert from arbitrary camera units to photon counts.
+channels = this.chExtractor.channels;
+ppc = reshape( [channels.photonsPerCount], [1 1 nCh] );
+traces = bsxfun( @times, traces, ppc );
+
 
 %% Apply corrections and calculate FRET
 if ~quiet,
     wbh.message = 'Correcting traces and calculating FRET...';
 end
 
-if ~isempty(bgTrace),
-    data.fileMetadata.bgTrace = bgTrace;
+% Split trace data by illumination modes
+timeAxis = this.chExtractor.movie.timeAxis(1:nFrames);
+
+if numel(lasers)>1
+    tracesSplit = cell( numel(lasers), 1 );
+    for i=1:numel(lasers)
+        idx = lasers(i).framesActive;
+        idx = idx(idx<=nFrames);
+        tracesSplit{i} = traces(:, idx, i:end);
+        
+        if i==1, timeAxis=timeAxis(idx); end
+    end
+    nFrames = numel(idx);
+    dataNames = [dataNames 'acceptorDirect'];  %fixme
+    chNames   = [chNames   'acceptorDirect'];  %fixme
+    nCh = numel(chNames);
+    
+    % Merge back into new traces array
+    traces = cat(3, tracesSplit{:});
 end
 
-% Convert fluorescence to arbitrary units to photon counts.
-% FIXME: as currently implemented, photonsPerCount is always defined.
-% if isfield(params,'photonConversion') && ~isempty(params.photonConversion),
-%     traces = traces./params.photonConversion;
-if isfield(channels,'photonsPerCount')
-    ppc = reshape( [channels.photonsPerCount], [1 1 numel(channels)] );
-    traces = bsxfun( @times, traces, ppc );
-    
-    data.fileMetadata.units = 'photons';
+% Prompt user for time axis info if not available from movie metadata.
+if timeAxis(1)==1 && ~quiet
+    disp('Time axis information is not present in movie!');
+    a = inputdlg('Time resolution (ms):','No time axis in movie!');
+    a = str2double(a);
+    if isnan(a)
+        disp([mfilename ': Invalid time resolution.']);
+    elseif ~isempty(a)
+        timeAxis = a*( 0:nFrames-1 );
+    end
+end
+
+% Create traces object, where the data will be stored.
+if ismember('donor',dataNames)
+    if ismember('acceptor',dataNames)
+        dataNames = [dataNames 'fret'];
+    end
+    if ismember('acceptor2',dataNames)
+        dataNames = [dataNames 'fret2'];
+    end
+    if any(ismember({'acceptor2','factor'},dataNames))
+        data = TracesFret4(nTraces,nFrames,dataNames);
+    else
+        data = TracesFret(nTraces,nFrames,dataNames);
+    end
 else
-    data.fileMetadata.units = 'AU';
+    data = TracesFluor(nTraces,nFrames,dataNames);
+end
+data.time = timeAxis;
+
+if ~isempty(bgTrace),
+    data.fileMetadata.bgTrace = bgTrace;
 end
 
 if isfield(params,'zeroMethod'),
@@ -199,13 +212,14 @@ if ~quiet,
     wbh.message = 'Saving traces...';
 end
 
+data.fileMetadata.units = 'photons';
 data.fileMetadata.wavelengths = [channels.wavelength];
 data.fileMetadata.chDesc = {channels.name};
 data.fileMetadata.geometry = this.chExtractor.fieldArrangement;  %fixme: ignore=0?
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.
-for i=1:nCh,
+for i=1:size(this.peaks,2)
     ch = data.channelNames{i};
     x = num2cell( this.peaks(:,1,i) );
     y = num2cell( this.peaks(:,2,i) );

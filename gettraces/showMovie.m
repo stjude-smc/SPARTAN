@@ -66,10 +66,10 @@ if isempty(viewer) || ~isvalid(viewer)
                      'wavelength',num2cell(data.fileMetadata.wavelengths) );
         ex = ChannelExtractor( movieFilename, data.fileMetadata.geometry, ch );
         viewer = MovieViewer( ex );
-        disp('Using trace metadata to create ChannelExtractor failed; using default settings instead');
     catch e
         % If geometry field is not available (older file), use movie file
         % metadata or default to single-color if not present.
+        disp('Using trace metadata to create ChannelExtractor failed; using default settings instead');
         disp(e.message);
         viewer = MovieViewer( movieFilename );
     end
