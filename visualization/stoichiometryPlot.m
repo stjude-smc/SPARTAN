@@ -58,14 +58,14 @@ st = st(fret~=0);
 fret = fret(fret~=0);
 
 counts = histcounts2( fret, st, options.fret_axis, options.fret_axis );
-counts = counts./numel(counts);
+counts = counts / sum(counts(:));
 
 % FIXME: may need to pad with NaN if there is just one trace??
 
 
 
 %% Draw the filled contour plot in current axis
-max_mol = 1/4;  %options.cplot_scale_factor;  %FIXME
+max_mol = 1/(5*options.cplot_scale_factor);
 nl = size(options.cmap,1)-1;       %number of contour levels
 con = 0:(max_mol/nl):max_mol;      %contour levels
 
@@ -82,6 +82,8 @@ xlabel(cax,'FRET');
 ylabel(cax,'Stoichiometry');
 zoom(cax,'on');
 set(cax,'xtick', 0:0.2:1, 'ytick', 0:0.2:1);
+set(cax,'xlim',[-0.1 1.1]);
+set(cax,'ylim',[-0.1 1.1]);
 % axis(cax, bounds);
 set(cax, 'XGrid','on', 'YGrid','on', 'Box','on', 'PlotBoxAspectRatio',[1 1 1]);
 

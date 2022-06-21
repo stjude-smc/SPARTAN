@@ -80,7 +80,32 @@ defaults.contour_bounds = [1 defaults.contour_length defaults.fretRange];
 
 if isempty(h1),
     if ~isfield(defaults,'targetAxes')
-        h1 = figure('Name', [mfilename ' - ' cascadeConstants('software')]);
+        % Find the last makeplots window and try to put the new one next to
+        % it with the same size (unless that would place it off screen)
+        others = findall(groot,'type','figure','tag',mfilename);
+        
+        if ~isempty(others)
+            [~,lastfig] = max( [others.Number] );
+            pos = others(lastfig).Position;  %left, bottom, width, height
+            pos(1) = pos(1) + pos(3);
+            
+            % Customize width to scale with the number of files. FIXME
+            %pos(3) = pos(3) - ???
+        
+            % Make sure the plot won't end up off screen
+            s = get( groot, 'ScreenSize' );
+            if pos(1)+pos(3)>s(1)+s(3)
+                pos(1) = s(1) + s(3)/10;
+                pos(2) = pos(2) - pos(4)/5;
+            end
+            
+            h1 = figure( 'Name', [mfilename ' - ' cascadeConstants('software')], ...
+                         'tag',mfilename, 'Position',pos );
+        else
+            % First makeplot windows. FIXME define a default position...
+            h1 = figure( 'Name', [mfilename ' - ' cascadeConstants('software')], ...
+                         'tag',mfilename );
+        end
     else
         h1 = get(defaults.targetAxes{1,1},'parent');
     end
@@ -265,7 +290,8 @@ else
     nrows = 2;
 end
 
-[idl,histmax,cplotax,histax,tdax] = deal( zeros(nFiles,1) );
+% [idl,histmax,cplotax,histax,tdax] = deal( zeros(nFiles,1) );
+[idl,histmax] = deal( zeros(nFiles,1) );
 [cplotdataAll,cpdataAll,shistAll,tdpAll] = deal( cell(nFiles,1) );
 
 
@@ -286,15 +312,22 @@ if isfield(options,'targetAxes')
     end
     
 else
-    axopt = {'Parent',handles.hFig};
-    for k=1:nFiles,
-        cplotax(k) = subplot(nrows, nFiles, k, axopt{:});
-        histax(k)  = subplot(nrows, nFiles, nFiles+k, axopt{:});
-        if nrows>2 && ( has_dwt(k) || has_alex(k) ),
-            tdax(k) = subplot(nrows, nFiles, 2*nFiles+k, axopt{:});
-        end
+    if ~isfield(handles,'ax')
+        axopt = {'Parent',handles.hFig};
+        handles.ax = subplotTight( nrows, nFiles, axopt{:} );
+
+    %     if nrows>2
+    %         idxDelete = ~(has_dwt||has_alex);
+    %         delete(  handles.ax(3,idxDelete)  );
+    %         handles.ax(3,idxDelete) = 0;
+    %     end
+
     end
+    cplotax = handles.ax(1,:);
+    histax = handles.ax(2,:);
+    if nrows>2, tdax=handles.ax(3,:); end
 end
+cla(handles.ax);
 
 
 % Calculate and display all plots for each file:
