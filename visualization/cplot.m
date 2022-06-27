@@ -44,7 +44,7 @@ end
 bounds = [1 options.contour_length options.fretRange];
 
 % Create contour plot
-hist2d = makecplot(args{:});
+[hist2d,units] = makecplot(args{:});
 output = hist2d;
 
 
@@ -120,7 +120,7 @@ axis(cax, bounds);
 
 % Add all appearance details
 set(cax, 'YGrid','on' );
-xlabel(cax,'Time (s)');  %fixme could be frames
+xlabel(cax, sprintf('Time (%s)',units) );
 ylabel(cax,'FRET');
 zoom(cax,'on');
 

@@ -1,4 +1,4 @@
-function hist2d = makecplot( input, options )
+function [hist2d,units] = makecplot( input, options )
 % MAKECPLOT   Creates a contour plot of FRET values over time.
 %
 %   [HIST] = MAKECPLOT(INPUT, OPTIONS) creates a FRET-time contour
@@ -22,8 +22,13 @@ end
 
 % Select FRET data and remove initial frames if requested.
 fret = data.(options.fretField)(:,1+options.pophist_offset:end);
-% time_axis = data.time(1+options.pophist_offset:end);
-time_axis = data.time(1+options.pophist_offset:end)/1000;
+if options.frameAxis
+    time_axis = options.pophist_offset + (1:data.nFrames);
+    units = 'frames';
+else
+    time_axis = data.time(1+options.pophist_offset:end)/1000;
+    units = 's';
+end
 
 % Remove traces with NaN values
 bad = isnan( fret(:) );

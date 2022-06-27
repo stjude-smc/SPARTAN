@@ -162,6 +162,7 @@ options.cplot_scale_factor = 8;      % contour level scaling; depends on bin siz
 options.contour_length = 50;         % # frames to display in contour plots
 options.truncate_statehist = true;   % truncate data used for making statehist/tdplots to
 options.truncate_tdplot = false;     %   match the displayed contour plot (contour_length).
+options.frameAxis = false;           % if true, use frame number as the time axis.
 
 % This option will normalize all histograms to the dataset with the most
 % molecules. This will give a better sense of when there is no FRET in a

@@ -171,12 +171,13 @@ handles = guidata(hObject);
 prompt = {'Contour length (frames):', 'Contour offset (frames):', ...
           'Contour scaling factor:', 'FRET bin size:', ...
           'Hide photobleaching:', 'TD plot scaling factor:', ...
-          'Hide blinks in TD plots', 'Truncate TD plot'};
+          'Hide blinks in TD plots', 'Truncate TD plot', ...
+          'Time axis in frames'};
       
 fields = {'contour_length', 'pophist_offset', ...
           'cplot_scale_factor', 'contour_bin_size', ...
           'cplot_remove_bleached', 'tdp_max', ...
-          'hideBlinksInTDPlots', 'truncate_tdplot' };
+          'hideBlinksInTDPlots', 'truncate_tdplot', 'frameAxis' };
 opt = settingdlg(handles.options,fields,prompt);
 if isempty(opt), return; end
 
@@ -293,6 +294,7 @@ end
 % [idl,histmax,cplotax,histax,tdax] = deal( zeros(nFiles,1) );
 [idl,histmax] = deal( zeros(nFiles,1) );
 [cplotdataAll,cpdataAll,shistAll,tdpAll] = deal( cell(nFiles,1) );
+[cplotax,histax,tdax] = deal( [] );
 
 
 % Remove latent annotations, if any.
