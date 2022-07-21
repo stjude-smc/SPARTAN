@@ -114,6 +114,7 @@ methods
         % Load metadata from movie file if available.
         if isfield(this.movie.metadata,'lasers') && ...
            all( isfield(this.movie.metadata.lasers,{'wavelength','framesActive'}) )
+            assert( issorted([this.movie.metadata.lasers.wavelength]) );
             this.lasers = this.movie.metadata.lasers;
         end
         

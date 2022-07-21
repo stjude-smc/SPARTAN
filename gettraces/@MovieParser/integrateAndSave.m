@@ -90,7 +90,6 @@ for k=1:nFrames
         traces(:,k,c) = sum( single(frame{c}(idx{c})), 1 );       %#ok<PFBNS>
     end
     
-    
     % Sum intensity from background regions
     if ~isempty(bgFieldIdx)
         bgTrace(k) = mean( single(frame{bgFieldIdx}(bgMask)) );
@@ -100,6 +99,12 @@ for k=1:nFrames
         iterate(wbh,10);
     end
 end
+
+if ~quiet,
+    wbh.message = 'Correcting traces and calculating FRET...';
+end
+
+timeAxis = this.chExtractor.movie.timeAxis(1:nFrames);
 
 % Subtract local background
 bg = this.background;  %(idxFields);
@@ -113,16 +118,11 @@ channels = this.chExtractor.channels;
 ppc = reshape( [channels.photonsPerCount], [1 1 nCh] );
 traces = bsxfun( @times, traces, ppc );
 
-
-%% Apply corrections and calculate FRET
-if ~quiet,
-    wbh.message = 'Correcting traces and calculating FRET...';
-end
-
-% Split trace data by illumination modes
-timeAxis = this.chExtractor.movie.timeAxis(1:nFrames);
-
-if numel(lasers)>1
+% Handles alternating laser excitation modes
+if numel(lasers)>2
+    error('Only 2-color ALEX currently supported');
+elseif numel(lasers)==2
+    % Split trace data by illumination mode
     tracesSplit = cell( numel(lasers), 1 );
     for i=1:numel(lasers)
         idx = lasers(i).framesActive;
@@ -131,14 +131,18 @@ if numel(lasers)>1
         
         if i==1, timeAxis=timeAxis(idx); end
     end
-    nFrames = numel(idx);
-    dataNames = [dataNames 'acceptorDirect'];  %fixme
-    chNames   = [chNames   'acceptorDirect'];  %fixme
-    nCh = numel(chNames);
     
-    % Merge back into new traces array
+    % Recreate traces array
     traces = cat(3, tracesSplit{:});
+    
+    % Update list of channel names for 2-color ALEX.
+    nFrames = numel(idx);
+    dataNames = [dataNames 'acceptorDirect' 'stoichiometry'];
+    chNames   = [chNames   'acceptorDirect'];
 end
+
+
+%% Apply corrections and calculate FRET
 
 % Prompt user for time axis info if not available from movie metadata.
 if timeAxis(1)==1 && ~quiet
@@ -179,7 +183,7 @@ if isfield(params,'zeroMethod'),
 end
 
 % Add trace data to the Traces output object
-for i=1:nCh,
+for i=1:numel(chNames),
     data.(chNames{i}) = traces(:,:,i);
 end
 
@@ -203,6 +207,7 @@ crosstalk  = params.crosstalk( this.idxActiveChannels, this.idxActiveChannels );
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = correctTraces( bgsub(data), crosstalk, to_col(scaleFluor) );
 data.recalculateFret();
+data.recalculateStochiometry();
 
 
 

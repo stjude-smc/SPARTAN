@@ -266,6 +266,7 @@ methods
     
     function recalculateStochiometry(this)
     % See Kapanidis et al (2004) PNAS 101, p. 8938, equation 4.
+    % FIXME: this should be set to NaN when no fluorophores are alive.
         
         if ~this.isChannel('acceptorDirect'), return; end
         

@@ -315,6 +315,12 @@ set(handles.txtProgress,'String','Batch processing: finished.');
 %=======================  PICK PEAKS and SAVE TRACES  =====================
 %==========================================================================
 
+function handles = btnHidePicks_Callback(~, ~, handles) %#ok<*DEFNU>
+handles.viewer.hidePeaks();
+%end function btnHidePicks_Callback
+
+
+
 function handles = getTraces_Callback(~, ~, handles)
 % Find peak locations from total intensity
 
