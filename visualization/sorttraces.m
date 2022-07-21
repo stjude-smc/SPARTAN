@@ -246,22 +246,8 @@ set(handles.editGoTo,'Enable','on','String','1');
 editGoTo_Callback(handles.editGoTo, [], handles);
 
 
-% Add legends to the plotted traces.
-state = strcmpi(get(handles.btnLegend,'State'),'on')+1;
-showhide = {'hide','show'};
-
-chNames = data.channelNames(data.idxFluor);
-if isfield(data.fileMetadata,'chDesc')
-    chNames = cellfun( @(x,y)sprintf('%s (%s)',x,y), chNames, ...
-           data.fileMetadata.chDesc(data.idxFluor), 'UniformOutput',false );
-end
-legend( handles.axFluor, chNames );
-if numel(data.idxFluor)<2, state=1; end
-legend(handles.axFluor, showhide{state});
-
-legend( handles.axFret, data.channelNames{data.idxFret} );
-if numel(data.idxFret)<2, state=1; end
-legend(handles.axFret, showhide{state});
+% Add (or remove) legends to the plotted traces.
+btnLegend_ClickedCallback([], [], handles);
 
 
 % Adjust bottom axis, depending on the type of data.
@@ -1008,6 +994,8 @@ end
 
 function handles = plotter(handles)
 % Draw traces for current molecule and update displayed stats.
+% FIXME: display updates can be faster if the data in the plot is replaced
+% instead of make a new plot each time.
 
 
 % Adjust data if some setting was changed.
@@ -1076,39 +1064,40 @@ fluorCh = chNames(data.idxFluor);
 
 for c=1:numel(fluorCh),
     trace = data.(fluorCh{c});
-    plot( handles.axFluor, time,trace, 'Color',chColors(c,:) );
+    plot( handles.axFluor, time,trace, 'Color',chColors(c,:), 'DisplayName',chNames{c} );
 end
 total = data.total; %Excludes 'factor' and misc channels
 
 % Plot total fluorescence
 cla( handles.axTotal );
-plot( handles.axTotal, time,total,'k' );
+plot( handles.axTotal, time,total,'k', 'DisplayName','Total Intensity' );
 axis([handles.axTotal handles.axFluor],'auto y');
 
 % Show acceptorDirect signal if present
 if ismember('acceptorDirect',chNames)
-    plot( handles.axTotal, time, data.acceptorDirect, 'r-' );
+    plot( handles.axTotal, time, data.acceptorDirect, 'r-', 'DisplayName','acceptor (direct)' );
 end
 
 % Draw lines representing donor (green) and acceptor (red) alive times
 if ismember('fret',chNames),
-    mean_on_signal = mean( total(data.fret~=0) );
-    mean_off_signal = mean( total(lt+5:end) );
-
-    simplified_cy3 = mean_on_signal*(data.fret~=0);
-    simplified_cy3(data.fret==0) = mean_off_signal;
-        
-    simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
-            mean_off_signal*ones(1,data.nFrames-FRETlifetime)];
-    
-    plot( handles.axTotal, time,simplified_cy5,'r' );
-    plot( handles.axTotal, time,simplified_cy3,'g' );
+%     mean_on_signal = mean( total(data.fret~=0) );
+%     mean_off_signal = mean( total(lt+5:end) );
+% 
+%     simplified_cy3 = mean_on_signal*(data.fret~=0);
+%     simplified_cy3(data.fret==0) = mean_off_signal;
+%         
+%     simplified_cy5=[mean_on_signal*ones(1,FRETlifetime)...
+%             mean_off_signal*ones(1,data.nFrames-FRETlifetime)];
+%     
+%     plot( handles.axTotal, time,simplified_cy5,'r' );
+%     plot( handles.axTotal, time,simplified_cy3,'g' );
     
     % Show adjustable FRET threshold line, if applicable.
     if strcmpi(data.fileMetadata.zeroMethod,'threshold')
         handles.hThresh = plot( handles.axTotal, time([1 data.nFrames]), ...
                 repmat(handles.fretThreshold(m),1,2), 'b-', ...
-                'ButtonDownFcn',@(a,b)sorttraces('threshDown_Callback',a,b,guidata(a)));
+                'ButtonDownFcn',@(a,b)sorttraces('threshDown_Callback',a,b,guidata(a)), ...
+                'DisplayName','Threshold');
     end
 end
 
@@ -1116,16 +1105,17 @@ end
 % Plot FRET efficiency
 cla( handles.axFret );
 if ismember('fret',chNames),
-    plot( handles.axFret, time,data.fret, 'b-');
+    plot( handles.axFret, time,data.fret, 'b-', 'DisplayName','fret');
 end
 
 if ismember('fret2',chNames),
-    plot( handles.axFret, time,data.fret2, 'm-');
+    plot( handles.axFret, time,data.fret2, 'm-', 'DisplayName','fret2');
 end
 
 if ~isempty(handles.idlFret),
     dt = handles.data.sampling/2/1000; %transition between datapoints.
-    stairs( handles.axFret, time-dt, handles.idlFret(m,:), 'r-', 'LineWidth',1 );
+    stairs( handles.axFret, time-dt, handles.idlFret(m,:), 'r-', 'LineWidth',1, ...
+            'DisplayName','idealization');
 end
 
 xlim(handles.axFret, [time(1) time(end)]);
@@ -1485,6 +1475,7 @@ state = strcmpi(get(handles.btnLegend,'State'),'on')+1;
 showhide = {'hide','show'};
 
 legend(handles.axFluor, showhide{state});
+legend(handles.axTotal, showhide{state});
 legend(handles.axFret,  showhide{state});
 
 % END FUNCTION btnLegend_ClickedCallback
