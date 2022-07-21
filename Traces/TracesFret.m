@@ -253,26 +253,22 @@ methods
                 alive = thresholdTotal( t );
         end
         
+        % Calculate stoichiometry ratio for ALEX data, setting to nan when
+        % both there is no fluorescence from any channel.
+        % See Kapanidis et al (2004) PNAS 101, p. 8938, equation 4.
+        if this.isChannel('acceptorDirect')
+            ad = this.acceptorDirect(idx,:);
+            this.stoichiometry(idx,:) = t ./ (t + ad);
+        end
+        
         % Set FRET to zero when the donor is dark
+        % FIXME: set FRET to NaN when not in: 0.1 < stoichiometry < 0.9 ?
         mask = false( size(this.fret) );
         mask(idx,:) = ~alive;
         this.fret(mask) = 0;
-        
-        % FIXME: set FRET to zero (or NaN??) when stoichiometry isn't 0.5.
-        
-        
+        this.stoichiometry(mask) = NaN;
+            
     end %METHOD recalculateFret
-    
-    
-    function recalculateStochiometry(this)
-    % See Kapanidis et al (2004) PNAS 101, p. 8938, equation 4.
-    % FIXME: this should be set to NaN when no fluorophores are alive.
-        
-        if ~this.isChannel('acceptorDirect'), return; end
-        
-        this.stoichiometry = this.total ./ (this.total + this.acceptorDirect);
-        
-    end
     
 
 end %methods

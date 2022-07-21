@@ -30,7 +30,7 @@ function [retval,nTraces] = traceStat( varargin )
 %     avgfret       average FRET value
 %     fretEvents    number of FRET events crossing E=0.14
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2022 Cornell University All Rights Reserved.
 
 
 % PARAMETERS:
@@ -60,9 +60,6 @@ if nargin<1,
     ln.ncross   = '# Cy3 Blinks';
     ln.overlap  = 'Multi-step photobleaching';
     ln.safeRegion = 'Single-molecule start';
-    ln.a        = 'Mean Acceptor Intensity';
-    ln.d        = 'Mean Donor Intensity';
-    
     ln.avgFret  = 'Average FRET value';
     
     % These parameters are specific to 3/4-color FRET with a second acceptor.
@@ -114,20 +111,8 @@ elseif iscell( varargin{1} ),
         end
         
     end
-   
-% Assume the user passed trace data directly.
 else
-    warning('This syntax is depricated and will not be avilable in future versions');
-    
-    % Passing in donor/acceptor/fret traces separately.
-    if nargin>=3,
-        data.donor    = varargin{1};
-        data.acceptor = varargin{2};
-        data.fret     = varargin{3};
-        retval = traceStat_data( data, varargin{4:end} );
-    else
-        retval = traceStat_data( varargin{:} );
-    end
+    error('Invalid input parameters');
 end
     
 % Close the waitbar, if it was created.
@@ -150,24 +135,8 @@ if ~data.isChannel('acceptor'),
 end
 
 [Ntraces,len] = size(data.fret);
-
-% Extract data matrices to variables to make parfor happy.
-donorAll    = data.donor;
-acceptorAll = data.acceptor;
-fretAll     = data.fret;
-
-% Add second acceptor FRET channel if available.
 isThreeColor = data.isChannel('fret2');
-if isThreeColor,
-    fret2All = data.fret2;
-    acceptor2All = data.acceptor2;
-else
-    % Even if unused, parfor requires these to be made.
-    % FIXME?: put fret2 elements in a separate loop to avoid parfor.
-    fret2All = zeros(size(fretAll));
-    acceptor2All = zeros(size(acceptorAll));
-end
-
+isAlex = data.isChannel('acceptorDirect');
 
 if nargin<2
     constants = cascadeConstants;
@@ -183,7 +152,7 @@ retval = struct( ...
     'corr',  z, 'corrd', z, ...
     'snr',   z, 'snr_s', z, ...
     'nnr',   z, 'bg',    z, ...
-    't', z, 'd', z, 'a', z, ...
+    't', z, ...
     'maxFret',    z, 'ncross',   z, ...
     'lifetime',   z, 'acclife',  z, ...
     'donorlife',  z, 'overlap',  z, ...
@@ -194,25 +163,13 @@ retval = struct( ...
     
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
-if numel(fretAll)/2000 > 1000 && constants.enable_parfor,
-    % For large computations, parallelize computation across threads.
-    pool = gcp;
-    M = pool.NumWorkers;
-else
-    % For small datasets, do everything in the GUI thread (regular for loop).
-    M = 0;
-end
-
-% parfor (i=1:Ntraces, M)
 for i=1:Ntraces
-    % Extract trace in a way that makes parpool happy.
-    donor    = donorAll(i,:);
-    acceptor = acceptorAll(i,:);
-    fret     = fretAll(i,:);
+    donor    = data.donor(i,:);
+    acceptor = data.acceptor(i,:);
     total    = donor+acceptor;
     
-    if isThreeColor,
-        total = total + acceptor2All(i,:);
+    if isThreeColor
+        total = total + data.acceptor2(i,:);
     end
     
     %---- Calculate donor lifetime
@@ -221,7 +178,7 @@ for i=1:Ntraces
     % better than diff for finding the drops. The value of NSTD is optimal
     % with our data (~300 photons/frame), but another value may be needed
     % with very low intensity data?
-    filt_total  = movmedian(total,constants.TAU,2);
+    filt_total  = movmedian(total,constants.TAU);
     dfilt_total = gradient1(filt_total);
     mean_dfilt_total = sum( dfilt_total )/len;
     std_dfilt_total  = std1( dfilt_total );
@@ -313,9 +270,7 @@ for i=1:Ntraces
         acceptor = acceptor(donorRange);
     
         % Calculate average amplitudes
-        retval(i).d = sum( donor    )/nDonor;
-        retval(i).a = sum( acceptor )/nDonor;
-        retval(i).t = mean( donor(1:min(nDonor,10)) + acceptor(1:min(nDonor,10)) );
+        retval(i).t = sum( donor(1:min(nDonor,10)) + acceptor(1:min(nDonor,10)) )/10;
         
         % Calculate Signal-to-noise ratio and background noise    
         % should be using bg_range for this...
@@ -340,14 +295,19 @@ for i=1:Ntraces
     
     % Find regions (before Cy3 photobleach) where FRET is above a threshold.
     % Properties will be calculated only on these areas.
+    fret = data.fret(i,1:lt);
+    
     if lt>1
-        fretRange = fret(1:lt) >= constants.min_fret;
-
+        if isAlex
+            stoichiometry = data.stoichiometry(i,1:lt);
+            fretRange = stoichiometry > 0.1 & stoichiometry < 0.9;
+        else
+            fretRange = fret >= constants.min_fret;
+        end
         % Filter the regions so that they must consist of more than 5
         % consecutive points above the threshold
         fretRange = rleFilter( fretRange, constants.rle_min );
         nFret = sum(fretRange);
-
         retval(i).acclife = nFret;
         
         if nFret>1,
@@ -356,8 +316,8 @@ for i=1:Ntraces
         
         % Similar calculations when there is a second acceptor (3/4-color).
         if isThreeColor,
-            fret2 = fret2All(i,:);
-            fretRange = fret2(1:lt) >= constants.min_fret;
+            fret2 = data.fret2(i,1:lt);
+            fretRange = fret2 >= constants.min_fret;
             fretRange = rleFilter( fretRange, constants.rle_min );
 
             retval(i).fret2Lifetime = sum(fretRange);
@@ -370,7 +330,7 @@ for i=1:Ntraces
     
         % Number of events crossing an arbitrary threshold
         % TODO?: additional filtering to detect only anticorrelated events?
-        [result] = RLEncode( fret(1:lt) > constants.fretEventTreshold );
+        result = RLEncode( fret > constants.fretEventTreshold );
         retval(i).fretEvents = sum( result(:,1)==1 );
     end
     

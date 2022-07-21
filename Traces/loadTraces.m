@@ -94,7 +94,7 @@ useAll = isequal(indexes, 1:nTraces);
 % Create an empty Traces object.
 argin = {numel(indexes), traceLen, channelNames};
 
-if all( ismember(channelNames,{'donor','acceptor','acceptorDirect','fret'}) ),
+if all( ismember(channelNames,{'donor','acceptor','acceptorDirect','fret','stoichiometry'}) ),
     data = TracesFret(argin{:});
     
 elseif ismember('donor',channelNames)

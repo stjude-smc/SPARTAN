@@ -207,7 +207,6 @@ crosstalk  = params.crosstalk( this.idxActiveChannels, this.idxActiveChannels );
 % Subtract background, apply crosstalk/scaling corrections, and calculate FRET.
 data = correctTraces( bgsub(data), crosstalk, to_col(scaleFluor) );
 data.recalculateFret();
-data.recalculateStochiometry();
 
 
 
