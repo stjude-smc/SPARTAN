@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Mar-2018 16:58:35
+% Last Modified by GUIDE v2.5 25-Aug-2022 16:30:43
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -72,7 +72,7 @@ options.dataField = 'fret';  %which
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
-methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL','MPL'};
+methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Together)','MIL (Separately)','MPL'};
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -345,26 +345,40 @@ if strcmpi(options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hm
     return;
 end
 
-% Run the analysis algorithms...
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
+% Run MIL rate optimizer, pooling all data together
 if strcmpi(options.idealizeMethod(1:3),'MIL')
-    options.updateModel = true;
+
     dwtfname = handles.dwtFilenames{idxfile};
-    
     if isempty(dwtfname) || ~exist(dwtfname,'file'),
         errordlg('Traces must be idealized before running MIL');
         set(handles.figure1,'pointer','arrow');
         return;
     end
-    [dwt,sampling] = loadDWT(dwtfname);
+    
+    % Load dwell-time information, inserting empty elements so that the
+    % indexes into dwt and traces align.
+    [dwt,sampling,offsets] = loadDWT(dwtfname);
+    dwt = dwtAddEmpty( dwt, offsets, handles.traceViewer.data.nFrames, ...
+                                 handles.traceViewer.data.nTraces );
     
     % Run MIL, only updating model rates.
     % NOTE: optModel will have the .qubTree model values, which only reflect 
     % the model as originally loaded from file. FIXME.
     try
-        optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+        if strcmpi( options.idealizeMethod, 'MIL (Together)' )
+            options.updateModel = true;
+            optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+            handles.model.rates = optModel.rates;
+            handles.modelViewer.redraw();
+            dhparam.model = optModel;
+            dwellhist( handles.axResult3, dwtfname, dhparam );
+        else
+            rates = milOptimizeSeparately(dwt, sampling/1000, handles.model);
+            ratehist(rates);
+        end
     catch e
         if ~strcmpi(e.identifier,'spartan:op_cancelled')
             errordlg(['Error: ' e.message]);
@@ -373,8 +387,7 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
         set(handles.figure1,'pointer','arrow');
         return;
     end
-    handles.model.rates = optModel.rates;
-    handles.modelViewer.redraw();
+    
 else
     % Clear current idealization (FIXME: also delete .dwt?)
     handles.traceViewer.idl = [];
@@ -408,13 +421,14 @@ else
         
         handles.traceViewer.showModelLines();
     end
+    
+    % Display summary plots of the results to the GUI
+    statehist( handles.axResult1, dwtfname, trcfile );
+    tplot( handles.axResult2, tdplot(dwtfname,trcfile) );  ylabel( handles.axResult2, '');
+    dhparam.model = optModel;
+    dwellhist( handles.axResult3, dwtfname, dhparam );
 end
 
-% Display summary plots of the results to the GUI
-statehist( handles.axResult1, dwtfname, trcfile );
-tplot( handles.axResult2, tdplot(dwtfname,trcfile) );  ylabel( handles.axResult2, '');
-dhparam.model = optModel;
-dwellhist( handles.axResult3, dwtfname, dhparam );
 
 guidata(hObject,handles);
 enableControls(handles);
@@ -813,3 +827,70 @@ if ~isempty(options),
 end
 
 % END FUNCTION mnuIdlSettings_Callback
+
+
+
+
+
+% --------------------------------------------------------------------
+function mnuSelRates_Callback(hObject, ~, handles) %#ok<DEFNU>
+% Select traces using ranges of rate constants.
+% FIXME: remember previous values between calls.
+% FIXME: assumes number of fitted rates == number of traces.
+
+persistent defaults;
+
+try
+    data = load('rates.mat','-mat','rates');  %FIXME: Use handles to save instead!
+    rates = data.rates;
+catch
+    errordlg('Unable to load result file from MIL (Separately)');
+    return;
+end
+
+ex = handles.traceViewer.exclude;
+
+assert( numel(ex)==size(rates,3), 'size mismatch rate matrix' );
+
+% Set order of state pairs that describe each rate constant
+[src,dst] = find( all(rates>0,3) );  %& ~model.fixRates;
+[src,idx] = sort(src);
+dst = dst(idx);
+
+prompt = cell( 2*numel(src), 1 );
+for i=1:numel(src)
+    j = (i-1)*2 +1;
+    prompt{j}   = sprintf('k%d,%d >', src(i), dst(i) );
+    prompt{j+1} = sprintf('k%d,%d <', src(i), dst(i) );
+end
+
+if numel(defaults) ~= numel(prompt)
+    defaults = repmat( {''}, [2*numel(src) 1] );
+end
+
+answer = inputdlg( prompt, 'Select traces by fitted rate constants', ...
+                   1, defaults );
+if isempty(answer), return; end
+
+for i=1:numel(src)
+    j = (i-1)*2 +1;
+    values = squeeze(  rates( src(i), dst(i), : )  );
+    lb = str2double( answer{j} );
+    ub = str2double( answer{j+1} );
+    
+    if ~isnan(lb)
+        ex = ex | values <= lb;
+    end
+    if ~isnan(ub)
+        ex = ex | values >= ub;
+    end
+end
+
+% Update exclusion list and update display.
+defaults = answer;
+handles.traceViewer.exclude = ex;
+handles.traceViewer.showTraces();
+
+% END FUNCTION mnuSelRates_Callback
+
+
