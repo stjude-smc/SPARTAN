@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 25-Aug-2022 16:30:43
+% Last Modified by GUIDE v2.5 29-Aug-2022 15:29:46
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -833,9 +833,8 @@ end
 
 
 % --------------------------------------------------------------------
-function mnuSelRates_Callback(hObject, ~, handles) %#ok<DEFNU>
+function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces using ranges of rate constants.
-% FIXME: remember previous values between calls.
 % FIXME: assumes number of fitted rates == number of traces.
 
 persistent defaults;
@@ -843,14 +842,13 @@ persistent defaults;
 try
     data = load('rates.mat','-mat','rates');  %FIXME: Use handles to save instead!
     rates = data.rates;
+    
+    ex = handles.traceViewer.exclude;
+    assert( numel(ex)==size(rates,3), 'size mismatch rate matrix' );
 catch
     errordlg('Unable to load result file from MIL (Separately)');
     return;
 end
-
-ex = handles.traceViewer.exclude;
-
-assert( numel(ex)==size(rates,3), 'size mismatch rate matrix' );
 
 % Set order of state pairs that describe each rate constant
 [src,dst] = find( all(rates>0,3) );  %& ~model.fixRates;
@@ -889,6 +887,47 @@ end
 % Update exclusion list and update display.
 defaults = answer;
 handles.traceViewer.exclude = ex;
+handles.traceViewer.showTraces();
+
+% END FUNCTION mnuSelRates_Callback
+
+
+
+% --------------------------------------------------------------------
+function mnuSelDwells_Callback(~, ~, handles) %#ok<DEFNU>
+% Select traces by total number number of dwells in any state
+
+persistent defaults;
+
+% Load dwell-time information, inserting empty elements so that the
+% indexes into dwt and traces align.
+try
+    idxfile = get(handles.lbFiles,'Value');
+    [dwt,~,offsets] = loadDWT( handles.dwtFilenames{idxfile} );
+    dwt = dwtAddEmpty( dwt, offsets, handles.traceViewer.data.nFrames, ...
+                                 handles.traceViewer.data.nTraces );
+    nDwells = cellfun( @numel, dwt );
+catch
+    errordlg('Dwell time information not found or invalid.');
+    return;
+end
+
+% Prompt user for trace selection criteria
+if isempty(defaults), defaults={'',''};  end
+answer = inputdlg( {'Minimum:','Maximum:'}, 'Select traces by number of dwells', ...
+                   1, defaults );
+if isempty(answer), return; end
+bounds = cellfun( @str2double, answer );
+if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+    errordlg('Invalid input value');
+    return;
+end
+if isnan(bounds(1)), bounds(1)=-Inf; end
+if isnan(bounds(2)), bounds(2)=Inf; end
+
+% Update exclusion list and update display.
+defaults = answer;
+handles.traceViewer.exclude( nDwells<bounds(1) | nDwells>bounds(2) ) = true;
 handles.traceViewer.showTraces();
 
 % END FUNCTION mnuSelRates_Callback
