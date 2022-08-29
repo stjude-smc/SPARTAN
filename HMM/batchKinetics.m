@@ -867,56 +867,7 @@ handles.traceViewer.mnuSelByDwells_Callback();
 % --------------------------------------------------------------------
 function mnuSelOccupancy_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces by state occupancy
-
-persistent defaults;
-
-nFrames = handles.traceViewer.data.nFrames;
-nTraces = handles.traceViewer.data.nTraces;
-
-% Load dwell-time information, inserting empty elements so that the
-% indexes into dwt and traces align.
-try
-    idxfile = get(handles.lbFiles,'Value');
-    [dwt,~,offsets,model] = loadDWT( handles.dwtFilenames{idxfile} );
-    idl = dwtToIdl( dwt, offsets, nFrames, nTraces );
-    nClass = size(model,1);
-catch
-    errordlg('Dwell time information not found or invalid.');
-    return;
-end
-
-prompt = cell( nClass, 1 );
-for i=1:nClass
-    prompt{i} = sprintf('Minimum frames in class %d', i );
-end
-
-% Prompt user for minumum number of frames in a state
-if numel(defaults) ~= numel(prompt)
-    defaults = repmat( {''}, nClass );
-end
-answer = inputdlg( prompt, 'Select traces by state occupancy', 1, defaults );
-if isempty(answer), return; end
-
-bounds = cellfun( @str2double, answer );
-if any( isnan(bounds) & ~cellfun(@isempty,answer) )
-    errordlg('Invalid input value');
-    return;
-end
-bounds( isnan(bounds) ) = 0;
-
-% Update exclusion list and update display.
-ex = handles.traceViewer.exclude;
-for i=1:nClass
-    if ~isnan(bounds(i))
-        occupancy = sum( idl==i, 2 );
-        ex = ex | occupancy<bounds(i);
-    end
-end
-
-defaults = answer;
-handles.traceViewer.exclude = ex;
-handles.traceViewer.showTraces();
-
+handles.traceViewer.mnuSelOccupancy_Callback();
 % END FUNCTION mnuSelOccupancy_Callback
 
 

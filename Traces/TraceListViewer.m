@@ -91,6 +91,7 @@ methods
     uimenu( menu, 'Label','Load selection list...', 'Callback', @this.mnuLoadSelList_Callback );
     uimenu( menu, 'Label','Save selection list...', 'Callback', @this.mnuSaveSelList_Callback );
     uimenu( menu, 'Label','Select by number of dwells', 'Callback',@this.mnuSelByDwells_Callback, 'Separator','on' );
+    uimenu( menu, 'Label','Select by state occupancy', 'Callback',@this.mnuSelOccupancy_Callback );
     set( allchild(menu), 'Enable','off' );
     set(this.ax, 'UIContextMenu', menu);
     this.contextMenu = menu;
@@ -420,11 +421,13 @@ methods
     end %function mnuSaveSelList_Callback
 
     
+    %% -----------------   TRACE SELECTION DIALOGS   ----------------- %%
     
     function mnuSelByDwells_Callback(this, varargin)
     % Select traces by total number of dwells in any state
     
     persistent defaults;
+    if isempty(this.dwtFilename), return; end
     
     % Prompt user for trace selection criteria
     if isempty(defaults), defaults={'',''};  end
@@ -448,6 +451,59 @@ methods
     this.showTraces();
 
     end %function mnuSelByDwells_Callback
+    
+    
+    
+    function mnuSelOccupancy_Callback(this, varargin)
+    % Select traces by state occupancy
+    % FIXME: implementation would be cleaner if this.idl were the state
+    % assignment traces instead of FRET values.
+
+    persistent defaults;
+    if isempty(this.dwtFilename), return; end
+
+    % Load dwell-time information, inserting empty elements so that the
+    % indexes into dwt and traces align.
+    try
+        [dwt,~,offsets,classes] = loadDWT( this.dwtFilename );
+        idlState = dwtToIdl( dwt, offsets, this.data.nFrames, this.data.nTraces );
+        assert( size(classes,2)==2 );
+        nClass = size(classes,1);
+    catch
+        errordlg('Dwell time information not found or invalid.');
+        return;
+    end
+
+    prompt = cell( nClass, 1 );
+    for i=1:nClass
+        prompt{i} = sprintf('Minimum frames in class %d', i );
+    end
+
+    % Prompt user for minumum number of frames in a state
+    if numel(defaults) ~= numel(prompt)
+        defaults = repmat( {''}, nClass );
+    end
+    answer = inputdlg( prompt, 'Select traces by state occupancy', 1, defaults );
+    if isempty(answer), return; end
+
+    bounds = cellfun( @str2double, answer );
+    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+        errordlg('Invalid input value');
+        return;
+    end
+    bounds( isnan(bounds) ) = 0;
+
+    % Update exclusion list and update display.
+    for i=1:nClass
+        if ~isnan(bounds(i))
+            occupancy = sum( idlState==i, 2 );
+            this.exclude = this.exclude | occupancy<bounds(i);
+        end
+    end
+    defaults = answer;
+    this.showTraces();
+
+    end  % mnuSelOccupancy_Callback
     
     
     
