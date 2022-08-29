@@ -896,40 +896,7 @@ handles.traceViewer.showTraces();
 % --------------------------------------------------------------------
 function mnuSelDwells_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces by total number number of dwells in any state
-
-persistent defaults;
-
-% Load dwell-time information, inserting empty elements so that the
-% indexes into dwt and traces align.
-try
-    idxfile = get(handles.lbFiles,'Value');
-    [dwt,~,offsets] = loadDWT( handles.dwtFilenames{idxfile} );
-    dwt = dwtAddEmpty( dwt, offsets, handles.traceViewer.data.nFrames, ...
-                                 handles.traceViewer.data.nTraces );
-    nDwells = cellfun( @numel, dwt );
-catch
-    errordlg('Dwell time information not found or invalid.');
-    return;
-end
-
-% Prompt user for trace selection criteria
-if isempty(defaults), defaults={'',''};  end
-answer = inputdlg( {'Minimum:','Maximum:'}, 'Select traces by number of dwells', ...
-                   1, defaults );
-if isempty(answer), return; end
-bounds = cellfun( @str2double, answer );
-if any( isnan(bounds) & ~cellfun(@isempty,answer) )
-    errordlg('Invalid input value');
-    return;
-end
-if isnan(bounds(1)), bounds(1)=-Inf; end
-if isnan(bounds(2)), bounds(2)=Inf; end
-
-% Update exclusion list and update display.
-defaults = answer;
-handles.traceViewer.exclude( nDwells<bounds(1) | nDwells>bounds(2) ) = true;
-handles.traceViewer.showTraces();
-
+handles.traceViewer.mnuSelByDwells_Callback();
 % END FUNCTION mnuSelDwells_Callback
 
 

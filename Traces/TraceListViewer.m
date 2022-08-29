@@ -89,6 +89,7 @@ methods
     uimenu( menu, 'Label','Exclude all traces', 'Callback',@(h,e)this.mnuIncludeAll_Callback(true) );
     uimenu( menu, 'Label','Load selection list...', 'Callback', @this.mnuLoadSelList_Callback );
     uimenu( menu, 'Label','Save selection list...', 'Callback', @this.mnuSaveSelList_Callback );
+    uimenu( menu, 'Label','Select by number of dwells', 'Callback',@this.mnuSelByDwells_Callback, 'Separator','on' );
     set( allchild(menu), 'Enable','off' );
     set(this.ax, 'UIContextMenu', menu);
     this.contextMenu = menu;
@@ -368,6 +369,37 @@ methods
 
     end %function mnuSaveSelList_Callback
 
+    
+    
+    function mnuSelByDwells_Callback(this, varargin)
+    % Select traces by total number of dwells in any state
+    
+    persistent defaults;
+    
+    % Prompt user for trace selection criteria
+    if isempty(defaults), defaults={'',''};  end
+    answer = inputdlg( {'Minimum:','Maximum:'}, 'Select traces by number of dwells', ...
+                       1, defaults );
+    if isempty(answer), return; end
+    bounds = cellfun( @str2double, answer );
+    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+        errordlg('Invalid input value');
+        return;
+    end
+    if isnan(bounds(1)), bounds(1)=-Inf; end
+    if isnan(bounds(2)), bounds(2)=Inf; end
+    
+    % Calculate number of dwells in each trace
+    nDwells = cellfun( @numel, idlToDwt(this.idl) );
+    
+    % Update exclusion list and update display.
+    defaults = answer;
+    this.exclude( nDwells<bounds(1) | nDwells>bounds(2) ) = true;
+    this.showTraces();
+
+    end %function mnuSelByDwells_Callback
+    
+    
     
 
 end %methods
