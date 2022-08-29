@@ -390,8 +390,7 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
     
 else
     % Clear current idealization (FIXME: also delete .dwt?)
-    handles.traceViewer.idl = [];
-    handles.traceViewer.showTraces();
+    handles.traceViewer.loadIdealization();
     
     try
         [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
@@ -405,8 +404,7 @@ else
     end
     
     handles.dwtFilenames{idxfile} = dwtfname;
-    handles.traceViewer.idl = loadIdl(dwtfname, handles.traceViewer.data);
-    handles.traceViewer.showTraces();
+    handles.traceViewer.loadIdealization( dwtfname );
 
     if get(handles.chkUpdateModel,'Value'),
         handles.model.muteListeners = true;
@@ -644,48 +642,14 @@ function handles = lbFiles_Callback(hObject, ~, handles)
 
 if isempty(handles.dataFilenames),
     % No files loaded. Clear trace viewer.
-    handles.traceViewer.data = [];
-    handles.traceViewer.idl  = [];
-    handles.traceViewer.dataFilename = '';
+    handles.traceViewer.loadTraceData();
 else
-    set(handles.figure1,'pointer','watch');
-    
     idxFile = get(hObject,'Value');
-    datafname = handles.dataFilenames{idxFile};
-    dwtfname  = handles.dwtFilenames{idxFile};
-    data = loadTraces( datafname );
-    
-    handles.traceViewer.dataFilename = datafname;
-    handles.traceViewer.data = data;
-    handles.traceViewer.idl = loadIdl(dwtfname, data);
-    
-    set(handles.figure1,'pointer','arrow');
+    handles.traceViewer.loadTraceData( handles.dataFilenames{idxFile} );
+    handles.traceViewer.loadIdealization( handles.dwtFilenames{idxFile} );
 end
-
-handles.traceViewer.redraw();
 
 % END FUNCTION lbFiles_Callback
-
-
-
-function idl = loadIdl(dwtfname, data)
-% Returns the idealization for the currently selected file
-
-idl = [];
-try
-    if ~isempty(dwtfname) && exist(dwtfname,'file'),
-        [dwt,~,offsets,model] = loadDWT(dwtfname);
-        idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
-
-        assert( size(model,2)==2 );
-        fretValues = [NaN; model(:,1)];
-        idl = fretValues( idl+1 );
-    end
-catch e
-    disp(['Idealization failed to load: ' e.message])
-end
-
-% END FUNCTION loadIdl
 
 
 

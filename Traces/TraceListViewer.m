@@ -35,6 +35,7 @@ classdef TraceListViewer < handle
 properties (SetAccess=public, GetAccess=public)
     data;             % Traces object represented by this GUI
     dataFilename;     % Full path to .traces file associated with data
+    dwtFilename;      % Full path to .dwt file associated with data
     model;            % QubModel object for drawing model fret value markers
     idl;              % State assignment matrix (idealized traces)
     
@@ -98,6 +99,55 @@ methods
     
     end %constructor
     
+
+    
+    function loadTraceData(this, dataIn)
+    % Load new data into viewer. If called with no parameters, reset to an
+    % empty viewer. First input can be Traces object or path to a .traces
+    % file. Second input must be path to a .dwt file.
+    
+    narginchk(1,2);
+    [this.data,this.dataFilename,this.idl,this.dwtFilename] = deal([]);
+    
+    if nargin>=1
+        if ischar(dataIn) && ~isempty(isempty(dataIn))
+            this.dataFilename = dataIn;
+            set( ancestor(this.ax,'figure'), 'pointer','watch' );
+            this.data = loadTraces(dataIn);
+            set( ancestor(this.ax,'figure'), 'pointer','arrow' );
+            
+        elseif isa(dataIn,'Traces')
+            this.data = dataIn;
+        else
+            error('Invalid first input to TraceListViewer.load');
+        end
+    end
+    this.redraw();
+    
+    end %function loadTraces
+    
+    
+    
+    function loadIdealization( this, dwtFileIn )
+    % Load state assignment traces (idealization) from file
+        
+    [this.idl,this.dwtFilename] = deal([]);
+    if nargin<2 || isempty(dwtFileIn), return; end
+    assert( ischar(dwtFileIn), 'First input must be path to a .dwt file');
+    
+    this.dwtFilename = dwtFileIn;
+    [dwt,~,offsets,classes] = loadDWT(dwtFileIn);
+    this.idl = dwtToIdl(dwt, offsets, this.data.nFrames, this.data.nTraces);
+
+    if ~size(classes,2)==2 || size(classes,1)>max(this.idl(:))
+        error('.dwt file class list is invalid');
+    end
+    fretValues = [NaN; classes(:,1)];
+    this.idl = fretValues( this.idl+1 );
+    
+    this.showTraces();
+    
+    end  %function loadIdealization
     
     
     
