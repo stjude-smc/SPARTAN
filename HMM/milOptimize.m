@@ -1,4 +1,4 @@
-function [optModel,LL] = milOptimize(dwt, dt, model, optionsInput)
+function [optModel,LL,exitflag] = milOptimize(dwt, dt, model, optionsInput)
 % milOptimize  Maximum Interval Likelihood (MIL) model optimization
 %
 %   [optModel,LL] = milOptimize(DWT, DT, MODEL, OPTIONS)
@@ -27,7 +27,7 @@ function [optModel,LL] = milOptimize(dwt, dt, model, optionsInput)
 
 
 narginchk(3,4);
-nargoutchk(1,2);
+nargoutchk(1,3);
 
 
 % Construct a mask to select only rates from connected states.
@@ -37,14 +37,16 @@ I = logical(eye(nStates));
 rateMask = ~I & model.rates~=0 & ~model.fixRates;
 nRates = sum(rateMask(:));
 
+% Remove traces that were excluded from analysis
+if isfield(optionsInput,'exclude') && ~isempty(optionsInput.exclude)
+    dwt = dwt(~optionsInput.exclude);
+end
+    
 % Define default optional arguments, mostly taken from fmincon
 options = struct('maxItr',150,   'convLL',10^-5, 'convGrad',10^-5, ...
                  'verbose',true, 'updateModel',false, 'removeBleaching',true);
 if nargin>=4
     options = mergestruct(options, optionsInput);
-end
-if isfield(options,'exclude') && any(options.exclude)
-    warning('Excluding traces not supported by MIL yet');
 end
 
 % Construct options for fmincon.
@@ -73,7 +75,7 @@ optFun = @(x)milIter(dwt, dt, model, x);
 x0 = model.rates(rateMask)';
 lb =     zeros(1,nRates);
 % ub = 10/dt*ones(1,nRates);
-[optParam,LL] = fmincon( optFun, x0, [],[],[],[],lb,[],[],fminopt );
+[optParam,LL,exitflag] = fmincon( optFun, x0, [],[],[],[],lb,[],[],fminopt );
 
 % Save results
 optModel = copy(model);  %do not modify model in place

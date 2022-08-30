@@ -35,8 +35,11 @@ classdef TraceListViewer < handle
 properties (SetAccess=public, GetAccess=public)
     data;             % Traces object represented by this GUI
     dataFilename;     % Full path to .traces file associated with data
+    dwtFilename;      % Full path to .dwt file associated with data
     model;            % QubModel object for drawing model fret value markers
-    idl;              % State assignment matrix (idealized traces)
+    idl;              % State assignment traces
+    idlValues;        % State emission means for making idealized traces,
+                      %   coming from the .dwt file not the current model.
     
     % Display settings that can be modified by user.
     nTracesToShow = 6;        % Number of traces to display in viewer
@@ -87,8 +90,12 @@ methods
     uimenu( menu, 'Label','Display settings...', 'Callback',@this.mnuDisplaySettings_Callback );
     uimenu( menu, 'Label','Include all traces', 'Callback',@(h,e)this.mnuIncludeAll_Callback(false), 'Separator','on' );
     uimenu( menu, 'Label','Exclude all traces', 'Callback',@(h,e)this.mnuIncludeAll_Callback(true) );
+    uimenu( menu, 'Label','Invert selection', 'Callback',@(h,e)this.mnuInvertSel_Callback(true) );
     uimenu( menu, 'Label','Load selection list...', 'Callback', @this.mnuLoadSelList_Callback );
     uimenu( menu, 'Label','Save selection list...', 'Callback', @this.mnuSaveSelList_Callback );
+    uimenu( menu, 'Label','Select by number of dwells', 'Callback',@this.mnuSelByDwells_Callback, 'Separator','on' );
+    uimenu( menu, 'Label','Select by state occupancy', 'Callback',@this.mnuSelOccupancy_Callback );
+    uimenu( menu, 'Label','Select by rates', 'Callback',@this.mnuSelRates_Callback );
     set( allchild(menu), 'Enable','off' );
     set(this.ax, 'UIContextMenu', menu);
     this.contextMenu = menu;
@@ -97,6 +104,53 @@ methods
     
     end %constructor
     
+
+    
+    function loadTraceData(this, dataIn)
+    % Load new data into viewer. If called with no parameters, reset to an
+    % empty viewer. First input can be Traces object or path to a .traces
+    % file. Second input must be path to a .dwt file.
+    
+    narginchk(1,2);
+    [this.data,this.dataFilename,this.idl,this.idlValues,this.dwtFilename] = deal([]);
+    
+    if nargin>=1
+        if ischar(dataIn) && ~isempty(isempty(dataIn))
+            this.dataFilename = dataIn;
+            set( ancestor(this.ax,'figure'), 'pointer','watch' );
+            this.data = loadTraces(dataIn);
+            set( ancestor(this.ax,'figure'), 'pointer','arrow' );
+            
+        elseif isa(dataIn,'Traces')
+            this.data = dataIn;
+        else
+            error('Invalid first input to TraceListViewer.load');
+        end
+    end
+    this.redraw();
+    
+    end %function loadTraces
+    
+    
+    
+    function loadIdealization( this, dwtFileIn )
+    % Load state assignment traces (idealization) from file
+        
+    [this.idl,this.idlValues,this.dwtFilename] = deal([]);
+    if nargin<2 || isempty(dwtFileIn), return; end
+    assert( ischar(dwtFileIn), 'First input must be path to a .dwt file');
+    
+    this.dwtFilename = dwtFileIn;
+    [dwt,~,offsets,classes] = loadDWT(dwtFileIn);
+    this.idl = dwtToIdl(dwt, offsets, this.data.nFrames, this.data.nTraces);
+
+    if ~size(classes,2)==2 || size(classes,1)>max(this.idl(:))
+        error('.dwt file class list is invalid');
+    end
+    this.idlValues = [NaN; classes(:,1)];
+    this.showTraces();
+    
+    end  %function loadIdealization
     
     
     
@@ -206,7 +260,7 @@ methods
         set( this.hFretLine(i), 'YData',ydata, 'Color',min(1,this.traceColor+0.65*ex) );
 
         if ~isempty(this.idl)
-            ydata = y_offset + this.idl(idx,:);
+            ydata = y_offset + this.idlValues( this.idl(idx,:)+1 );
             set( this.hIdlLine(i), 'YData',ydata, 'Color',min(1,this.idlColor+0.65*ex) );
         end
 
@@ -324,6 +378,14 @@ methods
     this.exclude(:) = value;
     this.showTraces();
     end %function mnuIncludeAll_Callback
+    
+    
+    
+    function mnuInvertSel_Callback(this, varargin)
+    % Include or exclude all traces in trace viewer.
+    this.exclude = ~this.exclude;
+    this.showTraces();
+    end %function mnuIncludeAll_Callback
 
 
 
@@ -368,6 +430,139 @@ methods
 
     end %function mnuSaveSelList_Callback
 
+    
+    
+    %% -----------------   TRACE SELECTION DIALOGS   ----------------- %%
+    
+    function mnuSelByDwells_Callback(this, varargin)
+    % Select traces by total number of dwells in any state
+    
+    persistent defaults;
+    if isempty(this.dwtFilename), return; end
+    
+    % Prompt user for trace selection criteria
+    if isempty(defaults), defaults={'',''};  end
+    answer = inputdlg( {'Minimum:','Maximum:'}, 'Select traces by number of dwells', ...
+                       1, defaults );
+    if isempty(answer), return; end
+    bounds = cellfun( @str2double, answer );
+    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+        errordlg('Invalid input value');
+        return;
+    end
+    if isnan(bounds(1)), bounds(1)=-Inf; end
+    if isnan(bounds(2)), bounds(2)=Inf; end
+    
+    % Calculate number of dwells in each trace
+    nDwells = cellfun( @numel, idlToDwt(this.idl) );
+    
+    % Update exclusion list and update display.
+    defaults = answer;
+    this.exclude( nDwells<bounds(1) | nDwells>bounds(2) ) = true;
+    this.showTraces();
+
+    end %function mnuSelByDwells_Callback
+    
+    
+    
+    function mnuSelOccupancy_Callback(this, varargin)
+    % Select traces by state occupancy
+    % FIXME: implementation would be cleaner if this.idl were the state
+    % assignment traces instead of FRET values.
+
+    persistent defaults;
+    if isempty(this.idl), return; end
+
+    nClass = numel(this.idlValues)-1;
+    prompt = cell( nClass, 1 );
+    for i=1:nClass
+        prompt{i} = sprintf('Minimum frames in class %d', i );
+    end
+
+    % Prompt user for minumum number of frames in a state
+    if numel(defaults) ~= numel(prompt)
+        defaults = repmat( {''}, nClass );
+    end
+    answer = inputdlg( prompt, 'Select traces by state occupancy', 1, defaults );
+    if isempty(answer), return; end
+
+    bounds = cellfun( @str2double, answer );
+    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+        errordlg('Invalid input value');
+        return;
+    end
+    bounds( isnan(bounds) ) = 0;
+
+    % Update exclusion list and update display.
+    for i=1:nClass
+        if ~isnan(bounds(i))
+            occupancy = sum( this.idl==i, 2 );
+            this.exclude = this.exclude | occupancy<bounds(i);
+        end
+    end
+    defaults = answer;
+    this.showTraces();
+
+    end  % mnuSelOccupancy_Callback
+    
+    
+    
+    function mnuSelRates_Callback(this, varargin)
+    % Select traces using ranges of rate constants.
+    % FIXME: assumes number of fitted rates == number of traces.
+
+    persistent defaults;
+
+    try
+        temp = load('rates.mat','-mat','rates');
+        rates = temp.rates;
+        assert( numel(this.exclude)==size(rates,3), 'size mismatch rate matrix' );
+    catch
+        errordlg('Unable to load result file from MIL (Separately)');
+        return;
+    end
+
+    % Set order of state pairs that describe each rate constant
+    [src,dst] = find( all(rates>0,3) );  %& ~model.fixRates;
+    [src,idx] = sort(src);
+    dst = dst(idx);
+
+    prompt = cell( 2*numel(src), 1 );
+    for i=1:numel(src)
+        j = (i-1)*2 +1;
+        prompt{j}   = sprintf('k%d,%d >', src(i), dst(i) );
+        prompt{j+1} = sprintf('k%d,%d <', src(i), dst(i) );
+    end
+
+    if numel(defaults) ~= numel(prompt)
+        defaults = repmat( {''}, [2*numel(src) 1] );
+    end
+    answer = inputdlg( prompt, 'Select traces by fitted rate constants', ...
+                       1, defaults );
+    if isempty(answer), return; end
+
+    % Update exclusion list and update display.
+    for i=1:numel(src)
+        j = (i-1)*2 +1;
+        values = squeeze(  rates( src(i), dst(i), : )  );
+        lb = str2double( answer{j} );
+        ub = str2double( answer{j+1} );
+
+        if ~isnan(lb)
+            this.exclude( values <= lb ) = true;
+        end
+        if ~isnan(ub)
+            this.exclude( values >= ub ) = true;
+        end
+    end
+    
+    defaults = answer;
+    this.showTraces();
+
+    end   % mnuSelRates_Callback
+    
+    
+    
     
 
 end %methods

@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 09-Mar-2018 16:58:35
+% Last Modified by GUIDE v2.5 30-Aug-2022 10:21:15
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -72,7 +72,7 @@ options.dataField = 'fret';  %which
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
-methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL','MPL'};
+methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Together)','MIL (Separately)','MPL'};
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
@@ -345,26 +345,40 @@ if strcmpi(options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hm
     return;
 end
 
-% Run the analysis algorithms...
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
+% Run MIL rate optimizer, pooling all data together
 if strcmpi(options.idealizeMethod(1:3),'MIL')
-    options.updateModel = true;
+
     dwtfname = handles.dwtFilenames{idxfile};
-    
     if isempty(dwtfname) || ~exist(dwtfname,'file'),
         errordlg('Traces must be idealized before running MIL');
         set(handles.figure1,'pointer','arrow');
         return;
     end
-    [dwt,sampling] = loadDWT(dwtfname);
+    
+    % Load dwell-time information, inserting empty elements so that the
+    % indexes into dwt and traces align.
+    [dwt,sampling,offsets] = loadDWT(dwtfname);
+    dwt = dwtAddEmpty( dwt, offsets, handles.traceViewer.data.nFrames, ...
+                                 handles.traceViewer.data.nTraces );
     
     % Run MIL, only updating model rates.
     % NOTE: optModel will have the .qubTree model values, which only reflect 
     % the model as originally loaded from file. FIXME.
     try
-        optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+        if strcmpi( options.idealizeMethod, 'MIL (Together)' )
+            options.updateModel = true;
+            optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+            handles.model.rates = optModel.rates;
+            handles.modelViewer.redraw();
+            dhparam.model = optModel;
+            dwellhist( handles.axResult3, dwtfname, dhparam );
+        else
+            rates = milOptimizeSeparately(dwt, sampling/1000, handles.model);
+            ratehist(rates);
+        end
     catch e
         if ~strcmpi(e.identifier,'spartan:op_cancelled')
             errordlg(['Error: ' e.message]);
@@ -373,12 +387,10 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
         set(handles.figure1,'pointer','arrow');
         return;
     end
-    handles.model.rates = optModel.rates;
-    handles.modelViewer.redraw();
+    
 else
     % Clear current idealization (FIXME: also delete .dwt?)
-    handles.traceViewer.idl = [];
-    handles.traceViewer.showTraces();
+    handles.traceViewer.loadIdealization();
     
     try
         [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
@@ -392,8 +404,7 @@ else
     end
     
     handles.dwtFilenames{idxfile} = dwtfname;
-    handles.traceViewer.idl = loadIdl(dwtfname, handles.traceViewer.data);
-    handles.traceViewer.showTraces();
+    handles.traceViewer.loadIdealization( dwtfname );
 
     if get(handles.chkUpdateModel,'Value'),
         handles.model.muteListeners = true;
@@ -408,13 +419,14 @@ else
         
         handles.traceViewer.showModelLines();
     end
+    
+    % Display summary plots of the results to the GUI
+    statehist( handles.axResult1, dwtfname, trcfile );
+    tplot( handles.axResult2, tdplot(dwtfname,trcfile) );  ylabel( handles.axResult2, '');
+    dhparam.model = optModel;
+    dwellhist( handles.axResult3, dwtfname, dhparam );
 end
 
-% Display summary plots of the results to the GUI
-statehist( handles.axResult1, dwtfname, trcfile );
-tplot( handles.axResult2, tdplot(dwtfname,trcfile) );  ylabel( handles.axResult2, '');
-dhparam.model = optModel;
-dwellhist( handles.axResult3, dwtfname, dhparam );
 
 guidata(hObject,handles);
 enableControls(handles);
@@ -630,48 +642,14 @@ function handles = lbFiles_Callback(hObject, ~, handles)
 
 if isempty(handles.dataFilenames),
     % No files loaded. Clear trace viewer.
-    handles.traceViewer.data = [];
-    handles.traceViewer.idl  = [];
-    handles.traceViewer.dataFilename = '';
+    handles.traceViewer.loadTraceData();
 else
-    set(handles.figure1,'pointer','watch');
-    
     idxFile = get(hObject,'Value');
-    datafname = handles.dataFilenames{idxFile};
-    dwtfname  = handles.dwtFilenames{idxFile};
-    data = loadTraces( datafname );
-    
-    handles.traceViewer.dataFilename = datafname;
-    handles.traceViewer.data = data;
-    handles.traceViewer.idl = loadIdl(dwtfname, data);
-    
-    set(handles.figure1,'pointer','arrow');
+    handles.traceViewer.loadTraceData( handles.dataFilenames{idxFile} );
+    handles.traceViewer.loadIdealization( handles.dwtFilenames{idxFile} );
 end
-
-handles.traceViewer.redraw();
 
 % END FUNCTION lbFiles_Callback
-
-
-
-function idl = loadIdl(dwtfname, data)
-% Returns the idealization for the currently selected file
-
-idl = [];
-try
-    if ~isempty(dwtfname) && exist(dwtfname,'file'),
-        [dwt,~,offsets,model] = loadDWT(dwtfname);
-        idl = dwtToIdl(dwt, offsets, data.nFrames, data.nTraces);
-
-        assert( size(model,2)==2 );
-        fretValues = [NaN; model(:,1)];
-        idl = fretValues( idl+1 );
-    end
-catch e
-    disp(['Idealization failed to load: ' e.message])
-end
-
-% END FUNCTION loadIdl
 
 
 
@@ -813,3 +791,26 @@ if ~isempty(options),
 end
 
 % END FUNCTION mnuIdlSettings_Callback
+
+
+
+% --------------------------------------------------------------------
+function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
+% Select traces using ranges of rate constants.
+% FIXME: assumes number of fitted rates == number of traces.
+handles.traceViewer.mnuSelRates_Callback();
+% END FUNCTION mnuSelRates_Callback
+
+
+% --------------------------------------------------------------------
+function mnuSelDwells_Callback(~, ~, handles) %#ok<DEFNU>
+% Select traces by total number number of dwells in any state
+handles.traceViewer.mnuSelByDwells_Callback();
+% END FUNCTION mnuSelDwells_Callback
+
+
+% --------------------------------------------------------------------
+function mnuSelOccupancy_Callback(~, ~, handles) %#ok<DEFNU>
+% Select traces by state occupancy
+handles.traceViewer.mnuSelOccupancy_Callback();
+% END FUNCTION mnuSelOccupancy_Callback
