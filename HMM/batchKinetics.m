@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 29-Aug-2022 16:01:18
+% Last Modified by GUIDE v2.5 30-Aug-2022 10:21:15
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -794,67 +794,12 @@ end
 
 
 
-
-
 % --------------------------------------------------------------------
 function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces using ranges of rate constants.
 % FIXME: assumes number of fitted rates == number of traces.
-
-persistent defaults;
-
-try
-    data = load('rates.mat','-mat','rates');  %FIXME: Use handles to save instead!
-    rates = data.rates;
-    
-    ex = handles.traceViewer.exclude;
-    assert( numel(ex)==size(rates,3), 'size mismatch rate matrix' );
-catch
-    errordlg('Unable to load result file from MIL (Separately)');
-    return;
-end
-
-% Set order of state pairs that describe each rate constant
-[src,dst] = find( all(rates>0,3) );  %& ~model.fixRates;
-[src,idx] = sort(src);
-dst = dst(idx);
-
-prompt = cell( 2*numel(src), 1 );
-for i=1:numel(src)
-    j = (i-1)*2 +1;
-    prompt{j}   = sprintf('k%d,%d >', src(i), dst(i) );
-    prompt{j+1} = sprintf('k%d,%d <', src(i), dst(i) );
-end
-
-if numel(defaults) ~= numel(prompt)
-    defaults = repmat( {''}, [2*numel(src) 1] );
-end
-
-answer = inputdlg( prompt, 'Select traces by fitted rate constants', ...
-                   1, defaults );
-if isempty(answer), return; end
-
-for i=1:numel(src)
-    j = (i-1)*2 +1;
-    values = squeeze(  rates( src(i), dst(i), : )  );
-    lb = str2double( answer{j} );
-    ub = str2double( answer{j+1} );
-    
-    if ~isnan(lb)
-        ex = ex | values <= lb;
-    end
-    if ~isnan(ub)
-        ex = ex | values >= ub;
-    end
-end
-
-% Update exclusion list and update display.
-defaults = answer;
-handles.traceViewer.exclude = ex;
-handles.traceViewer.showTraces();
-
+handles.traceViewer.mnuSelRates_Callback();
 % END FUNCTION mnuSelRates_Callback
-
 
 
 % --------------------------------------------------------------------
@@ -869,5 +814,3 @@ function mnuSelOccupancy_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces by state occupancy
 handles.traceViewer.mnuSelOccupancy_Callback();
 % END FUNCTION mnuSelOccupancy_Callback
-
-
