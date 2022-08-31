@@ -182,7 +182,8 @@ methods
                              'Callback',@this.calcEqP0_callback );
     %uimenu( menu, 'Label','Enforce loop balance' );  %see Colquhoun 2004, Biophys J 86, p. 3510. Minimum spanning tree method.
     uimenu( menu, 'Label','Revert to saved', 'Callback', @this.revert_callback, 'Separator','on' );
-    uimenu( menu, 'Label','Save model as...', 'Callback', @this.save_callback );
+    uimenu( menu, 'Label','Save model as...', 'Callback', @this.saveAs_callback );
+    uimenu( menu, 'Label','Save model', 'Callback', @this.save_callback );
     set(this.ax, 'UIContextMenu', menu);
     
     this.rateUpdateListener.Enabled = true;
@@ -371,8 +372,8 @@ methods
     end
 
 
-    function save_callback(this,varargin)
-    % Save the current model to file.
+    function saveAs_callback(this,varargin)
+    % Save the current model to a new file.
     
         filter = {'*.model','SPARTAN model files (*.model)'; ...
                   '*.qmf','QuB format model files (*.qmf)'; ...
@@ -386,6 +387,15 @@ methods
             
             [~,f,e] = fileparts(fname);
             title(this.ax, [f e], 'interpreter', 'none');
+        end
+    end
+
+    function save_callback(this,varargin)
+    % Save the current model to file.
+        if isempty(this.model.filename)
+            saveAs_callback(this);
+        else
+            this.model.save(this.model.filename);
         end
     end
     
