@@ -110,12 +110,12 @@ filter = {'*.traces','Binary Traces Files (*.traces)'; ...
 newFiles = getFiles(filter,'Select traces files to analyze',false);
 if isempty(newFiles), return; end  %user hit cancel.
 
-handles.dataFilenames = [handles.dataFilenames newFiles];
+handles.dataFilenames = [newFiles handles.dataFilenames];
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
-set(handles.lbFiles, 'Value',numel(names), 'String',names);
+set(handles.lbFiles, 'String',names, 'Value',1 );
 
 % Look for .dwt files if data were already analyzed.;
-handles.dwtFilenames = [handles.dwtFilenames findDwt(newFiles)];
+handles.dwtFilenames = [findDwt(newFiles) handles.dwtFilenames];
 guidata(hObject,handles);
 
 % Update GUI, showing the first file

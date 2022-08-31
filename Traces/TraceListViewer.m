@@ -87,6 +87,7 @@ methods
     % Add context menu for trace options.
     menu = uicontextmenu( ancestor(this.ax,'figure'), 'Visible','off' );
     uimenu( menu, 'Label','Display settings...', 'Callback',@this.mnuDisplaySettings_Callback );
+    uimenu( menu, 'Label','Clear idealization', 'Callback',@this.mnuClearIdl_Callback );
     uimenu( menu, 'Label','Include all traces', 'Callback',@(h,e)this.mnuIncludeAll_Callback(false), 'Separator','on' );
     uimenu( menu, 'Label','Exclude all traces', 'Callback',@(h,e)this.mnuIncludeAll_Callback(true) );
     uimenu( menu, 'Label','Invert selection', 'Callback',@(h,e)this.mnuInvertSel_Callback(true) );
@@ -341,6 +342,12 @@ methods
 
     end %function mnuDisplaySettings_Callback
 
+    
+    function mnuClearIdl_Callback(this, varargin)
+    % Clear current idealization
+        this.idl = [];
+        this.showTraces();
+    end %function mnuClearIdl_Callback
     
 
     function sldTracesX_Callback(this, varargin)
