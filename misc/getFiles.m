@@ -1,4 +1,4 @@
-function files = getFiles( filter, prompt )
+function files = getFiles( filter, prompt, keepAsking )
 % GETFILES   User prompt for filenames
 %
 %   FILES = GETFILES( FILTER, PROMPT )
@@ -20,6 +20,7 @@ if nargin>=1 && ischar(filter) && strcmpi(filter,'-last')
     files=last;
     return;
 end
+if nargin<3, keepAsking=true; end
 
 
 %%
@@ -56,6 +57,8 @@ while 1,
         ind = 1:size(filter,1);
         filter = [ filter(filterIndex,:); filter(ind~=filterIndex,:) ];
     end
+    
+    if ~keepAsking, break; end
 end
 
 last = files;

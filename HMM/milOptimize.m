@@ -41,16 +41,18 @@ nRates = sum(rateMask(:));
 if isfield(optionsInput,'exclude') && ~isempty(optionsInput.exclude)
     dwt = dwt(~optionsInput.exclude);
 end
+dwt = dwt( ~cellfun(@isempty,dwt) );
     
 % Define default optional arguments, mostly taken from fmincon
 options = struct('maxItr',150,   'convLL',10^-5, 'convGrad',10^-5, ...
-                 'verbose',true, 'updateModel',false, 'removeBleaching',true);
+                 'verbose',true, 'updateModel',false, 'removeBleaching',true, ...
+                 'UseParallel',cascadeConstants('enable_parfor'));
 if nargin>=4
     options = mergestruct(options, optionsInput);
 end
 
 % Construct options for fmincon.
-fminopt = optimoptions('fmincon', 'UseParallel',cascadeConstants('enable_parfor') );
+fminopt = optimoptions('fmincon', 'UseParallel',options.UseParallel );
 if options.verbose
     fminopt.Display='iter';
     fminopt.OutputFcn = @outfun;

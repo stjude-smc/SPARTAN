@@ -42,7 +42,7 @@ properties (SetAccess=public, GetAccess=public)
                       %   coming from the .dwt file not the current model.
     
     % Display settings that can be modified by user.
-    nTracesToShow = 6;        % Number of traces to display in viewer
+    nTracesToShow = 10;       % Number of traces to display in viewer
     showStateMarkers = true;  % Draw dotted lines to mark model fret values
     dataField = 'fret';       % Which field of target Traces object to show
     exclude = [];             % Logical array marking traces to exlude from analysis
@@ -114,7 +114,7 @@ methods
     narginchk(1,2);
     [this.data,this.dataFilename,this.idl,this.idlValues,this.dwtFilename] = deal([]);
     
-    if nargin>=1
+    if nargin>1
         if ischar(dataIn) && ~isempty(isempty(dataIn))
             this.dataFilename = dataIn;
             set( ancestor(this.ax,'figure'), 'pointer','watch' );

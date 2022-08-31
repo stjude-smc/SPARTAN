@@ -105,14 +105,17 @@ function btnLoadData_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Executes on button press in btnLoadData.
 
 % Prompt use for location to save file in...
-handles.dataFilenames = getFiles([],'Select traces files to analyze');
-if isempty(handles.dataFilenames), return; end  %user hit cancel.
+filter = {'*.traces','Binary Traces Files (*.traces)'; ...
+          '*.*','All Files (*.*)'};
+newFiles = getFiles(filter,'Select traces files to analyze',false);
+if isempty(newFiles), return; end  %user hit cancel.
 
+handles.dataFilenames = [handles.dataFilenames newFiles];
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
-set(handles.lbFiles, 'Value',1, 'String',names);
+set(handles.lbFiles, 'Value',numel(names), 'String',names);
 
-% Look for .dwt files if data were already analyzed.
-handles.dwtFilenames = findDwt(handles.dataFilenames);
+% Look for .dwt files if data were already analyzed.;
+handles.dwtFilenames = [handles.dwtFilenames findDwt(newFiles)];
 guidata(hObject,handles);
 
 % Update GUI, showing the first file
@@ -202,8 +205,7 @@ function btnLoadModel_Callback(hObject, ~, handles, filename)
 
 if nargin<4
     % Ask the user for a filename
-    filter = {'*.model;*.qmf','All model files (*.model;*.qmf)'; ...
-              '*.model','SPARTAN model files (*.model)'; ...
+    filter = {'*.model','SPARTAN model files (*.model)'; ...
               '*.qmf','QuB format model files (*.qmf)'; ...
               '*.*','All Files (*.*)'};
     [fname,p] = uigetfile(filter, 'Load Model');
@@ -335,7 +337,6 @@ trcfile  = handles.dataFilenames{idxfile};
 % Get options from traceViewer
 options = handles.options;
 options.dataField = handles.traceViewer.dataField;
-options.exclude = handles.traceViewer.exclude;
 options.updateModel = get(handles.chkUpdateModel,'Value');
 
 % Verify external modules installed
@@ -359,11 +360,12 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
     end
     
     % Load dwell-time information, inserting empty elements so that the
-    % indexes into dwt and traces align.
+    % indexes into dwt and traces align, and removing excluded traces.
     [dwt,sampling,offsets] = loadDWT(dwtfname);
     dwt = dwtAddEmpty( dwt, offsets, handles.traceViewer.data.nFrames, ...
                                  handles.traceViewer.data.nTraces );
-    
+    dwt = dwt( ~handles.traceViewer.exclude );
+                             
     % Run MIL, only updating model rates.
     % NOTE: optModel will have the .qubTree model values, which only reflect 
     % the model as originally loaded from file. FIXME.
@@ -373,8 +375,6 @@ if strcmpi(options.idealizeMethod(1:3),'MIL')
             optModel = milOptimize(dwt, sampling/1000, handles.model, options);
             handles.model.rates = optModel.rates;
             handles.modelViewer.redraw();
-            dhparam.model = optModel;
-            dwellhist( handles.axResult3, dwtfname, dhparam );
         else
             rates = milOptimizeSeparately(dwt, sampling/1000, handles.model);
             ratehist(rates);
@@ -393,6 +393,7 @@ else
     handles.traceViewer.loadIdealization();
     
     try
+        options.exclude = handles.traceViewer.exclude;
         [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
     catch e
         if ~strcmpi(e.identifier,'spartan:op_cancelled')
@@ -419,12 +420,6 @@ else
         
         handles.traceViewer.showModelLines();
     end
-    
-    % Display summary plots of the results to the GUI
-    statehist( handles.axResult1, dwtfname, trcfile );
-    tplot( handles.axResult2, tdplot(dwtfname,trcfile) );  ylabel( handles.axResult2, '');
-    dhparam.model = optModel;
-    dwellhist( handles.axResult3, dwtfname, dhparam );
 end
 
 

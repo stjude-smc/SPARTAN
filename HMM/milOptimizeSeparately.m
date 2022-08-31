@@ -27,7 +27,7 @@ assert( isa(model,'QubModel'), 'Second argument should be a QubModel object or p
 nTraces = numel(dwt);
 options.updateModel = false;
 options.verbose = false;
-options.Display = 'off';
+options.UseParallel = false;
 rates = nan( size(model.rates,1), size(model.rates,2), numel(dwt) );
 optModel(nTraces) = QubModel;  %allocate array of model objects
 
@@ -36,6 +36,7 @@ gcp;
 wbh.message = 'Running...';
 
 parfor i=1:nTraces
+    if isempty(dwt{i}), continue; end
     wbh.iterate(1); %#ok<PFBNS>
     
     try

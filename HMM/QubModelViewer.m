@@ -91,7 +91,8 @@ methods
     this.redraw();
     
     if ~isempty(this.model.filename)
-        [~,f] = fileparts(this.model.filename);
+        [~,f,e] = fileparts(this.model.filename);
+        f = [f e];
     else
         f = 'New unsaved model';
     end
@@ -383,8 +384,8 @@ methods
             fname = fullfile(p,f);
             this.model.save(fname);
             
-            [~,f] = fileparts(fname);
-            title(this.ax, f, 'interpreter', 'none');
+            [~,f,e] = fileparts(fname);
+            title(this.ax, [f e], 'interpreter', 'none');
         end
     end
     

@@ -23,6 +23,10 @@ end
 
 %% Calculate histograms
 
+% Remove NaN elements, where fitting failed or trace was empty
+keep = ~squeeze( any(any(isnan(rates))) );
+rates = rates(:,:,keep);
+
 % Set order of state pairs that describe each rate constant
 [src,dst] = find( all(rates>0,3) );  %& ~model.fixRates;
 [src,idx] = sort(src);
