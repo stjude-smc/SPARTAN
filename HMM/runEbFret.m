@@ -20,9 +20,11 @@ function [idlTotal,optModels,LL,selfanalysis] = runEbFret(data, dt, model, param
 
 %   Copyright 2016 Cornell University All Rights Reserved.
 
-narginchk(2,Inf);
+narginchk(2,4);
 
-    
+if isempty(which('ebfret.analysis.hmm.vbayes'))
+    error('ebFRET not found. Check your path.');
+end
 
     wbh = waitbar(0,'Running ebFRET...');
     dL = 0.3;

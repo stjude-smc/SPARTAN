@@ -1,14 +1,18 @@
-function [dwtfile,outModel,idl] = runParamOptimizer(model,trcfile,options)
+function [idl,outModel] = runParamOptimizer(data, dwtfile, model, options)
 % batchKinetics: run parameter optimization
+
+narginchk(4,4);
+nargoutchk(2,2);
 
 % Remove intermediate files from previous runs.
 warning('off','MATLAB:DELETE:FileNotFound');
 delete('resultTree.mat','bwmodel.qmf');
 
 % Load data
-data = loadTraces(trcfile);
+assert( isa(data,'Traces'), 'Input must be Traces object or path to .traces file' );
+if ischar(data),  data=loadTraces(trcfile);  end
 
-if isfield(options,'dataField') && isfield(data, options.dataField)
+if isfield(options,'dataField') && ~isempty(options.dataField)
     input = data.(options.dataField);
     
     % Normalize fluorescence intensities to fall in ~[0,1].
@@ -70,12 +74,9 @@ end
 outModel.rates = round(outModel.rates,4,'significant');
 
 % Save the idealization, deleting any previous ones.
-[p,n] = fileparts(trcfile);
-dwtfile = fullfile( p, [n '.dwt'] );
-if exist(dwtfile,'file'), delete(dwtfile); end
-
-dwtfile = fullfile( p, [n '.qub.dwt'] );
-saveDWT( dwtfile, idl, outModel, data.sampling );
+if ~isempty(dwtfile)
+    saveDWT( dwtfile, idl, outModel, data.sampling );
+end
 
     
 end  %FUNCTION runParamOptimizer

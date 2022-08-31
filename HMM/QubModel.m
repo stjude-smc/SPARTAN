@@ -206,6 +206,17 @@ methods
         tf = isempty(this.class);
     end
     
+    function copyValuesFrom(this, newModel)
+    % Copy key model parameters from another object.
+    % Used when optimizing model parameters.
+        narginchk(2,2);
+        assert( isa(newModel,'QubModel') );
+        this.rates = newModel.rates;
+        this.mu    = newModel.mu;
+        this.sigma = newModel.sigma;
+        this.p0    = newModel.p0;
+    end
+    
     
     function addState(model, newClass, newP0, newX,newY)
     % Add a new state to the model

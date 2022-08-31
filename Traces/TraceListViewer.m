@@ -35,7 +35,6 @@ classdef TraceListViewer < handle
 properties (SetAccess=public, GetAccess=public)
     data;             % Traces object represented by this GUI
     dataFilename;     % Full path to .traces file associated with data
-    dwtFilename;      % Full path to .dwt file associated with data
     model;            % QubModel object for drawing model fret value markers
     idl;              % State assignment traces
     idlValues;        % State emission means for making idealized traces,
@@ -112,7 +111,7 @@ methods
     % file. Second input must be path to a .dwt file.
     
     narginchk(1,2);
-    [this.data,this.dataFilename,this.idl,this.idlValues,this.dwtFilename] = deal([]);
+    [this.data,this.dataFilename,this.idl,this.idlValues] = deal([]);
     
     if nargin>1
         if ischar(dataIn) && ~isempty(isempty(dataIn))
@@ -133,21 +132,31 @@ methods
     
     
     
-    function loadIdealization( this, dwtFileIn )
-    % Load state assignment traces (idealization) from file
-        
-    [this.idl,this.idlValues,this.dwtFilename] = deal([]);
-    if nargin<2 || isempty(dwtFileIn), return; end
-    assert( ischar(dwtFileIn), 'First input must be path to a .dwt file');
+    function loadIdealization( this, varargin )
+    % Load state assignment traces (idealization) from file:
+    % tlv.loadIdealization(dwtFilename);
+    % tlv.loadIdealization(idl,fretValues);
+    % Only call if fret data already loaded.
     
-    this.dwtFilename = dwtFileIn;
-    [dwt,~,offsets,classes] = loadDWT(dwtFileIn);
-    this.idl = dwtToIdl(dwt, offsets, this.data.nFrames, this.data.nTraces);
-
-    if ~size(classes,2)==2 || size(classes,1)>max(this.idl(:))
-        error('.dwt file class list is invalid');
+    % Clear current idealization
+    [this.idl,this.idlValues] = deal([]);
+    if nargin==1 || isempty(varargin{1})
+        return;
     end
-    this.idlValues = [NaN; classes(:,1)];
+    
+    if nargin==2 && ischar(varargin{1})
+        if ~exist(varargin{1},'file'), return; end
+        [dwt,~,offsets,classes] = loadDWT( varargin{1} );
+        this.idl = dwtToIdl(dwt, offsets, this.data.nFrames, this.data.nTraces);
+        this.idlValues = classes(:,1);
+    elseif nargin==3 && isnumeric(varargin{1}) && isnumeric(varargin{2})
+        this.idl = varargin{1};
+        this.idlValues = to_col(varargin{2});
+    else
+        error('Invalid input arguments');
+    end
+    
+    this.idlValues = [NaN; this.idlValues];
     this.showTraces();
     
     end  %function loadIdealization
@@ -438,7 +447,7 @@ methods
     % Select traces by total number of dwells in any state
     
     persistent defaults;
-    if isempty(this.dwtFilename), return; end
+    if isempty(this.idl), return; end
     
     % Prompt user for trace selection criteria
     if isempty(defaults), defaults={'',''};  end

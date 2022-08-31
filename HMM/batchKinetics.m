@@ -332,102 +332,75 @@ function handles = btnExecute_Callback(hObject, ~, handles)
 
 % Verify data and model have been specified by user in GUI.
 idxfile  = get(handles.lbFiles,'Value');
-trcfile  = handles.dataFilenames{idxfile};
 
 % Get options from traceViewer
 options = handles.options;
 options.dataField = handles.traceViewer.dataField;
 options.updateModel = get(handles.chkUpdateModel,'Value');
-
-% Verify external modules installed
-if strcmpi(options.idealizeMethod,'ebFRET') && isempty(which('ebfret.analysis.hmm.vbayes'))
-    errordlg('ebFRET not found. Check your path.',mfilename);
-    disp('Go to https://ebfret.github.io/ to download ebFRET, then add to the MATLAB path.');
-    return;
-end
+dwtfname = handles.dwtFilenames{idxfile};
 
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
-% Run MIL rate optimizer, pooling all data together
-if strcmpi(options.idealizeMethod(1:3),'MIL')
+try
+    % Run MIL rate optimizer using only dwell-times as input
+    if strcmpi(options.idealizeMethod(1:3),'MIL')
 
-    dwtfname = handles.dwtFilenames{idxfile};
-    if isempty(dwtfname) || ~exist(dwtfname,'file'),
-        errordlg('Traces must be idealized before running MIL');
-        set(handles.figure1,'pointer','arrow');
-        return;
-    end
-    
-    % Load dwell-time information, inserting empty elements so that the
-    % indexes into dwt and traces align, and removing excluded traces.
-    [dwt,sampling,offsets] = loadDWT(dwtfname);
-    dwt = dwtAddEmpty( dwt, offsets, handles.traceViewer.data.nFrames, ...
-                                 handles.traceViewer.data.nTraces );
-    dwt = dwt( ~handles.traceViewer.exclude );
-                             
-    % Run MIL, only updating model rates.
-    % NOTE: optModel will have the .qubTree model values, which only reflect 
-    % the model as originally loaded from file. FIXME.
-    try
+        % Load dwell-time information
+        assert( ~isempty(handles.traceViewer.idl), 'Traces must be idealized before running MIL');
+        dwt = idlToDwt( handles.traceViewer.idl(~handles.traceViewer.exclude,:) );
+        dt = handles.traceViewer.data.sampling/1000;
+
+        % Run MIL, only updating model rates.
+        % NOTE: optModel will have the .qubTree model values, which only reflect 
+        % the model as originally loaded from file. FIXME.
         if strcmpi( options.idealizeMethod, 'MIL (Together)' )
             options.updateModel = true;
-            optModel = milOptimize(dwt, sampling/1000, handles.model, options);
+            optModel = milOptimize(dwt, dt, handles.model, options);
             handles.model.rates = optModel.rates;
-            handles.modelViewer.redraw();
         else
-            rates = milOptimizeSeparately(dwt, sampling/1000, handles.model);
+            rates = milOptimizeSeparately(dwt, dt, handles.model);
             ratehist(rates);
         end
-    catch e
-        if ~strcmpi(e.identifier,'spartan:op_cancelled')
-            errordlg(['Error: ' e.message]);
-        end
-        set(handles.txtStatus,'String',['Error: ' e.message]);
-        set(handles.figure1,'pointer','arrow');
-        return;
-    end
-    
-else
-    % Clear current idealization (FIXME: also delete .dwt?)
-    handles.traceViewer.loadIdealization();
-    
-    try
-        options.exclude = handles.traceViewer.exclude;
-        [dwtfname,optModel] = runParamOptimizer(handles.model, trcfile, options);
-    catch e
-        if ~strcmpi(e.identifier,'spartan:op_cancelled')
-            errordlg(['Error: ' e.message]);
-        end
-        set(handles.txtStatus,'String',['Error: ' e.message]);
-        set(handles.figure1,'pointer','arrow');
-        return;
-    end
-    
-    handles.dwtFilenames{idxfile} = dwtfname;
-    handles.traceViewer.loadIdealization( dwtfname );
 
-    if get(handles.chkUpdateModel,'Value'),
-        handles.model.muteListeners = true;
-        handles.model.rates = optModel.rates;
-        handles.model.mu    = optModel.mu;
-        handles.model.sigma = optModel.sigma;
-        handles.model.p0    = optModel.p0;
-        handles.model.muteListeners = false;
-        handles.modelViewer.redraw();
+    % Run any other method that uses FRET data as input.
+    else
+        handles.traceViewer.loadIdealization();  %clear idealization
         
-        handles.model.mu = optModel.mu; %trigger update
+        % If no .dwt file name was previously specified, construct one now.
+        if isempty( dwtfname )
+            [p,f] = fileparts( handles.dataFilenames{idxfile} );
+            dwtfname = fullfile( p, [f '.qub.dwt'] );
+            handles.dwtFilenames{idxfile} = dwtfname;
+        end
+
+        % Run optimization algorithm.
+        options.exclude = handles.traceViewer.exclude;
+        [idl,optModel] = runParamOptimizer( handles.traceViewer.data, ...
+                                            dwtfname, handles.model, options );
         
-        handles.traceViewer.showModelLines();
+        % Update model and idealization display
+        handles.traceViewer.loadIdealization( idl, optModel.mu );
+        if get(handles.chkUpdateModel,'Value'),
+            handles.model.copyValuesFrom( optModel );
+        end
     end
+    
+    set(handles.txtStatus,'String','Finished');
+    guidata(hObject,handles);
+    enableControls(handles);
+
+catch e
+    if strcmpi(e.identifier,'spartan:op_cancelled')
+        set(handles.txtStatus,'String','Operation cancelled');
+    else
+        errordlg(['Error: ' e.message]);
+        set(handles.txtStatus,'String','Operation failed');
+    end
+    return;
 end
 
-
-guidata(hObject,handles);
-enableControls(handles);
 set(handles.figure1,'pointer','arrow');
-set(handles.txtStatus,'String','Finished');
-
 % END FUNCTION btnExecute_Callback
 
 
