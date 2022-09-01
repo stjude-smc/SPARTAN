@@ -42,6 +42,9 @@ case 'EBF'
 case 'MPL'
     [idl,optModel] = mplOptimize( input, data.sampling, model, options );
 
+case 'HMJ'
+    [idl,optModel] = runHMJP( data, model, options );
+    
 case upper('THR'),
     error('Thresholding not implemented')
     %[dwt,offsets] = tIdealize(data, model);

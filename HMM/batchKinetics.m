@@ -72,7 +72,7 @@ options.dataField = 'fret';  %which
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
-methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Together)','MIL (Separately)','MPL'};
+methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Together)','MIL (Separately)','MPL','HMJP'};
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
 handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handles);
 
