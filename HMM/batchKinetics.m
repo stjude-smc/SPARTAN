@@ -61,6 +61,7 @@ handles.output = hObject;
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 
 % Set default analysis settings. FIXME: put these in cascadeConstants?
+% FIXME: these really should be setup per method...
 options.updateModel = true;  %update model viewer during optimization
 options.seperately = true; %SKM: analyze each trace individually
 options.maxItr = 100;
@@ -68,6 +69,12 @@ options.minStates = 1;
 options.maxStates = 5;
 options.maxRestarts = 10;
 options.threshold = 1e-5;
+% HMJP parameters
+options.alpha    = 2;   % Uniformization; determines further refinements of jump times within a frame period
+options.beta     = 10;      % higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
+options.eta      = 2;      % gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
+options.HMC_eps  = 0.01;   % Hamiltonian Monte Carlo integration step size
+options.HMC_L    = 50;     % Hamiltonian Monte Carlo number of Leap-frog integration steps.
 options.dataField = 'fret';  %which 
 handles.options = options;
 
@@ -734,22 +741,27 @@ enableControls(handles);
 function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
 % Change idealization settings
 
-% Parameters common to all methods
-prompt = {'Max iterations'};
-fields = {'maxItr'};
-
-switch upper(handles.options.idealizeMethod(1:2))  %#ok<*MULCC>
-    case {'SE','BA'}  %SKM, Baum-Welch
-        prompt = [prompt, {'Analyze traces individually:'}]; %'LL Convergence:', 'Grad. Convergence:'
-        fields = [fields, {'seperately'}];  %'gradLL', 'gradConv'
+switch upper(handles.options.idealizeMethod(1:3))  %#ok<*MULCC>
+    case {'SEG','BAU'}  %SKM, Baum-Welch
+        prompt = {'Max iterations','Analyze traces individually:'}; %'LL Convergence:', 'Grad. Convergence:'
+        fields = {'maxItr','seperately'};  %'gradLL', 'gradConv'
         
-    case {'VB','EB'}  %vb/ebFRET
+    case {'VBF','EBF'}  %vb/ebFRET
         prompt = {'Min states','Max states','Max restarts:','Convergence'};
         fields = {'minStates', 'maxStates', 'maxRestarts',  'threshold'};
     
+    case 'HMJ'
+        prompt = {'Alpha (uniformization)','Beta (rate prior distribution scale parameter)',...
+                  'Eta (rate prior distribution shape parameter)','HMC integration step size',...
+                  'HMC leap-frog steps','Max iterations'};
+        fields = {'alpha','beta','eta','HMC_eps','HMC_L','maxItr'};
+        
 %     case {'MI','MP'}  %MIL or MPL
 %         prompt = {'LL threshold','Gradient threshold'};
 %         fields = {'convLL',      'convGrad'};
+
+    otherwise
+        return;
 end
 
 options = settingdlg(handles.options, fields, prompt);

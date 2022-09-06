@@ -1,66 +1,81 @@
-function [idl,optModel,chain] = runHMJP(data, model, optionsInput)
+function [idl,optModel,chain] = runHMJP(data, model, optsIn)
 % runHMJP  Hidden Markov Jump Process model optimizer
 %
 %   [idl,optModel] = runHMJP(DATA, MODEL, OPTIONS)
 %   Uses the Hidden Markov Jump Process approach to assign states and
 %   optimize model parameters with DATA being a Traces object containing
 %   the donor and acceptor fluoerscence traces as input and MODEL being a
-%   QubModel object with the starting parameter values.
+%   QubModel object; only the number of states is used.
 %   idl is the maximum a posteriori (MAP) output trajectory.
 %   optModel is the output QubModel object with MAP estimate parameters.
 %
+%   The data should be curated so that there is no blinking (transitions
+%   to non-fluorescent states) and the model should not include a dark
+%   state. Frames after bleaching are removed with a threshold of 0.1.
+%
 %   OPTIONS is a struct with any additional settings (all fields optional):
-%     .maxIter:  maximum number of iterations (150)
-%     .convLL:   termination tolerance in LL values.
-%     .convGrad: termination tolerance for parameter step size.
-%     .verbose:  print information about each iteration for debugging.
-%     .updateModel: modify input model object in each iteration (false).
-%                Enables rate constants to be viewed during optimization.
+%     .alpha    uniformization: determines further refinements of jump times within a frame period
+%     .beta     higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
+%     .eta      gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
+%     .HMC_eps  Hamiltonian Monte Carlo integration step size
+%     .HMC_L    Hamiltonian Monte Carlo number of Leap-frog integration steps.n.
 %     .removeBleaching: remove final dwell in dark state (true).
 %
-%   Algorithm details can be found int he following publications:
-%  
-%   "Generalizing HMMs to Continuous Time for Fast Kinetics: Hidden Markov Jump Processes"
-%   https://doi.org/10.1101/2020.07.28.225052
-%
-%   "Extraction of rapid kinetics from smFRET measurements using integrative detectors"
-%   https://doi.org/10.1101/2020.08.28.267468
+%   Algorithm details can be found in the following publications:
+%     "Generalizing HMMs to Continuous Time for Fast Kinetics: Hidden Markov Jump Processes"
+%       https://doi.org/10.1101/2020.07.28.225052
+%     "Extraction of rapid kinetics from smFRET measurements using integrative detectors"
+%       https://doi.org/10.1101/2020.08.28.267468
 %
 %   See also: batchKinetics, runParamOptimizer, chainer_main.
 
 %   Copyright 2022 St Jude Children's Research Hospital.
 
-narginchk(2,3);
-[idl,optModel,chain] = deal([]);
+% This is a very preliminary implementation. Future steps:
+% 1. return continuous time trajectories (MAP per trace).
+% 2. repeat until convergence instead of fixed number of iterations.
+% 3. return/display distributions of parameters across traces.
+% 4. return/display probability distributions??
+% 5. Parallelize; eventually allow submission to a cluster.
+% 6. Incorporate stroboscopic info (if any).
 
-% verbose = options.verbose;  %show intermediate results from HMJP.
+
+%% Process input arguments
+narginchk(2,3);
+
+if ischar(data), data=loadTraces(data); end
+assert( isa(data,'Traces'), 'First argument must be Traces object or path to .traces file' );
+
+if ischar(model), model=QubModel(model); end
+assert( isa(model,'QubModel'), 'First argument must be QubModel object or path to .model file' );
 
 
 %% Configure HMJP sampler
 
+% verbose = options.verbose;  %show intermediate results from HMJP.
 opts.units.space = 'nm';
 opts.units.Int   = 'photons';
 opts.units.time  = 's';
+opts.maxItr      = 1000;   % number of iterations to sample
 
-chain_length = 500;
-
-% Hyperparameters
-opts.M        = 2;  %model.nStates;
-opts.alpha    = 1.01;      % Uniformization; determines further refinements of jump times within a frame period
-opts.beta     = 5;      %higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
-opts.eta      = 4;      %4=peaked prior, 2=exp prior.
+% Default hyperparameters
+opts.M        = model.nStates;
+opts.alpha    = 2;      % Uniformization; determines further refinements of jump times within a frame period
+opts.beta     = 10;     % higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
+opts.eta      = 2;      % gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
 opts.HMC_eps  = 0.01;   % Hamiltonian Monte Carlo integration step size
 opts.HMC_L    = 50;     % Hamiltonian Monte Carlo number of Leap-frog integration steps.
 
 % Background fluorescence levels
-opts.mu_back_D   = 0;
-opts.mu_back_A   = 0;
+opts.mu_back_D = 0;
+opts.mu_back_A = 0;
 
+opts = mergestruct( opts, optsIn );
 
 
 %% Run HMJP, requesting maximum likelihood point estimates
-% dwt = cell( data.nTraces, 1 );
 idl = zeros( data.nTraces, data.nFrames );
+optModel(data.nTraces) = QubModel;
 dt = data.sampling/1000;  %frame interval in seconds.
 
 for traceID=1:data.nTraces
@@ -92,10 +107,10 @@ for traceID=1:data.nTraces
     % Initialize HMJP sampler
     chain = chainer_main( [], 0, opts, true, [] );
     
-    %for j=1:100 %maxIterations
+    %while not converged...
 
         % Run HMJP sampler for chain_length iterations
-        chain = chainer_main(chain, chain_length, [],true,true);
+        chain = chainer_main(chain, opts.maxItr, [],true,true);
 
         % Truncate chain if too large?
         %if chain.sizeGB > 1.0
@@ -115,40 +130,36 @@ for traceID=1:data.nTraces
         %if abs(mean(chainer.MAP(1:end))) - abs(mean(chainer.MAP(1:end-100))) < tol
         %    run additional 3000-4000 steps...
         %    break;
+        
     %end
     
     % Choose maximum a posteriori iteration and save result
     [~,best] = min(chain.MAP);
     
-    % Fix label switching: sort by increasing model mean FRET value
+    % Sort states by increasing mean FRET value to fix label switching
     mu = chain.mu_A(:,best) ./ (chain.mu_A(:,best)+chain.mu_D(:,best));
     [mu,sortIdx] = sort(mu);
-    
-    % FIXME: hacky way of dealing with the dark state...
-%     optModel.rates(2:end,2:end) = chain.Q(sortIdx,sortIdx,best);
-%     optModel.p0    = [0 chain.IT(best,sortIdx)];
-%     optModel.mu    = [0; mu];
+    optModel(traceID) = copy(model);
+    optModel(traceID).p0 = chain.IT(best,sortIdx);
+    optModel(traceID).mu = mu;
+    %optModel(traceID).sigma = ???
+    optModel(traceID).rates = chain.Q(sortIdx,sortIdx,best);
     
     % Discretize trajectory and construct dwell-time matrix.
-    % FIXME: assumes trace begins at time=0!
     starts = floor(chain.t_t{best}/dt)+1;  %convert frame numbers
     [starts,idx] = unique(starts);
-    states = sortIdx(chain.t_s{best}(idx))  +1;  %+1 for dark state!
+    states = sortIdx(chain.t_s{best}(idx));
     
     for j=1:numel(starts)-1
         idl(traceID, starts(j):starts(j+1)) = states(j);
     end
-    idl(traceID, starts(end):floor(opts.T_f/dt)) = states(j);
-    
-    % Deal with inverted states
-    
+    idl(traceID, starts(end):floor(opts.T_f/dt)) = states(end);
     
 end  %for each trace
 
-% For now, don't try to report rates etc.
-% This should report one model per trace like MIL Separately!
-optModel = copy(model);
 
 
 end %function runHMJP
+
+
 

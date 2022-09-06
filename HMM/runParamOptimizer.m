@@ -58,16 +58,14 @@ end
 % Average ensemble parameters to get an average model output.
 if numel(optModel)>1,
     outModel = copy(model);
+    outModel.mu    = mean( cat(3,optModel.mu),    3 );
+    outModel.sigma = mean( cat(3,optModel.sigma), 3 );
+    outModel.p0    = mean( cat(3,optModel.p0),    3 );
     
-    %outModel.mu = mean( [optModel.mu], 2 );   
-    temp = arrayfun(@(x)to_col(x.mu), optModel, 'Uniform',false);
-    outModel.mu = mean( cat(2,temp{:}), 2 );
-    
-    %outModel.sigma = mean( [optModel.sigma], 2 );
-    temp = arrayfun(@(x)to_col(x.sigma), optModel, 'Uniform',false);
-    outModel.sigma = mean( cat(2,temp{:}), 2 );
-    
-    outModel.rates = mean( cat(3,optModel.rates), 3 );
+    rates = cat(3,optModel.rates);
+    outModel.rates = mean(rates,3);
+    save('rates.mat','rates');
+    %ratehist(rates);
 else
     assert( numel(optModel)==1 );
     outModel = optModel;
