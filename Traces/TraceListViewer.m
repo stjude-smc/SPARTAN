@@ -43,6 +43,7 @@ properties (SetAccess=public, GetAccess=public)
     % Display settings that can be modified by user.
     nTracesToShow = 10;       % Number of traces to display in viewer
     showStateMarkers = true;  % Draw dotted lines to mark model fret values
+    showLineDividers = true;  % Draw faint boxes to distinguish trace lines
     dataField = 'fret';       % Which field of target Traces object to show
     exclude = [];             % Logical array marking traces to exlude from analysis
 end
@@ -53,13 +54,9 @@ properties (SetAccess=protected, GetAccess=public)
     sldTracesX = [];         % Handles to X axis slider zoom in on traces
     sldTracesListener = [];  % Listener that detects when scrollbars are altered.
     
-    hFretLine   = [];        % Array of Line objects showing FRET traces,
-    hIdlLine    = [];        %    idealization traces,
-    hTraceLabel = [];        %    trace numbers.
+    hLine       = [];        % Array of Line objects for trace data
+    hTraceLabel = [];        % Array of text objects for trace numbers.
     contextMenu = [];
-    
-    traceColor  = [0 0 1];   % RGB color of traces,
-    idlColor    = [1 0 0];   %     idealization
 end
 
 
@@ -93,6 +90,7 @@ methods
     uimenu( menu, 'Label','Invert selection', 'Callback',@(h,e)this.mnuInvertSel_Callback(true) );
     uimenu( menu, 'Label','Load selection list...', 'Callback', @this.mnuLoadSelList_Callback );
     uimenu( menu, 'Label','Save selection list...', 'Callback', @this.mnuSaveSelList_Callback );
+    uimenu( menu, 'Label','Save selected traces...', 'Callback', @this.mnuSaveSel_Callback );
     uimenu( menu, 'Label','Select by number of dwells', 'Callback',@this.mnuSelByDwells_Callback, 'Separator','on' );
     uimenu( menu, 'Label','Select by state occupancy', 'Callback',@this.mnuSelOccupancy_Callback );
     uimenu( menu, 'Label','Select by rates', 'Callback',@this.mnuSelRates_Callback );
@@ -126,7 +124,16 @@ methods
         else
             error('Invalid first input to TraceListViewer.load');
         end
+    
+        % Verify chosen data field is valid in the new file.
+        if ~this.data.isChannel(this.dataField) && ~(strcmpi(this.dataField,'donor+acceptor') ...
+           && all(this.data.isChannel({'donor','acceptor'})) )
+
+            disp( [mfilename ': dataField value not valid. Resetting'] );
+            this.dataField = this.data.channelNames{1};
+        end
     end
+    
     this.redraw();
     
     end %function loadTraces
@@ -180,13 +187,12 @@ methods
 
     % Reset figure 
     cla(this.ax);
-    [this.hFretLine, this.hIdlLine, this.hTraceLabel] = deal([]);
+    [this.hLine, this.hTraceLabel, hDiv] = deal([]);
     set( allchild(this.contextMenu), 'Enable','off' );
     
     if isempty(this.data), return; end  %no data loaded.
 
     this.exclude = false(this.data.nTraces,1);
-    
     sliderMin  = min(this.data.nTraces,this.nTracesToShow);
     sliderMax  = this.data.nTraces;
     
@@ -201,38 +207,28 @@ methods
     set(this.sldTracesX, 'Min',10, 'Max',this.data.nFrames, 'Value',this.data.nFrames);
     enableListener(this.sldTracesListener, true);
 
-    % Determine colors for data display
-    if strcmpi(this.dataField,'fret'),
-        this.traceColor = [0 0 1];
-    elseif strcmpi(this.dataField,'fret2')
-        this.traceColor = [1 0 1];
-    else
-        idxch = find(strcmpi(this.dataField,this.data.channelNames) );
-        if ~isempty(idxch) && any(idxch==this.data.idxFluor) && ...
-                              isfield(this.data.fileMetadata,'wavelengths')
-            this.traceColor = Wavelength_to_RGB( this.data.fileMetadata.wavelengths(idxch) );
-        else
-            this.traceColor = [0 0 0];
-        end
-    end
-
     % Setup axes for plotting traces.
     time = this.data.time/1000;
     xlim( this.ax, [0 time(end)] );
-    dt = this.data.sampling/2/1000; %put idl transitions between FRET datapoints.
+    z = nan(this.data.nFrames,2);
+    bg = ones(1,3);
 
     for i=1:this.nTracesToShow,
         y_offset = 1.18*(this.nTracesToShow-i) +0.2;
-
+    
+        if this.showLineDividers
+            bg = min(1, 0.95*ones(1,3)+mod(i,2) );  %background color
+            hDiv(i) = patch( this.ax, time([1,1,end,end]), y_offset+[-0.1 1.1 1.1 -0.1], ...
+                       bg, 'LineStyle','None', 'HitTest','off' );  % subtle divider b/t trace lines
+            
+        end
+        
         plot( this.ax, time([1,end]), y_offset+[0 0], 'k:', 'HitTest','off' );  %baseline marker
 
-        % Draw traces, idealizations, and trace number labeles.
-        z = y_offset + zeros(1,this.data.nFrames);
-        this.hFretLine(i) = plot( this.ax, time, z, 'HitTest','off' );
-        this.hIdlLine(i)  = stairs( this.ax, time-dt, z, 'r-', 'HitTest','off' );
-
-        this.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.1, '', ...
-                   'Parent',this.ax, 'BackgroundColor','w', ...
+        this.hLine(i,:) = plot( this.ax, time, z, 'HitTest','off' );  %trace data
+        
+        this.hTraceLabel(i) = text( 0.98*time(end),y_offset+0.2, '', ...
+                   'Parent',this.ax, 'BackgroundColor',bg, ...
                    'HorizontalAlignment','right', 'VerticalAlignment','bottom', ...
                    'ButtonDownFcn',@this.traceLabel_Callback, ...
                    'UIContextMenu',this.contextMenu);
@@ -243,6 +239,7 @@ methods
     this.showTraces();
     this.showModelLines();
     set( allchild(this.contextMenu), 'Enable','on' );
+    uistack(hDiv,'bottom');
 
     end %function redraw
 
@@ -264,26 +261,45 @@ methods
         y_offset = 1.18*(this.nTracesToShow-i) +0.2;
         ex = this.exclude(idx);
 
-        % Redraw FRET and idealization traces
-        ydata = this.data.(this.dataField)(idx,:);
-        ydata = y_offset + min(1.15, max(-0.15,ydata) );  %clip outliers, position w/i viewer
-        set( this.hFretLine(i), 'YData',ydata, 'Color',min(1,this.traceColor+0.65*ex) );
+        % Draw a specific channel with idealization if present.
+        if ~contains(this.dataField,'+')
+            ydata = this.data.(this.dataField)(idx,:);
+            if ~contains(this.dataField,'fret')
+                % Normalize raw fluorescence data to 0..1
+                ydata = ydata ./ mean( this.data.donor(idx,1:10), 2 );
+            end
+            ydata = y_offset + min(1.15, max(-0.15,ydata) );  %clip outliers, position w/i viewer
+            set( this.hLine(i,1), 'YData',ydata, 'Color',min(1,[0 0 1]+0.65*ex) );
 
-        if ~isempty(this.idl)
-            ydata = y_offset + this.idlValues( this.idl(idx,:)+1 );
-            set( this.hIdlLine(i), 'YData',ydata, 'Color',min(1,this.idlColor+0.65*ex) );
+            if ~isempty(this.idl)
+                ydata = y_offset + this.idlValues( this.idl(idx,:)+1 );
+            else
+                ydata = nan(1,this.data.nFrames);
+            end
+            set( this.hLine(i,2), 'YData',ydata, 'Color',min(1,[1 0 0]+0.65*ex) );
+        
+        % Draw traces from all fluorescence channels
+        else
+            mti = this.data.donor(idx,1:10)+this.data.acceptor(idx,1:10);
+            mti = mean(mti(:));
+            ydata = this.data.acceptor(idx,:)/mti;
+            ydata = y_offset + min(1.15, max(-0.15,ydata) );
+            set( this.hLine(i,2), 'YData',ydata, 'Color',min(1,[1 0 0]+0.65*ex) );
+            
+            ydata = this.data.donor(idx,:)/mti;
+            ydata = y_offset + min(1.15, max(-0.15,ydata) );
+            set( this.hLine(i,1), 'YData',ydata, 'Color',min(1,[0 1 0]+0.65*ex) );
         end
 
+        % Update trace labels
         traceLabel = sprintf('%d%s',idx, exText{ex+1});
         set( this.hTraceLabel(i), 'String',traceLabel, 'UserData',idx );
     end
-
-    set( this.hIdlLine, 'Visible',onoff(~isempty(this.idl)) );
     
     % Clear final lines if there isn't enough data to fill them.
-    set( this.hFretLine(nToShow+1:end), 'YData',nan(1,this.data.nFrames) );
-    set( this.hIdlLine(nToShow+1:end),  'YData',nan(1,this.data.nFrames) );
+    set( this.hLine(nToShow+1:end,:), 'YData',nan(1,this.data.nFrames) );
     set( this.hTraceLabel(nToShow+1:end), 'String','' );
+    
 
     end %function showTraces
     
@@ -295,7 +311,7 @@ methods
 
     delete( findall(this.ax,'Tag','ModelMarker') );  %clear existing markers
     
-    if ~this.showStateMarkers || isempty(this.data) || isempty(this.model)
+    if ~this.showStateMarkers || isempty(this.data) || isempty(this.model) || contains(this.dataField,'+')
         return;
     end
 
@@ -327,18 +343,23 @@ methods
     function mnuDisplaySettings_Callback(this, varargin)
     % Change display settings (e.g., number of traces displayed).
     if isempty(this.data), return; end
+    loc = get(this.sldTraces,'Value');
     
-    opt = struct('dataField',this.dataField,'nTracesToShow',this.nTracesToShow, 'showStateMarkers',this.showStateMarkers);
-    prompt = {'Data field', 'Number of traces to show', 'Show model FRET values over traces'};
-    types = { this.data.channelNames(this.data.idxFret), @(x)(x==round(x)&x>0) };  %'total' field inaccessable...
-    opt = settingdlg(opt, fieldnames(opt), prompt, types);
-
-    if ~isempty(opt),
-        this.dataField = opt.dataField;
-        this.nTracesToShow = opt.nTracesToShow;
-        this.showStateMarkers = opt.showStateMarkers;
-        this.redraw();
+    % Add special field to see all fluorescence fields at once.
+    dataFields = [this.data.channelNames];
+    if all( this.data.isChannel({'donor','acceptor'}) )
+        dataFields = [dataFields {'donor+acceptor'}];
     end
+    
+    fields = {'dataField','nTracesToShow', 'showStateMarkers','showLineDividers'};
+    prompt = {'Data field', 'Number of traces to show', 'Show model FRET values over traces',...
+              'Show alterning background bars'};
+    types = { dataFields, @(x)(x==round(x)&x>0) };
+    result = settingdlg( this, fields, prompt, types);
+
+    if isempty(result), return; end  %user hit cancel.
+    this.redraw();
+    set(this.sldTraces, 'Value',loc);
 
     end %function mnuDisplaySettings_Callback
 
@@ -445,6 +466,19 @@ methods
     fclose(fid);
 
     end %function mnuSaveSelList_Callback
+    
+    
+    
+    function mnuSaveSel_Callback(this, varargin)
+    % Save currently selected traces to a new file.
+
+    [f,p] = uiputfile( this.dataFilename, 'Save selected traces to file' );
+    if ~isequal(f,0)
+        saveTraces( fullfile(p,f), this.data.getSubset(~this.exclude) );
+    end
+    
+    end %function mnuSaveSel_Callback
+    
 
     
     
@@ -534,7 +568,7 @@ methods
         rates = temp.rates;
         assert( numel(this.exclude)==size(rates,3), 'size mismatch rate matrix' );
     catch
-        errordlg('Unable to load result file from MIL (Separately)');
+        errordlg('Unable to load rates.mat result file');
         return;
     end
 

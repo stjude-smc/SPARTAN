@@ -75,7 +75,6 @@ options.beta     = 10;      % higher number = slow rates. 1/(beta*eta)=peak esca
 options.eta      = 2;      % gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
 options.HMC_eps  = 0.01;   % Hamiltonian Monte Carlo integration step size
 options.HMC_L    = 50;     % Hamiltonian Monte Carlo number of Leap-frog integration steps.
-options.dataField = 'fret';  %which 
 handles.options = options;
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
@@ -345,6 +344,12 @@ options = handles.options;
 options.dataField = handles.traceViewer.dataField;
 options.updateModel = get(handles.chkUpdateModel,'Value');
 dwtfname = handles.dwtFilenames{idxfile};
+
+if ~handles.traceViewer.data.isChannel( options.dataField )
+    options = settingdlg( options, {'dataField'}, {'Data field to analyze'}, ...
+                          {handles.traceViewer.data.channelNames} );
+    if isempty(options), return; end  %user hit cancel
+end
 
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
@@ -696,7 +701,7 @@ vector = [ vector(1:idxfinal-1); temp; vector(idxfinal:end) ];
 
 function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
 idxFile  = get(handles.lbFiles,   'Value');
-idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'));
+idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'))+1;
 sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
 % END FUNCTION
 

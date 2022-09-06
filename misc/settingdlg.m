@@ -37,7 +37,7 @@ function output = settingdlg(input, varargin) %fields, Prompt, types, Title, fun
 narginchk(1,8);
 nargoutchk(0,1);
 
-if ~isstruct(input) || numel(input)>1,
+if ~(isstruct(input)||isobject(input)) || numel(input)>1
     error('First argument must be a scalar struct');
 end
 
