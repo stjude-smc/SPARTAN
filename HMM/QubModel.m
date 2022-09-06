@@ -290,6 +290,17 @@ methods
         model.fixRates(id,:) = [];
         model.fixRates(:,id) = [];
         
+        % Remove any classes that now have no assigned states
+        idxRemove = setdiff( 1:model.nClasses, unique(model.class) );
+        if ~isempty(idxRemove)
+            assert( numel(idxRemove)==1 );
+            model.mu(idxRemove) = [];
+            model.sigma(idxRemove) = [];
+            model.fixMu(idxRemove) = [];
+            model.fixSigma(idxRemove) = [];
+            model.class(model.class>idxRemove) = model.class(model.class>idxRemove)-1;
+        end
+        
         model.verify();
         model.muteListeners = false;
         notify(model,'UpdateModel');  %inform listeners model has changed.
