@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 30-Aug-2022 10:21:15
+% Last Modified by GUIDE v2.5 07-Sep-2022 17:59:56
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -137,7 +137,8 @@ function enableControls(handles)
 
 hasData = ~isempty(handles.dataFilenames);
 set( [handles.btnMakeplots handles.mnuViewMakeplots handles.btnSorttraces ...
-      handles.mnuSorttraces handles.mnuSimMovie], 'Enable',onoff(hasData) );
+      handles.mnuSorttraces handles.mnuSimMovie handles.btnFrethist ...
+      handles.mnuFrethist], 'Enable',onoff(hasData) );
 set( allchild(handles.mnuFileList), 'Enable',onoff(hasData) );
 
 hasModel = ~isempty(handles.model);
@@ -799,3 +800,11 @@ function mnuSelOccupancy_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces by state occupancy
 handles.traceViewer.mnuSelOccupancy_Callback();
 % END FUNCTION mnuSelOccupancy_Callback
+
+
+% --------------------------------------------------------------------
+function btnFrethist_ClickedCallback(~, ~, handles) %#ok<DEFNU>
+if ~isempty( handles.traceViewer.data )
+    frethistComparison( handles.dataFilenames );
+end
+% END FUNCTION
