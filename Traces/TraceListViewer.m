@@ -64,22 +64,31 @@ end
 
 methods
     %% -------------------------  CONSTRUCTOR  ------------------------- %%
-    function this = TraceListViewer(target, hSld, hSldX)
+    function this = TraceListViewer(target)
     % Create a new viewer.
     
-    narginchk(3,3); nargoutchk(0,1);
+    narginchk(1,1); nargoutchk(0,1);
     assert( isscalar(target) && ishghandle(target) );  %isgraphics(varargin{1},'axes')
     
-    this.ax = target;
-    this.sldTraces = hSld;
-    this.sldTracesX = hSldX;
+    % Create axes for trace display and associated scroll bars
+    % FIXME: adjust scrollbar size to compensate for asymmetric panel
+    % left, bottom, width height.
+    this.ax = axes('parent',target, 'units','normalized', 'position',[0.01 0.07 0.94 0.9]);
+    hold(this.ax,'on');
+    box(this.ax,'on');
+    
+    this.sldTracesX = uicontrol('style','slider', 'units','normalized', ...
+                        'position',[0.01 0.96 0.94 0.037], 'parent',target );
+                    
+    this.sldTraces  = uicontrol('style','slider', 'units','normalized', ...
+                        'position',[0.95 0.065 0.05 0.9], 'parent',target );
     
     % Setup slider listeners for scrolling through data
-    sl(1) = addlistener( hSld,  'Value', 'PostSet',@(h,e)this.showTraces() );
-    sl(2) = addlistener( hSldX, 'Value', 'PostSet',@this.sldTracesX_Callback );
+    sl(1) = addlistener( this.sldTraces,  'Value', 'PostSet',@(h,e)this.showTraces() );
+    sl(2) = addlistener( this.sldTracesX, 'Value', 'PostSet',@this.sldTracesX_Callback );
     this.sldTracesListener = sl;
     enableListener(sl, false);
-    set( get(this.ax,'Parent'), 'WindowScrollWheelFcn', @this.wheelScroll_callback );
+    set( get(target,'Parent'), 'WindowScrollWheelFcn', @this.wheelScroll_callback );
     
     % Add context menu for trace options.
     menu = uicontextmenu( ancestor(this.ax,'figure'), 'Visible','off' );
@@ -134,6 +143,7 @@ methods
         end
     end
     
+    this.exclude = false(this.data.nTraces,1);
     this.redraw();
     
     end %function loadTraces
@@ -170,6 +180,13 @@ methods
     end  %function loadIdealization
     
     
+    function result = idxShown(this)
+    % List of trace indexes currently displayed (top down)
+    result = get(this.sldTraces,'Max')-floor(get(this.sldTraces,'Value'));
+    result = result + (1:this.nTracesToShow);
+    end
+    
+    
     
     %% ----------------------  DRAWING FUNCTIONS  ---------------------- %%
     
@@ -192,7 +209,6 @@ methods
     
     if isempty(this.data), return; end  %no data loaded.
 
-    this.exclude = false(this.data.nTraces,1);
     sliderMin  = min(this.data.nTraces,this.nTracesToShow);
     sliderMax  = this.data.nTraces;
     

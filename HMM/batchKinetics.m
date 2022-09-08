@@ -85,9 +85,9 @@ handles = cboIdealizationMethod_Callback(handles.cboIdealizationMethod,[],handle
 constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
-handles.traceViewer = TraceListViewer(handles.axTraces, handles.sldTraces, handles.sldTracesX);
-hold(handles.axTraces,'on');
-box(handles.axTraces,'on');
+handles.traceViewer = TraceListViewer(handles.panTraces);
+% hold(handles.axTraces,'on');
+% box(handles.axTraces,'on');
 guidata(hObject,handles);
 
 % END FUNCTION batchKinetics_OpeningFcn
@@ -701,9 +701,10 @@ vector = [ vector(1:idxfinal-1); temp; vector(idxfinal:end) ];
 % Executed when plotting menu or toolbar buttons are clicked.
 
 function mnuSorttraces_Callback(~, ~, handles) %#ok<DEFNU>
+% FIXME: create class method instead.
 idxFile  = get(handles.lbFiles,   'Value');
-idxTrace = get(handles.sldTraces,'Max')-floor(get(handles.sldTraces,'Value'))+1;
-sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace );
+idxTrace = handles.traceViewer.idxShown();
+sorttraces( 0, handles.dataFilenames{idxFile}, idxTrace(1) );
 % END FUNCTION
 
 
