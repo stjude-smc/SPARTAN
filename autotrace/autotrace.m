@@ -16,7 +16,7 @@ function varargout = autotrace(varargin)
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Last Modified by GUIDE v2.5 14-Dec-2016 10:33:36
+% Last Modified by GUIDE v2.5 08-Sep-2022 13:19:36
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -52,8 +52,9 @@ function autotrace_OpeningFcn(hObject, ~, handles, varargin)
 % Executes just before autotrace is made visible.
 
 updateSpartan; %check for updates
-constants = cascadeConstants();
-set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
+set( handles.figure1, 'Name', [mfilename ' - ' cascadeConstants('software')] );
+handles.traceList = TraceListViewer(handles.panTraces);
+handles.traceList.dataField = 'donor+acceptor';
 
 % Standard criteria control names and corresponding criteria.
 % See PickTraces_Callback() and setCriteria() functions.
@@ -136,8 +137,6 @@ if datapath==0, return; end %user hit cancel
 % Convert filename list into a cell array
 if ~iscell(datafile), datafile = {datafile}; end
 filename = strcat(datapath,datafile);
-
-handles.inputdir = datapath;
 handles.inputfiles = filename;
 
 %--- Update GUI listing of number of files and file types
@@ -187,7 +186,6 @@ if numel(traces_files) == 0
     return;
 end
 
-handles.inputdir = datapath;
 handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
 
 % Update the GUI with the new data location name.
@@ -241,7 +239,6 @@ for i=1:numel(trace_files)
         if exist(auto_name,'file'), continue; end
     end
     
-    handles.inputdir = p;
     handles.inputfiles = trace_files(i);
     set(handles.editFilename,'String',trace_files{i});
 
@@ -250,7 +247,7 @@ for i=1:numel(trace_files)
     handles = OpenTracesBatch( hObject, handles );
 
     % Save picked traces to a new _auto.txt file.
-    if handles.picked_mols > 0
+    if sum(~handles.traceList.exclude) > 0
         disp( handles.outfile );
         SaveTraces( handles.outfile, handles );
     else
@@ -280,7 +277,8 @@ handles.outfile = fullfile(p, [f '_auto.traces']);
 
 % Calculate trace stats
 try
-    [infoStruct,nTracesPerFile] = traceStat(handles.inputfiles);
+    handles.traceList.loadTraceData( handles.inputfiles );
+    infoStruct = traceStat( handles.traceList.data );
 catch e
     if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
         errordlg( ['Error: ' e.message], mfilename );
@@ -288,9 +286,6 @@ catch e
     set(handles.figure1, 'pointer','arrow'); drawnow;
     return;
 end
-
-handles.nTraces = numel( infoStruct );
-handles.nTracesPerFile = nTracesPerFile;
                     
 % Save the trace properties values to application data
 setappdata(handles.figure1,'infoStruct', infoStruct);
@@ -330,35 +325,70 @@ guidata(hObject,handles);
 
 %--------------------  SAVE PICKED TRACES TO FILE --------------------%
 function SaveTraces( filename, handles )
+% Save selected traces to disk with a log file.
 
-set(handles.figure1, 'pointer', 'watch'); drawnow;
+% Save selected traces to disk
+data = handles.traceList.data.getSubset( ~handles.traceList.exclude );
+data.save(filename);
 
-% Build list of trace indexes in each file
-picks = handles.inds_picked;
-nTracesPerFile = handles.nTracesPerFile;
+[p,f] = fileparts(filename);
+if isempty(p), p=pwd; end
+logFilename = fullfile(p, [f '.log']);
+fid = fopen(logFilename,'wt');
 
-idxStart = cumsum([0; nTracesPerFile(1:end-1)]);
-nFiles = numel(nTracesPerFile);
-picksByFile = cell( nFiles,1 );
+% Save header, with filenames and the number of traces picked.
+fprintf(fid,'%s\n\n%s\n',date,'FILES');
 
-for i=1:nFiles,
-    picksByFile{i} = picks(  picks>idxStart(i) & picks<=idxStart(i)+nTracesPerFile(i)  ) ...
-                   - idxStart(i);
+for i=1:numel(handles.inputfiles)
+    fprintf(fid,' %s\n',handles.inputfiles{i});
 end
 
-% Save selected traces to a new file
-options.indexes = picksByFile;
-options.stats = getappdata(handles.figure1,'infoStruct');
-options.outFilename = filename;
+stats = getappdata(handles.figure1,'infoStruct');
+nPicked = data.nTraces;
+fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
+            nPicked, numel(stats), 100*nPicked/numel(stats) );
 
-loadPickSaveTraces( handles.inputfiles, handles.criteria, options );
+% Descriptive statistics about dataset.
+isMolecule      = sum( [stats.snr]>0 );
+singleMolecule  = sum( [stats.snr]>0 & [stats.overlap]==0 );
+hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 );
 
-set(handles.figure1, 'pointer', 'arrow');
+fprintf(fid,'PICKING RESULTS\n');
+fprintf(fid, '  %22s:  %-5d (%.1f%% of total)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/numel(stats));
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET,        100*hasFRET/singleMolecule);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Pass all criteria',   nPicked,        100*nPicked/hasFRET);
+fprintf(fid, '\n\n');
+
+% Save picking criteria used
+fprintf(fid,'PICKING CRITERIA\n');
+names = fieldnames(  handles.criteria );
+vals  = struct2cell( handles.criteria );
+
+for i=1:numel(names),
+    if isempty( vals{i} ), continue; end  %skip unchecked criteria
+    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
+end
+
+% Save values of all other constants used
+fprintf(fid, '\n\nCONSTANTS\n');
+constants = cascadeConstants;
+names = fieldnames(  constants );
+vals  = struct2cell( constants );
+
+for i=1:numel(names),
+    if isstruct( vals{i} ) || numel( vals{i} )>1, continue; end
+    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
+end
+
+fprintf(fid,'\n\n');
+fclose(fid);
+
 set([handles.mnuFileSave handles.tbFileSave],'Enable','off');
 drawnow;
 
-
 % END FUNCTION SaveTraces_Callback
+
 
 
 
@@ -377,7 +407,7 @@ filename = fullfile(p,f);
 
 % Retrieve trace statistics, extract to matrix
 stats = getappdata(handles.figure1,'infoStruct');
-stats = stats(handles.inds_picked);
+stats = stats( ~handles.traceList.exclude );
 
 data = cellfun( @double, struct2cell(stats) );
 data = squeeze(data);
@@ -408,7 +438,7 @@ guidata(hObject,handles);
 function ViewPickedTraces_Callback(hObject, ~, handles)
 
 % If not already, save the selected traces to file.
-if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' );
+if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' )
     outfile = SaveTraces_Callback(hObject, [], handles);
 else
     outfile = handles.outfile;
@@ -426,13 +456,11 @@ end
 %----------APPLIES PICKING CRITERIA TO TRACES----------
 % --- Executes on button press in PickTraces.
 function handles = PickTraces_Callback(hObject, handles)
-%
-
-criteria = struct();
 
 % Get criteria associated with the "free-form" drop-down boxes.
 shortNames = fieldnames(handles.statLongNames);
 equalityText = {'min_','max_','eq_'};
+criteria = struct();
 
 for id=1:handles.nCriteriaBoxes
     selection = get( handles.(['cboCriteria' num2str(id)]), 'Value' );
@@ -469,21 +497,23 @@ guidata(hObject,handles);  %for saving criteria before traces loaded.
 stats = getappdata(handles.figure1,'infoStruct');
 if isempty(stats), return; end %no data loaded, nothing to do.
 
-handles.inds_picked = pickTraces( stats, criteria );
-handles.picked_mols = numel(handles.inds_picked);
-guidata(hObject,handles);
+inds_picked = pickTraces( stats, criteria );
+handles.traceList.exclude = ~ismember( 1:numel(stats), inds_picked );
+handles.traceList.showTraces();  %fixme, should be automatic?
 
 set(handles.MoleculesPicked,'String', ...
-            sprintf('%d of %d',[handles.picked_mols,handles.nTraces]));
+            sprintf('%d of %d',[numel(inds_picked),handles.traceList.data.nTraces]));
 
 % If at least one trace is picked, turn some buttons on.
 set( [handles.mnuFileSave handles.tbFileSave handles.mnuViewPlots ...
       handles.tbViewPlots handles.mnuViewTraces handles.tbViewTraces ...
-      handles.mnuFileSaveProp], 'Enable',onoff(handles.picked_mols>0) );
+      handles.mnuFileSaveProp], 'Enable',onoff(numel(inds_picked)>0) );
 
 % Update trace statistic histograms for traces passing selection criteria.
-for i=1:length(handles.cboNames),
-    cboStat_Callback(handles.(handles.cboNames{i}), [], handles);
+if strcmpi(get(handles.mnuTraceList,'Checked'),'off')
+    for i=1:length(handles.cboNames),
+        cboStat_Callback(handles.(handles.cboNames{i}), [], handles);
+    end
 end
 
 % END FUNCTION PickTraces_Callback
@@ -501,7 +531,7 @@ function MakeContourPlot_Callback(hObject, ~, handles)
 % Display FRET contour plot of currently selected traces.
 
 % If not already, save the currently selected traces to file.
-if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' );
+if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' )
     outfile = SaveTraces_Callback(hObject, [], handles);
 else
     outfile = handles.outfile;
@@ -533,7 +563,7 @@ id = get(hObject,'UserData');
 
 % Get trace statistics
 stats = getappdata(handles.figure1,'infoStruct');
-stats = stats(handles.inds_picked);
+stats = stats( ~handles.traceList.exclude );
 
 % Get user selection
 selected   = get(hObject,'Value');
@@ -556,10 +586,10 @@ end
 
 % Plot the distribution of the statistic
 statData = [stats.(statToPlot)];
-if any(isnan(statData))
-    disp( 'warning: NaN values found' );
+% if any(isnan(statData))
+%     disp( 'warning: NaN values found' );
 %     statData( isnan(statData) ) = 0;
-end
+% end
 
 % SNRs data sometimes goes to infinity and the histograms cannot be
 % plotted. Avoid this by setting an absolute maximum
@@ -584,8 +614,7 @@ if length(stats)>=1,
 end
 
 % Display a mean value for easier interpretation.
-set(  handles.(['txtStat' num2str(id)]), 'String', ...
-             sprintf(['Mean: ' statDecimals],nanmean([stats.(statToPlot)]))  );
+set( handles.(['txtStat' num2str(id)]), 'String', sprintf(['Mean: ' statDecimals],nanmean([stats.(statToPlot)])) );
 
 % END FUNCTION cboStat_Callback
 
@@ -785,3 +814,23 @@ PickTraces_Callback(handles.figure1, handles);
 % END FUNCTION setCriteria
 
 
+% --------------------------------------------------------------------
+function mnuTraceList_Callback(hObject, ~, handles)
+% Called when "show trace list" menu is clicked.
+% FIXME: should have two, including one to select 'show histograms'.
+status = strcmpi( get(hObject,'Checked'), 'off' );
+
+% Update bar charts that were previously hidden (and not updated)
+if ~status
+    for i=1:length(handles.cboNames)
+        cboStat_Callback(handles.(handles.cboNames{i}), [], handles);
+    end
+end
+
+set( handles.panTraces,'Visible',onoff(status) );
+set( [handles.cboStat1 handles.cboStat2 handles.cboStat3 handles.cboStat4
+      handles.axStat1 handles.axStat2 handles.axStat3 handles.axStat4], ...
+      'Visible',onoff(~status) );
+set(hObject,'Checked',onoff(status));
+zoom(handles.figure1,onoff(~status));  %turn off zooming with TraceListViewer
+% END FUNCTION mnuTraceList_Callback

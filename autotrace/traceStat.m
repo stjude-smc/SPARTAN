@@ -80,7 +80,7 @@ end
 
 % If the user gives a structure, this is a data structure with fluorescence
 % data etc from loadTraces. Parse out the fields.
-if isstruct( varargin{1} ) || isa(varargin{1},'Traces'),
+if isa(varargin{1},'Traces'),
     data = varargin{1};
     nTraces = size( data.donor, 1 );
     
@@ -128,20 +128,14 @@ end
 function retval = traceStat_data( data, constants )
 %
 
-% Handle the single-color case (no acceptors) by creating zero'd data.
-if ~data.isChannel('acceptor'),
-    data.acceptor = zeros( size(data.donor) );
-    data.fret     = zeros( size(data.donor) );
-end
-
-[Ntraces,len] = size(data.fret);
+Ntraces = data.nTraces;
+len = data.nFrames;
 isThreeColor = data.isChannel('fret2');
 isAlex = data.isChannel('acceptorDirect');
 
 if nargin<2
     constants = cascadeConstants;
 end
-
 
 
 % Value are returned into a structure that will be later be saved into 
@@ -164,9 +158,14 @@ retval = struct( ...
 
 %----- CALCULATE STATISTICS FOR EACH TRACE
 for i=1:Ntraces
-    donor    = data.donor(i,:);
-    acceptor = data.acceptor(i,:);
-    total    = donor+acceptor;
+    donor = data.donor(i,:);
+    if data.isChannel('fret')
+        acceptor = data.acceptor(i,:);
+        fret = data.fret(i,:);
+    else
+        [acceptor,fret] = deal( zeros(1,data.nFrames) );
+    end
+    total = donor+acceptor;
     
     if isThreeColor
         total = total + data.acceptor2(i,:);
@@ -295,7 +294,7 @@ for i=1:Ntraces
     
     % Find regions (before Cy3 photobleach) where FRET is above a threshold.
     % Properties will be calculated only on these areas.
-    fret = data.fret(i,1:lt);
+    fret = fret(1:lt);
     
     if lt>1
         if isAlex

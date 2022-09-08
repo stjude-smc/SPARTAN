@@ -360,13 +360,22 @@ methods
     end
     
     
+    % Save to .traces file
+    function save(this,filename)
+        saveTraces(filename,this);
+    end
+    
+    
     % Combine Traces objects.
     % Adjustments to trace length or incompatible metdata fields are
     % automatically made so the inputs can be combined.
     % Throughout this function 'obj' refers to the current object in the list of
     % all Traces instances to combine. 'i' iterates over these instances.
     function this = combine( varargin )
-        assert( nargin>1 );
+        if nargin==1
+            this = varargin{1};
+            return;
+        end
         
         % Check for options. The user can specify that the end of shorter traces
         % should be extended instead of truncating everything. The padding is

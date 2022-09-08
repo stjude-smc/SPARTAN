@@ -120,17 +120,24 @@ methods
     
     narginchk(1,2);
     [this.data,this.dataFilename,this.idl,this.idlValues] = deal([]);
+    set( ancestor(this.ax,'figure'), 'pointer','watch' );
     
-    if nargin>1
-        if ischar(dataIn) && ~isempty(isempty(dataIn))
+    if nargin>1 && ~isempty(isempty(dataIn))
+        if iscell(dataIn)
+            input = cell( numel(dataIn), 1 );
+            for i=1:numel(dataIn)
+                input{i} = loadTraces( dataIn{i} );
+            end
+            this.data = combine( input{:} );
+            
+        elseif ischar(dataIn)
             this.dataFilename = dataIn;
-            set( ancestor(this.ax,'figure'), 'pointer','watch' );
             this.data = loadTraces(dataIn);
-            set( ancestor(this.ax,'figure'), 'pointer','arrow' );
             
         elseif isa(dataIn,'Traces')
             this.data = dataIn;
         else
+            set( ancestor(this.ax,'figure'), 'pointer','arrow' );
             error('Invalid first input to TraceListViewer.load');
         end
     
@@ -143,6 +150,7 @@ methods
         end
     end
     
+    set( ancestor(this.ax,'figure'), 'pointer','arrow' );
     this.exclude = false(this.data.nTraces,1);
     this.redraw();
     
@@ -251,6 +259,7 @@ methods
     end
 
     ylim(this.ax, [0 1.2*this.nTracesToShow]);
+    set(this.ax,'ytick',[]);
 
     this.showTraces();
     this.showModelLines();
