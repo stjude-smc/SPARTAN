@@ -90,6 +90,10 @@ handles.traceViewer = TraceListViewer(handles.panTraces);
 % box(handles.axTraces,'on');
 guidata(hObject,handles);
 
+if nargin>=4
+    btnLoadData_Callback( hObject, [], handles, varargin{:} );
+end
+
 % END FUNCTION batchKinetics_OpeningFcn
 
 
@@ -107,21 +111,26 @@ varargout{1} = handles.output;
 
 %% ----------------------  LOAD/SAVE DATA CALLBACKS  ---------------------- %%
 
-function btnLoadData_Callback(hObject, ~, handles) %#ok<DEFNU>
+function btnLoadData_Callback(hObject, ~, handles, files)
 % Executes on button press in btnLoadData.
 
-% Prompt use for location to save file in...
-filter = {'*.traces','Binary Traces Files (*.traces)'; ...
-          '*.*','All Files (*.*)'};
-newFiles = getFiles(filter,'Select traces files to analyze',false);
-if isempty(newFiles), return; end  %user hit cancel.
+if nargin<4
+    % Prompt use for location to save file in...
+    filter = {'*.traces','Binary Traces Files (*.traces)'; ...
+              '*.*','All Files (*.*)'};
+    newFiles = getFiles(filter,'Select traces files to analyze',false);
+    if isempty(newFiles), return; end  %user hit cancel.
 
-handles.dataFilenames = [newFiles handles.dataFilenames];
+    handles.dataFilenames = [newFiles handles.dataFilenames];
+    handles.dwtFilenames = [findDwt(newFiles) handles.dwtFilenames];
+else
+    if ischar(files), files={files}; end
+    handles.dataFilenames = files;
+    handles.dwtFilenames = findDwt(files);
+end
+
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
 set(handles.lbFiles, 'String',names, 'Value',1 );
-
-% Look for .dwt files if data were already analyzed.;
-handles.dwtFilenames = [findDwt(newFiles) handles.dwtFilenames];
 guidata(hObject,handles);
 
 % Update GUI, showing the first file

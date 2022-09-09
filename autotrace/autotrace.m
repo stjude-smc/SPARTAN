@@ -16,7 +16,7 @@ function varargout = autotrace(varargin)
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Last Modified by GUIDE v2.5 08-Sep-2022 16:46:54
+% Last Modified by GUIDE v2.5 08-Sep-2022 21:12:29
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -188,12 +188,12 @@ end
 
 handles.inputfiles = strcat( [datapath filesep], {traces_files.name} );
 
+% Load the traces files.
+OpenTracesBatch( hObject, handles );
+
 % Update the GUI with the new data location name.
 fileDisplayText = sprintf('%s (%d files)', target, numel(traces_files));
 set(handles.editFilename, 'String',fileDisplayText);
-
-% Load the traces files.
-OpenTracesBatch( hObject, handles );
 
 % END FUNCTION btnOpenDirectory_Callback
 
@@ -508,7 +508,9 @@ set(handles.MoleculesPicked,'String', ...
 % If at least one trace is picked, turn some buttons on.
 set( [handles.mnuFileSave handles.tbFileSave handles.mnuViewPlots ...
       handles.tbViewPlots handles.mnuViewTraces handles.tbViewTraces ...
-      handles.mnuFileSaveProp], 'Enable',onoff(numel(inds_picked)>0) );
+      handles.mnuFileSaveProp handles.tbBatchKinetics handles.tbFrethist ...
+      handles.mnuFrethist handles.mnuBatchKinetics], ...
+      'Enable',onoff(numel(inds_picked)>0) );
 
 % Update trace statistic histograms for traces passing selection criteria.
 if strcmpi(get(handles.mnuTraceList,'Checked'),'off')
@@ -856,3 +858,34 @@ adecorrect( handles.traceList.data );
 handles.traceList.showTraces();
 
 
+% --------------------------------------------------------------------
+function tbBatchKinetics_ClickedCallback(hObject, ~, handles)
+% Save traces and launch batchKinetics for modeling
+
+% If not already, save the currently selected traces to file.
+if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' )
+    outfile = SaveTraces_Callback(hObject, [], handles);
+else
+    outfile = handles.outfile;
+end
+if ~isempty(outfile)
+    batchKinetics( {outfile} );
+end
+
+% END FUNCTION
+
+
+% --------------------------------------------------------------------
+function tbFrethist_ClickedCallback(hObject, ~, handles)
+% Sacve traces and launch frethistComparison for 1D FRET histogram.
+% If not already, save the currently selected traces to file.
+if strcmpi( get(handles.mnuFileSave,'Enable'), 'on' )
+    outfile = SaveTraces_Callback(hObject, [], handles);
+else
+    outfile = handles.outfile;
+end
+if ~isempty(outfile)
+    frethistComparison( {outfile} );
+end
+
+% END FUNCTION
