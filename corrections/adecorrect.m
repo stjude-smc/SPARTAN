@@ -1,4 +1,4 @@
-function data = adecorrect(files, eta_donor, eta_acceptor)
+function data = adecorrect(input, varargin)
 % Correct for acceptor direct excitation.
 %
 %   ADE_CORRECT( FILES, ETA_d, ETA_a )
@@ -17,23 +17,36 @@ function data = adecorrect(files, eta_donor, eta_acceptor)
 
 
 
-% Check input arguments
+%% Process input arguments
+narginchk(1,3);
+
 if nargin==3
     % See Methods in Molecular Biology, vol. 350: Protein Folding Protocols,
     %   Chapter 8 by Ben Schuler, Note #3.
-    correctionFactor = 1/(1+(eta_donor/eta_acceptor));
+    correctionFactor = 1/(1+(varargin{1}/varargin{2}));
 elseif nargin==2
-    correctionFactor = eta_donor;
-else
-    error('Incorrect number of arguments');
+    correctionFactor = varargin{1};
+elseif nargin==1
+    correctionFactor = str2double( inputdlg('ADE correction value:',mfilename,1,{'0.05'}) );
+    if isnan(correctionFactor), return; end
 end
 
-if ischar(files), files={files}; end
+if iscell(input)
+    for i=1:numel(input)
+        data = adecorrect( input{i}, correctionFactor );
+    end
+    return;
+end
 
 
-% Correct all input files
-for i=1:numel(files)
-    data = loadTraces(files{i});
+%%
+    if ischar(input)
+        data = loadTraces(input);
+    elseif isa(input,'Traces')
+        data = input;
+    else
+        error('Input should be path to .traces file or Traces object');
+    end
     endval = nan(data.nTraces,1);
     
     % Correct only traces where acceptor photobleaches first.
@@ -59,10 +72,10 @@ for i=1:numel(files)
     data.recalculateFret();
     data.fileMetadata.ade = correctionFactor;
     
-    [p,f,e] = fileparts(files{i});
-    saveTraces( fullfile(p,[f '_ade' e]), data );
-end
-
+    if ischar(input) && nargout==0
+        [p,f,e] = fileparts(input);
+        saveTraces( fullfile(p,[f '_ade' e]), data );
+    end
 
 end %function
 

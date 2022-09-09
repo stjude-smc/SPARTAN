@@ -16,7 +16,7 @@ function varargout = autotrace(varargin)
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Last Modified by GUIDE v2.5 08-Sep-2022 13:19:36
+% Last Modified by GUIDE v2.5 08-Sep-2022 16:46:54
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -157,10 +157,10 @@ end
 if length(fileDisplayText)>100,
     fileDisplayText = ['...' fileDisplayText(end-100:end)];
 end
-set(handles.editFilename,'String', fileDisplayText);
 
 % Load the traces files.
 OpenTracesBatch( hObject, handles );
+set(handles.editFilename,'String', fileDisplayText);
 
 % END FUNCTION OpenTracesFile_Callback
 
@@ -264,6 +264,7 @@ end
 function handles = OpenTracesBatch( hObject, handles )
 % Calculate and display trace statistics for the current list of files.
 
+set( handles.editFilename, 'String','Loading files...' );
 set(handles.figure1, 'pointer','watch'); drawnow;
 
 % Clear out old data to save memory.
@@ -834,3 +835,24 @@ set( [handles.cboStat1 handles.cboStat2 handles.cboStat3 handles.cboStat4
 set(hObject,'Checked',onoff(status));
 zoom(handles.figure1,onoff(~status));  %turn off zooming with TraceListViewer
 % END FUNCTION mnuTraceList_Callback
+
+
+
+% --------------------------------------------------------------------
+% Functions for applying corrections to the currently loaded data.
+function mnuCrosstalk_Callback(~, ~, handles)
+if isempty(handles.traceList), return; end
+crosstalkcorrect( handles.traceList.data );
+handles.traceList.showTraces();
+
+function mnuGamma_Callback(~, ~, handles)
+if isempty(handles.traceList), return; end
+gammacorrect( handles.traceList.data );
+handles.traceList.showTraces();
+
+function mnuADE_Callback(~, ~, handles)
+if isempty(handles.traceList), return; end
+adecorrect( handles.traceList.data );
+handles.traceList.showTraces();
+
+
