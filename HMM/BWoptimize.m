@@ -46,14 +46,7 @@ elseif ~isempty(msg), warning(msg);
 end
 
 % Set default values for any paramaters not specified.
-params.maxItr   = 100;
-params.convLL   = 1e-5;
-params.convGrad = 1e-5;
-params.verbose  = true;
-params.fixRates = false; %FIXME: should ultimately be in the model.
-params.zeroEnd  = false;
-params.seperately = false;
-params.updateModel = false;
+params = hmmopt(mfilename);
 params.exclude  = false( size(observations,1), 1 );
 
 if nargin>=4

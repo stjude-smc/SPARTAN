@@ -86,8 +86,6 @@ constants = cascadeConstants;
 set( handles.figure1, 'Name', [mfilename ' - ' constants.software] );
 
 handles.traceViewer = TraceListViewer(handles.panTraces);
-% hold(handles.axTraces,'on');
-% box(handles.axTraces,'on');
 guidata(hObject,handles);
 
 if nargin>=4
@@ -161,7 +159,8 @@ set( [handles.btnDwellhist handles.btnDwellhist2 handles.mnuDwellhist ...
       handles.mnuViewTPS handles.btnViewTPS handles.btnOccTime ...
       handles.mnuViewOccTime], 'Enable',onoff(isIdealized));
 
-isMIL = strcmpi(handles.options.idealizeMethod(1:3),'MIL');
+idealizeMethod = getIdealizeMethod(handles);
+isMIL = strcmpi(idealizeMethod, 'MIL');
 set( [handles.mnuExecuteAll handles.btnExecuteAll], 'Enable',...
                                          onoff(hasData & hasModel & ~isMIL) );
 set( [handles.chkUpdateModel handles.tblFixFret], 'Enable',...
@@ -350,9 +349,11 @@ function handles = btnExecute_Callback(hObject, ~, handles)
 idxfile  = get(handles.lbFiles,'Value');
 
 % Get options from traceViewer
-options = handles.options;
+idealizeMethod = getIdealizeMethod(handles);
+options = hmmopt(idealizeMethod);
 options.dataField = handles.traceViewer.dataField;
 options.updateModel = get(handles.chkUpdateModel,'Value');
+
 dwtfname = handles.dwtFilenames{idxfile};
 
 if ~handles.traceViewer.data.isChannel( options.dataField )
@@ -364,9 +365,9 @@ end
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
-try
+% try
     % Run MIL rate optimizer using only dwell-times as input
-    if strcmpi(options.idealizeMethod(1:3),'MIL')
+    if strcmpi(idealizeMethod(1:3),'MIL')
 
         % Load dwell-time information
         assert( ~isempty(handles.traceViewer.idl), 'Traces must be idealized before running MIL');
@@ -376,7 +377,7 @@ try
         % Run MIL, only updating model rates.
         % NOTE: optModel will have the .qubTree model values, which only reflect 
         % the model as originally loaded from file. FIXME.
-        if strcmpi( options.idealizeMethod, 'MIL (Together)' )
+        if strcmpi( idealizeMethod, 'MIL (Together)' )
             options.updateModel = true;
             optModel = milOptimize(dwt, dt, handles.model, options);
             handles.model.rates = optModel.rates;
@@ -397,6 +398,7 @@ try
         end
 
         % Run optimization algorithm.
+        options.idealizeMethod = idealizeMethod;
         options.exclude = handles.traceViewer.exclude;
         [idl,optModel] = runParamOptimizer( handles.traceViewer.data, ...
                                             dwtfname, handles.model, options );
@@ -412,15 +414,15 @@ try
     guidata(hObject,handles);
     enableControls(handles);
 
-catch e
-    if strcmpi(e.identifier,'spartan:op_cancelled')
-        set(handles.txtStatus,'String','Operation cancelled');
-    else
-        errordlg(['Error: ' e.message]);
-        set(handles.txtStatus,'String','Operation failed');
-    end
-    return;
-end
+% catch e
+%     if strcmpi(e.identifier,'spartan:op_cancelled')
+%         set(handles.txtStatus,'String','Operation cancelled');
+%     else
+%         errordlg(['Error: ' e.message]);
+%         set(handles.txtStatus,'String','Operation failed');
+%     end
+%     return;
+% end
 
 set(handles.figure1,'pointer','arrow');
 % END FUNCTION btnExecute_Callback
@@ -740,52 +742,21 @@ end
 
 %% ------------------------  SETTINGS DIALOGS  ------------------------ %%
 
-function handles = cboIdealizationMethod_Callback(hObject, ~, handles)
+function result = getIdealizeMethod(handles)
+% Get the current idealization method from cboIdealizationMethod
+text = get(handles.cboIdealizationMethod,'String');
+result = text{get(handles.cboIdealizationMethod,'Value')};
+
+
+function handles = cboIdealizationMethod_Callback(~, ~, handles)
 % Update method to use for idealization
-% FIXME: consider getting this value only when needed (execution).
-
-text = get(hObject,'String');
-handles.options.idealizeMethod = text{get(hObject,'Value')};
-guidata(hObject, handles);
-
 enableControls(handles);
-
 % END FUNCTION cboIdealizationMethod_Callback
 
 
-
-function mnuIdlSettings_Callback(hObject, ~, handles) %#ok<DEFNU>
+function mnuIdlSettings_Callback(~, ~, handles) %#ok<DEFNU>
 % Change idealization settings
-
-switch upper(handles.options.idealizeMethod(1:3))  %#ok<*MULCC>
-    case {'SEG','BAU'}  %SKM, Baum-Welch
-        prompt = {'Max iterations','Analyze traces individually:'}; %'LL Convergence:', 'Grad. Convergence:'
-        fields = {'maxItr','seperately'};  %'gradLL', 'gradConv'
-        
-    case {'VBF','EBF'}  %vb/ebFRET
-        prompt = {'Min states','Max states','Max restarts:','Convergence'};
-        fields = {'minStates', 'maxStates', 'maxRestarts',  'threshold'};
-    
-    case 'HMJ'
-        prompt = {'Alpha (uniformization)','Beta (rate prior distribution scale parameter)',...
-                  'Eta (rate prior distribution shape parameter)','HMC integration step size',...
-                  'HMC leap-frog steps','Max iterations'};
-        fields = {'alpha','beta','eta','HMC_eps','HMC_L','maxItr'};
-        
-%     case {'MI','MP'}  %MIL or MPL
-%         prompt = {'LL threshold','Gradient threshold'};
-%         fields = {'convLL',      'convGrad'};
-
-    otherwise
-        return;
-end
-
-options = settingdlg(handles.options, fields, prompt);
-if ~isempty(options),
-    handles.options = options;
-    guidata(hObject,handles);
-end
-
+hmmopt( getIdealizeMethod(handles), true );
 % END FUNCTION mnuIdlSettings_Callback
 
 

@@ -34,8 +34,7 @@ dt = dt/1000;  %convert to seconds/frame
 
 
 % Define default optional arguments, mostly taken from fmincon
-options = struct('maxItr',200,   'convLL',10^-6, 'convGrad',10^-6, ...
-                 'verbose',true, 'updateModel',false);
+options = hmmopt(mfilename);
 if nargin>=4
     options = mergestruct(options, optionsInput);
 end

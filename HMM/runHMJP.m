@@ -52,23 +52,13 @@ assert( isa(model,'QubModel'), 'First argument must be QubModel object or path t
 
 %% Configure HMJP sampler
 
-% verbose = options.verbose;  %show intermediate results from HMJP.
+opts = hmmopt(mfilename);
 opts.units.space = 'nm';
 opts.units.Int   = 'photons';
 opts.units.time  = 's';
-opts.maxItr      = 1000;   % number of iterations to sample
-
-% Default hyperparameters
-opts.M        = model.nStates;
-opts.alpha    = 2;      % Uniformization; determines further refinements of jump times within a frame period
-opts.beta     = 10;     % higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
-opts.eta      = 2;      % gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
-opts.HMC_eps  = 0.01;   % Hamiltonian Monte Carlo integration step size
-opts.HMC_L    = 50;     % Hamiltonian Monte Carlo number of Leap-frog integration steps.
-
-% Background fluorescence levels
-opts.mu_back_D = 0;
-opts.mu_back_A = 0;
+opts.M           = model.nStates;
+opts.mu_back_D   = 0;  % Background fluorescence levels
+opts.mu_back_A   = 0;
 
 opts = mergestruct( opts, optsIn );
 

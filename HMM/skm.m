@@ -40,14 +40,8 @@ nargoutchk(0,4);
 
 
 % Set default values for any paramaters not specified.
-defaultParams.maxItr   = 100;
-defaultParams.convLL   = 1e-4;
-defaultParams.quiet    = false;
-defaultParams.fixRates = false; %FIXME: should ultimately be in the model.
-defaultParams.zeroEnd  = false;
-defaultParams.seperately = true;
+defaultParams = hmmopt(mfilename);
 defaultParams.exclude  = false( size(data,1), 1);
-
 params = mergestruct(defaultParams, params);
 
 

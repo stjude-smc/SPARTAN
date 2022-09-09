@@ -44,9 +44,7 @@ end
 dwt = dwt( ~cellfun(@isempty,dwt) );
     
 % Define default optional arguments, mostly taken from fmincon
-options = struct('maxItr',150,   'convLL',10^-5, 'convGrad',10^-5, ...
-                 'verbose',true, 'updateModel',false, 'removeBleaching',true, ...
-                 'UseParallel',cascadeConstants('enable_parfor'));
+options = hmmopt(mfilename);
 if nargin>=4
     options = mergestruct(options, optionsInput);
 end

@@ -69,9 +69,9 @@ end
     nFrames = cellfun(@numel,xall);
     
     % settings
-    threshold = 1e-5;
-    num_restarts = 2;
-    max_iter = 100;
+    threshold = params.threshold;  %1e-5;
+    num_restarts = params.maxRestarts;  %2;
+    max_iter = params.maxItr;  %100;
 
     % create analysis struct (priors) with default values.
     selfanalysis = init_analysis2(xall, nStates);
