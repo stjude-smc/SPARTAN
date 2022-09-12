@@ -1,4 +1,4 @@
-function LL = milIter(dwt, dt, model, rates)
+function LL = milIter(dwt, dt, model, rateMask, rates)
 % milIter  Likelihood of dwell times given a model (MIL optimizer)
 %
 %   LL = milIter(DWT, DT, MODEL, RATES) calculates the log likelihood of
@@ -15,20 +15,14 @@ function LL = milIter(dwt, dt, model, rates)
 %   See also: dtAdjustedQ, milOptimize, batchKinetics.
 
 
-narginchk(4,4);
+narginchk(5,5);
 nargoutchk(0,1);
 
 
 
 %% Construct normalized rate matrix (Q) from input rates
-% FIXME: this fixes all rates set to zero. They should only be
-% automatically fixed like this if BOTH directions are zero, indicating
-% there is no connection between the two states.
-% FIXME: rateMask should be a function in QubModel.
-
 Q = model.rates;
 I = logical(eye(model.nStates));
-rateMask = ~I & Q~=0 & ~model.fixRates;
 Q(rateMask) = rates;
 
 % Normalize so rows sum to 0
@@ -83,14 +77,6 @@ for traceID=1:numel(dwt)
     for k=1:nDwells
         aa = dwellClass(k);
         a = model.class==aa;  %states in current observed class
-        
-        % If this is the final dwell in the dark state, don't include it
-        % in the analysis, since it adds no useful information.
-        % FIXME: assumes dark state is the first class.
-        if k==nDwells && aa==1
-            anorm(k) = [];
-            break;
-        end
         
         % Calculate expm(Qaa*t)
         if sum(a)==1

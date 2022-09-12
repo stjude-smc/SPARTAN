@@ -30,13 +30,6 @@ narginchk(3,4);
 nargoutchk(1,3);
 
 
-% Construct a mask to select only rates from connected states.
-% FIXME: this excludes connections where ONE rate is zero...
-nStates = model.nStates;
-I = logical(eye(nStates));
-rateMask = ~I & model.rates~=0 & ~model.fixRates;
-nRates = sum(rateMask(:));
-
 % Remove traces that were excluded from analysis
 if isfield(optionsInput,'exclude') && ~isempty(optionsInput.exclude)
     dwt = dwt(~optionsInput.exclude);
@@ -59,19 +52,28 @@ fminopt.MaxIter = options.maxItr;
 fminopt.TolX    = options.convGrad;
 fminopt.TolFun  = options.convLL;
 
-% For each trace, fill end with a dark state dwell. This removes the
-% uncertainty in the final term, but the dwell time isn't used.
-% FIXME: what about traces that don't actually bleach at the end?
-% FIXME: assumes first class is zero dark state.
-for traceID=1:numel(dwt)
-    if dwt{traceID}(end,1)~=1
-        dwt{traceID}(end+1,:) = [1 1];
-    end
+% Construct a mask to select only rates from connected states.
+% FIXME: this excludes connections where ONE rate is zero...
+nStates = model.nStates;
+I = logical(eye(nStates));
+rateMask = ~I & model.rates~=0 & ~model.fixRates;
+
+% Remove dark state dwells, merging into the surrounding state dwells.
+% This is reasonable if the dwells are very short (few frames), but may
+% not be for very long dwells; such traces should be remove in
+% pre-processing steps instead.
+% Assumes dark state is the first one (lowest FRET efficiency).
+if ~isempty(options.removeDarkState) && options.removeDarkState
+    dwt = removeBlinks(dwt);
+    rateMask( model.class==1, : ) = 0;
+    rateMask( :, model.class==1 ) = 0;
 end
+nRates = sum(rateMask(:));
+
 
 % Run fmincon optimizing with weak constraints to avoid negative rates.
 % (fminunc works just as well; negative rates just cause harmless restarts).
-optFun = @(x)milIter(dwt, dt, model, x);
+optFun = @(x)milIter(dwt, dt, model, rateMask, x);
 x0 = model.rates(rateMask)';
 lb =     zeros(1,nRates);
 % ub = 10/dt*ones(1,nRates);

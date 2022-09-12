@@ -27,12 +27,11 @@ if isempty(allopt)
     allopt.skm.seperately = true;
 
     % Baum-welch
-    allopt.bw.maxItr     = 100;
-    allopt.bw.verbose    = true;
+    allopt.bw.maxItr      = 200;
+    allopt.bw.verbose     = true;
     allopt.bw.convLL      = 1e-5;
     allopt.bw.convGrad    = 1e-5;
     allopt.bw.fixRates    = false;
-    allopt.bw.zeroEnd     = false;
     allopt.bw.seperately  = false;
 
     % ebFRET
@@ -44,10 +43,10 @@ if isempty(allopt)
     % MIL (Together)
     allopt.mil.maxItr      = 150;
     allopt.mil.verbose     = true;
-    allopt.mil.convLL      = 10^-5;
-    allopt.mil.convGrad    = 10^-5;
+    allopt.mil.convLL      = 1e-5;
+    allopt.mil.convGrad    = 1e-5;
     allopt.mil.verbose     = true;
-    allopt.mil.removeBleaching = true;
+    allopt.mil.removeDarkState = true;
     allopt.mil.UseParallel = cascadeConstants('enable_parfor');
     
     % MIL (Separately)
@@ -56,8 +55,8 @@ if isempty(allopt)
     % MPL
     allopt.mpl.maxItr   = 200;
     allopt.mpl.verbose  = true;
-    allopt.mpl.convLL   = 10^-6;
-    allopt.mpl.convGrad = 10^-6;
+    allopt.mpl.convLL   = 1e-6;
+    allopt.mpl.convGrad = 1e-6;
 
     % HMJP
     allopt.hmjp.maxItr   = 1000;
@@ -88,8 +87,8 @@ switch methodName
 
     case {'milOptimize','MIL (Together)'}
         name = 'mil';
-        prompts = {'Max iterations','LL Convergence','Grad. Convergence'};
-        fields  = {'maxItr',        'convLL',        'convGrad'};
+        prompts = {'Remove dark state (class 1)','Max iterations','LL Convergence','Grad. Convergence'};
+        fields  = {'removeDarkState',  'maxItr',        'convLL',        'convGrad'};
 
     case {'milOptimizeSeparately','MIL (Separately)'}
         name = 'mil_sep';

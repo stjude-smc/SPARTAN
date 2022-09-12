@@ -31,12 +31,13 @@ elseif ischar(varargin{1}),
 
 % Dwell-time information is given in parameters.
 elseif iscell(varargin{1}),
-   if nargin<2,
-       error('Not enough input arguments');
+   dwt = varargin{1};
+   if nargin==2
+       offsets = varargin{2};
+   else
+       offsets = zeros(size(dwt));
    end
-   
    dwtfname = '';
-   [dwt,offsets] = deal( varargin{:});
 end
 
 
@@ -102,7 +103,8 @@ if nargout==0 && ~isempty(dwtfname),
     outname = fullfile( p, [outname '_noblinks' ext] );
     saveDWT(outname,dwt,offsets,model,sampling);
 else
-    varargout = {dwt,offsets};
+    output = {dwt,offsets};
+    [varargout{1:nargout}] = output{1:nargout};
 end
 
 
