@@ -64,7 +64,7 @@ nRates = sum(rateMask(:));
 mu = model.mu(~model.fixMu);
 sigma = model.sigma(~model.fixSigma);
 rates = model.rates(rateMask);
-x0 = [mu(:)' sigma(:)' rates(:)'];
+x0 = double( [mu(:)' sigma(:)' rates(:)'] );
 
 lb = [ -0.3*ones(1,nMu)  0.01*ones(1,nSigma)      zeros(1,nRates) ];
 ub = [  1.2*ones(1,nMu)  0.12*ones(1,nSigma) 10/dt*ones(1,nRates) ];

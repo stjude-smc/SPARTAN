@@ -70,6 +70,8 @@ dt = data.sampling/1000;  %frame interval in seconds.
 
 for traceID=1:data.nTraces
     
+    if opts.exclude(traceID), continue; end
+    
     % Trace data preprocessing:
     % remove photobleached portion of trace and
     % clip negative values that cause the algorithm to crash.
