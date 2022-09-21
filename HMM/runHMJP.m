@@ -59,6 +59,8 @@ opts.units.time  = 's';
 opts.M           = model.nStates;
 opts.mu_back_D   = 0;  % Background fluorescence levels
 opts.mu_back_A   = 0;
+opts.exclude     = false(data.nTraces,1);
+opts.truncate    = ones(data.nTraces,1) * data.nFrames;
 
 opts = mergestruct( opts, optsIn );
 
@@ -70,14 +72,14 @@ dt = data.sampling/1000;  %frame interval in seconds.
 
 for traceID=1:data.nTraces
     
-    if opts.exclude(traceID), continue; end
+    idxEnd = opts.truncate(traceID);
+    if opts.exclude(traceID) || idxEnd<2, continue; end
     
     % Trace data preprocessing:
     % remove photobleached portion of trace and
     % clip negative values that cause the algorithm to crash.
     % FIXME: for now ignore any stroboscopic information.
     % FIXME: need to segment to avoid blinking events.
-    idxEnd = find( data.fret(traceID,:)>0.1, 1, 'last' )-1;
     opts.Int_D    = max(0, data.donor(traceID,1:idxEnd) );
     opts.Int_A    = max(0, data.acceptor(traceID,1:idxEnd) );
     

@@ -1,12 +1,12 @@
-function [idl,outModel] = runParamOptimizer(data, dwtfile, model, options)
+function [idlout,outModel] = runParamOptimizer(data, idl, model, options)
 % batchKinetics: run parameter optimization
+% This function performs any necessary pre-processing before launching one
+% of the supporting optimization algorithms.
 
 narginchk(4,4);
 nargoutchk(2,2);
-
-% Remove intermediate files from previous runs.
-warning('off','MATLAB:DELETE:FileNotFound');
-delete('resultTree.mat','bwmodel.qmf');
+idlout = idl;
+outModel = model;
 
 % Load data
 assert( isa(data,'Traces'), 'Input must be Traces object or path to .traces file' );
@@ -26,6 +26,16 @@ else
     input = data.fret;
 end
 
+% Truncate data
+for i=1:data.nTraces
+    if options.truncate(i)>2
+        input(i, options.truncate(i):end) = 0;
+    else
+        options.exclude(i) = true;
+    end
+end
+input = input( ~options.exclude, : );
+
 
 % Idealize data using user-specified algorithm...
 switch upper(options.idealizeMethod(1:3))
@@ -43,13 +53,26 @@ case 'MPL'
     [idl,optModel] = mplOptimize( input, data.sampling, model, options );
 
 case 'HMJ'
-    [idl,optModel] = runHMJP( data, model, options );
+    [idlout,optModel] = runHMJP( data, model, options );
     
-case upper('THR'),
-    error('Thresholding not implemented')
-    %[dwt,offsets] = tIdealize(data, model);
-    %optModel = model;
-    %LL=0;
+case 'MIL'
+    % Load dwell-time information
+    assert( ~isempty(idl), 'Traces must be idealized before running MIL');
+    dwt = idlToDwt( idl(~options.exclude,:) );
+    dt = data.sampling/1000;
+
+    % Run MIL, only updating model rates.
+    % NOTE: optModel will have the .qubTree model values, which only reflect 
+    % the model as originally loaded from file. FIXME.
+    if strcmpi( options.idealizeMethod, 'MIL (Together)' )
+        options.updateModel = true;
+        optModel = milOptimize(dwt, dt, model, options);
+        model.rates = optModel.rates;
+    else
+        rates = milOptimizeSeparately(dwt, dt, model);
+        ratehist(rates);
+        return;
+    end
 
 otherwise
     error('Analysis method "%s" not recognized',options.idealizeMethod);
@@ -74,11 +97,10 @@ end
 % Truncate values to rates to four significant figures for display
 outModel.rates = round(outModel.rates,4,'significant');
 
-% Save the idealization, deleting any previous ones.
-if ~isempty(dwtfile)
-    saveDWT( dwtfile, idl, outModel, data.sampling );
+if ~ismember( upper(options.idealizeMethod(1:3)), {'HMJ','MIL'} )
+    idlout = zeros( data.nTraces, data.nFrames );
+    idlout( ~options.exclude, :) = idl;
 end
-
     
 end  %FUNCTION runParamOptimizer
 

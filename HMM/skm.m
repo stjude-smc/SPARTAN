@@ -1,4 +1,4 @@
-function [idlTotal,model,LL] = skm( data, sampling, initialModel, params )
+function [idl,model,LL] = skm( data, sampling, initialModel, params )
 % SKM  Crude model re-estimation using iterative idealization
 % 
 %   [DWT,NEW_MODEL,LL,OFFSETS] = SKM( DATA, SAMPLING, MODEL, params )
@@ -38,11 +38,7 @@ function [idlTotal,model,LL] = skm( data, sampling, initialModel, params )
 narginchk(3,4);
 nargoutchk(0,4);
 
-
-% Set default values for any paramaters not specified.
-defaultParams = hmmopt(mfilename);
-defaultParams.exclude  = false( size(data,1), 1);
-params = mergestruct(defaultParams, params);
+params = mergestruct( hmmopt(mfilename), params );
 
 
 % Convert struct model input into a QubModel object
@@ -62,11 +58,9 @@ if isfield(params,'convGrad')
     warning('SKM:convGrad','convGrad not yet implemented.');
 end
 
-
-origSize = size(data);  %size before removing outliers
 data = max(-1, min(10,data));    %remove outliers
-data = data(~params.exclude,:);  %remove manually excluded traces
 [nTraces,nFrames] = size(data);
+
 
 
 %% Run the SKM algorithm
@@ -107,16 +101,6 @@ else
 end
 
 
-idlTotal = zeros( origSize );
-idlTotal( ~params.exclude, :) = idl;
-
-
-% % Add dwell in zero-state until end of trace, if requested
-if params.zeroEnd
-    idlTotal(idlTotal==0)=1;
-    idlTotal(params.exclude) = 0;
-end
-
 
 end %function skm
 
@@ -132,7 +116,6 @@ function [idlClasses,model,LL] = runSKM(data, sampling, initialModel, params)
 nTraces = size(data,1);
 nStates = initialModel.nStates;
 nClass  = initialModel.nClasses;
-
 
 % Setup initial conditions
 itr = 1; %number of iterations so far
@@ -154,7 +137,6 @@ while( itr < params.maxItr ),
     
     [idl,vLL] = idealize( data, [imu isigma], p0, A );
     LL(itr) = sum(vLL)/nTraces;
-    
     
     % Display intermediate progress...
 %     if ~params.quiet

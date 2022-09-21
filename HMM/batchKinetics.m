@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 07-Sep-2022 17:59:56
+% Last Modified by GUIDE v2.5 21-Sep-2022 16:09:13
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -128,6 +128,7 @@ else
 end
 
 [~,names] = cellfun(@fileparts, handles.dataFilenames, 'UniformOutput',false);
+assert( ~isempty(names) );
 set(handles.lbFiles, 'String',names, 'Value',1 );
 guidata(hObject,handles);
 
@@ -345,6 +346,9 @@ handles.traceViewer.showModelLines();
 function handles = btnExecute_Callback(hObject, ~, handles)
 % Run the data analysis pipeline with user-specified data & model.
 
+data = handles.traceViewer.data;
+idl = handles.traceViewer.idl;
+
 % Verify data and model have been specified by user in GUI.
 idxfile  = get(handles.lbFiles,'Value');
 
@@ -354,75 +358,55 @@ options = hmmopt(idealizeMethod);
 options.dataField = handles.traceViewer.dataField;
 options.updateModel = get(handles.chkUpdateModel,'Value');
 
-dwtfname = handles.dwtFilenames{idxfile};
-
-if ~handles.traceViewer.data.isChannel( options.dataField )
+if ~data.isChannel( options.dataField )
     options = settingdlg( options, {'dataField'}, {'Data field to analyze'}, ...
-                          {handles.traceViewer.data.channelNames} );
+                                                   {data.channelNames} );
     if isempty(options), return; end  %user hit cancel
 end
 
 set(handles.figure1,'pointer','watch');
 set(handles.txtStatus,'String','Analyzing...'); drawnow;
 
-% try
-    % Run MIL rate optimizer using only dwell-times as input
-    if strcmpi(idealizeMethod(1:3),'MIL')
+try
+    %handles.traceViewer.loadIdealization();  %clear idealization
+    %drawnow;
 
-        % Load dwell-time information
-        assert( ~isempty(handles.traceViewer.idl), 'Traces must be idealized before running MIL');
-        dwt = idlToDwt( handles.traceViewer.idl(~handles.traceViewer.exclude,:) );
-        dt = handles.traceViewer.data.sampling/1000;
-
-        % Run MIL, only updating model rates.
-        % NOTE: optModel will have the .qubTree model values, which only reflect 
-        % the model as originally loaded from file. FIXME.
-        if strcmpi( idealizeMethod, 'MIL (Together)' )
-            options.updateModel = true;
-            optModel = milOptimize(dwt, dt, handles.model, options);
-            handles.model.rates = optModel.rates;
-        else
-            rates = milOptimizeSeparately(dwt, dt, handles.model);
-            ratehist(rates);
-        end
-
-    % Run any other method that uses FRET data as input.
-    else
-        handles.traceViewer.loadIdealization();  %clear idealization
-        
-        % If no .dwt file name was previously specified, construct one now.
+    % Run optimization algorithm.
+    options.idealizeMethod = idealizeMethod;
+    options.exclude = handles.traceViewer.exclude;
+    options.truncate = handles.traceViewer.truncate;
+    [idl,optModel] = runParamOptimizer( data, idl, handles.model, options );
+    
+    % Save the idealization.
+    if ~strcmpi(options.idealizeMethod(1:3),'MIL')
+        dwtfname = handles.dwtFilenames{idxfile};
         if isempty( dwtfname )
             [p,f] = fileparts( handles.dataFilenames{idxfile} );
             dwtfname = fullfile( p, [f '.qub.dwt'] );
             handles.dwtFilenames{idxfile} = dwtfname;
         end
-
-        % Run optimization algorithm.
-        options.idealizeMethod = idealizeMethod;
-        options.exclude = handles.traceViewer.exclude;
-        [idl,optModel] = runParamOptimizer( handles.traceViewer.data, ...
-                                            dwtfname, handles.model, options );
-        
-        % Update model and idealization display
+        saveDWT( dwtfname, idl, optModel, data.sampling );
         handles.traceViewer.loadIdealization( idl, optModel.mu );
-        if get(handles.chkUpdateModel,'Value'),
-            handles.model.copyValuesFrom( optModel );
-        end
+    end
+    
+    % Update model and idealization display
+    if get(handles.chkUpdateModel,'Value'),
+        handles.model.copyValuesFrom( optModel );
     end
     
     set(handles.txtStatus,'String','Finished');
     guidata(hObject,handles);
     enableControls(handles);
 
-% catch e
-%     if strcmpi(e.identifier,'spartan:op_cancelled')
-%         set(handles.txtStatus,'String','Operation cancelled');
-%     else
-%         errordlg(['Error: ' e.message]);
-%         set(handles.txtStatus,'String','Operation failed');
-%     end
-%     return;
-% end
+catch e
+    if strcmpi(e.identifier,'spartan:op_cancelled')
+        set(handles.txtStatus,'String','Operation cancelled');
+    else
+        errordlg(['Error: ' e.message]);
+        set(handles.txtStatus,'String','Operation failed');
+    end
+    return;
+end
 
 set(handles.figure1,'pointer','arrow');
 % END FUNCTION btnExecute_Callback
@@ -637,6 +621,7 @@ if isempty(handles.dataFilenames),
     handles.traceViewer.loadTraceData();
 else
     idxFile = get(hObject,'Value');
+    assert( ~isempty(idxFile) );
     handles.traceViewer.loadTraceData( handles.dataFilenames{idxFile} );
     handles.traceViewer.loadIdealization( handles.dwtFilenames{idxFile} );
 end
@@ -789,3 +774,68 @@ if ~isempty( handles.traceViewer.data )
     frethistComparison( handles.dataFilenames );
 end
 % END FUNCTION
+
+
+% --------------------------------------------------------------------
+function mnuTrunc1_Callback(~, ~, handles) %#ok<DEFNU>
+% Truncate traces to donor photobleaching
+data = handles.traceViewer.data;
+handles.traceViewer.truncate = zeros( 1, data.nTraces );
+for i=1:data.nTraces
+    x = find( data.fret(i,:)~=0, 1, 'last' );
+    if ~isempty(x)
+        handles.traceViewer.truncate(i) = x;
+    end
+end
+handles.traceViewer.showTraces();
+
+
+% --------------------------------------------------------------------
+function mnuTrunc2_Callback(~, ~, handles) %#ok<DEFNU>
+% Truncate traces to first donor blink
+data = handles.traceViewer.data;
+handles.traceViewer.truncate = repmat( data.nFrames, [1 data.nTraces] );
+for i=1:data.nTraces
+    x = find( data.fret(i,:)==0, 1, 'first' );
+    if ~isempty(x)
+        handles.traceViewer.truncate(i) = x-1;
+    end
+end
+handles.traceViewer.showTraces();
+
+
+% --------------------------------------------------------------------
+function mnuTrunc3_Callback(~, ~, handles) %#ok<DEFNU>
+% Truncate traces by FRET value
+% TODO: prompt user for a specific FRET value.
+data = handles.traceViewer.data;
+handles.traceViewer.truncate = repmat( data.nFrames, [1 data.nTraces] );
+for i=1:data.nTraces
+    x = find( rleFilter(data.fret(i,:)>=0.1,5), 1, 'last' );
+    if ~isempty(x)
+        handles.traceViewer.truncate(i) = x;
+    end
+end
+handles.traceViewer.showTraces();
+
+
+% --------------------------------------------------------------------
+function mnuTrunc4_Callback(~, ~, handles) %#ok<DEFNU>
+% Truncate traces by idealized state
+% TODO: prompt user for a state number and minimum number of frames.
+if isempty(handles.traceViewer.idl)
+    errordlg('Traces must be idealized');
+    return;
+end
+
+data = handles.traceViewer.data;
+handles.traceViewer.truncate = repmat( data.nFrames, [1 data.nTraces] );
+for i=1:data.nTraces
+    x = find( handles.traceViewer.idl(i,:)<=1, 1, 'first' );
+    if ~isempty(x)
+        handles.traceViewer.truncate(i) = x-1;
+    end
+end
+handles.traceViewer.showTraces();
+
+

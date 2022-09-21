@@ -45,7 +45,9 @@ properties (SetAccess=public, GetAccess=public)
     showStateMarkers = true;  % Draw dotted lines to mark model fret values
     showLineDividers = true;  % Draw faint boxes to distinguish trace lines
     dataField = 'fret';       % Which field of target Traces object to show
+    
     exclude = [];             % Logical array marking traces to exlude from analysis
+    truncate = [];            % Last frame in each trace to consider for analysis
 end
 
 properties (SetAccess=protected, GetAccess=public)
@@ -55,6 +57,7 @@ properties (SetAccess=protected, GetAccess=public)
     sldTracesListener = [];  % Listener that detects when scrollbars are altered.
     
     hLine       = [];        % Array of Line objects for trace data
+    hTruncate   = [];        % Array of Line objects for truncation markers
     hTraceLabel = [];        % Array of text objects for trace numbers.
     contextMenu = [];
 end
@@ -150,9 +153,18 @@ methods
         end
     end
     
-    set( ancestor(this.ax,'figure'), 'pointer','arrow' );
+    this.truncate = repmat( this.data.nFrames, [1 this.data.nTraces] );
+    for i=1:this.data.nTraces
+        x = find( this.data.fret(i,:)~=0, 1, 'last' );
+        if ~isempty(x)
+            this.truncate(i) = x-1;
+        end
+    end
+    
     this.exclude = false(this.data.nTraces,1);
+    
     this.redraw();
+    set( ancestor(this.ax,'figure'), 'pointer','arrow' );
     
     end %function loadTraces
     
@@ -248,6 +260,10 @@ methods
         end
         
         plot( this.ax, time([1,end]), y_offset+[0 0], 'k:', 'HitTest','off' );  %baseline marker
+        
+        t = annotation('arrow');
+        t.Parent = this.ax;
+        this.hTruncate(i) = t;
 
         this.hLine(i,:) = plot( this.ax, time, z, 'HitTest','off' );  %trace data
         
@@ -315,10 +331,14 @@ methods
             ydata = y_offset + min(1.15, max(-0.15,ydata) );
             set( this.hLine(i,1), 'YData',ydata, 'Color',min(1,[0 1 0]+0.65*ex) );
         end
-
+        
         % Update trace labels
         traceLabel = sprintf('%d%s',idx, exText{ex+1});
         set( this.hTraceLabel(i), 'String',traceLabel, 'UserData',idx );
+        
+        trunc = this.truncate(idx) * this.data.sampling/1000;
+        set( this.hTruncate(i), 'X',[trunc trunc], 'Y',y_offset+[0.5 0], ...
+             'Color',[0 0 0]+0.65*ex );
     end
     
     % Clear final lines if there isn't enough data to fill them.

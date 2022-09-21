@@ -1,4 +1,4 @@
-function [idlTotal,optModel,LL] = BWoptimize( observations, sampling, model, paramInput )
+function [idl,optModel,LL] = BWoptimize( observations, sampling, model, paramInput )
 % BWOPTIMIZE  Find HMM parameter values that best explain data
 %
 %    [LL,A,mu,sigma,p0] = BWoptimize( OBSERVATIONS, DT, MODEL, PARAMS )
@@ -47,8 +47,6 @@ end
 
 % Set default values for any paramaters not specified.
 params = hmmopt(mfilename);
-params.exclude  = false( size(observations,1), 1 );
-
 if nargin>=4
     params = mergestruct(params, paramInput);
 end
@@ -69,9 +67,6 @@ wbh = waitbar(0,'Running Baum-Welch...');
 
 rateMask = model.rates~=0;
 
-% Remove excluded traces from analysis.
-origSize = size(observations);  %before exlusions
-observations = observations( ~params.exclude, : );
 observations = max(-0.5, min(1.5,observations));  %clip outlier values
 
 LL = zeros(0,1);
@@ -153,11 +148,6 @@ isigma = sigma( model.class );
 idl = idealize( observations, [to_col(imu) to_col(isigma)], p0, A );
 classes = [0; to_col(model.class)];
 idl = reshape( classes(idl+1), size(idl) );
-
-% Give zeros to excluded traces to indicate they were not idealized.
-idlTotal = zeros( origSize );
-idlTotal( ~params.exclude, :) = idl;
-
 
 % Save results
 optModel = copy(model);

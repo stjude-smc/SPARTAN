@@ -53,8 +53,6 @@ fminopt.TolX    = options.convGrad;
 fminopt.TolFun  = options.convLL;
 
 % Run fmincon optimizer, with loose contraints to aid convergence.
-idl = zeros(size(fret));
-fret = fret(~options.exclude,:);
 optFun = @(x)mplIter(fret, dt, model, x);
 
 nMu = sum(~model.fixMu);
@@ -80,10 +78,9 @@ optModel.rates(rateMask)        = optParam(nMu+nSigma + 1:end);
 % FIXME: idealize should properly handle degenerate states
 imu    = optModel.mu( optModel.class );
 isigma = optModel.sigma( optModel.class );
-idl_sel = idealize( fret, [to_col(imu) to_col(isigma)], optModel.p0, optModel.calcA(dt) );
+idl = idealize( fret, [to_col(imu) to_col(isigma)], optModel.p0, optModel.calcA(dt) );
 classes = [0; to_col(model.class)];
-idl_sel = reshape( classes(idl_sel+1), size(idl_sel) );
-idl(~options.exclude,:) = idl_sel;
+idl = reshape( classes(idl+1), size(idl) );
 
 
 
