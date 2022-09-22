@@ -31,9 +31,6 @@ nargoutchk(1,3);
 
 
 % Remove traces that were excluded from analysis
-if isfield(optionsInput,'exclude') && ~isempty(optionsInput.exclude)
-    dwt = dwt(~optionsInput.exclude);
-end
 dwt = dwt( ~cellfun(@isempty,dwt) );
     
 % Define default optional arguments, mostly taken from fmincon
@@ -70,6 +67,10 @@ if ~isempty(options.removeDarkState) && options.removeDarkState
 end
 nRates = sum(rateMask(:));
 
+% Sanity checks
+temp = vertcat(dwt{:});
+assert( all(temp(:,1)<=model.nClasses), 'Idealization does not match current model!' );
+assert( nRates>0, 'MIL requires model with at least two states' );
 
 % Run fmincon optimizing with weak constraints to avoid negative rates.
 % (fminunc works just as well; negative rates just cause harmless restarts).

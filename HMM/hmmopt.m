@@ -59,8 +59,8 @@ if isempty(allopt)
     allopt.mpl.convGrad = 1e-6;
 
     % HMJP
-    allopt.hmjp.maxItr   = 1000;
-    allopt.hmjp.alpha    = 2;     % Uniformization; determines further refinements of jump times within a frame period
+    allopt.hmjp.maxItr   = 5000;
+    allopt.hmjp.alpha    = 1.2;   % Uniformization; determines further refinements of jump times within a frame period
     allopt.hmjp.beta     = 10;    % higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
     allopt.hmjp.eta      = 2;     % gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
     allopt.hmjp.HMC_eps  = 0.01;  % Hamiltonian Monte Carlo integration step size

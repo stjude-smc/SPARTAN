@@ -1,12 +1,13 @@
-function [idlout,outModel] = runParamOptimizer(data, idl, model, options)
+function [idlout,outModel,rates] = runParamOptimizer(data, idl, model, options)
 % batchKinetics: run parameter optimization
 % This function performs any necessary pre-processing before launching one
 % of the supporting optimization algorithms.
 
 narginchk(4,4);
-nargoutchk(2,2);
+nargoutchk(2,3);
 idlout = idl;
 outModel = model;
+rates = [];
 
 % Load data
 assert( isa(data,'Traces'), 'Input must be Traces object or path to .traces file' );
@@ -57,8 +58,9 @@ case 'HMJ'
     
 case 'MIL'
     % Load dwell-time information
+    % FIXME: idlToDwt will ignore empty traces, so dwt and idl size not the same...
     assert( ~isempty(idl), 'Traces must be idealized before running MIL');
-    dwt = idlToDwt( idl(~options.exclude,:) );
+    dwt = idlToDwt( idl(~options.exclude,:), true );
     dt = data.sampling/1000;
 
     % Run MIL, only updating model rates.

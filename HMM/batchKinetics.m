@@ -60,23 +60,6 @@ handles.output = hObject;
 [handles.model] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 
-% Set default analysis settings. FIXME: put these in cascadeConstants?
-% FIXME: these really should be setup per method...
-options.updateModel = true;  %update model viewer during optimization
-options.seperately = true; %SKM: analyze each trace individually
-options.maxItr = 100;
-options.minStates = 1;
-options.maxStates = 5;
-options.maxRestarts = 10;
-options.threshold = 1e-5;
-% HMJP parameters
-options.alpha    = 2;   % Uniformization; determines further refinements of jump times within a frame period
-options.beta     = 10;      % higher number = slow rates. 1/(beta*eta)=peak escape rate in prior
-options.eta      = 2;      % gamma distribution shape parameter: 4=peaked prior, 2=exp prior.
-options.HMC_eps  = 0.01;   % Hamiltonian Monte Carlo integration step size
-options.HMC_L    = 50;     % Hamiltonian Monte Carlo number of Leap-frog integration steps.
-handles.options = options;
-
 % Update GUI to reflect these default settings. MIL not supported on Macs
 methods = {'Segmental k-Means','Baum-Welch','ebFRET','MIL (Together)','MIL (Separately)','MPL','HMJP'};
 set( handles.cboIdealizationMethod, 'String',methods, 'Value',1 );  %SKM
@@ -375,7 +358,7 @@ try
     options.idealizeMethod = idealizeMethod;
     options.exclude = handles.traceViewer.exclude;
     options.truncate = handles.traceViewer.truncate;
-    [idl,optModel] = runParamOptimizer( data, idl, handles.model, options );
+    [idl,optModel,handles.rates] = runParamOptimizer( data, idl, handles.model, options );
     
     % Save the idealization.
     if ~strcmpi(options.idealizeMethod(1:3),'MIL')
@@ -720,6 +703,12 @@ end
 % END FUNCTION
 
 
+function btnFrethist_ClickedCallback(~, ~, handles) %#ok<DEFNU>
+if ~isempty( handles.traceViewer.data )
+    frethistComparison( handles.dataFilenames );
+end
+% END FUNCTION
+
 
 
 
@@ -750,30 +739,125 @@ hmmopt( getIdealizeMethod(handles), true );
 function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces using ranges of rate constants.
 % FIXME: assumes number of fitted rates == number of traces.
-handles.traceViewer.mnuSelRates_Callback();
+
+    persistent defaults;
+    ex = handles.traceViewer.exclude;
+    if ~isfield(handles,'rates') || isempty(handles.rates), return; end
+    rates = handles.rates;
+    assert( sum(~ex)==size(rates,3), 'size mismatch rate matrix' );
+
+    % Set order of state pairs that describe each rate constant
+    [src,dst] = find( nanmin(rates,[],3)>0 );  %& ~model.fixRates;
+    [src,idx] = sort(src);
+    dst = dst(idx);
+
+    prompt = cell( 2*numel(src), 1 );
+    for i=1:numel(src)
+        j = (i-1)*2 +1;
+        prompt{j}   = sprintf('k%d,%d >', src(i), dst(i) );
+        prompt{j+1} = sprintf('k%d,%d <', src(i), dst(i) );
+    end
+
+    if numel(defaults) ~= numel(prompt)
+        defaults = repmat( {''}, [2*numel(src) 1] );
+    end
+    answer = inputdlg( prompt, 'Select traces by fitted rate constants', ...
+                       1, defaults );
+    if isempty(answer), return; end
+
+    % Update exclusion list and update display.
+    for i=1:numel(src)
+        j = (i-1)*2 +1;
+        values = squeeze(  rates( src(i), dst(i), : )  );
+        lb = str2double( answer{j} );
+        ub = str2double( answer{j+1} );
+
+        if ~isnan(lb)
+            ex( values <= lb ) = true;
+        end
+        if ~isnan(ub)
+            ex( values >= ub ) = true;
+        end
+    end
+    
+    defaults = answer;
+    handles.traceViewer.exclude = ex;
+    handles.traceViewer.showTraces();
+
 % END FUNCTION mnuSelRates_Callback
 
 
 % --------------------------------------------------------------------
 function mnuSelDwells_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces by total number number of dwells in any state
-handles.traceViewer.mnuSelByDwells_Callback();
+
+    persistent defaults;
+    if isempty(handles.traceViewer.idl), return; end
+    
+    % Prompt user for trace selection criteria
+    if isempty(defaults), defaults={'',''};  end
+    answer = inputdlg( {'Minimum:','Maximum:'}, 'Select traces by number of dwells', ...
+                       1, defaults );
+    if isempty(answer), return; end
+    bounds = cellfun( @str2double, answer );
+    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+        errordlg('Invalid input value');
+        return;
+    end
+    if isnan(bounds(1)), bounds(1)=-Inf; end
+    if isnan(bounds(2)), bounds(2)=Inf; end
+    
+    % Calculate number of dwells in each trace
+    nDwells = cellfun( @numel, idlToDwt(handles.traceViewer.idl) );
+    
+    % Update exclusion list and update display.
+    defaults = answer;
+    handles.traceViewer.exclude( nDwells<bounds(1) | nDwells>bounds(2) ) = true;
+    handles.traceViewer.showTraces();
+
 % END FUNCTION mnuSelDwells_Callback
 
 
 % --------------------------------------------------------------------
 function mnuSelOccupancy_Callback(~, ~, handles) %#ok<DEFNU>
 % Select traces by state occupancy
-handles.traceViewer.mnuSelOccupancy_Callback();
+
+    persistent defaults;
+    if isempty(handles.traceViewer.idl), return; end
+    ex = handles.traceViewer.exclude;
+
+    nClass = numel(handles.traceViewer.idlValues)-1;
+    prompt = cell( nClass, 1 );
+    for i=1:nClass
+        prompt{i} = sprintf('Minimum frames in class %d', i );
+    end
+
+    % Prompt user for minumum number of frames in a state
+    if numel(defaults) ~= numel(prompt)
+        defaults = repmat( {''}, nClass );
+    end
+    answer = inputdlg( prompt, 'Select traces by state occupancy', 1, defaults );
+    if isempty(answer), return; end
+
+    bounds = cellfun( @str2double, answer );
+    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
+        errordlg('Invalid input value');
+        return;
+    end
+    bounds( isnan(bounds) ) = 0;
+
+    % Update exclusion list and update display.
+    for i=1:nClass
+        if ~isnan(bounds(i))
+            occupancy = sum( handles.traceViewer.idl==i, 2 );
+            ex = ex | occupancy<bounds(i);
+        end
+    end
+    defaults = answer;
+    handles.traceViewer.exclude = ex;
+    handles.traceViewer.showTraces();
+
 % END FUNCTION mnuSelOccupancy_Callback
-
-
-% --------------------------------------------------------------------
-function btnFrethist_ClickedCallback(~, ~, handles) %#ok<DEFNU>
-if ~isempty( handles.traceViewer.data )
-    frethistComparison( handles.dataFilenames );
-end
-% END FUNCTION
 
 
 % --------------------------------------------------------------------

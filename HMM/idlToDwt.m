@@ -1,4 +1,4 @@
-function [dwt,offsets] = idlToDwt( idl )
+function [dwt,offsets] = idlToDwt( idl, keepEmpty )
 % idlToDwt  Converts state assignment (idealization) to a list of dwell times
 %
 %    [DWT,OFFSETS] = idlToDwt( IDL )
@@ -18,15 +18,19 @@ function [dwt,offsets] = idlToDwt( idl )
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-
-assert( nargin==1 && isnumeric(idl) );
+narginchk(1,2);
+assert( isnumeric(idl) );
 
 [~,traceLen] = size(idl);
 
 
 % Find un-idealized portions (zero state) as segment separators.
 % Note that this includes the last one, which marks the end of the file!
-segments = find( any(idl,2) )'; %select traces that have an idealization
+if nargin>1 && keepEmpty
+    segments = 1:size(idl,1);
+else
+    segments = find( any(idl,2) )'; %select traces that have an idealization
+end
 offsets = (segments-1)*traceLen;
 
 nSeg = numel(segments);

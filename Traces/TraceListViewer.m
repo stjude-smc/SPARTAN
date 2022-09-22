@@ -103,9 +103,6 @@ methods
     uimenu( menu, 'Label','Load selection list...', 'Callback', @this.mnuLoadSelList_Callback );
     uimenu( menu, 'Label','Save selection list...', 'Callback', @this.mnuSaveSelList_Callback );
     uimenu( menu, 'Label','Save selected traces...', 'Callback', @this.mnuSaveSel_Callback );
-    uimenu( menu, 'Label','Select by number of dwells', 'Callback',@this.mnuSelByDwells_Callback, 'Separator','on' );
-    uimenu( menu, 'Label','Select by state occupancy', 'Callback',@this.mnuSelOccupancy_Callback );
-    uimenu( menu, 'Label','Select by rates', 'Callback',@this.mnuSelRates_Callback );
     set( allchild(menu), 'Enable','off' );
     set(this.ax, 'UIContextMenu', menu);
     this.contextMenu = menu;
@@ -524,142 +521,8 @@ methods
     
     end %function mnuSaveSel_Callback
     
-
     
     
-    %% -----------------   TRACE SELECTION DIALOGS   ----------------- %%
-    
-    function mnuSelByDwells_Callback(this, varargin)
-    % Select traces by total number of dwells in any state
-    
-    persistent defaults;
-    if isempty(this.idl), return; end
-    
-    % Prompt user for trace selection criteria
-    if isempty(defaults), defaults={'',''};  end
-    answer = inputdlg( {'Minimum:','Maximum:'}, 'Select traces by number of dwells', ...
-                       1, defaults );
-    if isempty(answer), return; end
-    bounds = cellfun( @str2double, answer );
-    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
-        errordlg('Invalid input value');
-        return;
-    end
-    if isnan(bounds(1)), bounds(1)=-Inf; end
-    if isnan(bounds(2)), bounds(2)=Inf; end
-    
-    % Calculate number of dwells in each trace
-    nDwells = cellfun( @numel, idlToDwt(this.idl) );
-    
-    % Update exclusion list and update display.
-    defaults = answer;
-    this.exclude( nDwells<bounds(1) | nDwells>bounds(2) ) = true;
-    this.showTraces();
-
-    end %function mnuSelByDwells_Callback
-    
-    
-    
-    function mnuSelOccupancy_Callback(this, varargin)
-    % Select traces by state occupancy
-    % FIXME: implementation would be cleaner if this.idl were the state
-    % assignment traces instead of FRET values.
-
-    persistent defaults;
-    if isempty(this.idl), return; end
-
-    nClass = numel(this.idlValues)-1;
-    prompt = cell( nClass, 1 );
-    for i=1:nClass
-        prompt{i} = sprintf('Minimum frames in class %d', i );
-    end
-
-    % Prompt user for minumum number of frames in a state
-    if numel(defaults) ~= numel(prompt)
-        defaults = repmat( {''}, nClass );
-    end
-    answer = inputdlg( prompt, 'Select traces by state occupancy', 1, defaults );
-    if isempty(answer), return; end
-
-    bounds = cellfun( @str2double, answer );
-    if any( isnan(bounds) & ~cellfun(@isempty,answer) )
-        errordlg('Invalid input value');
-        return;
-    end
-    bounds( isnan(bounds) ) = 0;
-
-    % Update exclusion list and update display.
-    for i=1:nClass
-        if ~isnan(bounds(i))
-            occupancy = sum( this.idl==i, 2 );
-            this.exclude = this.exclude | occupancy<bounds(i);
-        end
-    end
-    defaults = answer;
-    this.showTraces();
-
-    end  % mnuSelOccupancy_Callback
-    
-    
-    
-    function mnuSelRates_Callback(this, varargin)
-    % Select traces using ranges of rate constants.
-    % FIXME: assumes number of fitted rates == number of traces.
-
-    persistent defaults;
-
-    try
-        temp = load('rates.mat','-mat','rates');
-        rates = temp.rates;
-        assert( numel(this.exclude)==size(rates,3), 'size mismatch rate matrix' );
-    catch
-        errordlg('Unable to load rates.mat result file');
-        return;
-    end
-
-    % Set order of state pairs that describe each rate constant
-    [src,dst] = find( all(rates>0,3) );  %& ~model.fixRates;
-    [src,idx] = sort(src);
-    dst = dst(idx);
-
-    prompt = cell( 2*numel(src), 1 );
-    for i=1:numel(src)
-        j = (i-1)*2 +1;
-        prompt{j}   = sprintf('k%d,%d >', src(i), dst(i) );
-        prompt{j+1} = sprintf('k%d,%d <', src(i), dst(i) );
-    end
-
-    if numel(defaults) ~= numel(prompt)
-        defaults = repmat( {''}, [2*numel(src) 1] );
-    end
-    answer = inputdlg( prompt, 'Select traces by fitted rate constants', ...
-                       1, defaults );
-    if isempty(answer), return; end
-
-    % Update exclusion list and update display.
-    for i=1:numel(src)
-        j = (i-1)*2 +1;
-        values = squeeze(  rates( src(i), dst(i), : )  );
-        lb = str2double( answer{j} );
-        ub = str2double( answer{j+1} );
-
-        if ~isnan(lb)
-            this.exclude( values <= lb ) = true;
-        end
-        if ~isnan(ub)
-            this.exclude( values >= ub ) = true;
-        end
-    end
-    
-    defaults = answer;
-    this.showTraces();
-
-    end   % mnuSelRates_Callback
-    
-    
-    
-    
-
 end %methods
 
 end %classdef
