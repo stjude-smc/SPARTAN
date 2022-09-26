@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 21-Sep-2022 16:09:13
+% Last Modified by GUIDE v2.5 23-Sep-2022 16:48:35
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -609,6 +609,8 @@ else
     handles.traceViewer.loadIdealization( handles.dwtFilenames{idxFile} );
 end
 
+handles.rates = [];
+
 % END FUNCTION lbFiles_Callback
 
 
@@ -744,7 +746,7 @@ function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
     ex = handles.traceViewer.exclude;
     if ~isfield(handles,'rates') || isempty(handles.rates), return; end
     rates = handles.rates;
-    assert( sum(~ex)==size(rates,3), 'size mismatch rate matrix' );
+    assert( numel(ex)==size(rates,3), 'size mismatch rate matrix' );
 
     % Set order of state pairs that describe each rate constant
     [src,dst] = find( nanmin(rates,[],3)>0 );  %& ~model.fixRates;
@@ -808,7 +810,7 @@ function mnuSelDwells_Callback(~, ~, handles) %#ok<DEFNU>
     if isnan(bounds(2)), bounds(2)=Inf; end
     
     % Calculate number of dwells in each trace
-    nDwells = cellfun( @numel, idlToDwt(handles.traceViewer.idl) );
+    nDwells = cellfun( @numel, idlToDwt(handles.traceViewer.idl,true) );
     
     % Update exclusion list and update display.
     defaults = answer;
@@ -858,6 +860,17 @@ function mnuSelOccupancy_Callback(~, ~, handles) %#ok<DEFNU>
     handles.traceViewer.showTraces();
 
 % END FUNCTION mnuSelOccupancy_Callback
+
+
+
+% --------------------------------------------------------------------
+function mnuFretSep_Callback(~, ~, handles) %#ok<DEFNU>
+% Select traces with state FRET values close to ensemble average.
+    tv = handles.traceViewer;
+    if isempty(tv.idl), return; end
+    tv.exclude = tv.exclude | ~fret_model_filter( tv.data, tv.idl );
+    tv.showTraces();
+% END FUNCTION mnuFretSep_Callback
 
 
 % --------------------------------------------------------------------
@@ -921,5 +934,4 @@ for i=1:data.nTraces
     end
 end
 handles.traceViewer.showTraces();
-
 

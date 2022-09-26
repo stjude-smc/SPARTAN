@@ -54,11 +54,10 @@ case 'MPL'
     [idl,optModel] = mplOptimize( input, data.sampling, model, options );
 
 case 'HMJ'
-    [idlout,optModel] = runHMJP( data, model, options );
+    [idl,optModel] = runHMJP( data.getSubset(~options.exclude), model, options );
     
 case 'MIL'
     % Load dwell-time information
-    % FIXME: idlToDwt will ignore empty traces, so dwt and idl size not the same...
     assert( ~isempty(idl), 'Traces must be idealized before running MIL');
     dwt = idlToDwt( idl(~options.exclude,:), true );
     dt = data.sampling/1000;
@@ -71,8 +70,10 @@ case 'MIL'
         optModel = milOptimize(dwt, dt, model, options);
         model.rates = optModel.rates;
     else
-        rates = milOptimizeSeparately(dwt, dt, model);
-        ratehist(rates);
+        result = milOptimizeSeparately(dwt, dt, model);
+        rates = nan( size(result,1), size(result,2), data.nTraces );
+        rates(:,:,~options.exclude) = result;
+        ratehist(result);
         return;
     end
 
@@ -99,7 +100,7 @@ end
 % Truncate values to rates to four significant figures for display
 outModel.rates = round(outModel.rates,4,'significant');
 
-if ~ismember( upper(options.idealizeMethod(1:3)), {'HMJ','MIL'} )
+if ~strcmpi( options.idealizeMethod(1:3), 'MIL' )
     idlout = zeros( data.nTraces, data.nFrames );
     idlout( ~options.exclude, :) = idl;
 end
