@@ -119,35 +119,40 @@ methods
     % file. Second input must be path to a .dwt file.
     
     narginchk(1,2);
-    [this.data,this.dataFilename,this.idl,this.idlValues] = deal([]);
+    [this.data,this.dataFilename,this.idl,this.idlValues,this.exclude,this.truncate] = deal([]);
+    
+    if nargin<2 || isempty(dataIn)
+        this.redraw();
+        return;
+    end
+    
+    % Load data into viewer
     set( ancestor(this.ax,'figure'), 'pointer','watch' );
-    
-    if nargin>1 && ~isempty(isempty(dataIn))
-        if iscell(dataIn)
-            input = cell( numel(dataIn), 1 );
-            for i=1:numel(dataIn)
-                input{i} = loadTraces( dataIn{i} );
-            end
-            this.data = combine( input{:} );
-            
-        elseif ischar(dataIn)
-            this.dataFilename = dataIn;
-            this.data = loadTraces(dataIn);
-            
-        elseif isa(dataIn,'Traces')
-            this.data = dataIn;
-        else
-            set( ancestor(this.ax,'figure'), 'pointer','arrow' );
-            error('Invalid first input to TraceListViewer.load');
+        
+    if iscell(dataIn)
+        input = cell( numel(dataIn), 1 );
+        for i=1:numel(dataIn)
+            input{i} = loadTraces( dataIn{i} );
         end
-    
-        % Verify chosen data field is valid in the new file.
-        if ~this.data.isChannel(this.dataField) && ~(strcmpi(this.dataField,'donor+acceptor') ...
-           && all(this.data.isChannel({'donor','acceptor'})) )
+        this.data = combine( input{:} );
 
-            disp( [mfilename ': dataField value not valid. Resetting'] );
-            this.dataField = this.data.channelNames{1};
-        end
+    elseif ischar(dataIn)
+        this.dataFilename = dataIn;
+        this.data = loadTraces(dataIn);
+
+    elseif isa(dataIn,'Traces')
+        this.data = dataIn;
+    else
+        set( ancestor(this.ax,'figure'), 'pointer','arrow' );
+        error('Invalid first input to TraceListViewer.load');
+    end
+
+    % Verify chosen data field is valid in the new file.
+    if ~this.data.isChannel(this.dataField) && ~(strcmpi(this.dataField,'donor+acceptor') ...
+       && all(this.data.isChannel({'donor','acceptor'})) )
+
+        disp( [mfilename ': dataField value not valid. Resetting'] );
+        this.dataField = this.data.channelNames{1};
     end
     
     this.truncate = repmat( this.data.nFrames, [1 this.data.nTraces] );
@@ -181,9 +186,14 @@ methods
     
     if nargin==2 && ischar(varargin{1})
         if ~exist(varargin{1},'file'), return; end
-        [dwt,~,offsets,classes] = loadDWT( varargin{1} );
-        this.idl = dwtToIdl(dwt, offsets, this.data.nFrames, this.data.nTraces);
-        this.idlValues = classes(:,1);
+        try
+            [dwt,~,offsets,classes] = loadDWT( varargin{1} );
+            this.idl = dwtToIdl(dwt, offsets, this.data.nFrames, this.data.nTraces);
+            this.idlValues = classes(:,1);
+        catch e
+            errordlg( ['Invalid idealization file: ',e.message] );
+            return;
+        end
     elseif nargin==3 && isnumeric(varargin{1}) && isnumeric(varargin{2})
         this.idl = varargin{1};
         this.idlValues = to_col(varargin{2});
@@ -517,6 +527,10 @@ methods
     [f,p] = uiputfile( this.dataFilename, 'Save selected traces to file' );
     if ~isequal(f,0)
         saveTraces( fullfile(p,f), this.data.getSubset(~this.exclude) );
+        if ~isempty(this.idl)
+            [p,f] = fileparts( fullfile(p,f) );
+            saveDWT( fullfile(p,[f '.qub.dwt']), this.idl, this.model, this.data.sampling  );
+        end
     end
     
     end %function mnuSaveSel_Callback
