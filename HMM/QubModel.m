@@ -306,6 +306,39 @@ methods
         notify(model,'UpdateModel');  %inform listeners model has changed.
     end
     
+    
+    function removeClass(model,classId)
+    % Add a new state to the model
+        model.muteListeners = true;
+        
+        id = model.class==classId;
+        
+        % Remove state from variables
+        fields = {'class','p0','x','y'};
+        for i=1:numel(fields)
+            if ~isempty(model.(fields{i})),
+                model.(fields{i})(id) = [];
+            end
+        end
+        model.p0 = model.p0/sum(model.p0);  %re-normalize
+        
+        model.rates(id,:) = [];
+        model.rates(:,id) = [];
+        model.fixRates(id,:) = [];
+        model.fixRates(:,id) = [];
+        
+        model.mu(classId) = [];
+        model.sigma(classId) = [];
+        model.fixMu(classId) = [];
+        model.fixSigma(classId) = [];
+        model.class(model.class>classId) = model.class(model.class>classId)-1;
+        
+        model.verify();
+        model.muteListeners = false;
+        notify(model,'UpdateModel');  %inform listeners model has changed.
+    end
+    
+    
     % Verify model is self-consistent and valid (see qub_verifyModel).
     % isValid is true if ok, or false if there is a problem. str is an error
     % message. models can have non-fatal problems (b=1, but a str is given).

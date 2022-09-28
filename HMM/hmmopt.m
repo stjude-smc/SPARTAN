@@ -46,10 +46,10 @@ if isempty(allopt)
     allopt.mil.convLL      = 1e-5;
     allopt.mil.convGrad    = 1e-5;
     allopt.mil.verbose     = true;
-    allopt.mil.removeDarkState = true;
     allopt.mil.UseParallel = cascadeConstants('enable_parfor');
     
     % MIL (Separately)
+    allopt.mil_sep = allopt.mil;
     allopt.mil_sep.verbose = false;
 
     % MPL
@@ -87,12 +87,13 @@ switch methodName
 
     case {'milOptimize','MIL (Together)'}
         name = 'mil';
-        prompts = {'Remove dark state (class 1)','Max iterations','LL Convergence','Grad. Convergence'};
-        fields  = {'removeDarkState',  'maxItr',        'convLL',        'convGrad'};
+        prompts = {'Max iterations','LL Convergence','Grad. Convergence'};
+        fields  = {'maxItr',        'convLL',        'convGrad'};
 
     case {'milOptimizeSeparately','MIL (Separately)'}
         name = 'mil_sep';
-        [prompts,fields] = deal({});
+        prompts = {'Max iterations','LL Convergence','Grad. Convergence'};
+        fields  = {'maxItr',        'convLL',        'convGrad'};
 
     case {'mplOptimize','MPL'}
         name = 'mpl';

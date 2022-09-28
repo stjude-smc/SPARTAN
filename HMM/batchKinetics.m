@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 28-Sep-2022 10:25:58
+% Last Modified by GUIDE v2.5 28-Sep-2022 15:47:10
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -181,13 +181,8 @@ idxfile = get(handles.lbFiles,'Value');
                    handles.dwtFilenames{idxfile} );
 if isequal(f,0), return; end  %user hit cancel
 dwtfname = fullfile(p,f);
-
-% Copy the current idealization file to the new location.
-% (idealizations are never stored only in memory in batchKinetics).
-if ~strcmp( handles.dwtFilenames{idxfile}, dwtfname )
-    copyfile( handles.dwtFilenames{idxfile}, dwtfname );
-    fprintf('Saved idealization to %s\n',dwtfname);
-end
+tv = handles.traceViewer;
+saveDWT( dwtfname, idlToDwt(tv.idl), tv.idlValues(2:end), handles.data.sampling );
 
 % END FUNCTION mnuSaveIdl_Callback
 
@@ -945,19 +940,64 @@ handles.traceViewer.showTraces();
 % --------------------------------------------------------------------
 function mnuTrunc4_Callback(~, ~, handles) %#ok<DEFNU>
 % Truncate traces by idealized state
-% TODO: prompt user for a state number and minimum number of frames.
-if isempty(handles.traceViewer.idl)
+
+data = handles.traceViewer.data;
+idl  = handles.traceViewer.idl;
+if isempty(idl)
     errordlg('Traces must be idealized');
     return;
 end
 
-data = handles.traceViewer.data;
+% Prompt user for a state number and minimum number of frames.
+% persistent options
+% if isempty(options)
+%     options = struct('state',1, 'minFrames',1);
+% end
+% nStates = max(idl(:));
+% states = strsplit( num2str(1:nStates) );
+% settingdlg( options, fieldnames(options), {'State #:',''} , {states,@isfinite} );
+% if ~ismember(options.state,unique(idl(:))) || isnan(options.minFrames)
+%     errordlg('Invalid parameter values');
+%     return;
+% end
+
+% Get truncation point for each trace
 handles.traceViewer.truncate = repmat( data.nFrames, [1 data.nTraces] );
 for i=1:data.nTraces
-    x = find( handles.traceViewer.idl(i,:)<=1, 1, 'first' );
+    x = find( idl(i,:)<=1, 1, 'first' );
     if ~isempty(x)
         handles.traceViewer.truncate(i) = x-1;
     end
 end
 handles.traceViewer.showTraces();
+
+
+% --------------------------------------------------------------------
+function mnuRemoveDarkState_Callback(~, ~, handles) %#ok<DEFNU>
+% Remove the lowest-FRET class from model and idealization.
+
+tv = handles.traceViewer;
+if isempty(tv.idl) || isempty(handles.model)
+    errordlg('Idealization and model must be loaded first.');
+    return;
+end
+
+% Truncate idealizations to first dark-state dwell (if any)
+for i=1:size(tv.idl,1)
+    x = find( tv.idl(i,:)<=1, 1, 'first' );
+    if ~isempty(x)
+        handles.traceViewer.truncate(i) = x;
+        tv.idl(i,x:end) = 0;
+    end
+end
+tv.idl = max(0,tv.idl-1);
+tv.idlValues = [NaN; tv.idlValues(3:end)];
+tv.showTraces();
+
+handles.model.removeClass(1);
+handles.modelViewer.redraw();  %FIXME: need a new notifier for this?
+
+
+
+
 

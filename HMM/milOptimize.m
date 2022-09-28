@@ -54,17 +54,6 @@ fminopt.TolFun  = options.convLL;
 nStates = model.nStates;
 I = logical(eye(nStates));
 rateMask = ~I & model.rates~=0 & ~model.fixRates;
-
-% Remove dark state dwells, merging into the surrounding state dwells.
-% This is reasonable if the dwells are very short (few frames), but may
-% not be for very long dwells; such traces should be remove in
-% pre-processing steps instead.
-% Assumes dark state is the first one (lowest FRET efficiency).
-if ~isempty(options.removeDarkState) && options.removeDarkState
-    dwt = removeBlinks(dwt);
-    rateMask( model.class==1, : ) = 0;
-    rateMask( :, model.class==1 ) = 0;
-end
 nRates = sum(rateMask(:));
 
 % Sanity checks

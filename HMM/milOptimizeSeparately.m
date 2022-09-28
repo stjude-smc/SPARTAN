@@ -1,4 +1,4 @@
-function [rates,optModel] = milOptimizeSeparately( dwt, dt, model )
+function [rates,optModel] = milOptimizeSeparately( dwt, dt, model, options )
 % milOptimizeSeparately: run MIL model optimizer for each trace separately.
 %
 %   [RATES,MODELS] = milOptimizeSeparately( DWT, DT, MODEL ) uses the 
@@ -14,7 +14,7 @@ function [rates,optModel] = milOptimizeSeparately( dwt, dt, model )
 
 
 % Check input arguments
-narginchk(3,3);
+narginchk(3,4);
 nargoutchk(0,2);
 
 assert( iscell(dwt), 'First argument should be cell array' );

@@ -17,7 +17,7 @@ nargoutchk(0,3);
 
 assert( isnumeric(rates), 'Input must be a matrix of rates' );
 if nargin<2
-    edges = -5:0.2:5;
+    edges = -3:0.2:5;
 end
 
 
@@ -57,7 +57,7 @@ for i=1:numel(src)
 
     % Display the histogram plots (if requested)
     if nargout<1
-        ax(i) = subplot( 1, numel(src), i );
+        ax(i) = subplot( 1, numel(src)+1, i );
         bar( ax(i), binCenters, output(:,i) );
         title( ax(i), sprintf('%d -> %d',src(i),dst(i)) );
         xticks( ax(i), floor(edges(1)):1:ceil(edges(end)) );
@@ -65,6 +65,12 @@ for i=1:numel(src)
         if i==1, ylabel('Traces'); end
     end
 end
+
+% Scatter plot two rates
+ax(end+1) = subplot( 1, numel(src)+1, numel(src)+1 );
+scatter( logrates(end-1,end,:),  logrates(end,end-1,:)  );
+xlabel('k_1->2 (/s)');
+ylabel('k_2->1 (/s)');
 
 if nargout<1
     linkaxes( ax, 'x' );

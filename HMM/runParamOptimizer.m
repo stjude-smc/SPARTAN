@@ -70,10 +70,10 @@ case 'MIL'
         optModel = milOptimize(dwt, dt, model, options);
         model.rates = optModel.rates;
     else
-        result = milOptimizeSeparately(dwt, dt, model);
+        result = milOptimizeSeparately(dwt, dt, model, options);
         rates = nan( size(result,1), size(result,2), data.nTraces );
         rates(:,:,~options.exclude) = result;
-        ratehist(result);
+        ratehist(rates);
         return;
     end
 
