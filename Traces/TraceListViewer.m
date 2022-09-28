@@ -102,7 +102,8 @@ methods
     uimenu( menu, 'Label','Invert selection', 'Callback',@(h,e)this.mnuInvertSel_Callback(true) );
     uimenu( menu, 'Label','Load selection list...', 'Callback', @this.mnuLoadSelList_Callback );
     uimenu( menu, 'Label','Save selection list...', 'Callback', @this.mnuSaveSelList_Callback );
-    uimenu( menu, 'Label','Save selected traces...', 'Callback', @this.mnuSaveSel_Callback );
+    uimenu( menu, 'Label','Save selected traces...', 'Callback', @this.mnuSaveSel_Callback, 'Separator','on' );
+    uimenu( menu, 'Label','Remove excluded traces', 'Callback', @this.mnuRemoveEx_Callback );
     set( allchild(menu), 'Enable','off' );
     set(this.ax, 'UIContextMenu', menu);
     this.contextMenu = menu;
@@ -534,6 +535,23 @@ methods
     end
     
     end %function mnuSaveSel_Callback
+    
+    
+    function mnuRemoveEx_Callback(this, varargin)
+    % Delete all traces that are in the exclusion list
+    
+        if ~isempty(this.data)
+            this.data.subset( ~this.exclude );
+        end
+        if ~isempty(this.idl)
+            this.idl = this.idl( ~this.exclude, : );
+        end
+        this.truncate = this.truncate( ~this.exclude );
+        
+        this.exclude = false( this.data.nTraces, 1 );
+        this.redraw();
+    
+    end
     
     
     

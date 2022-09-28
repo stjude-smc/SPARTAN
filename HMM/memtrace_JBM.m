@@ -1,5 +1,6 @@
 function memtrace_JBM(input)
-
+%
+%
 
 narginchk(0,2);
 
@@ -98,10 +99,15 @@ plot(time1(1:end),avgac1(1:end),'ok','MarkerFaceColor','b')
 hold on
 errorbar(time1(1:end),avgac1(1:end),acerrbars1(1:end),'ok','MarkerFaceColor','b')
 plot( result1(1:50), 'r-')
-xlabel('Dwell');
+xlabel('Dwell number');
 ylabel('Autocorrelation');
 grid on
 zoom on
+
+ap = get(gca,'Position');  %left bottom width height
+annotation( gcf, 'textbox', [ap(1)+0.9*ap(3) ap(2)+0.9*ap(4) 0.1*ap(3) 0.1*ap(4)], ...
+            'String',sprintf('N=%d', sum(sel)), 'HorizontalAlignment','right', ...
+            'LineStyle','none', 'tag','Nmol' );
 
 % axis([0 50 -0.1 0.25])  %for simulations
 axis([0 50 -0.05 0.1])

@@ -57,7 +57,7 @@ updateSpartan; %check for updates
 handles.output = hObject;
 
 % Set initial internal state of the program
-[handles.model] = deal([]);
+[handles.model,handles.rates] = deal([]);
 [handles.dataFilenames,handles.dwtFilenames] = deal({});
 
 % Update GUI to reflect these default settings. MIL not supported on Macs
@@ -718,6 +718,7 @@ function mnuDwellCorr_Callback(~, ~, handles) %#ok<DEFNU>
 % 
 idl = handles.traceViewer.idl;
 if ~isempty(idl)
+    idl = idl( ~handles.traceViewer.exclude, : );
     memtrace_JBM(idl);
 end
 
@@ -796,11 +797,13 @@ function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
         if ~isnan(ub)
             ex( values >= ub ) = true;
         end
+        ex( isnan(values) ) = true;
     end
     
     defaults = answer;
     handles.traceViewer.exclude = ex;
     handles.traceViewer.showTraces();
+    fprintf('%d of %d selected (%.0f%%)\n', sum(~ex),numel(ex),100*sum(~ex)/numel(ex) );
 
 % END FUNCTION mnuSelRates_Callback
 
