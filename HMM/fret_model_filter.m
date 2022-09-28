@@ -1,14 +1,13 @@
-function keep = fret_model_filter(data, idl)
+function keep = fret_model_filter(data, idl, minSepIn)
 % Select traces with state mean FRET close to the ensemble average
 % For now, assume input is from batchKinetics...
 
 %   Copyright 2022 Cornell University All Rights Reserved.
 
 persistent minSep;
-if isempty(minSep), minSep=0.1; end
+if isempty(minSep), minSep=0.12; end
 
-narginchk(2,2);
-nargoutchk(1,1);
+narginchk(2,3);
 assert( isa(data,'Traces'), 'First argument must be Traces object' );
 assert( isnumeric(idl), 'Second argument must be idealization matrix' );
 % assert( isa(data,'QubModel'), 'Third argument must be QubModel object' );
@@ -30,6 +29,8 @@ if nargin<3
     else
         minSep = result;
     end
+else
+    minSep = minSepIn;
 end
 
 nStates = max(idl(:));
@@ -43,32 +44,37 @@ idl  = idl( :, skipFrames+(1:useFrames) );
 for s=1:nStates
     for i=1:data.nTraces
         segment = fret(i, idl(i,:)==s );
-        if numel(segment)>=5 %~isempty(segment)
+        if ~isempty(segment)
             trace_means(i,s) = mean( segment );
         end
     end
 end
 
-% Keep traces in which mean FRET value of a state is >= distance parameter
-% from mean FRET value of lower state.
-% Also requires at least one frame in each state.
+% Keep traces in which mean FRET value of a state is within distance
+% parameter from mean FRET value of lower state.
+% If state is not occupied, it is ignored.
 deviations = abs( trace_means-nanmedian(trace_means) );  %deviation from ensemble average
 % deviations = abs( trace_means - to_col(model.mu) );  %deviation from model
-keep = all( deviations<=minSep, 2 );
+keep = all( deviations<=minSep|isnan(deviations), 2 );
 
-fprintf('Selected %d of %d traces (%.0f%%)\n', sum(keep), numel(keep), ...
-        100*sum(keep)/numel(keep) );
+fprintf('Selected %d of %d traces (%.0f%%) \nState mean FRET:', ...
+        sum(keep), numel(keep), 100*sum(keep)/numel(keep) );
+disp( nanmedian(trace_means) )
 
 % TESTING
 % figure;
-% subplot(1,nStates,1);
-% title('All data');
-% 
-% hist( trace_means(:), 50 );
-% for i=2:nStates
-%     subplot(1,nStates,i);
-%     hist( trace_means(:,i), 50 );
+% for i=1:nStates
+%     subplot(1,nStates+1,i);
+%     hist( trace_means(:,i), 30 );
+%     title( sprintf('State %d',i) );
+%     xlim([0 1]);
 % end
+% 
+% deviations = abs( trace_means-nanmedian(trace_means) );  %deviation from ensemble average
+% subplot(1,nStates+1,nStates+1);
+% hist( deviations(:), 30 );
+% title('Deviation');
+% xlim([0 0.5]);
     
 end
 
