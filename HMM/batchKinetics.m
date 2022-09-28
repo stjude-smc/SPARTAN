@@ -22,7 +22,7 @@ function varargout = batchKinetics(varargin)
 
 %   Copyright 2007-2017 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 23-Sep-2022 16:48:35
+% Last Modified by GUIDE v2.5 28-Sep-2022 10:25:58
 
 
 %% ----------------------  GUIDE INITIALIZATION  ---------------------- %%
@@ -713,6 +713,15 @@ end
 
 
 
+% --------------------------------------------------------------------
+function mnuDwellCorr_Callback(~, ~, handles) %#ok<DEFNU>
+% 
+idl = handles.traceViewer.idl;
+if ~isempty(idl)
+    memtrace_JBM(idl);
+end
+
+
 
 
 
@@ -744,9 +753,16 @@ function mnuSelRates_Callback(~, ~, handles) %#ok<DEFNU>
 
     persistent defaults;
     ex = handles.traceViewer.exclude;
-    if ~isfield(handles,'rates') || isempty(handles.rates), return; end
     rates = handles.rates;
-    assert( numel(ex)==size(rates,3), 'size mismatch rate matrix' );
+    
+    if isempty(rates)
+        errordlg('No rate info available. Please run optimizer.');
+        return;
+    end
+    if numel(ex)~=size(rates,3)
+        errordlg('Rate matrix size mismatch. Please run optimizer again.');
+        return;
+    end
 
     % Set order of state pairs that describe each rate constant
     [src,dst] = find( nanmin(rates,[],3)>0 );  %& ~model.fixRates;
@@ -811,6 +827,13 @@ function mnuSelDwells_Callback(~, ~, handles) %#ok<DEFNU>
     
     % Calculate number of dwells in each trace
     nDwells = cellfun( @numel, idlToDwt(handles.traceViewer.idl,true) );
+    
+    % TESTING
+    %figure;
+    %hist( nDwells, 0:10:100 );
+    keep = nDwells>=bounds(1) & nDwells<=bounds(2);
+    fprintf('Selected %d of %d traces (%.0f%%) \n', ...
+        sum(keep), numel(keep), 100*sum(keep)/numel(keep) );
     
     % Update exclusion list and update display.
     defaults = answer;
