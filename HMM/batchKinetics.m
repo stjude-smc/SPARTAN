@@ -714,7 +714,7 @@ function mnuDwellCorr_Callback(~, ~, handles) %#ok<DEFNU>
 idl = handles.traceViewer.idl;
 if ~isempty(idl)
     idl = idl( ~handles.traceViewer.exclude, : );
-    memtrace_JBM(idl);
+    dwtacov(idl);
 end
 
 
