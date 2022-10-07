@@ -156,7 +156,7 @@ methods
         this.dataField = this.data.channelNames{1};
     end
     
-    this.truncate = repmat( this.data.nFrames, [1 this.data.nTraces] );
+    this.truncate = repmat( this.data.nFrames, [this.data.nTraces 1] );
     for i=1:this.data.nTraces
         x = find( this.data.fret(i,:)~=0, 1, 'last' );
         if ~isempty(x)

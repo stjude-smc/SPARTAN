@@ -13,29 +13,31 @@ rates = [];
 assert( isa(data,'Traces'), 'Input must be Traces object or path to .traces file' );
 if ischar(data),  data=loadTraces(trcfile);  end
 
-if isfield(options,'dataField') && ~isempty(options.dataField)
-    input = data.(options.dataField);
-    
-    % Normalize fluorescence intensities to fall in ~[0,1].
-    % FIXME: will not work for transient events.
-    % Additional options may be needed to control this behavior.
-    if isempty(strfind(options.dataField,'fret'))
-        temp = input(:,1:10);
-        input = input / mean(temp(:));
-    end
-else
-    input = data.fret;
-end
+if ~strcmpi( options.idealizeMethod(1:3), 'HMJ' )
+    if isfield(options,'dataField') && ~isempty(options.dataField)
+        input = data.(options.dataField);
 
-% Truncate data
-for i=1:data.nTraces
-    if options.truncate(i)>2
-        input(i, options.truncate(i):end) = 0;
+        % Normalize fluorescence intensities to fall in ~[0,1].
+        % FIXME: will not work for transient events.
+        % Additional options may be needed to control this behavior.
+        if isempty(strfind(options.dataField,'fret'))
+            temp = input(:,1:10);
+            input = input / mean(temp(:));
+        end
     else
-        options.exclude(i) = true;
+        input = data.fret;
     end
+
+    % Truncate data
+    for i=1:data.nTraces
+        if options.truncate(i)>2
+            input(i, options.truncate(i):end) = 0;
+        else
+            options.exclude(i) = true;
+        end
+    end
+    input = input( ~options.exclude, : );
 end
-input = input( ~options.exclude, : );
 
 
 % Idealize data using user-specified algorithm...

@@ -59,7 +59,6 @@ opts.units.time  = 's';
 opts.M           = model.nStates;
 opts.mu_back_D   = 0;  % Background fluorescence levels
 opts.mu_back_A   = 0;
-opts.exclude     = false(data.nTraces,1);
 opts.truncate    = ones(data.nTraces,1) * data.nFrames;
 
 opts = mergestruct( opts, optsIn );
@@ -73,7 +72,7 @@ dt = data.sampling/1000;  %frame interval in seconds.
 for traceID=1:data.nTraces
     
     idxEnd = opts.truncate(traceID);
-    if opts.exclude(traceID) || idxEnd<2, continue; end
+    if idxEnd<2, continue; end
     
     % Trace data preprocessing:
     % remove photobleached portion of trace and
