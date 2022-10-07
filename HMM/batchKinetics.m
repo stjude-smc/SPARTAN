@@ -102,8 +102,8 @@ if nargin<4
     newFiles = getFiles(filter,'Select traces files to analyze',false);
     if isempty(newFiles), return; end  %user hit cancel.
 
-    handles.dataFilenames = [newFiles handles.dataFilenames];
-    handles.dwtFilenames = [findDwt(newFiles) handles.dwtFilenames];
+    handles.dataFilenames = [newFiles to_row(handles.dataFilenames)];
+    handles.dwtFilenames = [findDwt(newFiles) to_row(handles.dwtFilenames)];
 else
     if ischar(files), files={files}; end
     handles.dataFilenames = files;
