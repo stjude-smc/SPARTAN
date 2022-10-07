@@ -1,2 +1,0 @@
-mex -O -DMEX_FCN -largeArrayDims mfilt.cpp mf_mex.cpp -output ../binary/medianfilterx.mexw64
-
