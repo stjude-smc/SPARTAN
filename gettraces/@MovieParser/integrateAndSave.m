@@ -220,6 +220,7 @@ data.fileMetadata.units = 'photons';
 data.fileMetadata.wavelengths = [channels.wavelength];
 data.fileMetadata.chDesc = {channels.name};
 data.fileMetadata.geometry = this.chExtractor.fieldArrangement;  %fixme: ignore=0?
+[data.fileMetadata.nY,data.fileMetadata.nX] = size( frame{1} );
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.
