@@ -33,7 +33,11 @@ end
 
 if iscell(input)
     for i=1:numel(input)
-        data = adecorrect( input{i}, correctionFactor );
+        if nargout>0
+            data = adecorrect( input{i}, correctionFactor );
+        else
+            adecorrect( input{i}, correctionFactor );
+        end
     end
     return;
 end

@@ -328,8 +328,8 @@ else
     cplotax = handles.ax(1,:);
     histax = handles.ax(2,:);
     if nrows>2, tdax=handles.ax(3,:); end
+    cla(handles.ax);
 end
-cla(handles.ax);
 
 
 % Calculate and display all plots for each file:

@@ -157,10 +157,12 @@ methods
     end
     
     this.truncate = repmat( this.data.nFrames, [this.data.nTraces 1] );
-    for i=1:this.data.nTraces
-        x = find( this.data.fret(i,:)~=0, 1, 'last' );
-        if ~isempty(x)
-            this.truncate(i) = x-1;
+    if this.data.isChannel('fret')
+        for i=1:this.data.nTraces
+            x = find( this.data.fret(i,:)~=0, 1, 'last' );
+            if ~isempty(x)
+                this.truncate(i) = x-1;
+            end
         end
     end
     
