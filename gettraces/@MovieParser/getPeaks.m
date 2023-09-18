@@ -47,7 +47,7 @@ end
 params = stkData.params;
 
 align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{},'quality',{});
-fields = stkData.stk_top;
+fields = stkData.chExtractor.stk_top;
 stkData.chExtractor.verify();
 
 % Choose channel to be used as the alignment reference (donor by default)

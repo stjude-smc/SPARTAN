@@ -15,8 +15,6 @@ classdef MovieParser < handle
 properties (GetAccess=public, SetAccess=protected)
     % Basic data available when movie is first loaded in openStk().
     chExtractor;         % ChannelExtractor encapsulates Movie and splits frame data into channels
-    stk_top;             % Average of first 10 frames (cell array of fields).
-    background;          % Estimated background image from first 10 frames  (cell array of fields)
     stdbg;               % stdev of background noise at the end of movie
     
     % Picked molecules from getPeaks()

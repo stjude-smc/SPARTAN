@@ -73,13 +73,7 @@ elseif isempty(this.chExtractor)
 end
 
 % Average the first few frames to create an image for finding molecules.
-averagesize = min( [this.params.nAvgFrames this.nFrames] );
-fields = this.chExtractor.read( 1:averagesize );
-fields = cellfun( @(x)mean(x,3), fields, 'Uniform',false );
-
-% Substract background image
-this.background = moviebg(fields);
-this.stk_top = cellfun( @minus, fields, this.background, 'Uniform',false );
+this.chExtractor.avgTop( this.params.nAvgFrames, this.params.subtractBGImage );
 
 % Use the lowest quartile of intensities from the end of the movie to estimate
 % the fundamental level of background noise in each channel.

@@ -55,6 +55,9 @@ classdef ChannelExtractor < handle
 properties (SetAccess=public, GetAccess=public)
 
     movie;                  % Movie object for reading raw frame data from file.
+    background;             % Estimated background image for baseline subtraction
+    stk_top;                % Average first few frames for molecule picking
+    
     fieldArrangement = 1;   % matrix describing how to split frame data into channels.
     
     % struct array describing spectral channels (N):
@@ -173,8 +176,20 @@ methods
         % Parse image data into channels
         output = splitFrame( this.movie, this.fieldArrangement, idx );
         
-    end %function readFrames
+    end %function readFrames    
     
+    
+    function [top,bg] = avgTop(this, nAvgFrames, subtractBGImage)
+        % Average first frames and background image for molecule picking
+        top = this.read( 1:min(this.nFrames,nAvgFrames) );
+        top = cellfun( @(x)mean(x,3), top, 'Uniform',false );
+        bg = moviebg(  cellfun( @(x)mean(x,3), top, 'Uniform',false )  );
+        if subtractBGImage
+            top = cellfun( @minus, top, bg, 'Uniform',false );
+        end
+        this.background = bg;
+        this.stk_top = top;
+    end
     
     
     % Check internal state and give an error if invalid

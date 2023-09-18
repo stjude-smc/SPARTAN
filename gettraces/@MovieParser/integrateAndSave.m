@@ -107,7 +107,7 @@ end
 timeAxis = this.chExtractor.movie.timeAxis(1:nFrames);
 
 % Subtract local background
-bg = this.background;  %(idxFields);
+bg = this.chExtractor.background;  %(idxFields);
 for c=1:nCh
     bgt = sum( bg{c}(idx{c}), 1);
     traces(:,:,c) = bsxfun(@minus, traces(:,:,c), to_col(bgt) );

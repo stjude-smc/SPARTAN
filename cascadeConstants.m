@@ -31,7 +31,7 @@ constants.tstamp = now();
 
 % Version info displayed in title bars
 constants.version = '3.9.0';
-constants.software = ['Cornell SPARTAN ' constants.version];
+constants.software = ['SPARTAN ' constants.version];
 
 
 
@@ -88,6 +88,7 @@ cmosCommon.recursive      = 1;  %batch mode: search recursively.
 cmosCommon.quiet          = 0;  %don't output debug messages.
 cmosCommon.zeroMethod     = 'threshold';  %method for detecting donor blinks
 cmosCommon.bgTraceField   = ''; %get a background intensity trace for this field (L,R,TR,etc)
+cmosCommon.subtractBGImage = true;  %subtract estimated background image from beginning of movie.
 
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.

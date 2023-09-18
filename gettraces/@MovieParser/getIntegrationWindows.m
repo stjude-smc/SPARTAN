@@ -25,7 +25,7 @@ nCh = size(stkData.peaks,3);
 intEff = 0;
 
 for i=1:nCh
-    field = stkData.stk_top{i};
+    field = stkData.chExtractor.stk_top{i};
     [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
     intEff = intEff + eff;

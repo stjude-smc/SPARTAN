@@ -198,6 +198,7 @@ if ~isfield(handles,'viewer')
 else
     handles.viewer.chExtractor = stkData.chExtractor;
 end
+handles.viewer.subtractBGImage = stkData.params.subtractBGImage;
 handles.viewer.show(handles.panView);
 
 
@@ -580,12 +581,13 @@ prompt = {'Name:', 'Picking Threshold Value:', 'Use Automatic Threshold:', 'Auto
           'Integration window size (px):', 'Integration neighbhorhood (px):', ...
           'Minimum separation (px):', ...
           'Donor blink detection method:', 'Background trace field:', ...
-          'Frames to average for picking:'};
+          'Frames to average for picking:', 'Subtract background image:'};
 fields = {'name', 'don_thresh', 'autoThresh', 'thresh_std', 'nPixelsToSum', 'nhoodSize', ...
-          'overlap_thresh', 'zeroMethod', 'bgTraceField', 'nAvgFrames'};
+          'overlap_thresh', 'zeroMethod', 'bgTraceField', 'nAvgFrames','subtractBGImage'};
 isInt = @(x)~isnan(x) && isreal(x) && isscalar(x) && x==floor(x);
 isNum = @(x)~isnan(x) && isreal(x) && isscalar(x);
-types = {[],[],@(x)islogical(x),isNum,isInt,isInt,isNum,{'off','threshold','skm'},fopt,isInt};
+isBool = @(x)islogical(x);
+types = {[],[],isBool,isNum,isInt,isInt,isNum,{'off','threshold','skm'},fopt,isInt,isBool};
 
 if handles.profile > handles.nStandard
     prompt{1} = 'Name (clear to remove profile):';
@@ -640,8 +642,8 @@ end
 
 if ~isempty(handles.stkData.chExtractor)  %if a movie has been loaded
     
-    % Reload movie if changing number of frames to average
-    if params.nAvgFrames~=oldParams.nAvgFrames
+    % Reload movie if required
+    if params.nAvgFrames~=oldParams.nAvgFrames || params.subtractBGImage~=oldParams.subtractBGImage
         OpenStk( handles.stkfile, handles, hObject );
 
     % If molecules were already picked and settings have changed, re-pick.

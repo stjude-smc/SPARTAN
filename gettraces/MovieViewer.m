@@ -20,11 +20,10 @@ classdef MovieViewer < handle
 
 properties (SetAccess=public, GetAccess=public)
     chExtractor;   % Encapsulates movie data; splits into spectral channels
+    subtractBGImage = true;  % Automatically subtract background image
 end
 
 properties (SetAccess=protected, GetAccess=public)
-    background;    % approximate background level
-    
     hFig;          % Handle to figure
     ax;            % Handles to subplot axes in montage
     hImg;          % Handle to image viewers
@@ -102,12 +101,8 @@ methods
     colormap(this.hFig, gettraces_colormap);
     delete( findall(hPanel,'type','axes') );
     
-    % Createa a baseline image from low-intensity areas.
-    stk_top = this.chExtractor.read( 1:min(this.chExtractor.nFrames,10) );
-    stk_top = cellfun( @(x)mean(x,3), stk_top, 'Uniform',false );
-    this.background = moviebg(stk_top);
-    stk_top = cellfun( @minus, stk_top, this.background, 'Uniform',false );
-    
+    % Use an average of beginning frames for initial image and thresholds
+    stk_top = this.chExtractor.stk_top;
     px_max = zeros(numel(stk_top),1);
     
     for i=1:numel(stk_top)
@@ -262,11 +257,9 @@ methods
     if ~all(ishandle(this.ax)), return; end  %window closed?
     delete( findall(this.ax,'type','Line') );
     
-    [ny,nx] = size( this.background{1} );
-    
     for i=1:numel(coords)
-        x = rem( coords{i}(:,1), nx);
-        y = rem( coords{i}(:,2), ny);
+        x = rem( coords{i}(:,1), this.chExtractor.nX);
+        y = rem( coords{i}(:,2), this.chExtractor.nY);
         
         % Translate coordinates from stitched movie to subfield
         viscircles( this.ax(i), [x y], 3, 'EdgeColor','w' );
@@ -275,7 +268,7 @@ methods
     % If zoomed in, recenter on around new peak.
     dx = diff(get(this.ax(end), 'XLim'))/2;
     dy = diff(get(this.ax(end), 'YLim'))/2;
-    if dx<nx/2 || dy<ny/2
+    if dx<this.chExtractor.nX/2 || dy<this.chExtractor.nY/2
         set( this.ax(end), 'XLim',[x-dx x+dx], 'YLim',[y-dy y+dy] );
     end
     
@@ -370,7 +363,8 @@ methods
     fields = this.chExtractor.read(idx);
 
     for f=1:numel(fields)
-        field = single(fields{f}) - this.background{f};
+        field = single(fields{f});
+        if this.subtractBGImage, field = field - this.chExtractor.background{f}; end
         set( this.hImg(f), 'CData',field );
     end
     set( this.edTime, 'String',sprintf('%.2f s',this.chExtractor.timeAxis(idx)/1000) );
@@ -404,7 +398,8 @@ methods
         fields = this.chExtractor.read(i);
         
         for f=1:numel(fields)
-            field = single(fields{f}) - this.background{f};
+            field = single(fields{f});
+            if this.subtractBGImage, field = field - this.chExtractor.background{f}; end
             set( this.hImg(f), 'CData',field );
         end
 
