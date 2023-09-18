@@ -398,6 +398,7 @@ methods
     set( this.edTime, 'ForegroundColor', [0 0 0] );
 
     startFrame = floor(get(this.sldScrub,'Value'));
+    if startFrame==this.chExtractor.nFrames, startFrame=1; end
 
     for i=startFrame:this.chExtractor.nFrames
         fields = this.chExtractor.read(i);
