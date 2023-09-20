@@ -145,6 +145,8 @@ methods
                 this.lasers = varargin{4};
             end
         end
+
+        this.avgTop(10,true);
         
         % Verify all properties are self-consistent.
         this.verify();
@@ -227,11 +229,11 @@ methods
     end
     
     function output = get.nX(this)
-        output = this.movie.nX;
+        output = size(this.stk_top{1},2);
     end
     
     function output = get.nY(this)
-        output = this.movie.nY;
+        output = size(this.stk_top{1},1);
     end
     
     function output = get.timeAxis(this)
