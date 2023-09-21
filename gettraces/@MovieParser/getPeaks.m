@@ -51,7 +51,7 @@ fields = stkData.chExtractor.stk_top;
 stkData.chExtractor.verify();
 
 % Choose channel to be used as the alignment reference (donor by default)
-nCh = numel(fields);
+nCh = stkData.nChannels;
 indD = find( strcmpi(stkData.roles,'donor') );
 if isempty(indD)
     warning('No "donor" field; arbitrarily using the first one as the alignment reference');

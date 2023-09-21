@@ -237,6 +237,8 @@ methods
         end
         
         %disp(geo);  disp( {this.chExtractor.channels.name} );
+
+        this.chExtractor.avgTop( this.params.nAvgFrames, this.params.subtractBGImage );
     end
 end
 

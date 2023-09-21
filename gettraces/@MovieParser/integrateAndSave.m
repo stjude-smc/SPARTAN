@@ -224,7 +224,7 @@ data.fileMetadata.geometry = this.chExtractor.fieldArrangement;  %fixme: ignore=
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.
-for i=1:size(this.peaks,2)
+for i=1:this.chExtractor.nChannels
     ch = data.channelNames{i};
     x = num2cell( this.peaks(:,1,i) );
     y = num2cell( this.peaks(:,2,i) );
