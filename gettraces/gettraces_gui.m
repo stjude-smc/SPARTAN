@@ -805,6 +805,15 @@ end
 % END FUNCTION mnuFieldSettings_Callback
 
 
+function mnuUpdateAlex_Callback(~, ~, handles)
+% Context menu to reset which fields are in the current movie.
+% try
+    handles.stkData.updateAlex();
+% catch e
+%     errordlg(e.message);
+%     return;
+% end
+% END FUNCTION mnuUpdateAlex_Callback
 
 
 

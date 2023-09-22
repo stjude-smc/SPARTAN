@@ -240,6 +240,27 @@ methods
 
         this.chExtractor.avgTop( this.params.nAvgFrames, this.params.subtractBGImage );
     end
+
+
+    function updateAlex(this)
+    % Open dialog to alter illumination metadata (for ALEX experiments)
+        a = inputdlg('Enter wavelength series in one cycle:','gettraces');
+        if ~isempty(a)
+            a = cellfun( @str2double, strsplit(a{1},{',',' '}) );
+            if any(isnan(a)) && numel(a)==numel(unique(a))
+                errordlg('Invalid input. Must be comma-separated list of unique wavelengths');
+                return;
+            end
+            
+            % Use wavelength list to build illumination metadata fields
+            lasers = struct('wavelength',num2cell(sort(a)));
+            for i=1:numel(lasers)
+                firstFrame = find( lasers(i).wavelength==a );
+                lasers(i).framesActive = firstFrame:numel(lasers):this.chExtractor.nFrames;
+            end
+            this.chExtractor.lasers = lasers;
+        end
+    end
 end
 
 
