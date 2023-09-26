@@ -20,7 +20,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 03-May-2018 15:09:13
+% Last Modified by GUIDE v2.5 26-Sep-2023 12:58:22
 
 
 % Begin initialization code - DO NOT EDIT
@@ -544,7 +544,7 @@ set( findobj('Parent',handles.mnuAlign,'Position',params.alignMethod), ...
 
 % Enable alignment, crosstalk, and scale controls only in multi-color.
 isMultiColor = ~isscalar(handles.stkData.params.geometry);
-set( [handles.mnuAlign handles.btnCrosstalk handles.btnScaleAcceptor], ...
+set( [handles.mnuAlign handles.mnuCrosstalk handles.mnuScaleAcceptor], ...
                        'Enable',onoff(isMultiColor) );
 set( handles.tblAlignment, 'Visible',onoff(isMultiColor) );
 
@@ -893,22 +893,17 @@ end
 %===================  SPECTRAL CORRECTION CALLBACKS  ====================
 %========================================================================
 
-function btnCrosstalk_Callback(~, ~, handles)  %#ok<DEFNU>
+% --------------------------------------------------------------------
+function mnuCrosstalk_Callback(~, ~, handles)
 % Callback for button to set crosstalk correction settings.
-
 handles.stkData.updateCrosstalk();
 
-%end function btnCrosstalk_Callback
 
-
-
-function btnScaleAcceptor_Callback(~, ~, handles) %#ok<DEFNU>
+% --------------------------------------------------------------------
+function mnuScaleAcceptor_Callback(~, ~, handles)
 % Set values for scaling the fluorescence intensity of acceptor channels so
 % that they all have the same apparent brightness (gamma=1).
-
 handles.stkData.updateScaling();
-
-%end function btnCrosstalk_Callback
 
 
 
