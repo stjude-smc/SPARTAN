@@ -665,7 +665,7 @@ stkData = handles.stkData;
 if isempty(stkData), return; end  %disable button?
 
 % MetaMorph specific metadata
-if isfield(stkData.movie.header,'MM')
+if isfield(stkData.chExtractor.movie.header,'MM')
     metadata = stkData.chExtractor.movie.header.MM(1);
     if isfield( stkData.chExtractor.movie.header, 'MM_wavelength' ),
         wv = stkData.chExtractor.movie.header.MM_wavelength;
