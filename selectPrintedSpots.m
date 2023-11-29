@@ -11,6 +11,7 @@ function selectPrintedSpots( files )
 %  - D (bottom right)
 
 % Parameters
+STD = 1.75;  %max distance from center of printed spot, number of standard deviations
 suffix = {'A','B','C','D'};  %add to split file names
 nX = 1152;
 nY = 1152;  %defaults for 2x2 binned, full-frame Hamamatsu Fusion cameras.
@@ -25,8 +26,10 @@ elseif ~iscell(files)
     error('Input must be a string or cell array of strings');
 end
 
-for i=1:numel(files)
 
+
+for i=1:numel(files)
+    
     % Load trace data and extract molecule locations
     data = loadTraces(files{i});
     [p,f,e] = fileparts(files{i});
@@ -38,12 +41,17 @@ for i=1:numel(files)
         nY = data.fileMetadata.nY;
     end
     
+    figure; hold on;
+    title([f e],'Interpreter','none');
+    %legend( {'Rejected','A','B','C','D'} );
+    axis([0 nX 0 nY]);
+    
     % Split FOV into four quadrants by molecule position.
     % Origin is top-lelt corner. order=[A B; C D]
-    A = selectCenter(data,  y <= floor(nY/2) & x <= floor(nX/2) ); % top left
-    B = selectCenter(data,  y <= floor(nY/2) & x >  floor(nX/2) ); % top right
-    C = selectCenter(data,  y >  floor(nY/2) & x <= floor(nX/2) ); % bottom left
-    D = selectCenter(data,  y >  floor(nY/2) & x >  floor(nX/2) ); % bottom right
+    A = selectCenter(data,  y <= floor(nY/2) & x <= floor(nX/2), STD, 'ro' ); % top left
+    B = selectCenter(data,  y <= floor(nY/2) & x >  floor(nX/2), STD, 'bo' ); % top right
+    C = selectCenter(data,  y >  floor(nY/2) & x <= floor(nX/2), STD, 'go' ); % bottom left
+    D = selectCenter(data,  y >  floor(nY/2) & x >  floor(nX/2), STD, 'mo' ); % bottom right
     
     % Save the each subset associated with a quadrant
     outname = fullfile( p, [f '_' suffix{1} e] );
@@ -66,10 +74,8 @@ end %function
 
 
 
-function output = selectCenter(data, quadrant)
+function output = selectCenter(data, quadrant, STD, color)
 % Select only the center of printed spots
-
-STD = 1.75;  %max distance from center of printed spot
 
 x = [data.traceMetadata(quadrant).donor_x];
 y = [data.traceMetadata(quadrant).donor_y];
@@ -87,18 +93,8 @@ output = data.getSubset(selected);
 fprintf('Selected %d of %d molecules (%0.f%%)\n\n', sum(selected), ...
         numel(selected), 100*sum(selected)/numel(selected) );
 
-% % Display of location histograms for testing.
-% figure;
-% subplot( numel(files), 3, (i-1)*3+1 );
-% histfit(x);
-% xlim([0 600]);
-% subplot( numel(files), 3, (i-1)*3+2 );
-% histfit(y);
-% xlim([0 600]);
-% subplot( numel(files), 3, (i-1)*3+3 );
-% scatter( x(selected),  y(selected),  'bo' ); hold on;
-% scatter( x(~selected), y(~selected), 'ro' );
-
+scatter( x(selected),  y(selected),  color );
+scatter( x(~selected), y(~selected), 'ko' );
 
 end
 
