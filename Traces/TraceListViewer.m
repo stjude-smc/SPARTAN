@@ -271,9 +271,9 @@ methods
         
         plot( this.ax, time([1,end]), y_offset+[0 0], 'k:', 'HitTest','off' );  %baseline marker
         
-        t = annotation('arrow');
+        t = annotation(ancestor(this.ax,'figure'),'arrow');
         t.Parent = this.ax;
-        this.hTruncate(i) = t;
+        this.hTruncate(i) = t;  %photobleaching step marker
 
         this.hLine(i,:) = plot( this.ax, time, z, 'HitTest','off' );  %trace data
         
