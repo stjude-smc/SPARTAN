@@ -30,7 +30,7 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.9.0';
+constants.version = '3.9.2';
 constants.software = ['SPARTAN ' constants.version];
 
 
@@ -122,7 +122,7 @@ p.channels = struct( 'name',{'Cy2','Cy3','Cy5','Cy7'}, 'description','', ...
 profiles = p;
 
 p.name        = 'TIRF 1 (Flash v2 cameras)';
-[p.channels.electronsPerCount] = deal(0.49);
+[p.channels.photonsPerCount] = deal(0.49);
 profiles(end+1) = p;
 
 
