@@ -121,7 +121,7 @@ traces = bsxfun( @times, traces, ppc );
 % Handles alternating laser excitation modes
 if numel(lasers)>2
     error('Only 2-color ALEX currently supported');
-elseif numel(lasers)==2
+elseif numel(lasers)==2 && lasers(1).framesActive(1)~=lasers(2).framesActive(1)
     % Split trace data by illumination mode
     tracesSplit = cell( numel(lasers), 1 );
     for i=1:numel(lasers)
