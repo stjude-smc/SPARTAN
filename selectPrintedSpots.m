@@ -11,7 +11,7 @@ function selectPrintedSpots( files )
 %  - D (bottom right)
 
 % Parameters
-STD = 1.75;  %max distance from center of printed spot, number of standard deviations
+STD = 1.9;  %max distance from center of printed spot, number of standard deviations
 suffix = {'A','B','C','D'};  %add to split file names
 nX = 1152;
 nY = 1152;  %defaults for 2x2 binned, full-frame Hamamatsu Fusion cameras.
@@ -19,7 +19,7 @@ nY = 1152;  %defaults for 2x2 binned, full-frame Hamamatsu Fusion cameras.
 
 % Check input arguments
 if nargin<1
-    files = getFiles();
+    files = getFiles('.rawtraces');
 elseif ischar(files)
     files = {files};
 elseif ~iscell(files)
@@ -84,10 +84,11 @@ data = data.getSubset(quadrant);
 pdx = fitdist(x','Normal');
 pdy = fitdist(y','Normal');
 
+
 % Define a region that is within some N standard deviations of the
 % center of the density of molecules.
-selected = x < pdx.mu + STD*pdx.sigma  &  x > pdx.mu - STD*pdx.sigma  ...
-         & y < pdy.mu + STD*pdy.sigma  &  y > pdy.mu - STD*pdy.sigma;
+selected = ((x - pdx.mu)/pdx.sigma).^2 + ((y - pdy.mu)/pdy.sigma).^2 < STD.^2;
+
 output = data.getSubset(selected);
 
 fprintf('Selected %d of %d molecules (%0.f%%)\n\n', sum(selected), ...
