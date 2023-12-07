@@ -19,7 +19,7 @@ nY = 1152;  %defaults for 2x2 binned, full-frame Hamamatsu Fusion cameras.
 
 % Check input arguments
 if nargin<1
-    files = getFiles();
+    files = getFiles('.rawtraces');
 elseif ischar(files)
     files = {files};
 elseif ~iscell(files)
