@@ -347,6 +347,9 @@ catch e
     return;
 end
 
+set(handles.figure1,'pointer','arrow');
+nmol = size(stkData.peaks,1);
+
 % The alignment may involve shifting (or distorting) the fields to get a
 % registered donor+acceptor field. Show this distorted imaged so the user
 % can see what the algorithm is doing.
@@ -365,7 +368,7 @@ set( handles.viewer.hImg(end), 'CData',stkData.total_t );
 set( handles.txtAlignWarning, 'Visible','off' );
 
 if isempty(stkData.alignStatus),
-    set(handles.panAlignment, 'Visible','off', 'ForegroundColor', [0 0 0]);
+    set(handles.panAlignment, 'ForegroundColor',[0 0 0], 'Title','No Alignment');
     
 % Display alignment status to inform user if realignment may be needed.
 % Format: translation deviation (x, y), absolute deviation (x, y)
@@ -413,6 +416,13 @@ else
     end
 end
 
+% Update GUI controls
+set( handles.nummoles, 'String', sprintf('%d (of %d)',nmol, size(stkData.rejectedPicks,1)+nmol) );
+set( [handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs handles.mnuHidePeaks], 'Enable',onoff(nmol>0) );
+set( [handles.mnuAlignSave handles.mnuAlignKeep], 'Enable',onoff(stkData.params.alignMethod>1) );
+set( [handles.txtPSFWidth handles.txtOverlapStatus handles.txtWindowOverlap handles.txtIntegrationStatus], 'String','' );
+if nmol<1, return; end
+
 
 % Fraction of molecules close enough for PSFs to overlap (overcrowding).
 percentOverlap = stkData.fractionOverlapped*100;
@@ -421,13 +431,11 @@ c = max(0,min(1, (percentOverlap-40)/10 ));
 set(  handles.txtOverlapStatus, 'ForegroundColor', c*[0.9 0 0], ...
        'String', sprintf('Molecules rejected: %0.0f%%', percentOverlap)  );
 
-
 % Fraction of overlapping integration windows (also overcrowding).
 percentWinOverlap = mean(stkData.fractionWinOverlap*100);
 set(  handles.txtWindowOverlap, 'String', ...
       sprintf('Residual win. overlap: %0.1f%%', percentWinOverlap)  );
 set( handles.txtWindowOverlap, 'ForegroundColor', (percentWinOverlap>10)*[0.9 0 0] );
-
 
 % Get (approximate) average fraction of fluorescence collected within the
 % integration window of each molecule. Set the text color to red where the
@@ -437,26 +445,13 @@ set(  handles.txtIntegrationStatus, 'String', ...
       sprintf('Intensity collected: %0.0f%% ', eff)  );
 set( handles.txtIntegrationStatus, 'ForegroundColor', (eff<70)*[0.9 0 0] );
 
-
 % Estimate the peak width from pixel intensity distribution.
 set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',stkData.psfWidth) );
 set( handles.txtPSFWidth, 'ForegroundColor', (stkData.psfWidth>stkData.params.nPixelsToSum-1)*[0.9 0 0] );
 
-
 % Graphically show peak centers
 handles.viewer.highlightPeaks( stkData.peaks, stkData.rejectedPicks, stkData.total_peaks, stkData.rejectedTotalPicks );
 
-% Update GUI controls
-nmol = size(stkData.peaks,1);
-set( handles.nummoles, 'String', sprintf('%d (of %d)',nmol, ...
-                      size(stkData.rejectedPicks,1)+nmol) );
-
-set( [handles.btnSave handles.mnuFileSave handles.mnuFileSaveAs ...
-                                     handles.mnuHidePeaks], 'Enable','on');
-set( [handles.mnuAlignSave handles.mnuAlignKeep], ...
-                   'Enable',onoff(stkData.params.alignMethod>1) );
-
-set(handles.figure1,'pointer','arrow');
 
 % end function
 
@@ -466,6 +461,11 @@ set(handles.figure1,'pointer','arrow');
 
 % --- Executes on button press in mnuFileSave.
 function mnuFileSave_Callback(~, ~, handles, prompt)
+
+if isempty(handles.stkData.peaks)
+    disp('No molecules selected! Skipping file');
+    return;
+end
 
 % Create output file name
 filename = handles.stkfile;
