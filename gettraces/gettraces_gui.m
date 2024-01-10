@@ -689,19 +689,13 @@ for i=1:numel(fields),
     
     % Truncate long text fields
     if isnumeric(data)
-        data = num2str(data);
-    else
-        idxline = find(data==newline,1,'first');
-        if ~isempty(idxline),
-            data = data(1:idxline-1);
-        end
-    end
-    if numel(data)>70
-        data = [data(1:70) ' ...'];
+        data = mat2str(data);
+    elseif ~ischar(data)
+        %FIXME: need a recursive routine to draw out nested struct array.
+        continue;
     end
     
     output{end+1} = sprintf( '%s:  %s', fname, data ); %#ok
-    disp( output{end} );
 end
 
 msgbox( output, 'Movie metadata' );
