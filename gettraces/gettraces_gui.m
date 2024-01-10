@@ -20,7 +20,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 26-Sep-2023 12:58:22
+% Last Modified by GUIDE v2.5 10-Jan-2024 10:09:42
 
 
 % Begin initialization code - DO NOT EDIT
@@ -969,3 +969,57 @@ end
 
 batchmode_Callback( hObject, [], guidata(hObject), targetDir );
 % END FUNCTION updateFileTimer
+
+
+
+% --------------------------------------------------------------------
+function mnuLoadROI_Callback(hObject, ~, handles)
+% Load region of interest descriptor from a file.
+
+[f,p] = uigetfile('*.txt','gettraces:load ROI');
+if ~isequal(f,0)
+    data = load( fullfile(p,f) );
+    nX = handles.stkData.chExtractor.nX;
+    nY = handles.stkData.chExtractor.nY;
+    
+    assert( size(data,2)==2, 'Invalid ROI; must be list x-y coordinates' );
+    assert( all(data(:)>0) & all(data(:,1)<=nX) & all(data(:,1)<=nY), 'Invalid ROI: outside of image bounds' );
+    handles.stkData.roi = data;
+    getTraces_Callback(hObject,[],handles);
+end
+
+%END FUNCTION mnuLoadROI
+
+
+% --------------------------------------------------------------------
+function mnuDrawROI_Callback(hObject, ~, handles)
+% Manually draw an ROI and select spots within it.
+
+ROI = drawpolygon(handles.viewer.ax(end), 'FaceAlpha',0, 'Color','red');
+handles.stkData.roi = ROI.Position;
+delete(ROI);
+getTraces_Callback(hObject,[],handles);
+
+% END FUNCTION mnuDrawROI_Callback
+
+
+% --------------------------------------------------------------------
+function mnuClearROI_Callback(hObject, ~, handles)
+% Clear any existing ROI
+
+handles.stkData.roi = [];
+getTraces_Callback(hObject,[],handles);
+
+% END FUNCTION mnuClearROI_Callback
+
+
+% --------------------------------------------------------------------
+function mnuCenterQuadROI_Callback(hObject, ~, handles)
+
+nX = handles.stkData.chExtractor.nX;
+nY = handles.stkData.chExtractor.nY;
+
+handles.stkData.roi = [nX/4 nY/4; nX/4 3*nY/4; 3*nX/4 3*nY/4; 3*nX/4 nY/4];
+getTraces_Callback(hObject,[],handles);
+
+% END FUNCTION mnuCenterQuadROI_Callback

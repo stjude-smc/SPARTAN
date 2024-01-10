@@ -50,6 +50,14 @@ align = struct('dx',{},'dy',{},'theta',{},'sx',{},'sy',{},'abs_dev',{},'tform',{
 fields = stkData.chExtractor.stk_top;
 stkData.chExtractor.verify();
 
+% Mask regions outside the ROI (if any)
+if ~isempty(stkData.roi)
+    ROI = images.roi.Polygon('Position',stkData.roi);
+    mask = ROI.createMask( stkData.chExtractor.nX, stkData.chExtractor.nY );
+else
+    mask = ones(size(fields{1}));
+end
+
 % Choose channel to be used as the alignment reference (donor by default)
 nCh = stkData.nChannels;
 indD = find( strcmpi(stkData.roles,'donor') );
@@ -67,7 +75,7 @@ if params.alignMethod==1 || nCh==1
     total = sum( cat(3,fields{:}), 3 );
     
     % Find peaks of intensity in unregistered total intensity image.
-    [total_picks,rejected] = pickPeaks( total, params.don_thresh, ...
+    [total_picks,rejected] = pickPeaks( total.*mask, params.don_thresh, ...
                                      params.nhoodSize, params.overlap_thresh );
     picks = repmat( total_picks, [1 1 nCh] );
 end 
@@ -133,7 +141,7 @@ if nCh>1 && params.alignMethod>1
         % Run iterative closest points algorithm.
         else
             try
-                a = icpalign( donor, target, params );
+                a = icpalign( donor.*mask, target.*mask, params );
             catch e
                 message = sprintf('Alignment to %s failed, using straight translation instead. ', ...
                                    stkData.chExtractor.channels(i).name );
@@ -159,7 +167,7 @@ if nCh>1 && params.alignMethod>1
     end
 
     % Pick peaks from the aligned total intensity image.
-    [total_picks,rejected] = pickPeaks( total, params.don_thresh, ...
+    [total_picks,rejected] = pickPeaks( total.*mask, params.don_thresh, ...
                                  params.nhoodSize, params.overlap_thresh );
 
     % Project molecule locations using the transformation above

@@ -50,6 +50,9 @@ properties (GetAccess=public, SetAccess=public)
     
     % Index into params of each channel actually in the current movie.
     idxActiveChannels;
+    
+    % Region of interest (ROI)
+    roi;  %array of x-y coordinates defining limits of region.
 end
 
 
