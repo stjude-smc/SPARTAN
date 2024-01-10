@@ -53,7 +53,7 @@ stkData.chExtractor.verify();
 % Mask regions outside the ROI (if any)
 if ~isempty(stkData.roi)
     ROI = images.roi.Polygon('Position',stkData.roi);
-    mask = ROI.createMask( stkData.chExtractor.nX, stkData.chExtractor.nY );
+    mask = ROI.createMask( stkData.chExtractor.nY, stkData.chExtractor.nX );
 else
     mask = ones(size(fields{1}));
 end
