@@ -53,7 +53,7 @@ gettraces; autotrace; rtdgui;
 sorttraces; makeplots; frethistComparison; avgFretTime; tsqComparison;
 batchKinetics; simulate; lifetime_exp; percentTime;
 crosstalkcorrect; gammacorrect; scaleacceptor; haranfilter;
-forQuB; cy5forQuB; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
+forQuB; fluorToFret; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
 combineDatasets; resizeTraces;
 
 

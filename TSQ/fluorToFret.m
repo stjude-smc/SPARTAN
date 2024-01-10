@@ -1,4 +1,4 @@
-function cy5forQuB( files, chName, normalization )
+function fluorToFret( files, chName, normalization )
 % cy5forQuB    Normalize fluorescence data and save in fret field.
 %
 %   Fills fret data field with intensity values that are normalized to the
@@ -35,7 +35,7 @@ for i=1:nFiles
             fname = [data.channelNames 'total'];
             index = listdlg('ListString',fname, 'SelectionMode','single');
             if isempty(index), return; end  %user hit cancel.
-            chName = fname(index);
+            chName = fname{index};
         end
     end
     
@@ -58,7 +58,11 @@ for i=1:nFiles
         %normalization = [stats.t];
     end
     
-    data.addChannel( 'fret', data.(chName) ./ normalization );
+    if ~data.isChannel('fret')
+        data.addChannel( 'fret', data.(chName) ./ normalization );
+    else
+        data.fret = data.(chName) ./ normalization;
+    end
     %disp(normalization);
 
     % Save data to file.
