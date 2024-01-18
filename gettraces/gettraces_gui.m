@@ -20,7 +20,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 10-Jan-2024 10:09:42
+% Last Modified by GUIDE v2.5 18-Jan-2024 10:02:10
 
 
 % Begin initialization code - DO NOT EDIT
@@ -1017,3 +1017,17 @@ handles.stkData.roi = [nX/4 nY/4; nX/4 3*nY/4; 3*nX/4 3*nY/4; 3*nX/4 nY/4];
 getTraces_Callback(hObject,[],handles);
 
 % END FUNCTION mnuCenterQuadROI_Callback
+
+
+% --------------------------------------------------------------------
+function mnuAutoMeta_Callback(hObject, ~, handles)
+% If checked, automatically adjust analysis settings to the experimental
+% parameters (field arrangement, channel assignments, etc.) as described
+% in movie metadata. If not selected, a series of movies can be analyzed
+% with the same settings.
+
+status = strcmpi( get(hObject,'Checked'), 'on' );
+handles.stkData.autoFromMetadata = ~status;
+set(hObject,'Checked',~status);
+
+% END FUNCTION mnuAutoMeta_Callback

@@ -23,7 +23,8 @@ end
 metadataFound = false;
 
 % If available and valid, use movie's metadata to assign channels.
-if all( isfield(movie.metadata,{'fieldArrangement','channels'}) ) && ...
+if this.autoFromMetadata && ...
+   all( isfield(movie.metadata,{'fieldArrangement','channels'}) ) && ...
    all( isfield(movie.metadata.channels,{'name','wavelength'})  )
     
     profileNames = {this.params.channels.name}; %all possible channel names for loaded profile.

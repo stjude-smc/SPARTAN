@@ -45,6 +45,9 @@ properties (GetAccess=public, SetAccess=public)
     % not just the ones in the current file.
     params;
     
+    % If true, replace current field settings with metadata description
+    autoFromMetadata = true;
+    
     % Each channel's assignment for trace interpretation
     roles;
     
