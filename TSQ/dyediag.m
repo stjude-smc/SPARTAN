@@ -217,15 +217,6 @@ for i=1:nFiles,
     data.subset(selected);
     condition_idx = condition_idx(selected);
     
-    % FIXME: traceStat above fills in acceptor and fret fields so that the
-    % Traces object is more typical. But Traces.subset() only operates on
-    % the fields listed in channelNames. This results in a malformed Traces
-    % object that causes errors when saving.
-    if ~isempty(data.acceptor)
-        data.acceptor = data.acceptor(selected,:);
-        data.fret     = data.fret(selected,:);
-    end
-    
     
     %-------------------------------------------------------------
     % 3) Calculate signal statistics
