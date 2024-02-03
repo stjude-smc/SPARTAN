@@ -97,12 +97,11 @@ methods
      %% ================  GET/SET METHODS  ================ %%
      
     function idx = get.idxFluor(this)
-        idx = find(  contains( {'donor','acceptor'}, this.channelNames )  );
-        %idx = find(  cellfun( @(x) isempty(strfind(x,'fret')), this.channelNames )  );
+        idx = find(  ismember( this.channelNames, {'donor','donor2','acceptor','acceptor2','factor'} )  );
     end
     
     function idx = get.idxFret(this)
-        idx = find(  cellfun( @(x) ~isempty(strfind(x,'fret')), this.channelNames )  );
+        idx = find( contains(this.channelNames,'fret') );
     end
     
     function name = fretAxisLabel(~)
