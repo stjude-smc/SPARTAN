@@ -2,6 +2,8 @@
 
 Advanced sCMOS camera technology has recently enabled dramatic increases in the number of single molecules that can be imaged simultaneously at high speeds, while achieving equal or better data quality compared to state of the art EMCCDs. To rapidly analyze recordings from tens of thousands of molecules, we developed SPARTAN, a suite of tools for extracting traces from movies, selecting traces according to defined criteria, applying corrections, hidden Markov modeling, simulation, and data visualization. These tools are largely automated, requiring only minimal user input and time to proceed from raw data to interpretable results. The MATLAB source code also provides a rich platform for developing new analysis tools.
 
+Added this line
+
 ## Links
 - <a href="http://dx.doi.org/10.1038/nmeth.3769">Nature Methods publication</a>
 - <a href="https://github.com/stjude-smc/SPARTAN/blob/testing/SPARTAN%20Documentation.pdf">Documentation</a>
