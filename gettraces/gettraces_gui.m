@@ -20,7 +20,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 18-Jan-2024 10:02:10
+% Last Modified by GUIDE v2.5 23-Feb-2024 14:19:30
 
 
 % Begin initialization code - DO NOT EDIT
@@ -1031,3 +1031,11 @@ handles.stkData.autoFromMetadata = ~status;
 set(hObject,'Checked',~status);
 
 % END FUNCTION mnuAutoMeta_Callback
+
+
+% --------------------------------------------------------------------
+function mnuCountOverTime_Callback(~, ~, handles)
+
+handles.stkData.getParticleCountTrace();
+
+% END FUNCTION mnuCountOverTime_Callback

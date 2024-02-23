@@ -89,6 +89,9 @@ methods
     % Detect peaks of intensity in registered, total intensity image
     this = getPeaks(this);
     
+    % Count number of particles over time
+    this = getParticleCountTrace(this);
+    
     % Find integration windows for each molecule
     this = getIntegrationWindows(this);
     
