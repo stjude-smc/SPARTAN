@@ -1,7 +1,7 @@
 function stkData = getParticleCountTrace(stkData)
 % Count number of distinguishable spots in each frame, creating a
 % trejectory over time. This uses the same algorithm as getPeaks().
-% This works for single-color only for now!
+% Arbitrarily uses the first channel in the list (usually donor).
 
 
 % If the threshold for detecting intensity peaks is not given, calculate it
@@ -21,10 +21,10 @@ else
     mask = ones(stkData.chExtractor.nY, stkData.chExtractor.nX);
 end
 
-if stkData.nChannels>1
-    errordlg('This function only works with single-channel data!');
-    return;
-end
+% if stkData.nChannels>1
+%     errordlg('This function only works with single-channel data!');
+%     return;
+% end
 
 % Count number of particles in every frame
 bg = stkData.chExtractor.background{1};
