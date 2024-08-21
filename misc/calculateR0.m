@@ -25,7 +25,7 @@ function varargout = calculateR0(varargin)
 % Last Modified by GUIDE v2.5 11-Jan-2024 15:10:33
 
 % Begin initialization code - DO NOT EDIT
-gui_Singleton = 1;
+gui_Singleton = 0;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
                    'gui_OpeningFcn', @calculateR0_OpeningFcn, ...
@@ -96,66 +96,65 @@ end
 function btnCalcR0_Callback(~, ~, handles) %#ok<*DEFNU>
 % Verify field values and calculate R0.
 
-% try
+try
     % Load parameters from UI
     q   = str2double( get(handles.edDonorQY,'String') );
     ext = str2double( get(handles.edExtinctionCoef,'String') );
     n   = str2double( get(handles.edRefractiveIndex,'String') );
     K2  = str2double( get(handles.edKappa,'String') );
     
-    file1 = load( get(handles.edDonorEmission,'String') );
-    file2 = load( get(handles.edAcceptorAbsorbance,'String') );
-    spectra = loadSpectrum(file1, file2);
-    wavelength  = spectra(:,1);
-    f = spectra(:,2);
-    a = spectra(:,3);
+    wavelength = (400:1:900)';
+    f = loadSpectrum( get(handles.edDonorEmission,'String'), wavelength );
+    a = loadSpectrum( get(handles.edAcceptorAbsorbance,'String'), wavelength );
     
     plot( handles.axSpectra, wavelength, [f a] );
     ylim([0 1]);
+    xlim([wavelength(1) wavelength(end)]);
     xlabel('Wavelength (nm)');
+
+    auc = min(f,a);
+    patch(wavelength,auc,'y');
     
     d_lambda = wavelength(2)-wavelength(1);
     assert( all( diff(wavelength)==d_lambda ) );
 
-    % Calculate the spectral overlap integral.
-    J = sum( (f/sum(f)) .* (ext*a/max(a)) .* (wavelength.^4) .* d_lambda );
-
     % Calculate RO
+    J = sum( (f/sum(f)) .* (ext*a) .* (wavelength.^4) );
     R0 = 0.211 * ( q * K2 * n^(-4) * J  )^(1/6);
     set( handles.edR0, 'String',num2str(R0,4) );
+
+    %J = sum( (f/sum(f)) .* param.excoef.*(a/max(a)) .* (wavelength.^4) );
+    %R0 = 0.211 * ( param.q * param.K2 * param.n^(-4) * J  )^(1/6);
+
+    % FRET-distance relationship
+    %subplot(1,2,2);
+    %distance = 20:0.5:100;
+    %fret = 1./( 1+ (distance/R0).^6 );
+    %hplot = plot(distance, fret);
+    %xlabel('Inter-dye distance (A)');
+    %ylabel('FRET Efficiency');
+    %datatip(hplot,R0,0.5);
     
-% catch
-%     msgbox('Error');
-% end
-
-
-
-function output = loadSpectrum( varargin )
-% Use this function to combine spectra taken with different settings or
-% instruments to be combined into one matrix for calculations.
-% 
-% Each input is a matrix of at least two columns, with the first being the
-% list of wavelengths and the rest being associated spectra. The output is
-% a combined matrix with wavelengths (first column) and all of the spectra
-% combined togther (subsequent columns).
-
-% Standardized sample points for wavescans. Feel free to change.
-wavelength = 400:2:900;
-output(:,1) = wavelength;
-
-for i=1:nargin
-    
-    % Get indices of rows corresponding to standard wavelength set.
-    [~,iA,iB] = intersect( wavelength, varargin{i}(:,1) );
-
-    % Extract rows corresponding to standard wavelength set
-    in_spectrum = varargin{i}(:,2:end);
-    out_spectrum = zeros( numel(wavelength), size(in_spectrum,2) );
-    out_spectrum(iA,:) = in_spectrum(iB,:);
-    
-    % Combine all results together
-    output = [output out_spectrum];   %#ok<AGROW>
+catch e
+    msgbox( ['Error: ' e.message] );
 end
 
-% Normalize all columns
-output(:,2:end) = output(:,2:end) ./ max(output(:,2:end));
+%end function btnCalcR0_Callback
+
+
+% Load spectrum from file, interpolating to input wavelength values
+function values = loadSpectrum(filename, wavelengths)
+
+data = load(filename,'-ASCII');
+assert( size(data,2)==2, 'Invalid file: must have two columns (wavelength and spectrum)' );
+wavelengths = to_col(wavelengths);
+values = interp1(data(:,1), data(:,2), wavelengths, 'linear',0);
+
+% Crude baseline subtraction and normalization
+values = values - min(values(values>0));
+values = values / max(values);
+
+%end function loadSpectrum
+
+
+
