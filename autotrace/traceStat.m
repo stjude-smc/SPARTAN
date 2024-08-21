@@ -55,6 +55,7 @@ if nargin<1,
     ln.corrd    = 'Correlation of Fluor. Derivitive';
     ln.snr      = 'SNR-bg';
     ln.snr_s    = 'SNR-signal';
+    ln.snrs_fret= 'SNR-signal (FRET)';
     ln.nnr      = 'SNR-bg / SNR-signal';
     ln.bg       = 'Background noise';
     ln.ncross   = '# Cy3 Blinks';
@@ -144,7 +145,7 @@ z = num2cell( zeros(1,Ntraces) );
 
 retval = struct( ...
     'corr',  z, 'corrd', z, ...
-    'snr',   z, 'snr_s', z, ...
+    'snr',   z, 'snr_s', z, 'snrs_fret', z, ...
     'nnr',   z, 'bg',    z, ...
     't', z, ...
     'maxFret',    z, 'ncross',   z, ...
@@ -311,6 +312,7 @@ for i=1:Ntraces
         
         if nFret>1,
             retval(i).avgFret = sum(fret(fretRange))/nFret;
+            retval(i).snrs_fret = retval(i).t ./ std1(data.donor(i,fretRange)+data.acceptor(i,fretRange));
         end
         
         % Similar calculations when there is a second acceptor (3/4-color).
