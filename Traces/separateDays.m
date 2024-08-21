@@ -45,6 +45,8 @@ else
 end
 
 % Look for associated .dwt if not specified.
+dwtfname = [];
+
 if nargin<2 && ischar(traceInput),
     dwtfname = findDwt(traceInput);
     dwtfname = dwtfname{1};
