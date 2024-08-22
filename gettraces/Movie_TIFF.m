@@ -12,7 +12,7 @@ classdef Movie_TIFF < Movie
 % The readFrame(idx) and readFrames(indexes) methods can be used to read
 % data from the movie file.
 
-%   Copyright 2007-2015 Cornell University All Rights Reserved.
+%   Copyright 2007-2024 All Rights Reserved.
 
 % FIXME: does not correctly read XML-format metadata from MetaMorph.
 % FIXME: gracefully handle DateTime field not found.
@@ -20,20 +20,7 @@ classdef Movie_TIFF < Movie
 
 
 %% ============ PROPERTIES ============= %
-properties (SetAccess=protected, GetAccess=public)
-    filetag = '';      % original base filename of movie file series
-    timestamps = [];   % actual movie timestamps in ms, relative to start.
-
-    % See Movie class for additional standard properties.
-
-end %end public properties
-
-
-properties (SetAccess=protected, GetAccess=protected),
-    movieHeaders = [];  %metadata for all frames across all files (struct array).
-    nFramesPerMovie = [];
-    
-    useFread = false;   %use fread (faster) if true; imread otherwise.
+properties (SetAccess=protected, GetAccess=protected)
     swap = false;       %swap byte order if not the same as native (assumed to be little-endian)
 end
 
@@ -42,149 +29,98 @@ end
 %% ============ PUBLIC METHODS ============= %
 methods
     
-    % Basic constructor with the filename of a TIFF movie file to load or a
-    % cell array of filenames if the movie was split into multiple files.
-    % This may happenen with very large movies (>2GB).
+    % CONSTRUCTOR : path to .tif movie file
     function obj = Movie_TIFF( filename )
-        
-        if ~iscell(filename),  filename = {filename};  end
+
+        % FIXME: need to call Movie_TIFF_MultiFile...
+        if iscell(filename)
+            filename = filename{1};
+        end
+
+        % Load TIFF metadata and save key tags.
+        info = imfinfo( filename );
         obj.filename = filename;
-        nFiles = numel(filename);
+        obj.header = info;
+        obj.nFrames = numel(info);
+        obj.nX = info(1).Width;
+        obj.nY = info(1).Height;
+        obj.precision = sprintf('uint%d',info(1).BitsPerSample);
+        obj.swap = strcmpi(info(1).ByteOrder, 'big-endian');
         
-        % Extract TIFF tags (metadata) from all files.
-        % This will be used to help determine the order.
-        headers = cell(1,nFiles);
-        times = cell(nFiles,1);  %time axis for each movie.
-        firstTime = zeros(nFiles,1); %time at first frame in each file.
+        assert( info(1).SamplesPerPixel==1, 'Processing of multiple channels per pixel is not implemented' );
         
-        for i=1:nFiles,
-            % Get TIFF tag metadata for this file.
-            info = imfinfo( filename{i} );
-            headers{i} = info;
-            obj.nFramesPerMovie(i) = numel(info);
-            
-            if numel(info(1).StripOffsets)==1
-                obj.offsets{i} = [info.StripOffsets];
+        
+        % TIFF stacks from MicroManager/ImageJ may have only one IFD 
+        % pointing to the entire image stack as one contiguous chunk.
+        % These files contain two ImageDescription tags, but MATLAB can
+        % only see one (starting with ImageJ=).
+        if numel(info)==1 && numel(info.StripOffsets)==1 && isfield(info,'StripByteCounts')
+            nFramesImplied = floor( (info.FileSize-info.StripOffsets)/info.StripByteCounts );
+            if nFramesImplied>1
+                obj.nFrames = nFramesImplied;
+                obj.offsets = info.StripOffsets + (0:1:nFramesImplied)*info.StripByteCounts;
             end
-            
-            % FIXME: verify all required field names are present.
-            assert( info(1).SamplesPerPixel==1, 'Processing of multiple channels per pixel is not implemented' );
-            
-            % Process time axis information.
-            try
-                if isfield( info,'ExposureTime' )
-                    % This tag is specific to Blanchard Lab LabVIEW software.
-                    % It has highest priority because it is the least ambiguous
-                    % (see below).
-                    ms = info(1).ExposureTime*1000;
-                    firstTime(i) = 0 + sum( obj.nFramesPerMovie(1:i-1) )*ms;
-                    times{i} = firstTime(i) + (0:numel(info)-1)*ms;
+        
+        % If all frames are consolidated and uncompressed, can use fread directly.
+        elseif numel(info(1).StripOffsets)==1 && strcmpi(info(1).Compression,'Uncompressed')
+            obj.offsets = [info.StripOffsets];
 
-                elseif isfield( info,'DateTime' )
-                    % NOTE: for most acquisition implementations, these
-                    % timestamps are for the time transfered from the camera
-                    % to the computer and may not actually be that valuable.
-                    dot = strfind( info(1).DateTime, '.' );
-                    if isempty(dot)
-                        disp('Warning: DateTime field does not have millisecond precision');
-
-                    else
-                        % This is hacky because ms time is variable width with
-                        % MetaMorph and because each call to datenum is slow.
-                        tcell = {info.DateTime};
-                        ms  = cellfun( @(s) str2double(s(dot+1:end)), tcell );
-                        pre = cellfun( @(s) s(1:dot-1), tcell, 'UniformOutput',false );
-                        pre = vertcat( pre{:} );
-                        times{i} = ms + 24*60*60*1000*datenum(pre,'yyyymmdd HH:MM:SS')';
-
-                        firstTime(i) = times{i}(1);
-                    end
-                end
-            catch
-                times{i} = [];
-            end
-            
-            % If no time information found, use frame numbers instead.
-            % User will be asked in gettraces for a time resolution.
-            if isempty( times{i} )
-                disp('Warning: No exposure time found. Using frame numbers as time axis instead.');
-                firstTime(i) = 1 + sum( obj.nFramesPerMovie(1:i-1) );
-                times{i} = firstTime(i)+(1:numel(info))-1;
-            end
-            
-            % Parse file dimensions, etc
-            if i==1,
-                [p,f] = fileparts(info(1).Filename);
-                f = regexprep(f,'-file[0-9]*$','');
-                obj.filetag = fullfile(p,f);
-                
-                obj.nX = info(1).Width;
-                obj.nY = info(1).Height;
-                
-                obj.precision = sprintf('uint%d',info(1).BitsPerSample);
-            else
-                % Verify dimensions are the same
-                assert( info(1).Width==obj.nX && info(1).Height==obj.nY, ...
-                           'Movies in series have different sizes!' );
-                 
-                % Verify the file base name is the same across files.
-                % Remove the extension and the '-file003' prefix.
-                % We expect (but don't assume) the extension is '.tif'.
-                [p,f] = fileparts(info(1).Filename);
-                f = regexprep(f,'-file[0-9]*$','');
-                tag = fullfile(p,f);
-                
-                if ~strcmp(tag,obj.filetag),
-                   warning('Movie_TIFF:filename_mismatch', ...
-                        'Files do not appear to be part of the same acquisition');
-                    disp(info(1).Filename);
-                end
-            end
-        end
-        
-        % Reorder the files so the frames are continuous in time.
-        % This is not generally necessary because sorting the filenames
-        % gives the correct order.
-        assert( numel(unique(firstTime)) == numel(firstTime), ...
-                'Not enough information to put movie files in order!' );
-        
-        [~,fileOrder] = sort(firstTime);
-        obj.filename       = obj.filename(fileOrder);
-        obj.nFramesPerMovie = obj.nFramesPerMovie(fileOrder);
-        obj.movieHeaders    = headers(fileOrder); %convert to matrix
-        obj.timestamps      = [ times{fileOrder}   ]; %convert to matrix
-        obj.header = obj.movieHeaders{1}(1);
-        
-        % Construct a time axis with a uniform time resolution (.timeAxis).
-        % Some programs will be confused by the actual timestamps with
-        % non-uniform time resolution.
-        obj.nFrames  = sum( obj.nFramesPerMovie );
-        timediff = diff(obj.timestamps);
-        
-        if obj.timestamps(1)==1 && all(timediff==1),
-            % Time in frames
-            obj.timeAxis = obj.timestamps;
+        % Fall back on imread (slower but more flexible) 
         else
-            dt = median(timediff); %time resolution in ms
-            obj.timeAxis = dt*(0:obj.nFrames-1);
-            
-            % Verify the timestamps are continuous. If files from distinct
-            % movies are spliced together, they will have big jumps. This is a
-            % warning because sometimes movies are shuttered, giving big jumps.
-            if any(timediff==0) || any(timediff>3*dt),
-                warning('Movie_TIFF:discontinuousTimestamps', ...
-                        'Timestamps are not continuous. This can happen if files from multiple movies are mixed!');
-                disp(  [ min(diff(obj.timestamps)) max(diff(obj.timestamps)) ]  );
+            obj.offsets = [];
+        end
+
+
+        % Determine actual measurement time axis:
+        try
+            obj.timeAxis = [];
+            [ijExposure,ijText] = parseIJ(info);
+
+            if isfield( info,'ExposureTime' )
+                % EXIF tag 33434, used by FlashGordon
+                ms = info(1).ExposureTime*1000;
+                obj.timeAxis = (0:numel(info)-1)*ms;
+
+            elseif ijExposure ~=0
+                % ImageJ-specific metadata encoded in private tag 50839.
+                obj.timeAxis = ijExposure*(0:obj.nFrames-1);
+                obj.header.ImageJ = ijText;
+
+            elseif isfield( info,'DateTime' )
+                % Used by MetaMorph (others?)
+                % NOTE: for most acquisition implementations, these
+                % timestamps are for the time transfered from the camera
+                % to the computer and may not actually be that valuable.
+                dot = strfind( info(1).DateTime, '.' );
+                if ~isempty(dot)
+                    % This is hacky because ms time is variable width with
+                    % MetaMorph and because each call to datenum is slow.
+                    tcell = {info.DateTime};
+                    ms  = cellfun( @(s) str2double(s(dot+1:end)), tcell );
+                    pre = cellfun( @(s) s(1:dot-1), tcell, 'UniformOutput',false );
+                    pre = vertcat( pre{:} );
+                    times = ms + 24*60*60*1000*datenum(pre,'yyyymmdd HH:MM:SS')';
+
+                    timediff = diff(times);
+                    dt = median(timediff); %time resolution in ms
+                    obj.timeAxis = dt*(0:obj.nFrames-1);
+                end
             end
-            %obj.timestamps = obj.timestamps-obj.timestamps(1); %relative to start.
+        catch
+            obj.timeAxis = [];
         end
         
-                
+        % If no time information found, use frame numbers instead.
+        % User will be asked in gettraces for a time resolution.
+        if isempty( obj.timeAxis )
+            disp('Warning: No exposure time found. Using frame numbers as time axis instead.');
+            obj.timeAxis = 1:obj.nFrames;
+        end
+        
         % Get MetaMorph metadata. This can (in the STK format) be a special
         % tag with a whitespace delimited list of key/value pairs.
         if numel(info)==1 && isfield(info,'UnknownTags') && ...
-                                      any( [info.UnknownTags.ID]==33628 ),
-                                  
+                                      any( [info.UnknownTags.ID]==33628 )
             obj.header.MM = parseMetamorphInfo( info.ImageDescription, 1);
         end
         
@@ -193,19 +129,6 @@ methods
         % OME-TIFF data will also be in this tag.
         if isfield(info,'ImageDescription') && startsWith(info(1).ImageDescription,'FlashGordon=')
             obj.metadata = parseFGImageDescription(info(1).ImageDescription);
-        end
-        
-        % Determine if the optimized fread version can be used.
-        obj.useFread = strcmpi(obj.header.Compression,'Uncompressed') && ...
-            ~isempty(obj.offsets) && all( ~cellfun(@isempty,obj.offsets) );
-        
-        obj.swap = strcmpi(obj.header.ByteOrder, 'big-endian');
-        
-        % Clear data not used by the chosen method to speed parfor calls.
-        if obj.useFread,
-            obj.movieHeaders = {};
-        else
-            obj.offsets = [];
         end
         
     end %constructor
@@ -218,28 +141,22 @@ methods
         if numel(idx)>1
             data = zeros( obj.nY,obj.nX,numel(idx), obj.precision );
 
-            for i=1:numel(idx),
+            for i=1:numel(idx)
                 data(:,:,i) = obj.readFrames( idx(i) );
             end
             return;
         end
         
-        % Determine which file this frame number belongs to.
-        movieFirstFrame = 1+cumsum([0 obj.nFramesPerMovie]);
-        idxFile = find( idx>=movieFirstFrame, 1, 'last' );
-        idx = idx - movieFirstFrame(idxFile)+1;
-        
-        if obj.useFread,
+        if ~isempty(obj.offsets)
             % Fast version for optimized TIFF stacks.
-            fid = fopen( obj.filename{idxFile}, 'r' );
-            fseek( fid, obj.offsets{idxFile}(idx), -1 );
+            fid = fopen( obj.filename, 'r' );
+            fseek( fid, obj.offsets(idx), -1 );
             data = fread( fid, [obj.nX obj.nY], ['*' obj.precision] )';
             if obj.swap, data = swapbytes(data); end
             fclose(fid);
         else
             % Slower version tolerant to fragmentation and unusual parameters.
-            data = imread( obj.filename{idxFile}, ...
-                     'Info',obj.movieHeaders{idxFile}, 'Index',idx );
+            data = imread( obj.filename, 'Info',obj.header, 'Index',idx );
         end
     end
     
@@ -255,6 +172,38 @@ end %class Movie_TIFF
 
 
 %% ============ ACCESSORY FUNCTIONS ============= %
+
+function [Interval_ms,text] = parseIJ(info)
+% Parses TIFF tags 50838 and 50839 associated with MicroManager/ImageJ.
+% INPUT: TIFF metadata struct from imfinfo.
+% OUTPUT: standardized metadata struct (see next function).
+% See: https://micro-manager.org/Micro-Manager_File_Formats
+% Tag 50839 includes JSON text after a brief binary header.
+% The details are unclear, so I look for { that starts the JSON.
+% For now, we only grab the time resolution if available
+
+Interval_ms = 0;
+
+try
+    for i=1:numel(info.UnknownTags)
+        val = info.UnknownTags(i).Value;
+    
+        if info.UnknownTags(i).ID == 50839
+            if ~strcmp( char(val(1:4)), 'IJIJ' ), return; end
+            idxBegin = find(val == '{',1,'first');
+            if isempty(idxBegin), return; end
+            text = char(val(idxBegin:2:end));
+            data = jsondecode( text );
+            Interval_ms = data.Interval_ms;
+        end
+    end
+catch
+    Interval_ms = 0;
+end
+
+end %function parseIJ
+
+
 
 function metadata = parseFGImageDescription(input)
 % Image Description (tag 270) text is saved by Flash Gordon to assist in
@@ -345,8 +294,7 @@ end %function
 function mm = parseMetamorphInfo(info, cnt)
 
 % info   = regexprep(info, '\r\n|\o0', '\n');
-info( info==char(0)  ) =char(10);
-info( info==char(13) ) =char(10);
+info( info==char(0) | info==char(13) ) = newline;
 
 parse  = textscan(info, '%s %s', 'Delimiter', ':');
 tokens = parse{1};
