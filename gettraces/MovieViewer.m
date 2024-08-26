@@ -367,7 +367,7 @@ methods
         if this.subtractBGImage, field = field - this.chExtractor.background{f}; end
         set( this.hImg(f), 'CData',field );
     end
-    set( this.edTime, 'String',sprintf('%.2f s',this.chExtractor.timeAxis(idx)/1000) );
+    set( this.edTime, 'String',sprintf('%.3f s',this.chExtractor.timeAxis(idx)/1000) );
     
     % Color the time text by laser wavelength (if metadata available)
     wavelength = this.chExtractor.lasersActive(idx);
@@ -403,7 +403,7 @@ methods
             set( this.hImg(f), 'CData',field );
         end
 
-        set( this.edTime, 'String',sprintf('%.2f s',this.chExtractor.timeAxis(i)/1000) );
+        set( this.edTime, 'String',sprintf('%.3f s',this.chExtractor.timeAxis(i)/1000) );
         set(this.sldScrub,'Value',i);
         drawnow;
 

@@ -337,15 +337,15 @@ stkData = handles.stkData;
 handles.viewer.hidePeaks();
 
 % Locate single molecules
-% try
+try
     stkData.getPeaks();
-% catch e
-%     if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
-%         errordlg( ['Error: ' e.message], 'Gettraces' );
-%     end
-%     set(handles.figure1,'pointer','arrow'); drawnow;
-%     return;
-% end
+catch e
+    if ~strcmpi(e.identifier,'parfor_progressbar:cancelled')
+        errordlg( ['Error: ' e.message], 'Gettraces' );
+    end
+    set(handles.figure1,'pointer','arrow'); drawnow;
+    return;
+end
 
 set(handles.figure1,'pointer','arrow');
 nmol = size(stkData.peaks,1);
