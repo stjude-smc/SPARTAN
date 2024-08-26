@@ -32,10 +32,7 @@ methods
     % CONSTRUCTOR : path to .tif movie file
     function obj = Movie_TIFF( filename )
 
-        % FIXME: need to call Movie_TIFF_MultiFile...
-        if iscell(filename)
-            filename = filename{1};
-        end
+        assert(ischar(filename)||isstring(filename));
 
         % Load TIFF metadata and save key tags.
         info = imfinfo( filename );
@@ -64,10 +61,6 @@ methods
         % If all frames are consolidated and uncompressed, can use fread directly.
         elseif numel(info(1).StripOffsets)==1 && strcmpi(info(1).Compression,'Uncompressed')
             obj.offsets = [info.StripOffsets];
-
-        % Fall back on imread (slower but more flexible) 
-        else
-            obj.offsets = [];
         end
 
 
@@ -79,7 +72,7 @@ methods
             if isfield( info,'ExposureTime' )
                 % EXIF tag 33434, used by FlashGordon
                 ms = info(1).ExposureTime*1000;
-                obj.timeAxis = (0:numel(info)-1)*ms;
+                obj.timeAxis = (0:obj.nFrames-1)*ms;
 
             elseif ijExposure ~=0
                 % ImageJ-specific metadata encoded in private tag 50839.
@@ -183,6 +176,7 @@ function [Interval_ms,text] = parseIJ(info)
 % For now, we only grab the time resolution if available
 
 Interval_ms = 0;
+text = '';
 
 try
     for i=1:numel(info.UnknownTags)
@@ -198,7 +192,6 @@ try
         end
     end
 catch
-    Interval_ms = 0;
 end
 
 end %function parseIJ

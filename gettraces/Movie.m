@@ -58,16 +58,16 @@ methods (Static)
     % Movie-making factory method.
     function obj = load( filename )
         % Ask the user for a file if none given.
-        if nargin<1 || isempty(filename),
+        if nargin<1 || isempty(filename)
             [f,p] = uigetfile( '*.stk;*.tif;*.tiff;*.pma', 'Load movie file' );
-            if f==0,
+            if f==0
                 obj = []; %user hit cancel
                 return;
             end
             filename = fullfile(p,f);
         end
 
-        if ~iscell(filename),
+        if ~iscell(filename)
             filename = {filename};
         end
 
@@ -75,7 +75,11 @@ methods (Static)
         [~,~,ext] = fileparts(filename{1});
         switch lower(ext)
             case {'.tif','.tiff'}
-                obj = Movie_TIFF(filename);
+                if numel(filename)==1
+                    obj = Movie_TIFF(filename{1});
+                else
+                    obj = Movie_TIFF_MultiFile(filename);
+                end
             case '.stk'
                 obj = Movie_STK(filename);
             case '.pma'
