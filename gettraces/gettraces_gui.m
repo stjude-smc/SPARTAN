@@ -444,6 +444,8 @@ eff = stkData.integrationEfficiency;
 set(  handles.txtIntegrationStatus, 'String', ...
       sprintf('Intensity collected: %0.0f%% ', eff)  );
 set( handles.txtIntegrationStatus, 'ForegroundColor', (eff<70)*[0.9 0 0] );
+set(handles.txtSaturation,'String',sprintf('Saturated pixels: %0.1f%%',100*stkData.fractionSaturated), ...
+    'ForegroundColor', (stkData.fractionSaturated>0.01)*[0.9 0 0]);
 
 % Estimate the peak width from pixel intensity distribution.
 set( handles.txtPSFWidth, 'String', sprintf('PSF size: %0.1f px',stkData.psfWidth) );

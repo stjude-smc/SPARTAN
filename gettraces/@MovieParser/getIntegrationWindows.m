@@ -22,13 +22,15 @@ Npeaks = size(stkData.peaks,1);
 % Define regions over which to integrate each peak
 nCh = size(stkData.peaks,3);
 [stkData.regionIdx,stkData.bgMask] = deal( cell(size(nCh,1)) );
+stkData.fractionSaturated = zeros(nCh,1);
 intEff = 0;
 
 for i=1:nCh
     field = stkData.chExtractor.stk_top{i};
-    [idxs,eff] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
+    [idxs,eff,sat] = findRegions(field, stkData.peaks(:,:,i), nPx, hw);
     stkData.regionIdx{i} = idxs;
     intEff = intEff + eff;
+    stkData.fractionSaturated(i) = sat;
 
     % Give a warning for any empty neighborhoods (eff is NaN)
     if any(isnan(eff(:))),
@@ -47,6 +49,7 @@ for i=1:nCh
     
     stkData.bgMask{i} = imerode(bgMask, ones(3));  % Remove PSF tails
 end
+stkData.fractionSaturated = max(stkData.fractionSaturated);
 
 % Calculate the fraction of total fluorescence intensity captured by summing
 % the nPx most intense pixels ("integration efficiency").
@@ -62,15 +65,17 @@ end %function getIntegrationWindows
 
 
 
-function [idxs,eff] = findRegions(stk_top, peaks, nPx, hw)
+function [idxs,eff,sat] = findRegions(stk_top, peaks, nPx, hw)
 % Get the action integration regions.
 
 Npeaks = size(peaks,1);
 squarewidth = 1+2*hw;   % width of neighborhood to examine.
 eff  = zeros(squarewidth^2, Npeaks);  %integration efficiency
 idxs = zeros(nPx, Npeaks);
+nSat = 0;
 win = 1:squarewidth;
 peaks = peaks-hw-1;  %peak location relative to window edges
+maxPx = max(stk_top(:));
 
 for m=1:Npeaks
     x = peaks(m,1);
@@ -79,6 +84,9 @@ for m=1:Npeaks
     % Get a window of pixels around the intensity maximum (peak).
     nhood = stk_top( y+win, x+win );
     sortpx = sort( nhood(:), 'descend' );
+    if any(nhood(:)==maxPx)
+        nSat = nSat+1;
+    end
     
     % Estimate fraction of PSF in window vs neighborhood (fraction collected).
     if nargout>1, eff(:,m)=sortpx; end
@@ -90,6 +98,8 @@ for m=1:Npeaks
     %idxs(:,m) = sub2ind( size(stk_top), A+y-hw-1, B+x-hw-1 );
     idxs(:,m) = (A+y) + ((B+x)-1).*size(stk_top,1);
 end
+
+sat = nSat/Npeaks;
 
 end %FUNCTION findRegions
 
