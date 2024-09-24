@@ -20,7 +20,7 @@ function varargout = gettraces_gui(varargin)
 
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 23-Feb-2024 14:19:30
+% Last Modified by GUIDE v2.5 24-Sep-2024 08:53:58
 
 
 % Begin initialization code - DO NOT EDIT
@@ -1022,6 +1022,20 @@ getTraces_Callback(hObject,[],handles);
 
 
 % --------------------------------------------------------------------
+function mnuCircleROI_Callback(hObject, ~, handles)
+
+nX = handles.stkData.chExtractor.nX;
+nY = handles.stkData.chExtractor.nY;
+
+roi = images.roi.Circle('Center',[nX/2,nY/2], 'Radius',nX/2);
+handles.stkData.roi = roi.Vertices;
+getTraces_Callback(hObject,[],handles);
+
+% END FUNCTION mnuCircleROI_Callback
+
+
+
+% --------------------------------------------------------------------
 function mnuAutoMeta_Callback(hObject, ~, handles)
 % If checked, automatically adjust analysis settings to the experimental
 % parameters (field arrangement, channel assignments, etc.) as described
@@ -1041,3 +1055,4 @@ function mnuCountOverTime_Callback(~, ~, handles)
 handles.stkData.getParticleCountTrace();
 
 % END FUNCTION mnuCountOverTime_Callback
+
