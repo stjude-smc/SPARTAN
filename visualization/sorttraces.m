@@ -1225,7 +1225,7 @@ handles.idl = [];
 % Verify that the DWT matches the trace data.
 if isempty(dwt), return; end
 
-if sampling~=double(dwtSampling), 
+if abs(sampling-dwtSampling) > 1e-3
     msgbox('Data and idealization sampling intervals do not match!','Error loading idealization','Error')
 
 elseif offsets(end)>(nTraces*traceLen)
