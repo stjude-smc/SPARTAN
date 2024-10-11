@@ -41,8 +41,10 @@ if this.autoFromMetadata && ...
         metadataFound = true;
         
         % Create object for extracting spectral channels from frame data.
+        % photonsPerCount from metadata overrides profile.
         [~,this.idxActiveChannels] = ismember(metaNames, profileNames);
-        ch = this.params.channels(this.idxActiveChannels);
+        %ch = this.params.channels(this.idxActiveChannels);
+        ch = movie.metadata.channels;
         this.chExtractor = ChannelExtractor(movie, geo, ch);
 
         % If no roles previously assigned or the number of channels has

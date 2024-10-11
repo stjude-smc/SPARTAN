@@ -1045,6 +1045,7 @@ function mnuAutoMeta_Callback(hObject, ~, handles)
 status = strcmpi( get(hObject,'Checked'), 'on' );
 handles.stkData.autoFromMetadata = ~status;
 set(hObject,'Checked',~status);
+msgbox('Reload movie for setting to take effect.');
 
 % END FUNCTION mnuAutoMeta_Callback
 
