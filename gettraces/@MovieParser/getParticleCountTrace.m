@@ -42,7 +42,7 @@ end
 close(wbh);
 
 % Save the counts to file with same name as source and .txt extension
-[p,f] = fileparts( stkData.chExtractor.movie.filename{1} );
+[p,f] = fileparts( stkData.chExtractor.movie.filename );
 save( fullfile(p, [f '_' mfilename '.txt']), 'output', '-ASCII' );
 
 % Create a figure to show the result
