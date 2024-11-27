@@ -1,26 +1,28 @@
-function selectPrintedSpots(files, PLT)
-% Select molecules with positions that are within printed spots of the
-% field of view in multiplexed surface patterning experiments.
-% This implementation uses edge detection and circle fitting for spot selection.
+function selectPrintedSpots( files )
+% Select molecules with positions that are within four quadrants of the
+% field of view multiplexed surface patterning experiments. To reduce the
+% contribution of non-specifically bound molecules, only the center of each
+% spot is selected using a 2D Gaussian fit of molecule locations.
 % 
-% Parameters:
-%   files: A string or cell array of input file names.
-%   PLT: Plotting behavior
-%       - false: No plotting
-%       - [] (default): Plot and save using input file basename + '_demux.png'
-%       - string: Save plot to the specified file name
-%       - cell array: Save plots to corresponding file names for each input file.
+% Files will be saved with the following extensions:
+%  - A (top left)
+%  - B (top right)
+%  - C (bottom left)
+%  - D (bottom right)
+
+fprintf('\nWARNING: use `demux_spots` to extract traces from microarray spots.\n')
+fprintf('    `demux_spots` does edge detection and yields better results.\n')
+fprintf('    `selectPrintedSpots` is provided for compatibility only and will be removed in the future.\n')
 
 % Parameters
-suffix = {'A', 'B', 'C', 'D'}; % Add to split file names
+STD = 1.9;  %max distance from center of printed spot, number of standard deviations
+suffix = {'A','B','C','D'};  %add to split file names
+nX = 1152;
+nY = 1152;  %defaults for 2x2 binned, full-frame Hamamatsu Fusion cameras.
 
-% Default value for PLT
-if nargin < 2
-    PLT = [];
-end
 
 % Check input arguments
-if nargin < 1
+if nargin<1
     files = getFiles('.rawtraces');
 elseif ischar(files)
     files = {files};
@@ -28,85 +30,76 @@ elseif ~iscell(files)
     error('Input must be a string or cell array of strings');
 end
 
-% Validate PLT if it is a cell array
-if iscell(PLT) && numel(PLT) ~= numel(files)
-    error('PLT must have the same length as files if provided as a cell array');
-end
 
-for i = 1:numel(files)
-    % Load trace data and extract metadata
+
+for i=1:numel(files)
+    
+    % Load trace data and extract molecule locations
     data = loadTraces(files{i});
-    [p, f, e] = fileparts(files{i});
-    x = [data.traceMetadata.donor_x];
-    y = [data.traceMetadata.donor_y];
-
-    % Check if image dimensions are specified
-    if isfield(data.fileMetadata, 'nX') && isfield(data.fileMetadata, 'nY')
+    [p,f,e] = fileparts(files{i});
+    x = to_row( [data.traceMetadata.donor_x] );
+    y = to_row( [data.traceMetadata.donor_y] );
+    
+    if isfield(data.fileMetadata,'nX')
         nX = data.fileMetadata.nX;
         nY = data.fileMetadata.nY;
-    else
-        error('File metadata must specify nX and nY for image dimensions.');
     end
+    
+    figure; hold on;
+    title([f e],'Interpreter','none');
+    %legend( {'Rejected','A','B','C','D'} );
+    axis([0 nX 0 nY]);
+    
+    % Split FOV into four quadrants by molecule position.
+    % Origin is top-lelt corner. order=[A B; C D]
+    A = selectCenter(data,  y <= floor(nY/2) & x <= floor(nX/2), STD, 'ro' ); % top left
+    B = selectCenter(data,  y <= floor(nY/2) & x >  floor(nX/2), STD, 'bo' ); % top right
+    C = selectCenter(data,  y >  floor(nY/2) & x <= floor(nX/2), STD, 'go' ); % bottom left
+    D = selectCenter(data,  y >  floor(nY/2) & x >  floor(nX/2), STD, 'mo' ); % bottom right
+    
+    % Save the each subset associated with a quadrant
+    outname = fullfile( p, [f '_' suffix{1} e] );
+    saveTraces( outname, A );
+    
+    outname = fullfile( p, [f '_' suffix{2} e] );
+    saveTraces( outname, B );
+    
+    outname = fullfile( p, [f '_' suffix{3} e] );
+    saveTraces( outname, C );
+    
+    outname = fullfile( p, [f '_' suffix{4} e] );
+    saveTraces( outname, D );
 
-    % Determine whether to plot and save, based on PLT
-    if isequal(PLT, false)
-        ax = []; % No plotting
-        plt_name = ''; % No output file for plotting
-    elseif isempty(PLT)
-        figure;
-        ax = gca(); % Create a figure and get the axes
-        plt_name = fullfile(p, [f, '_demux.png']); % Default plot file name
-    elseif ischar(PLT)
-        figure;
-        ax = gca(); % Create a figure and get the axes
-        plt_name = PLT; % Use the specified file name
-    elseif iscell(PLT)
-        figure;
-        ax = gca(); % Create a figure and get the axes
-        plt_name = PLT{i}; % Use the file name corresponding to the current file
-    else
-        error('Invalid value for PLT');
-    end
+end %for each file
 
-    % Perform edge detection and circle fitting
-    edge_coords = find_spot_edges(data, ax);
-    circles = fit_circles(data, edge_coords, ax);
 
-    % Save the plot if axes were created
-    if ~isempty(ax)
-        margin = 80;
-        xlim([1 - margin, nY + margin]); % Horizontal limits
-        ylim([1 - margin, nX + margin]); % Vertical limits
-        title([f e], 'Interpreter', 'none');
-        saveas(gcf(), plt_name); % Save the plot as an image
-        close(gcf());
-    end
 
-    % Process each circle
-    for j = 1:size(circles, 1)
-        % Extract circle parameters
-        cx = circles(j, 1);
-        cy = circles(j, 2);
-        r = circles(j, 3);
-    
-        % Compute distances from all points to the circle center
-        distances = sqrt((x - cx).^2 + (y - cy).^2);
-    
-        % Create a boolean mask for points within the circle
-        in_circle = distances <= r;
-    
-        % Extract the subset of traces for this circle
-        subset = data.getSubset(in_circle);
-    
-        % Skip saving if the subset is empty
-        if r == 0
-            fprintf('Warning: no spot detected in quadrant %s of %s\n', suffix{j}, [f e]);
-            continue;
-        end
-    
-        % Save the subset to the corresponding output file
-        outname = fullfile(p, [f, '_', suffix{j}, e]);
-        saveTraces(outname, subset);
-    end
+end %function
+
+
+
+function output = selectCenter(data, quadrant, STD, color)
+% Select only the center of printed spots
+
+x = [data.traceMetadata(quadrant).donor_x];
+y = [data.traceMetadata(quadrant).donor_y];
+data = data.getSubset(quadrant);
+
+pdx = fitdist(x','Normal');
+pdy = fitdist(y','Normal');
+
+
+% Define a region that is within some N standard deviations of the
+% center of the density of molecules.
+selected = ((x - pdx.mu)/pdx.sigma).^2 + ((y - pdy.mu)/pdy.sigma).^2 < STD.^2;
+
+output = data.getSubset(selected);
+
+fprintf('Selected %d of %d molecules (%0.f%%)\n\n', sum(selected), ...
+        numel(selected), 100*sum(selected)/numel(selected) );
+
+scatter( x(selected),  y(selected),  color );
+scatter( x(~selected), y(~selected), 'ko' );
+
 end
-end
+
