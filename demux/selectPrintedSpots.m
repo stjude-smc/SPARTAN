@@ -77,7 +77,9 @@ for i = 1:numel(files)
         margin = 80;
         xlim([1 - margin, nY + margin]); % Horizontal limits
         ylim([1 - margin, nX + margin]); % Vertical limits
+        title([f e], 'Interpreter', 'none');
         saveas(gcf(), plt_name); % Save the plot as an image
+        close(gcf());
     end
 
     % Process each circle
