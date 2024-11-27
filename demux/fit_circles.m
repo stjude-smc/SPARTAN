@@ -62,6 +62,9 @@ function circles = fit_circles(traces, edge_coords, ax)
 end
 
 function [cx, cy, r] = fit_circle(edges)
+    % Extra padding around the fitted circle
+    padding = 10; % 10px ~ 2um
+
     % Fit a circle to a set of edge points using least-squares
     % Input:
     %   edges - Nx2 array of edge coordinates [x, y]
@@ -82,5 +85,5 @@ function [cx, cy, r] = fit_circle(edges)
     % Extract circle center
     cx = params(1);
     cy = params(2);
-    r = sqrt(params(3) + cx^2 + cy^2);
+    r = sqrt(params(3) + cx^2 + cy^2) + padding;
 end
