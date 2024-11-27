@@ -34,7 +34,7 @@ function pixel_coords = find_spot_edges(traces, ax)
     thumbnail = thumbnail ./ max(thumbnail(:));
 
     % Apply Canny edge detection
-    edges = edge(thumbnail, 'Canny', [0.1, 0.4], 6);
+    edges = edge(thumbnail, 'Canny', [0.1, 0.5], 6);
 
     % Mask canny edges
     msk = make_spot_mask(edges, 160/s1/s2, 140/s1/s2) - make_spot_mask(edges, 170/s1/s2, 70/s1/s2);
