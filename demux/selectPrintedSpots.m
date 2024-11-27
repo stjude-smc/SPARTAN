@@ -88,16 +88,22 @@ for i = 1:numel(files)
         cx = circles(j, 1);
         cy = circles(j, 2);
         r = circles(j, 3);
-
+    
         % Compute distances from all points to the circle center
         distances = sqrt((x - cx).^2 + (y - cy).^2);
-
+    
         % Create a boolean mask for points within the circle
         in_circle = distances <= r;
-
+    
         % Extract the subset of traces for this circle
         subset = data.getSubset(in_circle);
-
+    
+        % Skip saving if the subset is empty
+        if r == 0
+            fprintf('Warning: no spot detected in quadrant %s of %s\n', suffix{j}, [f e]);
+            continue;
+        end
+    
         % Save the subset to the corresponding output file
         outname = fullfile(p, [f, '_', suffix{j}, e]);
         saveTraces(outname, subset);

@@ -39,8 +39,18 @@ function circles = fit_circles(traces, edge_coords, ax)
     quadrants = {tl, tr, bl, br};
     for q = 1:4
         edges = quadrants{q};
+        
+        % Check if edges are empty
+        if isempty(edges)
+            % Return a zero-sized circle
+            circles(q, :) = [0, 0, 0];
+            continue;
+        end
+
+        % Fit the circle
         [cx, cy, r] = fit_circle(edges);
         circles(q, :) = [cx, cy, r];
+
 
         % Optional plotting if ax is provided
         if nargin > 2 && ~isempty(ax) && isgraphics(ax, 'axes')
@@ -62,6 +72,12 @@ function circles = fit_circles(traces, edge_coords, ax)
 end
 
 function [cx, cy, r] = fit_circle(edges)
+% Fit a circle to a set of edge points using least-squares
+% Input:
+%   edges - Nx2 array of edge coordinates [x, y]
+% Output:
+%   [cx, cy, r] - Fitted circle parameters (center and radius)
+
     % Extra padding around the fitted circle
     padding = 10; % 10px ~ 2um
 
