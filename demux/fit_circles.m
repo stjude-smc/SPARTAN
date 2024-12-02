@@ -10,8 +10,8 @@ function circles = fit_circles(traces, edge_coords, ax)
     % Get image center
     nX = traces.fileMetadata.nX;
     nY = traces.fileMetadata.nY;
-    cx_img = nX / 2;
-    cy_img = nY / 2;
+    cx_img = floor(nX / 2);
+    cy_img = floor(nY / 2);
 
     % Initialize quadrants
     tl = []; % Top-left quadrant
