@@ -76,7 +76,7 @@ function [cx, cy, r] = fit_circle(edges)
 
     % Parameters for RANSAC
     max_iterations = 1000; % Maximum number of RANSAC iterations
-    inlier_threshold = 2;  % Distance threshold to count a point as an inlier (in pixels)
+    inlier_threshold = 12;  % Distance threshold to count a point as an inlier (in pixels)
     min_inliers = 10;      % Minimum number of inliers for a valid model
 
     % Initialize best circle parameters and inlier count
