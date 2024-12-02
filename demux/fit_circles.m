@@ -26,10 +26,10 @@ function circles = fit_circles(traces, edge_coords, ax)
         if x <= cx_img && y <= cy_img
             tl = [tl; x, y]; % Top-left
         elseif x <= cx_img && y > cy_img
-            tr = [tr; x, y]; % Top-right
-        elseif x > cx_img && y <= cy_img
             bl = [bl; x, y]; % Bottom-left
-        else
+        elseif x > cx_img && y <= cy_img
+            tr = [tr; x, y]; % Top-right
+        else % x > cx_img && y > cy_img
             br = [br; x, y]; % Bottom-right
         end
     end
