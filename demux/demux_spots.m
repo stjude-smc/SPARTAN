@@ -21,7 +21,10 @@ end
 
 % Check input arguments
 if nargin < 1
-    files = getFiles('.rawtraces');
+    filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
+        '*.traces','Binary Traces Files (*.traces)' ; ...
+         '*.*','All Files (*.*)'};
+    files = getFiles(filter);
 elseif ischar(files)
     files = {files};
 elseif ~iscell(files)
