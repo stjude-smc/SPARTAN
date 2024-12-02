@@ -54,11 +54,6 @@ function circles = fit_circles(traces, edge_coords, ax)
 
         % Optional plotting if ax is provided
         if nargin > 2 && ~isempty(ax) && isgraphics(ax, 'axes')
-            % Calculate the radius based on the average distance from center to edge points
-            x = edges(:, 1);
-            y = edges(:, 2);
-            %r = mean(sqrt((x - cx).^2 + (y - cy).^2));
-
             % Plot the circular patch
             rectangle(ax, 'Position', [cy - r, cx - r, 2*r, 2*r], ...
                       'Curvature', [1, 1], 'EdgeColor', 'r', 'LineWidth', 0.5);
