@@ -89,6 +89,9 @@ function [cx, cy, r] = fit_circle(edges)
     x = edges(:, 1);
     y = edges(:, 2);
 
+    % Set the random number generarator seed for reproducibility
+    rng(7845);
+
     % RANSAC loop
     for i = 1:max_iterations
         % Randomly select 3 points (minimum required to define a circle)
