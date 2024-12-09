@@ -1,15 +1,17 @@
-function demux_spots_internal(input, output, PLT)
+function demux_spots_internal(input, output, PLT, keep_plot)
 % Select molecules with positions that are within printed spots of the
 % field of view in multiplexed surface patterning experiments.
 % This implementation uses edge detection and circle fitting for spot selection.
 % 
 % Parameters:
 %   input: input file name
-%   ouptut: cell array with four output file names
+%   output: cell array with four output file names
 %   PLT: Plotting behavior
 %       - false: No plotting
 %       - [] (default): Plot and save using input file basename + '_demux.png'
 %       - string: Save plot to the specified file name
+%   keep_plot: whether to keep or close the plot after plotting
+
     suffix = {'A', 'B', 'C', 'D'};
 
     % Load trace data and extract metadata
@@ -53,7 +55,9 @@ function demux_spots_internal(input, output, PLT)
         ylim([1 - margin, nX + margin]); % Vertical limits
         title([f e], 'Interpreter', 'none');
         saveas(gcf(), plt_name); % Save the plot as an image
-        %close(gcf());
+        if ~keep_plot
+            close(gcf());
+        end
     end
 
     % Process each circle

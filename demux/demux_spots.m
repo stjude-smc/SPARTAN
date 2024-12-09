@@ -55,6 +55,6 @@ for i = 1:numel(files)
     else
         plt = PLT;
     end
-    demux_spots_internal(file, output, plt);
+    demux_spots_internal(file, output, plt, true);
 end
 end
