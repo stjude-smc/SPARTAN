@@ -38,7 +38,7 @@ function mask_img = make_spot_mask(img, spot_distance, spot_dia)
     mask_img = zeros(nX, nY);
     
     % Draw the circles manually
-    [xx, yy] = meshgrid(1:nX, 1:nY); % Create a grid for the image
+    [yy, xx] = meshgrid(1:nY, 1:nX); % Create a grid for the image
     for i = 1:size(circle_centers, 1)
         % Calculate the distance of each pixel to the circle's center
         distances = sqrt((xx - circle_centers(i, 1)).^2 + (yy - circle_centers(i, 2)).^2);
