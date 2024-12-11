@@ -24,8 +24,6 @@ function demux_optimize_canny_thresholds(traces_file, s1, s2)
     thumbnail = prep_thumbnail(fraction);
 
 
-
-
     % Create a figure with sliders
     figure('Name', 'Interactive Canny Edge Detection');
     
@@ -48,30 +46,36 @@ function demux_optimize_canny_thresholds(traces_file, s1, s2)
 
     title(sprintf('Canny Edges [%.2f, %.2f], Sigma: %.2f', low_thresh, high_thresh, sigma));
     
-    % Add sliders for data fraction
-    uicontrol('Style', 'text', 'Position', [40, 50, 100, 20], 'String', 'Data fraction');
-    frac_slider = uicontrol('Style', 'slider', 'Position', [40, 30, 100, 20], ...
+    % Fraction slider
+    uicontrol('Style', 'text', 'Position', [20, 50, 100, 20], 'String', 'Data fraction');
+    frac_slider = uicontrol('Style', 'slider', 'Position', [20, 30, 100, 20], ...
         'Min', 0.1, 'Max', 1, 'Value', fraction, ...
         'Callback', @(src, event) update_thumbnail());
 
-    % Add sliders for low threshold
-    uicontrol('Style', 'text', 'Position', [160, 50, 100, 20], 'String', 'Low Threshold');
-    low_slider = uicontrol('Style', 'slider', 'Position', [160, 30, 100, 20], ...
+    % Low threshold slider
+    uicontrol('Style', 'text', 'Position', [120, 50, 100, 20], 'String', 'Low Threshold');
+    low_slider = uicontrol('Style', 'slider', 'Position', [120, 30, 100, 20], ...
         'Min', 0, 'Max', 1, 'Value', low_thresh, ...
         'Callback', @(src, event) update_edges());
 
-    % Add sliders for high threshold
-    uicontrol('Style', 'text', 'Position', [280, 50, 100, 20], 'String', 'High Threshold');
-    high_slider = uicontrol('Style', 'slider', 'Position', [280, 30, 100, 20], ...
+    % High threshold slider
+    uicontrol('Style', 'text', 'Position', [220, 50, 100, 20], 'String', 'High Threshold');
+    high_slider = uicontrol('Style', 'slider', 'Position', [220, 30, 100, 20], ...
         'Min', 0, 'Max', 1, 'Value', high_thresh, ...
         'Callback', @(src, event) update_edges());
-    
-    % Add sliders for sigma
-    uicontrol('Style', 'text', 'Position', [400, 50, 100, 20], 'String', 'Sigma');
-    sigma_slider = uicontrol('Style', 'slider', 'Position', [400, 30, 100, 20], ...
+
+    % Sigma slider
+    uicontrol('Style', 'text', 'Position', [320, 50, 100, 20], 'String', 'Sigma');
+    sigma_slider = uicontrol('Style', 'slider', 'Position', [320, 30, 100, 20], ...
         'Min', 1, 'Max', 20, 'Value', sigma, ...
         'Callback', @(src, event) update_edges());
-    
+
+    % s1 slider
+    uicontrol('Style', 'text', 'Position', [420, 50, 100, 20], 'String', 's1');
+    s1_slider = uicontrol('Style', 'slider', 'Position', [420, 30, 100, 20], ...
+        'Min', 2, 'Max', 4, 'Value', s1, 'SliderStep', [1, 1], ...
+        'Callback', @(src, event) update_s1());    
+
     % Nested function to update edges
     function update_edges()
         % Get the current slider values
@@ -137,6 +141,75 @@ function demux_optimize_canny_thresholds(traces_file, s1, s2)
         thumbnail = thumbnail ./ max(thumbnail(:));
     end
 
+    function update_s1()
+        % Get slider value and snap to 2 or 4
+        s1 = round(get(s1_slider, 'Value'));
+        
+        % Ensure the slider snaps only to valid values
+        if s1 < 3
+            s1 = 2;
+        else
+            s1 = 4;
+        end
+        
+        % Update the slider position (in case of snapping)
+        set(s1_slider, 'Value', s1);
+    
+        % Recreate thumbnail and axes
+        thumbnail = prep_thumbnail(fraction);
+    
+        % Recreate the axes
+        clf; % Clear the figure
+        subplot(1, 2, 1);
+        thumb_ax = imshow(thumbnail, []);
+        title('Original Thumbnail');
+    
+        % Calculate initial Canny edges
+        edges = edge(thumbnail, 'Canny', [low_thresh, high_thresh], sigma);
+    
+        % Recompute the mask for the new thumbnail size
+        msk = make_spot_mask(edges, 160/s1/s2, 140/s1/s2) - make_spot_mask(edges, 170/s1/s2, 70/s1/s2);
+    
+        % Display the edges
+        subplot(1, 2, 2);
+        edge_ax = imshow(edges - edges * 0.7 .* (~msk) + 0.3 * msk);
+        title(sprintf('Canny Edges [%.2f, %.2f], Sigma: %.2f', low_thresh, high_thresh, sigma));
+    
+        % Redraw sliders (recreating the figure deletes them)
+        draw_sliders();
+    end
+    
+    function draw_sliders()
+        % Fraction slider
+        uicontrol('Style', 'text', 'Position', [20, 50, 100, 20], 'String', 'Data fraction');
+        frac_slider = uicontrol('Style', 'slider', 'Position', [20, 30, 100, 20], ...
+            'Min', 0.1, 'Max', 1, 'Value', fraction, ...
+            'Callback', @(src, event) update_thumbnail());
+    
+        % Low threshold slider
+        uicontrol('Style', 'text', 'Position', [120, 50, 100, 20], 'String', 'Low Threshold');
+        low_slider = uicontrol('Style', 'slider', 'Position', [120, 30, 100, 20], ...
+            'Min', 0, 'Max', 1, 'Value', low_thresh, ...
+            'Callback', @(src, event) update_edges());
+    
+        % High threshold slider
+        uicontrol('Style', 'text', 'Position', [220, 50, 100, 20], 'String', 'High Threshold');
+        high_slider = uicontrol('Style', 'slider', 'Position', [220, 30, 100, 20], ...
+            'Min', 0, 'Max', 1, 'Value', high_thresh, ...
+            'Callback', @(src, event) update_edges());
+    
+        % Sigma slider
+        uicontrol('Style', 'text', 'Position', [320, 50, 100, 20], 'String', 'Sigma');
+        sigma_slider = uicontrol('Style', 'slider', 'Position', [320, 30, 100, 20], ...
+            'Min', 1, 'Max', 20, 'Value', sigma, ...
+            'Callback', @(src, event) update_edges());
+    
+        % s1 slider
+        uicontrol('Style', 'text', 'Position', [420, 50, 100, 20], 'String', 's1');
+        s1_slider = uicontrol('Style', 'slider', 'Position', [420, 30, 100, 20], ...
+            'Min', 2, 'Max', 4, 'Value', s1, 'SliderStep', [1, 1], ...
+            'Callback', @(src, event) update_s1());    
+    end
 
 end
 
