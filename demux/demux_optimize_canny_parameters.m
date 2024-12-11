@@ -1,4 +1,4 @@
-function demux_optimize_canny_thresholds(traces_file, s1, s2)
+function demux_optimize_canny_parameters(traces_file, s1, s2)
     % Function to interactively tweak Canny edge thresholds and sigma
     arguments
         % Scale factors
