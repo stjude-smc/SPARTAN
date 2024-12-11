@@ -1,6 +1,6 @@
 function pixel_coords = find_spot_edges(traces, ax)
     % Scale factors
-    s1 = 2;
+    s1 = 4;
     s2 = 4;
 
     if ~isfield(traces, 'traceMetadata') || ~isfield(traces, 'fileMetadata')
@@ -27,14 +27,14 @@ function pixel_coords = find_spot_edges(traces, ax)
     thumbnail = imresize(location_img .* msk, 1/s1, 'bilinear');
 
     % Dilation to increase signal in circles
-    thumbnail = imdilate(thumbnail, strel('disk', round(4))); 
+    thumbnail = imdilate(thumbnail, strel('disk', round(8/s1))); 
 
     % Downscale once again
     thumbnail = imresize(thumbnail, 1/s2, 'bilinear');
     thumbnail = thumbnail ./ max(thumbnail(:));
 
     % Apply Canny edge detection
-    edges = edge(thumbnail, 'Canny', [0.05, 0.3], 6);
+    edges = edge(thumbnail, 'Canny', [0.05, 0.3], 5);
 
     % Mask canny edges
     msk = make_spot_mask(edges, 160/s1/s2, 140/s1/s2) - make_spot_mask(edges, 170/s1/s2, 70/s1/s2);

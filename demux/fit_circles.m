@@ -74,6 +74,10 @@ function [cx, cy, r] = fit_circle(edges)
 % Output:
 %   [cx, cy, r] - Fitted circle parameters (center and radius)
 
+    % Restrictions on circle radius
+    min_r = 205; % px ~90um
+    max_r = 280; % px ~120um
+
     % Parameters for RANSAC
     max_iterations = 1000; % Maximum number of RANSAC iterations
     inlier_threshold = 12;  % Distance threshold to count a point as an inlier (in pixels)
@@ -113,12 +117,15 @@ function [cx, cy, r] = fit_circle(edges)
         inliers = distances <= inlier_threshold;
         num_inliers = sum(inliers);
 
-        % Update the best circle if the current one has more inliers
+        % Update the best circle if the current one has more inliers...
         if num_inliers > max_inliers && num_inliers >= min_inliers
-            best_cx = cx_tmp;
-            best_cy = cy_tmp;
-            best_r = r_tmp;
-            max_inliers = num_inliers;
+            % ... and has radius within the reasonable range
+            if min_r < r_tmp && r_tmp < max_r
+                best_cx = cx_tmp;
+                best_cy = cy_tmp;
+                best_r = r_tmp;
+                max_inliers = num_inliers;
+            end
         end
     end
 
