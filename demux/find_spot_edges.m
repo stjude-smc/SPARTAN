@@ -15,11 +15,11 @@ function pixel_coords = find_spot_edges(traces, ax)
     nY = traces.fileMetadata.nY;
 
     % Initialize a binary image with zeros
-    location_img = zeros(nX, nY);
+    location_img = zeros(nY, nX);
 
     % Set ones at the specified x and y locations
     for i = 1:length(x)
-        location_img(x(i), y(i)) = 1;
+        location_img(y(i), x(i)) = 1;
     end
 
     % Mask and resize
