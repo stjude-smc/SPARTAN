@@ -30,7 +30,7 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.9.5';
+constants.version = '3.9.6';
 constants.software = ['SPARTAN ' constants.version];
 
 
