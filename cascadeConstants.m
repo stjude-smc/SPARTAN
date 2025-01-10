@@ -30,7 +30,8 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-constants.version = '3.9.6';
+sourcePath = fileparts(mfilename('fullpath'));
+constants.version = fileread( [sourcePath filesep 'VERSION.txt'] );
 constants.software = ['SPARTAN ' constants.version];
 
 
