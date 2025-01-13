@@ -39,7 +39,7 @@ try
     latest = versionEncode(latestVerString);
 catch
     fprintf('Failed. Check the address below instead:\n');
-    fprintf('http://www.scottcblanchardlab.com/software\n\n');
+    fprintf('https://github.com/stjude-smc/SPARTAN\n\n');
     return;
 end
 
@@ -70,7 +70,7 @@ switch a
             disp(SOURCE_ADDR);
         end
         fprintf('\nFor more information, go to the following address:\n');
-        fprintf('http://www.scottcblanchardlab.com/software\n\n');
+        fprintf('https://github.com/stjude-smc/SPARTAN\n\n');
         checktime = now + DELAY_LONG;
 
     case 'Stop asking'
