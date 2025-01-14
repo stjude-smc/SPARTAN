@@ -1,2 +1,3 @@
 mex -O -DMEX_FCN -largeArrayDims forward_viterbix.cpp -output ../binary/forward_viterbix.mexw64
-
+mex -O -DMEX_FCN -largeArrayDims forwardBackwardx.cpp -output ../binary/forwardBackwardx.mexw64
+mex -O -DMEX_FCN -largeArrayDims gillespiex.cpp -output ../binary/gillespiex.mexw64

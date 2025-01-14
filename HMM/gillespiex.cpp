@@ -9,16 +9,13 @@
 #include <string.h>  //memcpy
 #include <math.h>    //log
 #include <vector>
-#include "twister.h"  //Mersenne Twister PRNG implementation
+#include <random>
+#include <limits> // For numeric_limits
 
 using namespace std;
 
 // Macros for 2-dimensional array access.
 #define GETS(A,I,J)  A[(I) + (J)*nStates]
-
-// Uniform random number (Mersenne Twister) over [0,1]-real-interval
-#define RAND randomMT()*(1.0/4294967295.0)
-
 
 
 // Gillespie algorithm (direct method) for stochastic simulation.
@@ -29,16 +26,22 @@ void gillespie(  const int nStates, const int startState, const double endTime, 
     double cumTime = 0;
     short nextState, curState=startState-1;  //zero-based
     double r;
+
+    // Random number in [0,1]. uniform_real_distribution does not include 1.0.
+    static std::random_device rd;  // Seed source
+    static std::mt19937 gen(rd()); // Mersenne Twister engine
+    static std::uniform_int_distribution<uint32_t> dist(0, std::numeric_limits<uint32_t>::max());
     
     while( cumTime<endTime )
     {
         // Time until next transition, drawn from exponential distribution
         // with time constants of 1000/sum(Q(s,:)).
-        times.push_back(  Qtau[curState] * log(RAND)  );
+        r = static_cast<double>(dist(gen)) / std::numeric_limits<uint32_t>::max();
+        times.push_back(  Qtau[curState] * log(r)  );
         
         // Randomly sample final state with probabilities calculated as the
         // fraction of all possible rate constants exiting current state.
-        r = RAND;
+        r = static_cast<double>(dist(gen)) / std::numeric_limits<uint32_t>::max();
         nextState = 0;
         while(  r > GETS(Qcumsum,curState,nextState)  )
             ++nextState;
