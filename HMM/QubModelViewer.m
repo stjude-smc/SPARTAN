@@ -376,10 +376,9 @@ methods
     % Save the current model to a new file.
     
         filter = {'*.model','SPARTAN model files (*.model)'; ...
-                  '*.qmf','QuB format model files (*.qmf)'; ...
-                  '*.model;*.qmf','All model files (*.model;*.qmf)'; ...
                   '*.*','All Files (*.*)'};
-        [f,p] = uiputfile(filter, 'Save Model', this.model.filename);
+        [p,f] = fileparts(this.model.filename);
+        [f,p] = uiputfile(filter, 'Save Model', fullfile(p,f));
 
         if ischar(f)
             fname = fullfile(p,f);
@@ -391,8 +390,9 @@ methods
     end
 
     function save_callback(this,varargin)
-    % Save the current model to file.
-        if isempty(this.model.filename)
+    % Save the current model to file, forcing new .model format.
+        [~,~,e] = fileparts(this.model.filename);
+        if isempty(this.model.filename) || strcmpi(e,'.qmf')
             saveAs_callback(this);
         else
             this.model.save(this.model.filename);

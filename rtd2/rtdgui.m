@@ -139,7 +139,11 @@ function browseModelPath_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 oldPath = get(handles.editModelPath,'String');
-[FileName,PathName,FilterIndex] = uigetfile({'*.qmf','QuB model file'},'Select a model file for idealization.',oldPath);
+filter = {'*.model','SPARTAN model files (*.model)'; ...
+          '*.qmf','QuB format model files (*.qmf)'; ...
+          '*.*','All Files (*.*)'};
+[FileName,PathName,FilterIndex] = uigetfile(filter,'Select a model file for idealization.',oldPath);
+
 if FilterIndex
     set(handles.editModelPath,'String',fullfile(PathName,FileName));
     updateStateDropdown(hObject,eventdata,handles);

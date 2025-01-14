@@ -143,9 +143,9 @@ methods
     function save( model, filename )
         % Save the model to file
         [~,~,e] = fileparts(filename);
-        if strcmpi(e,'.qmf')
-            qub_saveModel(model, filename);
-        elseif strcmpi(e,'.model') || strcmpi(e,'.mat')
+        %if strcmpi(e,'.qmf')
+        %    qub_saveModel(model, filename);
+        if strcmpi(e,'.model') || strcmpi(e,'.mat')
             version = 1.0; %#ok<NASGU>
             save(filename, 'model','version');
         else
