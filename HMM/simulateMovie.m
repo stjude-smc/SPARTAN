@@ -44,7 +44,7 @@ end
 
 % Prompt user for background movie file if necessary.
 if nargin<2 || isempty(bgMovieFilename),
-    bgMovieFilename = getFile('*.tif;*.tiff;*.stk', 'Select background movie');
+    bgMovieFilename = getFile('*.tif;*.tiff', 'Select background movie');
     if isempty(bgMovieFilename), return; end  %user hit cancel
 
 elseif iscell(bgMovieFilename),

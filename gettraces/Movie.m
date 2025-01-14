@@ -59,7 +59,7 @@ methods (Static)
     function obj = load( filename )
         % Ask the user for a file if none given.
         if nargin<1 || isempty(filename)
-            [f,p] = uigetfile( '*.stk;*.tif;*.tiff;*.pma', 'Load movie file' );
+            [f,p] = uigetfile( '*.tif;*.tiff;*.pma', 'Load movie file' );
             if f==0
                 obj = []; %user hit cancel
                 return;
@@ -80,8 +80,8 @@ methods (Static)
                 else
                     obj = Movie_TIFF_MultiFile(filename);
                 end
-            case '.stk'
-                obj = Movie_STK(filename);
+            %case '.stk'
+            %    obj = Movie_STK(filename);
             case '.pma'
                 obj = Movie_PMA(filename);
             otherwise

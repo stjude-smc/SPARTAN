@@ -128,9 +128,8 @@ function openstk_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Get filename of input data from user. 
 % Multi-select is for multi-part movies (ordinary TIFFs limited to 2GB).
 
-filter = {'*.tif;*.tiff;*.stk;*.pma','All supported movie formats (*.tif,*.tiff,*.stk,*.pma)'; ...
+filter = {'*.tif;*.tiff;*.pma','All supported movie formats (*.tif,*.tiff,*.pma)'; ...
           '*.tif;*.tiff','TIFF image stacks (*.tif, *.tiff)'; ...
-          '*.stk','MetaMorph image stacks (*.stk)'; ...
           '*.pma','Legacy raw frame data (*.pma)'
           '*.*','All Files (*.*)'};
 [datafile,datapath] = uigetfile( filter, 'Open movie file', 'MultiSelect','on' );
@@ -728,7 +727,7 @@ function mnuViewMontage_Callback(varargin) %#ok<DEFNU>
 % Display multiple movies simultaneously for direct comparison.
 
 % Get movie paths from user
-filter = {'*.tif;*.tiff;*.stk;*.pma','Movie Files (*.tif,*.tiff,*.stk,*.pma)'; ...
+filter = {'*.tif;*.tiff;*.pma','Movie Files (*.tif,*.tiff,*.pma)'; ...
           '*.*','All Files (*.*)'};
 f = getFiles(filter,'Movie Montage: Select Files');
 if isempty(f), return; end  %user hit cancel.
