@@ -179,8 +179,8 @@ set( handles.txtFilename, 'String',fnameText);
 set( handles.txtAlignWarning, 'Visible','off' );
 
 set([handles.txtOverlapStatus handles.txtIntegrationStatus, ...
-     handles.txtWindowOverlap handles.txtPSFWidth handles.nummoles], ...
-     'String', '');
+     handles.txtSaturation, handles.txtWindowOverlap handles.txtPSFWidth, ...
+     handles.nummoles], 'String', '');
 set(handles.panAlignment, 'ForegroundColor',[0 0 0]);
 set(handles.tblAlignment, 'Data',{});
 
