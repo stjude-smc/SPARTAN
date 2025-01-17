@@ -1,20 +1,26 @@
 function [outFilename,picks,allStats,dataAll]=loadPickSaveTraces( varargin )
 % loadPickSaveTraces   Select traces passing defined criteria and save to disk.
 % 
-%   loadPickSaveTraces(FILES, CRITERIA) load traces from each filename given in
-%   the cell array FILES, select traces according to the criteria in the struct
-%   CRITERIA (see pickTraces.m for details), and save the pooled traces into
-%   one output file with the extension "_auto.traces" along with a .log file.
-%   If FILES may also be a string to specify a single file, or to load all
-%   traces in a directory with the extension ".rawtraces".
+%   loadPickSaveTraces(FILES, CRITERIA) loads all of the trace data in
+%   FILES, selects traces according to CRITERIA, and saves the combined
+%   data into one output file with the extension "_auto.traces". A .log
+%   file is also created with the selection criteria.
+%
+%   FILES can be a cell array of paths to .rawtraces or .traces files or a
+%   string with the path for one file.
+%
+%   CRITERIA can be either a struct (see pickTraces.m for details) or the
+%   path to a .mat file where this struct was saved (for example from
+%   within autotrace).
 %
 %   loadPickSaveTraces(..., 'ParameterName',ProptertyValue, ...)  or
-%   loadPickSaveTraces( OPTIONS ) allows optional parameters to be specified
-%   as a list of key-value pairs or as a struct:
+%   loadPickSaveTraces(..., OPTIONS ) allows optional parameters to be
+%   specified as a list of key-value pairs or as a struct:
 %
 %    * showWaitbar    - show waitbar when processing (default false).
 %
-%    * outputFilename - specify the output file name. 
+%    * outputFilename - specify the output file name. The user will be
+%                         prompted if this option is not provided.
 %
 %    * indexes - specify the indices of traces to select instead of using the
 %                  selection criteria. indexes is a cell array, one per file.
@@ -22,7 +28,7 @@ function [outFilename,picks,allStats,dataAll]=loadPickSaveTraces( varargin )
 %    * stats   - specify the trace calculated statistics (see traceStat.m)
 %                  insted of calculating again to save time.
 
-%   Copyright 2007-2017 Cornell University All Rights Reserved.
+%   Copyright 2007-2025 All Rights Reserved.
 
 
 
@@ -35,11 +41,16 @@ options.batchMode = 0;
 if nargin<2,
     error('Must specify files and criteria values');
 end
-criteria = varargin{2};
-
+if ischar(varargin{2})
+    criteria = load(varargin{2},'criteria').criteria;
+elseif isstruct(varargin{2})
+    criteria = varargin{2};
+else
+    error('Invalid input argument 2: should be criteria struct or path to saved criteria file.');
+end
 
 % If a directory name is give, find all traces files in the directory.
-if ischar(varargin{1}) && isdir(varargin{1}),
+if ischar(varargin{1}) && isfolder(varargin{1})
     dirName = varargin{1};
     files = dir( [dirName filesep '*.rawtraces'] );
 
@@ -71,8 +82,7 @@ if nargin>2,
         vopt = varargin{3};
     else
         % Convert parameter key-value pair list to a struct
-        vopt = varargin(3:end);
-        if ischar(vopt), vopt=struct(vopt{:}); end
+        vopt = struct(varargin{3:end});
     end
     
 %     assert( mod(numel(vopt),2)==0 & all( cellfun(@ischar,vopt(1:2:end)) ), ...
@@ -97,8 +107,10 @@ end
 if isfield(options,'outFilename'),
     outFilename = options.outFilename;
 else
-    outFilename = strrep(files{1}, '.traces', '_auto.traces');
-    outFilename = strrep(outFilename, '_01_auto.traces', '_auto.traces');
+    [p,f] = fileparts(files{1});
+    outFilename = fullfile(p, [f '_auto.traces']);
+    outFilename = uiputfile('*.traces','Save selected traces',outFilename);
+    if isequal(outFilename,0), return; end  %user hit cancel.
 end
 
 
