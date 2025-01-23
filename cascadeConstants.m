@@ -90,6 +90,7 @@ cmosCommon.quiet          = 0;  %don't output debug messages.
 cmosCommon.zeroMethod     = 'threshold';  %method for detecting donor blinks
 cmosCommon.bgTraceField   = ''; %get a background intensity trace for this field (L,R,TR,etc)
 cmosCommon.subtractBGImage = true;  %subtract estimated background image from beginning of movie.
+cmosCommon.subtractBaseline = false;  %subtract baseline level for each frame.
 
 % Algorithm settings:
 % These depend on the PSF size relative to pixel size and must be optimized.
