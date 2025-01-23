@@ -9,6 +9,7 @@ Advanced sCMOS camera technology has recently enabled dramatic increases in the 
 
 ## Citation
 If you use the software or algorithms for your data analysis, please cite the following paper:
+
 Juette, M. F., Terry, D. S., Wasserman, M. R., Altman, R. B., Zhou, Z., Zhao, H. & Blanchard, S. C. Single-molecule imaging of non-equilibrium molecular ensembles on the millisecond scale. <a href="https://doi.org/10.1038/nmeth.3769">Nature Methods</a> 13, p. 341 (2016).
 
 ## Authors
