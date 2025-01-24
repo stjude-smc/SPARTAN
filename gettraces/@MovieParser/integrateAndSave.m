@@ -83,8 +83,7 @@ end
 traces = zeros(nTraces,nFrames,nCh, 'single');
 idx = this.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
-% parfor (k=1:nFrames, M)
-for k=1:nFrames
+parfor (k=1:nFrames, M)
     % Retrieve next frame and separate fluorescence channels.
     frame = this.chExtractor.read(k);
     
@@ -229,7 +228,8 @@ data.fileMetadata.units = 'photons';
 data.fileMetadata.wavelengths = [channels.wavelength];
 data.fileMetadata.chDesc = {channels.name};
 data.fileMetadata.geometry = this.chExtractor.fieldArrangement;  %fixme: ignore=0?
-[data.fileMetadata.nY,data.fileMetadata.nX] = size( frame{1} );
+data.fileMetadata.nY = this.chExtractor.nY;
+data.fileMetadata.nX = this.chExtractor.nX;
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.
