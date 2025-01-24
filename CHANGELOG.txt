@@ -1,0 +1,23 @@
+SPARTAN Version 3.10.0
+======================================================================
+
+GETTRACES:
+* Remove support for MetaMorph .stk files due to licensing concerns with tiffread.m.
+* Add "subtract baseline trace" option to suppress "flagging" effect with very high FRET traces.
+* Sample 10% of pixels for baseline trace due reduce computational demand.
+* Apply ROI selection only after detecting overlapping molecules.
+
+AUTOTRACE:
+* Show a warning instead of an error if Curve Fitting Toolbox is unavailable when using maxTotalSigma criteria.
+
+MAKEPLOTS:
+* Add "normalize to max" contour plot option to settings dialog.
+
+HMM:
+* Deprecate support for QuB model files (.qmf) and remove source code to address licensing concerns. Will be removed completely before public release.
+* dyediag: top (lines) and bottom (bars) rows have corresponding plots to avoid confusion.
+
+OTHER:
+* Movie version number from cascadeConstants.m to VERSION.txt. This solves the problem of user-modified configuration being clobbered by version updates.
+* Add LICENSE.txt with copyright notices and license terms.
+* Change website link for SPARTAN update dialog to the GitHub.
