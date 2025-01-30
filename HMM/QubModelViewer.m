@@ -377,8 +377,7 @@ methods
     
         filter = {'*.model','SPARTAN model files (*.model)'; ...
                   '*.*','All Files (*.*)'};
-        [p,f] = fileparts(this.model.filename);
-        [f,p] = uiputfile(filter, 'Save Model', fullfile(p,f));
+        [f,p] = uiputfile(filter, 'Save Model', this.model.filename);
 
         if ischar(f)
             fname = fullfile(p,f);
