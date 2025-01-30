@@ -88,6 +88,14 @@ properties( SetAccess=protected, GetAccess=public );
 end
 
 
+methods (Static)
+    % Factory method.
+    function obj = load( varargin )
+        obj = loadTraces(varargin{:});
+    end
+end
+
+
 
 
 methods
