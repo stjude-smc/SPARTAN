@@ -1,3 +1,15 @@
+SPARTAN Version 3.10.1
+======================================================================
+
+HMM:
+* QuB model file (.qmf) support has been removed. Use prior version for conversion if needed.
+* Model "save as" dialog does not crash for newly created models.
+
+OTHER:
+* Add a notebook with code examples for scripting SPARTAN functions. See example.m.
+
+
+
 SPARTAN Version 3.10.0
 ======================================================================
 
