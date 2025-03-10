@@ -30,7 +30,13 @@ function constants = makeConstants()
 constants.tstamp = now();
 
 % Version info displayed in title bars
-sourcePath = fileparts(mfilename('fullpath'));
+if isdeployed
+    %sourcePath = 'C:\Program Files\SPARTAN\application';
+    [~, result] = system('path');
+    sourcePath = char(regexpi(result, 'Path=(.*?);', 'tokens', 'once'));
+else
+    sourcePath = fileparts(mfilename('fullpath'));
+end
 constants.version = fileread( [sourcePath filesep 'VERSION.txt'] );
 constants.software = ['SPARTAN ' constants.version];
 
