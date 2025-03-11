@@ -276,11 +276,21 @@ guidata(hObject, handles);
 
 function btnSaveModel_Callback(~, ~, handles) %#ok<DEFNU>
 % Save current model to file
-if isfield(handles,'model') && ~isempty(handles.model),
+if isfield(handles,'model') && ~isempty(handles.model)
     handles.modelViewer.save_callback();
     addRecent(handles.mnuRecentModels, handles.model.filename);
 end
 % END FUNCTION btnSaveModel_Callback
+
+
+
+function btnSaveModelAs_Callback(~, ~, handles) %#ok<DEFNU>
+% Save current model to file
+if isfield(handles,'model') && ~isempty(handles.model)
+    handles.modelViewer.saveAs_callback();
+    addRecent(handles.mnuRecentModels, handles.model.filename);
+end
+% END FUNCTION btnSaveModelAs_Callback
 
 
 
