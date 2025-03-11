@@ -634,7 +634,11 @@ if isempty(histData) || numel(histData)<2, return; end
 binCenters = histData(1,:);
 data = histData(2,:);
 
-cftool(binCenters,data);
+if ~isdeployed
+    cftool(binCenters,data);
+else
+    msgbox('Curve fitting tool not available in compiled version.');
+end
 
 
 function copyPlotData_Callback(ax)
