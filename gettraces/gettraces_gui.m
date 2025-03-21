@@ -477,7 +477,7 @@ filename = fullfile(p,[f '.rawtraces']);
 
 % Prompt user for target filename, if called from the "File->Save As" menu.
 if nargin>=4 && prompt
-    [f,p] = uiputfile('*.traces', 'Save traces as:', filename);
+    [f,p] = uiputfile('*.rawtraces', 'Save traces as:', filename);
     if f==0, return; end  %user hit cancel
     filename = fullfile(p,f);
 end
