@@ -55,6 +55,7 @@ if ~isempty(stkData.roi)
     ROI = images.roi.Polygon('Position',stkData.roi);
     mask = ROI.createMask( stkData.chExtractor.nY, stkData.chExtractor.nX );
 else
+    ROI = [];
     mask = ones(size(fields{1}));
 end
 
@@ -75,8 +76,14 @@ if params.alignMethod==1 || nCh==1
     total = sum( cat(3,fields{:}), 3 );
     
     % Find peaks of intensity in unregistered total intensity image.
-    [total_picks,rejected] = pickPeaks( total.*mask, params.don_thresh, ...
+    [total_picks,rejected] = pickPeaks( total, params.don_thresh, ...
                                      params.nhoodSize, params.overlap_thresh );
+    if ~isempty(ROI)
+        sel = ROI.inROI(total_picks(:,1),total_picks(:,2));
+        total_picks = total_picks(sel,:);
+        rejected = rejected(sel);
+    end
+
     picks = repmat( total_picks, [1 1 nCh] );
 end 
 
@@ -167,8 +174,13 @@ if nCh>1 && params.alignMethod>1
     end
 
     % Pick peaks from the aligned total intensity image.
-    [total_picks,rejected] = pickPeaks( total.*mask, params.don_thresh, ...
+    [total_picks,rejected] = pickPeaks( total, params.don_thresh, ...
                                  params.nhoodSize, params.overlap_thresh );
+    if ~isempty(ROI)
+        sel = ROI.inROI(total_picks(:,1),total_picks(:,2));
+        total_picks = total_picks(sel,:);
+        rejected = rejected(sel);
+    end
 
     % Project molecule locations using the transformation above
     nPicked = size(total_picks,1);

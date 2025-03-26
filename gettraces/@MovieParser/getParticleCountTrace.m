@@ -18,6 +18,7 @@ if ~isempty(stkData.roi)
     ROI = images.roi.Polygon('Position',stkData.roi);
     mask = ROI.createMask( stkData.chExtractor.nY, stkData.chExtractor.nX );
 else
+    ROI = [];
     mask = ones(stkData.chExtractor.nY, stkData.chExtractor.nX);
 end
 
@@ -34,15 +35,21 @@ wbh = waitbar(0,'Counting particles...');
 
 for i=1:stkData.nFrames    
     frame = stkData.chExtractor.read(i);
-    field = (double(frame{1})-bg) .* mask;
+    field = double(frame{1})-bg;
     total_picks = pickPeaks( field, params.don_thresh, params.nhoodSize, params.overlap_thresh );
+
+    if ~isempty(ROI)
+        selected = ROI.inROI(total_picks(:,1),total_picks(:,2));
+        total_picks = total_picks(selected,:);
+    end
+
     output(i,2) = size(total_picks,1);
     waitbar(i/stkData.nFrames, wbh);
 end
 close(wbh);
 
 % Save the counts to file with same name as source and .txt extension
-[p,f] = fileparts( stkData.chExtractor.movie.filename{1} );
+[p,f] = fileparts( stkData.chExtractor.movie.filename );
 save( fullfile(p, [f '_' mfilename '.txt']), 'output', '-ASCII' );
 
 % Create a figure to show the result

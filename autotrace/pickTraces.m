@@ -87,13 +87,18 @@ if isfield(criteria,'maxTotalSigma')
     [histdata] = hist( t(t>0), bins );
     histdata = histdata / sum(histdata);
     
-    f = fit( double(bins'),double(histdata'), 'gauss1' );
-    mu = f.b1;
-    sigma = f.c1;
-    
-    t = [stats.t];
-    picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
-    picks = picks & (t > mu - sigma*criteria.maxTotalSigma);
+    try
+        f = fit( double(bins'),double(histdata'), 'gauss1' );
+        mu = f.b1;
+        sigma = f.c1;
+        
+        t = [stats.t];
+        picks = picks & (t < mu + sigma*criteria.maxTotalSigma);
+        picks = picks & (t > mu - sigma*criteria.maxTotalSigma);
+    catch ME
+        warning(['maxTotalSigma selection criteria failed: ' ME.identifier]);
+        disp(ME.message);
+    end
     
     % Display result of fitting (for debugging code).
     %figure;

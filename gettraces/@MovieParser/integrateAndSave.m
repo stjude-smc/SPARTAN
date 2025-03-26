@@ -66,33 +66,41 @@ if ~quiet, wbh.message='Extracting traces from movie data'; end
 % The estimated background image is also subtracted to help with molecules
 % that do not photobleach during the movie.
 % fnames = this.fnames(idxFields);
-[bgTrace,bgFieldIdx,bgMask] = deal([]);
+[bgFieldIdx,bgTrace] = deal([]);
 
 if isfield(params,'bgTraceField') && ~isempty(params.bgTraceField),
     bgFieldIdx = params.bgTraceField;
     bgTrace = zeros(nFrames,1,'single');
-    bgMask = this.bgMask{bgFieldIdx};
 end
 
-
+idxMask = cell(nCh,1);
+for c=1:nCh
+    idxMask{c} = find(this.bgMask{c});
+    idxMask{c} = idxMask{c}(1:10:end);  %reduce computational cost below.
+end
 
 % Get a list of field locations (integration windows) to sum into traces.
 traces = zeros(nTraces,nFrames,nCh, 'single');
 idx = this.regionIdx;  %cell array of channels with [pixel index, molecule id] 
 
-% parfor (k=1:nFrames, M)
-for k=1:nFrames
+parfor (k=1:nFrames, M)
     % Retrieve next frame and separate fluorescence channels.
     frame = this.chExtractor.read(k);
     
     for c=1:nCh
+        field = single(frame{c});
+
+        if ~isempty(bgFieldIdx) && bgFieldIdx==c
+            bgTrace(k) = mean( field(idxMask{c}) );
+        end
+
+        % Subtract mean baseline level for each frame
+        if params.subtractBaseline
+            field = field - mean( field(idxMask{c}) );
+        end
+
         % Sum intensity within the integration window of each PSF
-        traces(:,k,c) = sum( single(frame{c}(idx{c})), 1 );       %#ok<PFBNS>
-    end
-    
-    % Sum intensity from background regions
-    if ~isempty(bgFieldIdx)
-        bgTrace(k) = mean( single(frame{bgFieldIdx}(bgMask)) );
+        traces(:,k,c) = sum( field(idx{c}), 1 );       %#ok<PFBNS>
     end
     
     if mod(k,10)==0 && ~quiet,
@@ -220,7 +228,8 @@ data.fileMetadata.units = 'photons';
 data.fileMetadata.wavelengths = [channels.wavelength];
 data.fileMetadata.chDesc = {channels.name};
 data.fileMetadata.geometry = this.chExtractor.fieldArrangement;  %fixme: ignore=0?
-[data.fileMetadata.nY,data.fileMetadata.nX] = size( frame{1} );
+data.fileMetadata.nY = this.chExtractor.nY;
+data.fileMetadata.nX = this.chExtractor.nX;
 data.fileMetadata.profile = params.name;
 
 % Save molecule locations of the picked peaks for later lookup.

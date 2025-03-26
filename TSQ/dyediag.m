@@ -125,10 +125,11 @@ values = output;
 
 % Plain-text column names for axes labels and file output.
 colnames = {'Intensity (photons)','SNR_{sig}', 'Time ON (s)', 'Time OFF (s)', ...
-            'Total time ON (s)','Photon yield'};
+            'Total time ON (s)','Total Photon yield'};
              
 names = cell( nFiles,1 );  %plain-text name of each file
-ax = zeros(2,5);  %subplot axes
+ax = zeros(2,6);  %subplot axes
+photonsOverTime = zeros(0,nFiles);
 
 max_t = 0;
 max_snr = 0;
@@ -227,7 +228,7 @@ for i=1:nFiles,
     
     [histdata,bins] = hist( t, 40 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    ax(1,1) = subplot(2,5,1, 'Parent',hfig);
+    ax(1,1) = subplot(2,6,1, 'Parent',hfig);
     plot( ax(1,1), bins, histdata );
     hold( ax(1,1), 'all' );
     max_t = max(max_t, max(bins) );
@@ -239,7 +240,7 @@ for i=1:nFiles,
     
     [histdata,bins] = hist( snr, 35 );
     histdata = 100*histdata/sum(histdata);  %normalize
-    ax(1,2) = subplot(2,5,2, 'Parent',hfig);
+    ax(1,2) = subplot(2,6,2, 'Parent',hfig);
     plot( ax(1,2), bins, histdata );
     hold( ax(1,2), 'all' );
     max_snr = max(max_snr, max(bins) );
@@ -345,10 +346,19 @@ for i=1:nFiles,
     idl = dwtToIdl( dwt, offsets, data.nFrames, data.nTraces );
     totalOn = sum(idl==onState,2).*sampling;
     
-    ax(1,5) = subplot(2,5,5, 'Parent',hfig);
+    ax(1,5) = subplot(2,6,5, 'Parent',hfig);
     survival(ax(1,5), totalOn, dwellaxis);
     hold( ax(1,5), 'all' );
     
+
+    % Create photon emission rate plot
+    photonsOverTime(:,i) = mean( data.total.*(idl==onState), 1 );
+    
+    ax(1,6) = subplot(2,6,6, 'Parent',hfig);
+    plot(ax(1,6), dwellaxis(1:end-1), photonsOverTime(:,i));
+    hold( ax(1,6), 'all' );
+    ylabel('Photon Yield');
+
     
     % Calculate average total time on/off
     %FIXME
@@ -387,8 +397,8 @@ ymax = 1.1*max(h(:));
 
 
 % Plot dwell time distributions
-ax(1,3) = subplot(2,5,3, 'Parent',hfig);
-ax(1,4) = subplot(2,5,4, 'Parent',hfig);
+ax(1,3) = subplot(2,6,3, 'Parent',hfig);
+ax(1,4) = subplot(2,6,4, 'Parent',hfig);
 
 if params.logX,
     semilogx( ax(1,3), dwellaxis, [histograms{:,2}] );
@@ -425,14 +435,14 @@ legend(ax(1,end), trimtitles(names));
 % TODO: plot each bar separately so they can be given the same colors as the
 % line plots in the first row of panels.
 
-fieldIdx = [1:3,5:6];  %which fields to show
+fieldIdx = 1:6; %[1:3,5:6];  %which fields to show
 fields = fieldnames(output);
 
 for i=1:numel(fieldIdx),
     fid = fieldIdx(i);
     statName = fields{fid};
     
-    ax(2,i) = subplot(2,5,5+i, 'Parent',hfig);
+    ax(2,i) = subplot(2,6,6+i, 'Parent',hfig);
     hold( ax(2,i), 'on' );
     b = bar( ax(2,i), 1:nFiles, output.(statName), 'r' );
     

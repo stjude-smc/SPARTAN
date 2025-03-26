@@ -47,7 +47,7 @@ methods
     
     % If not specified, ask the user for input.
     if nargin<1
-        movieInput = getFiles('*.tif;*.tiff;*.stk;*.pma');
+        movieInput = getFiles('*.tif;*.tiff;*.pma');
     end
     if isempty(movieInput), return; end  %empty object
     if ~iscell(movieInput), movieInput={movieInput}; end

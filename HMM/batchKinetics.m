@@ -202,9 +202,13 @@ if nargin<4
     filter = {'*.model','SPARTAN model files (*.model)'; ...
               '*.qmf','QuB format model files (*.qmf)'; ...
               '*.*','All Files (*.*)'};
-    [fname,p] = uigetfile(filter, 'Load Model');
+    [fname,p,idx] = uigetfile(filter, 'Load Model');
     if isequal(fname,0), return; end
     filename = fullfile(p,fname);
+
+    if idx==2
+        warndlg('WARNING: QuB model files will not be supported in a future version.');
+    end
 end
 
 % Load the model and show the model properties in the GUI.
