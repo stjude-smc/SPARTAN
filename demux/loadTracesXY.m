@@ -18,25 +18,27 @@ function tracesXY = loadTracesXY(traces_files)
     end
     
     % loadTraces from each file
-    x = [];
-    y = [];
-    nx = [];
-    ny = [];
+    X = [];
+    Y = [];
+    nX = [];
+    nY = [];
     for i = 1:numel(traces_files)
         data = loadTraces(traces_files{i});
 
-        x = [x, [data.traceMetadata.donor_x] * px_size];
-        y = [y, [data.traceMetadata.donor_y] * px_size];
+        X = [X, [data.traceMetadata.donor_x]];
+        Y = [Y, [data.traceMetadata.donor_y]];
     
         % Check if image dimensions are specified
         if isfield(data.fileMetadata, 'nX') && isfield(data.fileMetadata, 'nY')
-            nx = [nx, data.fileMetadata.nX * px_size];
-            ny = [ny, data.fileMetadata.nY * px_size];
+            nX = [nx, data.fileMetadata.nX];
+            nY = [ny, data.fileMetadata.nY];
         else
             error('File metadata must specify nX and nY for image dimensions.');
         end
     
-        tracesXY = struct('x', x, 'y', y, 'nx', max(nx), 'ny', max(ny));
+        tracesXY = struct('X', X, 'Y', Y, ...
+                          'nX', max(nX), 'nY', max(nY), ...
+                          'x', X*px_size, 'y', Y*px_size, ...
+                          'nx', nX*px_size, 'ny', nY*px_size);
     end
-
 end

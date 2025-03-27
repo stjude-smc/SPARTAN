@@ -2,7 +2,8 @@ function layoutData = microarrayLayoutDesigner()
     % Persistent global variables
     spotIDs = [];
     traces_files = [];
-    traces_xy = struct('x', [], 'y', [], 'nx', [], 'ny', []);
+    traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', [], ...
+                       'x', [], 'y', [], 'nx', [], 'ny', []);
     %%
 
     % Spot colors
@@ -58,6 +59,7 @@ function layoutData = microarrayLayoutDesigner()
     uibutton(dlg, 'Text', 'Load traces', 'Position', [c1 80 bw 30], 'ButtonPushedFcn', @(btn, event) load_traces_callback());
     clear_btn = uibutton(dlg, 'Text', 'Clear traces', 'Position', [c3 80 bw 30], 'ButtonPushedFcn', @(btn, event) clear_traces_callback());
 
+    preview_btn = uibutton(dlg, 'Text', 'Preview', 'Position', [c1, 40, bw, 30], 'ButtonPushedFcn', @(btn, event) preview_edges());
     process_btn = uibutton(dlg, 'Text', 'Demux traces', 'Position', [c3, 40, bw, 30], 'ButtonPushedFcn', @(btn, event) demux_traces());
     
 
@@ -85,9 +87,11 @@ function layoutData = microarrayLayoutDesigner()
         if numel(traces_xy.x) == 0
             process_btn.Enable = 'off';
             clear_btn.Enable = 'off';
+            preview_btn.Enable = 'off';
         else
             process_btn.Enable = 'on';
             clear_btn.Enable = 'on';
+            preview_btn.Enable = 'on';
         end
 
         if isempty(spotIDs) || size(spotIDs, 1) ~= rows || size(spotIDs, 2) ~= cols
@@ -233,9 +237,16 @@ function layoutData = microarrayLayoutDesigner()
     end
 
     function clear_traces_callback()
-        traces_xy = struct('x', [], 'y', [], 'nx', [], 'ny', []);
+        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', [], ...
+                           'x', [], 'y', [], 'nx', [], 'ny', []);
         traces_files = [];
         updatePreview();
+    end
+
+    function preview_edges()
+        thumbnail = prep_traces_img(traces_xy);
+        ax2 = figure();
+        imshow(thumbnail);
     end
 
     function demux_traces()
