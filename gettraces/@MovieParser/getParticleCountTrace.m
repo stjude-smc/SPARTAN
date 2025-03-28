@@ -11,6 +11,7 @@ if stkData.params.autoThresh
 %     stkData.params.don_thresh = stkData.params.thresh_std*mean(stkData.stdbg(idxFields));  %improved version
 end
 params = stkData.params;
+nProc = cascadeConstants('nProcessors');
 stkData.chExtractor.verify();
 
 % Mask regions outside the ROI (if any)
@@ -31,9 +32,9 @@ end
 bg = stkData.chExtractor.background{1};
 output = zeros(stkData.nFrames,2);
 output(:,1) = stkData.chExtractor.timeAxis/1000;  %convert to seconds
-wbh = waitbar(0,'Counting particles...');
+wbh = parfor_progressbar(stkData.nFrames,'Counting particles...');
 
-for i=1:stkData.nFrames    
+parfor (i=1:stkData.nFrames,nProc)
     frame = stkData.chExtractor.read(i);
     field = double(frame{1})-bg;
     total_picks = pickPeaks( field, params.don_thresh, params.nhoodSize, params.overlap_thresh );
@@ -44,7 +45,7 @@ for i=1:stkData.nFrames
     end
 
     output(i,2) = size(total_picks,1);
-    waitbar(i/stkData.nFrames, wbh);
+    wbh.iterate();
 end
 close(wbh);
 
