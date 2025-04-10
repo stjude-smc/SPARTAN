@@ -1,10 +1,4 @@
 function tracesXY = loadTracesXY(traces_files)
-    % Camera pixel size
-    cam_px_size   = 6.5; % µm
-    magnification = 60;
-    binning       = 2;
-    px_size = cam_px_size*binning/magnification;
-
     % Check input arguments
     if nargin < 1
         filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
@@ -30,15 +24,13 @@ function tracesXY = loadTracesXY(traces_files)
     
         % Check if image dimensions are specified
         if isfield(data.fileMetadata, 'nX') && isfield(data.fileMetadata, 'nY')
-            nX = [nx, data.fileMetadata.nX];
-            nY = [ny, data.fileMetadata.nY];
+            nX = [nX, data.fileMetadata.nX];
+            nY = [nY, data.fileMetadata.nY];
         else
             error('File metadata must specify nX and nY for image dimensions.');
         end
     
         tracesXY = struct('X', X, 'Y', Y, ...
-                          'nX', max(nX), 'nY', max(nY), ...
-                          'x', X*px_size, 'y', Y*px_size, ...
-                          'nx', nX*px_size, 'ny', nY*px_size);
+                          'nX', max(nX), 'nY', max(nY));
     end
 end
