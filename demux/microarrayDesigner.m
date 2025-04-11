@@ -1,0 +1,534 @@
+classdef microarrayDesigner < matlab.apps.AppBase
+
+    % Properties that correspond to app components
+    properties (Access = public)
+        axCannyIn                    matlab.ui.control.UIAxes
+        axCannyOut                   matlab.ui.control.UIAxes
+        axMicroarray                 matlab.ui.control.UIAxes
+        btnDemuxTraces               matlab.ui.control.Button
+        btnLoadLayout                matlab.ui.control.Button
+        btnLoadSettings              matlab.ui.control.Button
+        btnLoadTraces                matlab.ui.control.Button
+        btnSaveLayout                matlab.ui.control.Button
+        btnSaveSettings              matlab.ui.control.Button
+        chkCreateSubdir              matlab.ui.control.CheckBox
+        ddDownscale1                 matlab.ui.control.DropDown
+        ddDownscale2                 matlab.ui.control.DropDown
+        sDilation                    matlab.ui.control.Spinner
+        sHighThreshold               matlab.ui.control.Spinner
+        sLowThreshold                matlab.ui.control.Spinner
+        sSigma                       matlab.ui.control.Spinner
+        sSpotSize                    matlab.ui.control.Spinner
+        UIFigure                     matlab.ui.Figure
+    end
+
+    % Properties that correspond to apps with auto-reflow
+    properties (Access = private)
+        onePanelWidth = 700;
+        EdgedetectionPanel           matlab.ui.container.Panel
+        GridLayout                   matlab.ui.container.GridLayout
+        GridLayout2                  matlab.ui.container.GridLayout
+        GridLayout3                  matlab.ui.container.GridLayout
+        GridLayout4                  matlab.ui.container.GridLayout
+        GridLayout5                  matlab.ui.container.GridLayout
+        GridLayout6                  matlab.ui.container.GridLayout
+        GridLayout6_2                matlab.ui.container.GridLayout
+        GridLayout7                  matlab.ui.container.GridLayout
+        GridLayout8                  matlab.ui.container.GridLayout
+        lblAxMicroarrayLayout        matlab.ui.control.Label
+        lblDilationpxSpinner         matlab.ui.control.Label
+        lblDownscalestep1DropDown    matlab.ui.control.Label
+        lblDownscalestep2DropDown    matlab.ui.control.Label
+        lblHighthreshold             matlab.ui.control.Label
+        lblLowthresholdSpinner       matlab.ui.control.Label
+        lblSigmaSpinner              matlab.ui.control.Label
+        lblSpotsizemSpinner          matlab.ui.control.Label
+        LeftPanel                    matlab.ui.container.Panel
+        OutputPanel                  matlab.ui.container.Panel
+        RightPanel                   matlab.ui.container.Panel
+    end
+
+    
+    properties (Access = private)
+        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);      % Coordinates of loaded traces
+        px_size = 6.5*2/60; % Pixel size in µm
+        traces_files = [];  % Open traces files
+        Circles = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}); % Circle data
+        AvailableIDs = []; % Pool of reusable IDs
+        NextID = 1; % ID for the next circle
+        SpotSize = 50; % Size of the circles
+    end
+    
+    methods (Access = private)
+        
+        function updateAxMicroarray(app)
+            tXY = app.traces_xy;
+            px = app.px_size;
+            ax = app.axMicroarray;
+
+            cla(ax);
+            hold(ax, 'on');
+
+            if numel(app.traces_xy.X) > 0
+                set(ax, 'Color', 'k');
+                rectangle(ax, 'Position', [0, 0, tXY.nX*px, tXY.nY*px], 'FaceColor', 'w', 'EdgeColor', 'none');
+                scatter(ax, tXY.X*px, tXY.Y*px, 3, 'k', 'filled');
+            else
+                set(ax, 'Color', 'w');
+            end
+
+            axis(ax, 'equal');
+            box(ax, 'on');
+            xlabel(ax, 'x, µm');
+            ylabel(ax, 'y, µm');
+        end
+        
+        function addCircle(app, x, y)
+            'Adding a circle '
+            spotFillColor   = [0.6 0.7 1.0];
+            spotEdgeColor   = [0 0 0.8];
+            spotAlpha       = 0.4;
+
+            ss = app.sSpotSize.Value;
+            % Determine the ID for the new circle
+            if ~isempty(app.AvailableIDs)
+                id = app.AvailableIDs(1); % Reuse the first available ID
+                app.AvailableIDs(1) = []; % Remove it from the pool
+            else
+                id = app.NextID; % Use the next sequential ID
+                app.NextID = app.NextID + 1; % Increment for future use
+            end
+    
+            % Create the circle patch
+            theta = linspace(0, 2*pi, 100);
+            xCircle = x + ss * cos(theta);
+            yCircle = y + ss * sin(theta);
+            patchHandle = patch('XData', xCircle, 'YData', yCircle, ...
+                                'FaceColor', spotFillColor, 'EdgeColor', spotEdgeColor, ...
+                                'FaceAlpha', spotAlpha, ...
+                                'Parent', app.axMicroarray);
+    
+            % Add text label for the circle
+            textHandle = text(app.axMicroarray, x, y, num2str(id), ...
+                              'HorizontalAlignment', 'center', ...
+                              'VerticalAlignment', 'middle', ...
+                              'Color', 'k', 'FontSize', 25, ...
+                              'FontWeight', 'bold');
+    
+            % Store circle data
+            app.Circles(end+1).patch = patchHandle;
+            app.Circles(end).position = [x, y];
+            app.Circles(end).text = textHandle;
+            app.Circles(end).id = id;
+        end
+
+        function deleteCircle(app, x, y)
+            'Deleting a circle'
+
+            ss = app.sSpotSize.Value;
+            for i = length(app.Circles):-1:1
+                pos = app.Circles(i).position;
+                dist = sqrt((x - pos(1))^2 + (y - pos(2))^2);
+                if dist < ss
+                    % Delete patch and text
+                    delete(app.Circles(i).patch);
+                    delete(app.Circles(i).text);
+    
+                    % Add ID to reusable pool
+                    app.AvailableIDs(end+1) = app.Circles(i).id;
+                    app.AvailableIDs = sort(app.AvailableIDs);
+    
+                    % Remove circle from list
+                    app.Circles(i) = [];
+                    return;
+                end
+            end
+        end
+
+        function dragCircle(app, x, y)
+            'Dragging a circle'
+
+            ss = app.sSpotSize.Value;
+            for i = length(app.Circles):-1:1
+                pos = app.Circles(i).position;
+                dist = sqrt((x - pos(1))^2 + (y - pos(2))^2);
+                if dist < ss
+                    % Update position
+                    app.Circles(i).position = [x, y];
+    
+                    % Update patch coordinates
+                    theta = linspace(0, 2*pi, 100);
+                    xCircle = x + ss * cos(theta);
+                    yCircle = y + ss * sin(theta);
+                    set(app.Circles(i).patch, 'XData', xCircle, 'YData', yCircle);
+    
+                    % Update text position
+                    set(app.Circles(i).text, 'Position', [x, y]);
+                    return;
+                end
+            end
+        end
+
+    end
+    
+
+    % Callbacks that handle component events
+    methods (Access = private)
+
+        % Button pushed function: btnLoadTraces
+        function btnLoadTracesButtonPushed(app, event)
+            filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
+              '*.traces','Binary Traces Files (*.traces)';};
+            app.traces_files = getFiles(filter);
+            app.traces_xy = loadTracesXY(app.traces_files);
+            app.updateAxMicroarray();
+        end
+
+        % Button down function: axMicroarray
+        function axMicroarrayButtonDown(app, event)
+            % Get current point
+            pt = get(app.axMicroarray, 'CurrentPoint');
+            x = pt(1, 1);
+            y = pt(1, 2);
+    
+            % Check for modifier keys
+            modifiers = get(app.UIFigure, 'CurrentModifier');
+            isShift = ismember('shift', modifiers);
+            isCtrl = ismember('control', modifiers);
+    
+            if isShift
+                app.addCircle(x, y);
+            elseif isCtrl
+                app.deleteCircle(x, y);
+            else
+                app.dragCircle(x, y);
+            end
+        end
+
+        % Changes arrangement of the app based on UIFigure width
+        function updateAppLayout(app, event)
+            currentFigureWidth = app.UIFigure.Position(3);
+            if(currentFigureWidth <= app.onePanelWidth)
+                % Change to a 2x1 grid
+                app.GridLayout.RowHeight = {515, 515};
+                app.GridLayout.ColumnWidth = {'1x'};
+                app.RightPanel.Layout.Row = 2;
+                app.RightPanel.Layout.Column = 1;
+            else
+                % Change to a 1x2 grid
+                app.GridLayout.RowHeight = {'1x'};
+                app.GridLayout.ColumnWidth = {422, '1x'};
+                app.RightPanel.Layout.Row = 1;
+                app.RightPanel.Layout.Column = 2;
+            end
+        end
+    end
+
+    % Component initialization
+    methods (Access = private)
+
+        % Create UIFigure and components
+        function createComponents(app)
+
+            % Create UIFigure and hide until all components are created
+            app.UIFigure = uifigure('Visible', 'off');
+            app.UIFigure.AutoResizeChildren = 'off';
+            app.UIFigure.Position = [100 100 909 515];
+            app.UIFigure.Name = 'MATLAB App';
+            app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
+
+            % Create GridLayout
+            app.GridLayout = uigridlayout(app.UIFigure);
+            app.GridLayout.ColumnWidth = {422, '1x'};
+            app.GridLayout.RowHeight = {'1x'};
+            app.GridLayout.ColumnSpacing = 0;
+            app.GridLayout.RowSpacing = 0;
+            app.GridLayout.Padding = [0 0 0 0];
+            app.GridLayout.Scrollable = 'on';
+
+            % Create LeftPanel
+            app.LeftPanel = uipanel(app.GridLayout);
+            app.LeftPanel.Layout.Row = 1;
+            app.LeftPanel.Layout.Column = 1;
+
+            % Create GridLayout2
+            app.GridLayout2 = uigridlayout(app.LeftPanel);
+            app.GridLayout2.ColumnWidth = {'1x'};
+            app.GridLayout2.RowHeight = {'1x', '10x', '2x'};
+
+            % Create axMicroarray
+            app.axMicroarray = uiaxes(app.GridLayout2);
+            xlabel(app.axMicroarray, 'X')
+            ylabel(app.axMicroarray, 'Y')
+            zlabel(app.axMicroarray, 'Z')
+            app.axMicroarray.Layout.Row = 2;
+            app.axMicroarray.Layout.Column = 1;
+            app.axMicroarray.ButtonDownFcn = createCallbackFcn(app, @axMicroarrayButtonDown, true);
+
+            % Create GridLayout3
+            app.GridLayout3 = uigridlayout(app.GridLayout2);
+            app.GridLayout3.ColumnWidth = {'1x', '1x', '1x'};
+            app.GridLayout3.Layout.Row = 3;
+            app.GridLayout3.Layout.Column = 1;
+
+            % Create btnLoadTraces
+            app.btnLoadTraces = uibutton(app.GridLayout3, 'push');
+            app.btnLoadTraces.ButtonPushedFcn = createCallbackFcn(app, @btnLoadTracesButtonPushed, true);
+            app.btnLoadTraces.Layout.Row = 1;
+            app.btnLoadTraces.Layout.Column = 1;
+            app.btnLoadTraces.Text = 'Load traces';
+
+            % Create SpotsizemSpinnerLabel
+            app.lblSpotsizemSpinner = uilabel(app.GridLayout3);
+            app.lblSpotsizemSpinner.HorizontalAlignment = 'right';
+            app.lblSpotsizemSpinner.Layout.Row = 1;
+            app.lblSpotsizemSpinner.Layout.Column = 2;
+            app.lblSpotsizemSpinner.Text = 'Spot size, µm';
+
+            % Create sSpotSize
+            app.sSpotSize = uispinner(app.GridLayout3);
+            app.sSpotSize.Step = 5;
+            app.sSpotSize.Limits = [10 250];
+            app.sSpotSize.RoundFractionalValues = 'on';
+            app.sSpotSize.HorizontalAlignment = 'left';
+            app.sSpotSize.Layout.Row = 1;
+            app.sSpotSize.Layout.Column = 3;
+            app.sSpotSize.Value = 100;
+
+            % Create bLoadLayout
+            app.btnLoadLayout = uibutton(app.GridLayout3, 'push');
+            app.btnLoadLayout.Layout.Row = 2;
+            app.btnLoadLayout.Layout.Column = 2;
+            app.btnLoadLayout.Text = 'Load layout';
+
+            % Create btnSaveLayout
+            app.btnSaveLayout = uibutton(app.GridLayout3, 'push');
+            app.btnSaveLayout.Layout.Row = 2;
+            app.btnSaveLayout.Layout.Column = 3;
+            app.btnSaveLayout.Text = 'Save layout';
+
+            % Create lblAxMicroarrayLayout
+            app.lblAxMicroarrayLayout = uilabel(app.GridLayout2);
+            app.lblAxMicroarrayLayout.HorizontalAlignment = 'center';
+            app.lblAxMicroarrayLayout.Layout.Row = 1;
+            app.lblAxMicroarrayLayout.Layout.Column = 1;
+            app.lblAxMicroarrayLayout.Text = {'Microarray layout'; 'Add spots with Shift+click, remove with Ctrl+click'};
+
+            % Create RightPanel
+            app.RightPanel = uipanel(app.GridLayout);
+            app.RightPanel.Layout.Row = 1;
+            app.RightPanel.Layout.Column = 2;
+
+            % Create GridLayout4
+            app.GridLayout4 = uigridlayout(app.RightPanel);
+            app.GridLayout4.ColumnWidth = {'1x'};
+            app.GridLayout4.RowHeight = {'6x', '1x'};
+
+            % Create EdgedetectionPanel
+            app.EdgedetectionPanel = uipanel(app.GridLayout4);
+            app.EdgedetectionPanel.BorderType = 'none';
+            app.EdgedetectionPanel.Title = 'Edge detection';
+            app.EdgedetectionPanel.Layout.Row = 1;
+            app.EdgedetectionPanel.Layout.Column = 1;
+
+            % Create GridLayout5
+            app.GridLayout5 = uigridlayout(app.EdgedetectionPanel);
+            app.GridLayout5.ColumnWidth = {'2x', '3x'};
+            app.GridLayout5.RowHeight = {'7x', '7x', '2x'};
+
+            % Create axCannyIn
+            app.axCannyIn = uiaxes(app.GridLayout5);
+            title(app.axCannyIn, 'Canny edges input')
+            xlabel(app.axCannyIn, 'X')
+            ylabel(app.axCannyIn, 'Y')
+            zlabel(app.axCannyIn, 'Z')
+            app.axCannyIn.Layout.Row = 1;
+            app.axCannyIn.Layout.Column = 1;
+
+            % Create axCannyOut
+            app.axCannyOut = uiaxes(app.GridLayout5);
+            title(app.axCannyOut, 'Canny edges output')
+            xlabel(app.axCannyOut, 'X')
+            ylabel(app.axCannyOut, 'Y')
+            zlabel(app.axCannyOut, 'Z')
+            app.axCannyOut.Layout.Row = 2;
+            app.axCannyOut.Layout.Column = 1;
+
+            % Create GridLayout6
+            app.GridLayout6 = uigridlayout(app.GridLayout5);
+            app.GridLayout6.ColumnWidth = {'2x', '1x'};
+            app.GridLayout6.RowHeight = {'1x', '1x', '1x'};
+            app.GridLayout6.Layout.Row = 1;
+            app.GridLayout6.Layout.Column = 2;
+
+            % Create lblDownscalestep1DropDown
+            app.lblDownscalestep1DropDown = uilabel(app.GridLayout6);
+            app.lblDownscalestep1DropDown.HorizontalAlignment = 'right';
+            app.lblDownscalestep1DropDown.Layout.Row = 1;
+            app.lblDownscalestep1DropDown.Layout.Column = 1;
+            app.lblDownscalestep1DropDown.Text = 'Downscale step 1';
+
+            % Create ddDownscale1
+            app.ddDownscale1 = uidropdown(app.GridLayout6);
+            app.ddDownscale1.Items = {'1x', '2x', '4x', '8x'};
+            app.ddDownscale1.Layout.Row = 1;
+            app.ddDownscale1.Layout.Column = 2;
+            app.ddDownscale1.Value = '4x';
+
+            % Create lblDilationpxSpinner
+            app.lblDilationpxSpinner = uilabel(app.GridLayout6);
+            app.lblDilationpxSpinner.HorizontalAlignment = 'right';
+            app.lblDilationpxSpinner.Layout.Row = 2;
+            app.lblDilationpxSpinner.Layout.Column = 1;
+            app.lblDilationpxSpinner.Text = 'Dilation, px';
+
+            % Create sDilation
+            app.sDilation = uispinner(app.GridLayout6);
+            app.sDilation.Limits = [1 16];
+            app.sDilation.HorizontalAlignment = 'left';
+            app.sDilation.Layout.Row = 2;
+            app.sDilation.Layout.Column = 2;
+            app.sDilation.Value = 2;
+
+            % Create lblDownscalestep2DropDown
+            app.lblDownscalestep2DropDown = uilabel(app.GridLayout6);
+            app.lblDownscalestep2DropDown.HorizontalAlignment = 'right';
+            app.lblDownscalestep2DropDown.Layout.Row = 3;
+            app.lblDownscalestep2DropDown.Layout.Column = 1;
+            app.lblDownscalestep2DropDown.Text = 'Downscale step 2';
+
+            % Create ddDownscale2
+            app.ddDownscale2 = uidropdown(app.GridLayout6);
+            app.ddDownscale2.Items = {'1x', '2x', '4x', '8x'};
+            app.ddDownscale2.Layout.Row = 3;
+            app.ddDownscale2.Layout.Column = 2;
+            app.ddDownscale2.Value = '4x';
+
+            % Create GridLayout6_2
+            app.GridLayout6_2 = uigridlayout(app.GridLayout5);
+            app.GridLayout6_2.ColumnWidth = {'2x', '1x'};
+            app.GridLayout6_2.RowHeight = {'1x', '1x', '1x'};
+            app.GridLayout6_2.Layout.Row = 2;
+            app.GridLayout6_2.Layout.Column = 2;
+
+            % Create lblLowthresholdSpinner
+            app.lblLowthresholdSpinner = uilabel(app.GridLayout6_2);
+            app.lblLowthresholdSpinner.HorizontalAlignment = 'right';
+            app.lblLowthresholdSpinner.Layout.Row = 1;
+            app.lblLowthresholdSpinner.Layout.Column = 1;
+            app.lblLowthresholdSpinner.Text = 'Low threshold';
+
+            % Create sLowThreshold
+            app.sLowThreshold = uispinner(app.GridLayout6_2);
+            app.sLowThreshold.Step = 0.05;
+            app.sLowThreshold.Limits = [0 95];
+            app.sLowThreshold.HorizontalAlignment = 'left';
+            app.sLowThreshold.Layout.Row = 1;
+            app.sLowThreshold.Layout.Column = 2;
+            app.sLowThreshold.Value = 0.05;
+
+            % Create lblHighthreshold
+            app.lblHighthreshold = uilabel(app.GridLayout6_2);
+            app.lblHighthreshold.HorizontalAlignment = 'right';
+            app.lblHighthreshold.Layout.Row = 2;
+            app.lblHighthreshold.Layout.Column = 1;
+            app.lblHighthreshold.Text = 'High threshold';
+
+            % Create sHighThreshold
+            app.sHighThreshold = uispinner(app.GridLayout6_2);
+            app.sHighThreshold.Step = 0.05;
+            app.sHighThreshold.Limits = [0 95];
+            app.sHighThreshold.HorizontalAlignment = 'left';
+            app.sHighThreshold.Layout.Row = 2;
+            app.sHighThreshold.Layout.Column = 2;
+            app.sHighThreshold.Value = 0.3;
+
+            % Create lblSigmaSpinner
+            app.lblSigmaSpinner = uilabel(app.GridLayout6_2);
+            app.lblSigmaSpinner.HorizontalAlignment = 'right';
+            app.lblSigmaSpinner.Layout.Row = 3;
+            app.lblSigmaSpinner.Layout.Column = 1;
+            app.lblSigmaSpinner.Text = 'Sigma';
+
+            % Create sSigma
+            app.sSigma = uispinner(app.GridLayout6_2);
+            app.sSigma.Step = 0.2;
+            app.sSigma.Limits = [1 10];
+            app.sSigma.HorizontalAlignment = 'left';
+            app.sSigma.Layout.Row = 3;
+            app.sSigma.Layout.Column = 2;
+            app.sSigma.Value = 5;
+
+            % Create GridLayout7
+            app.GridLayout7 = uigridlayout(app.GridLayout5);
+            app.GridLayout7.RowHeight = {'1x'};
+            app.GridLayout7.Layout.Row = 3;
+            app.GridLayout7.Layout.Column = 2;
+
+            % Create btnSaveSettings
+            app.btnSaveSettings = uibutton(app.GridLayout7, 'push');
+            app.btnSaveSettings.Layout.Row = 1;
+            app.btnSaveSettings.Layout.Column = 1;
+            app.btnSaveSettings.Text = 'Save settings';
+
+            % Create btnLoadSettings
+            app.btnLoadSettings = uibutton(app.GridLayout7, 'push');
+            app.btnLoadSettings.Layout.Row = 1;
+            app.btnLoadSettings.Layout.Column = 2;
+            app.btnLoadSettings.Text = 'Load settings';
+
+            % Create OutputPanel
+            app.OutputPanel = uipanel(app.GridLayout4);
+            app.OutputPanel.BorderType = 'none';
+            app.OutputPanel.Title = 'Output';
+            app.OutputPanel.Layout.Row = 2;
+            app.OutputPanel.Layout.Column = 1;
+
+            % Create GridLayout8
+            app.GridLayout8 = uigridlayout(app.OutputPanel);
+            app.GridLayout8.ColumnWidth = {'2x', '1x'};
+            app.GridLayout8.RowHeight = {'1x'};
+
+            % Create chkCreateSubdir
+            app.chkCreateSubdir = uicheckbox(app.GridLayout8);
+            app.chkCreateSubdir.Text = 'Create a subdirectory';
+            app.chkCreateSubdir.Layout.Row = 1;
+            app.chkCreateSubdir.Layout.Column = 1;
+            app.chkCreateSubdir.Value = true;
+
+            % Create btnDemuxTraces
+            app.btnDemuxTraces = uibutton(app.GridLayout8, 'push');
+            app.btnDemuxTraces.Layout.Row = 1;
+            app.btnDemuxTraces.Layout.Column = 2;
+            app.btnDemuxTraces.Text = 'Demux traces';
+
+            % Show the figure after all components are created
+            app.UIFigure.Visible = 'on';
+        end
+    end
+
+    % App creation and deletion
+    methods (Access = public)
+
+        % Construct app
+        function app = microarrayDesigner
+
+            % Create UIFigure and components
+            createComponents(app)
+
+            % Register the app with App Designer
+            registerApp(app, app.UIFigure)
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        % Code that executes before app deletion
+        function delete(app)
+
+            % Delete UIFigure when app is deleted
+            delete(app.UIFigure)
+        end
+    end
+end

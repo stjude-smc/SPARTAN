@@ -1,9 +1,14 @@
 function layoutData = microarrayLayoutDesigner()
+    % Camera pixel size
+    cam_px_size   = 6.5; % µm
+    magnification = 60;
+    binning       = 2;
+    px_size = cam_px_size*binning/magnification;
+
     % Persistent global variables
     spotIDs = [];
     traces_files = [];
-    traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', [], ...
-                       'x', [], 'y', [], 'nx', [], 'ny', []);
+    traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
     %%
 
     % Spot colors
@@ -12,7 +17,7 @@ function layoutData = microarrayLayoutDesigner()
     activeFillColor   = [0.6 0.7 1.0];
     activeEdgeColor   = [0 0 0.8];
     AlphaActive       = 0.4;
-    AlphaInactive     = 0.1;
+    AlphaInactive     = 0.0;
 
     dlg = uifigure('Name', 'Microarray Layout Designer', 'Position', [100 100 800 500]);
  
@@ -84,7 +89,7 @@ function layoutData = microarrayLayoutDesigner()
         dx = shiftXField.Value;
         dy = shiftYField.Value;
 
-        if numel(traces_xy.x) == 0
+        if numel(traces_xy.X) == 0
             process_btn.Enable = 'off';
             clear_btn.Enable = 'off';
             preview_btn.Enable = 'off';
@@ -111,10 +116,10 @@ function layoutData = microarrayLayoutDesigner()
         xlabel(ax, 'x, µm');
         ylabel(ax, 'y, µm');
 
-        if numel(traces_xy.x) > 0
+        if numel(traces_xy.X) > 0
             set(ax, 'Color', 'k');
-            rectangle('Position', [0, 0, traces_xy.nx, traces_xy.ny], 'FaceColor', 'w', 'EdgeColor', 'none', 'Parent', ax);
-            scatter(ax, traces_xy.x, traces_xy.y, 3, 'k', 'filled');
+            rectangle('Position', [0, 0, traces_xy.nX*px_size, traces_xy.nY*px_size], 'FaceColor', 'w', 'EdgeColor', 'none', 'Parent', ax);
+            scatter(ax, traces_xy.X*px_size, traces_xy.Y*px_size, 3, 'k', 'filled');
         else
             set(ax, 'Color', 'w');
         end
@@ -143,7 +148,7 @@ function layoutData = microarrayLayoutDesigner()
                     alphaVal = AlphaInactive;
                 end
 
-                fill(ax, xc, yc, faceCol, 'EdgeColor', edgeCol, 'LineWidth', 1, 'FaceAlpha', alphaVal, 'EdgeAlpha', alphaVal + 0.2, 'ButtonDownFcn', @(src, event) onClick(r, c));
+                fill(ax, xc, yc, faceCol, 'EdgeColor', edgeCol, 'LineWidth', 1, 'FaceAlpha', alphaVal, 'EdgeAlpha', alphaVal, 'ButtonDownFcn', @(src, event) onClick(r, c));
 
                 if spotIDs(r, c) > 0
                     text(ax, x, y, num2str(spotIDs(r, c)), ...
@@ -163,9 +168,9 @@ function layoutData = microarrayLayoutDesigner()
         dy_rot = abs(sin(theta) * (spot + vSpacing * (rows - 1)/2));
         xmin = min(-5, -2*spot/3 + dx - dx_rot);
 
-        nx = traces_xy.nx;
+        nx = traces_xy.nX*px_size;
         if isempty(nx), nx = 0; end
-        ny = traces_xy.ny;
+        ny = traces_xy.nY*px_size;
         if isempty(ny), ny = 0; end
 
         xmax = max(5 + nx, hSpacing * (cols - 1) + 2*spot/3 + dx + dx_rot);
@@ -174,6 +179,7 @@ function layoutData = microarrayLayoutDesigner()
         ax.XLim = [xmin, xmax];
         ax.YLim = [ymin, ymax];
         hold(ax, 'off');
+        set(ax, 'YDir','reverse');
     end
 
     function onClick(r, c, ~)
@@ -237,16 +243,56 @@ function layoutData = microarrayLayoutDesigner()
     end
 
     function clear_traces_callback()
-        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', [], ...
-                           'x', [], 'y', [], 'nx', [], 'ny', []);
+        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
         traces_files = [];
         updatePreview();
     end
 
     function preview_edges()
+        s1 = 4;
+        s2 = 4;
+        s = s1*s2;
         thumbnail = prep_traces_img(traces_xy);
-        ax2 = figure();
+        figure();
+        
+        subplot(131);
         imshow(thumbnail);
+    
+        subplot(132);
+        edges = edge(thumbnail, 'Canny', [0.05, 0.3], 5);
+        imshow(edges);
+
+        subplot(133);
+        e = zeros(size(edges));
+        rows = rowField.Value;
+        cols = colField.Value;
+        spot = spotField.Value;
+        vSpacing = vSpaceField.Value;
+        hSpacing = hSpaceField.Value;
+        theta = deg2rad(rotationField.Value);
+        dx = shiftXField.Value;
+        dy = shiftYField.Value;
+
+
+        for r = 1:rows
+            for c = 1:cols
+                % Compute center of grid (unrotated)
+                cx = (cols - 1) * hSpacing / 2;
+                cy = (rows - 1) * vSpacing / 2;
+
+                x0 = (c - 1) * hSpacing - cx;
+                y0 = (r - 1) * vSpacing - cy;
+                x = cos(theta) * x0 - sin(theta) * y0 + cx + dx;
+                y = sin(theta) * x0 + cos(theta) * y0 + cy + dy;
+                if spotIDs(r, c) > 0
+                    msk = make_spot_mask(traces_xy.nX/s, traces_xy.nY/s, x/px_size/s, y/px_size/s, spot/px_size/s);
+                    m = edges .* msk * spotIDs(r, c);
+                    e = e + m;
+
+                end
+            end
+        end
+        imshow(label2rgb(e, 'parula', 'k'));
     end
 
     function demux_traces()
