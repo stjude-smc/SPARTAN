@@ -14,7 +14,7 @@ classdef microarrayDesigner_ArrayLayout < handle
         AvailableIDs = []; % Pool of reusable IDs
         NextID = 1; % ID for the next circle
 
-        rectHandle;
+        FOVrectHandle;
         scatterHandle;
     end
 
@@ -25,8 +25,23 @@ classdef microarrayDesigner_ArrayLayout < handle
             magnification = 60;
             cam_binning   = 2;
             self.px_size = cam_px_size * cam_binning / magnification;
-            self.ax = ax;
             self.spot_size = spot_size;
+
+            % Configure axes
+            box(ax, 'on');
+            xlabel(ax, 'x, µm');
+            ylabel(ax, 'y, µm');
+            axis(ax, 'equal');
+            set(ax, 'Color', 'k'); % Black background color
+            self.ax = ax;
+
+
+            self.FOVrectHandle = rectangle(self.ax, ...
+                'Position', [0, 0, 250, 250], ...
+                'FaceColor', 'w', 'EdgeColor', 'none', ...
+                'HitTest', 'off');
+            axis(self.ax, 'tight');
+
         end
 
         % Draw traces and manage Z-order
@@ -38,18 +53,16 @@ classdef microarrayDesigner_ArrayLayout < handle
                 return
             end
 
-            % Set axes background color
-            set(ax, 'Color', 'k');
             hold(ax, 'on'); % Preserve existing objects
 
 
             % Create or update rectangle (background)
-            if isempty(self.rectHandle) || ~isvalid(self.rectHandle)
-                self.rectHandle = rectangle(ax, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px], ...
+            if isempty(self.FOVrectHandle) || ~isvalid(self.FOVrectHandle)
+                self.FOVrectHandle = rectangle(ax, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px], ...
                                             'FaceColor', 'w', 'EdgeColor', 'none', ...
                                             'HitTest', 'off');
             else
-                set(self.rectHandle, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px]);
+                set(self.FOVrectHandle, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px]);
             end
 
             % Create or update scatter plot (middle layer)
@@ -63,7 +76,7 @@ classdef microarrayDesigner_ArrayLayout < handle
 
             % Arrange objects in the correct Z-order
             uistack(self.scatterHandle, 'bottom');
-            uistack(self.rectHandle, 'bottom');
+            uistack(self.FOVrectHandle, 'bottom');
 
             % Ensure existing spots are on top
             for i = 1:length(self.Spots)

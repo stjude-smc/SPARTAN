@@ -133,7 +133,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
             app.UIFigure.Position = [100 100 909 515];
-            app.UIFigure.Name = 'MATLAB App';
+            app.UIFigure.Name = 'Microarray Designer';
             app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
 
             % Create GridLayout
@@ -157,10 +157,6 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create axMicroarray
             app.axMicroarray = uiaxes(app.GridLayout2);
-            box(app.axMicroarray, 'on');
-            xlabel(app.axMicroarray, 'x, µm');
-            ylabel(app.axMicroarray, 'y, µm');
-            axis(app.axMicroarray, 'equal');
             app.axMicroarray.Layout.Row = 2;
             app.axMicroarray.Layout.Column = 1;
             app.axMicroarray.ButtonDownFcn = createCallbackFcn(app, @axMicroarrayButtonDown, true);
