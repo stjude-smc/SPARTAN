@@ -277,6 +277,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.ddDownscale1.Layout.Row = 1;
             app.ddDownscale1.Layout.Column = 2;
             app.ddDownscale1.Value = '4x';
+            app.ddDownscale1.ValueChangedFcn = @(src, event) app.edge_detect.set('Downscale1', str2double(event.Value(1)));
 
             % Create lblDilationpxSpinner
             app.lblDilationpxSpinner = uilabel(app.GridLayout6);
@@ -292,6 +293,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sDilation.Layout.Row = 2;
             app.sDilation.Layout.Column = 2;
             app.sDilation.Value = 2;
+            app.sDilation.ValueChangedFcn = @(src, event) app.edge_detect.set('Dilation', event.Value);
 
             % Create lblDownscalestep2DropDown
             app.lblDownscalestep2DropDown = uilabel(app.GridLayout6);
@@ -306,6 +308,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.ddDownscale2.Layout.Row = 3;
             app.ddDownscale2.Layout.Column = 2;
             app.ddDownscale2.Value = '4x';
+            app.ddDownscale2.ValueChangedFcn = @(src, event) app.edge_detect.set('Downscale2', str2double(event.Value(1)));
 
             % Create GridLayout6_2
             app.GridLayout6_2 = uigridlayout(app.GridLayout5);
@@ -329,6 +332,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sLowThreshold.Layout.Row = 1;
             app.sLowThreshold.Layout.Column = 2;
             app.sLowThreshold.Value = 0.05;
+            app.sLowThreshold.ValueChangedFcn = @(src, event) app.edge_detect.set('LowThreshold', event.Value);
 
             % Create lblHighthreshold
             app.lblHighthreshold = uilabel(app.GridLayout6_2);
@@ -345,6 +349,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sHighThreshold.Layout.Row = 2;
             app.sHighThreshold.Layout.Column = 2;
             app.sHighThreshold.Value = 0.3;
+            app.sHighThreshold.ValueChangedFcn = @(src, event) app.edge_detect.set('HighThreshold', event.Value);
 
             % Create lblSigmaSpinner
             app.lblSigmaSpinner = uilabel(app.GridLayout6_2);
@@ -361,6 +366,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSigma.Layout.Row = 3;
             app.sSigma.Layout.Column = 2;
             app.sSigma.Value = 5;
+            app.sSigma.ValueChangedFcn = @(src, event) app.edge_detect.set('Sigma', event.Value);
 
             % Create GridLayout7
             app.GridLayout7 = uigridlayout(app.GridLayout5);
@@ -373,12 +379,14 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.btnSaveSettings.Layout.Row = 1;
             app.btnSaveSettings.Layout.Column = 1;
             app.btnSaveSettings.Text = 'Save settings';
+            app.btnSaveSettings.ButtonPushedFcn = @(src, event) app.edge_detect.save_settings();
 
             % Create btnLoadSettings
             app.btnLoadSettings = uibutton(app.GridLayout7, 'push');
             app.btnLoadSettings.Layout.Row = 1;
             app.btnLoadSettings.Layout.Column = 2;
             app.btnLoadSettings.Text = 'Load settings';
+            app.btnLoadSettings.ButtonPushedFcn = @(src, event) app.edge_detect.load_settings(app);
 
             % Create OutputPanel
             app.OutputPanel = uipanel(app.GridLayout4);
