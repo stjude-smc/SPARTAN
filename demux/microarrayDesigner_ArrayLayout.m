@@ -142,7 +142,27 @@ classdef microarrayDesigner_ArrayLayout < handle
         end
 
         function load_layout(self)
-            'load layout pushed'
+            [file, path] = uigetfile('*.json', 'Load microarray layout');
+            if ischar(file)
+                jsonStr = fileread(fullfile(path, file));
+                layoutData = jsondecode(jsonStr);
+
+                % delete existing spots
+                for i = 1:length(self.Spots)
+                    % Delete the patch and its associated data
+                    delete(self.Spots(i).patch);
+                    delete(self.Spots(i).text);
+                end
+
+                % reconstruct the spots
+                for i = 1:length(layoutData.Spots)
+                    x = layoutData.Spots(i).position(1);
+                    y = layoutData.Spots(i).position(2);
+                    add_spot(self, x, y);
+                end
+
+                self.update_spot_size(layoutData.spot_size);
+            end
         end
 
         function save_layout(self)
