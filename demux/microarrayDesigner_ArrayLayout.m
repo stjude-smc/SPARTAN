@@ -141,11 +141,14 @@ classdef microarrayDesigner_ArrayLayout < handle
             end
         end
 
-        function load_layout(self)
+        function spot_size = load_layout(self)
+            spot_size = 'none';
             [file, path] = uigetfile('*.json', 'Load microarray layout');
             if ischar(file)
                 jsonStr = fileread(fullfile(path, file));
                 layoutData = jsondecode(jsonStr);
+
+                spot_size = layoutData.spot_size;
 
                 % delete existing spots
                 for i = 1:length(self.Spots)

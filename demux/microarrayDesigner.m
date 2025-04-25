@@ -86,6 +86,13 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.array_layout.draw_traces(app.traces_xy);
         end
 
+        function  load_layout_pushed(app)
+            ss = app.array_layout.load_layout();
+            if isnumeric(ss)
+                app.sSpotSize.Value = ss;
+            end
+        end
+
         % Button down function: axMicroarray
         function axMicroarrayButtonDown(app)
             % Get current point
@@ -193,7 +200,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.btnLoadLayout.Layout.Row = 2;
             app.btnLoadLayout.Layout.Column = 2;
             app.btnLoadLayout.Text = 'Load layout';
-            app.btnLoadLayout.ButtonPushedFcn = @(src, event) app.array_layout.load_layout()
+            app.btnLoadLayout.ButtonPushedFcn = @(src, event) app.load_layout_pushed()
 
             % Create btnSaveLayout
             app.btnSaveLayout = uibutton(app.GridLayout3, 'push');
@@ -406,7 +413,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
     methods (Access = public)
 
         % Construct app
-        function app = microarrayDesigner
+        function app = microarrayDesigner()
 
             app.px_size = app.cam_px_size*app.cam_binning/app.magnification;
 
