@@ -76,7 +76,6 @@ classdef microarrayDesigner_ArrayLayout < handle
             end
         end
 
-        % Add a new spot
         function add_spot(self, x, y)
             spotFillColor   = [0.6 0.7 1.0];
             spotEdgeColor   = [0 0 0.8];
@@ -114,6 +113,19 @@ classdef microarrayDesigner_ArrayLayout < handle
             self.Spots(end).position = [x, y];
             self.Spots(end).text = textHandle;
             self.Spots(end).id = id;
+        end
+
+        function update_spot_size(self, new_size)
+            self.spot_size = new_size;
+            for i = 1:length(self.Spots)
+                pt = self.Spots(i).position;
+                x = pt(1);
+                y = pt(2);
+                theta = linspace(0, 2 * pi, 100);
+                xCircle = x + self.spot_size * cos(theta) / 2;
+                yCircle = y + self.spot_size * sin(theta) / 2;
+                set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
+            end
         end
     end
 

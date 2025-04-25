@@ -73,12 +73,17 @@ classdef microarrayDesigner < matlab.apps.AppBase
     % Callbacks that handle component events
     methods (Access = private)
 
+    %%
+    % Callbacks
+    %
+
         % Button pushed function: btnLoadTraces
         function btnLoadTracesButtonPushed(app, event)
             filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.traces','Binary Traces Files (*.traces)';};
             app.traces_files = getFiles(filter);
-            app.array_layout.draw_traces(loadTracesXY(app.traces_files));
+            app.traces_xy = loadTracesXY(app.traces_files)
+            app.array_layout.draw_traces(app.traces_xy);
         end
 
         % Button down function: axMicroarray
@@ -89,13 +94,14 @@ classdef microarrayDesigner < matlab.apps.AppBase
             y = pt(1, 2);
     
             % Check for modifier keys
-            modifiers = get(app.UIFigure, 'CurrentModifier');
-            isShift = ismember('shift', modifiers);
-            isCtrl = ismember('control', modifiers);
-    
-            if isShift
+            modifiers = get(app.UIFigure, 'CurrentModifier');    
+            if ismember('shift', modifiers)
                 app.array_layout.add_spot(x, y);
             end
+        end
+
+        function sSpotSizeChanged(app)
+            app.array_layout.update_spot_size(app.sSpotSize.Value);
         end
 
         % Changes arrangement of the app based on UIFigure width
@@ -115,10 +121,10 @@ classdef microarrayDesigner < matlab.apps.AppBase
                 app.RightPanel.Layout.Column = 2;
             end
         end
-    end
 
+    %%
     % Component initialization
-    methods (Access = private)
+    %
 
         % Create UIFigure and components
         function createComponents(app)
@@ -155,7 +161,6 @@ classdef microarrayDesigner < matlab.apps.AppBase
             xlabel(app.axMicroarray, 'x, µm');
             ylabel(app.axMicroarray, 'y, µm');
             axis(app.axMicroarray, 'equal');
-            hold(ax, 'on');
             app.axMicroarray.Layout.Row = 2;
             app.axMicroarray.Layout.Column = 1;
             app.axMicroarray.ButtonDownFcn = createCallbackFcn(app, @axMicroarrayButtonDown, true);
@@ -189,6 +194,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSpotSize.Layout.Row = 1;
             app.sSpotSize.Layout.Column = 3;
             app.sSpotSize.Value = 100;
+            app.sSpotSize.ValueChangedFcn = createCallbackFcn(app, @sSpotSizeChanged, false);
 
             % Create bLoadLayout
             app.btnLoadLayout = uibutton(app.GridLayout3, 'push');
