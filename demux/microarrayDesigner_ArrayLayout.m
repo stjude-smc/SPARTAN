@@ -7,10 +7,10 @@ classdef microarrayDesigner_ArrayLayout < handle
         px_size;
         ax              matlab.ui.control.UIAxes;
         spot_size = 0;
+        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
     end
 
     properties (Access = private)
-        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}); % Circle data
         AvailableIDs = []; % Pool of reusable IDs
         NextID = 1; % ID for the next circle
 
