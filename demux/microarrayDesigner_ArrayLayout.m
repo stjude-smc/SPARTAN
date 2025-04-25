@@ -146,7 +146,24 @@ classdef microarrayDesigner_ArrayLayout < handle
         end
 
         function save_layout(self)
-'save layout pushed'
+            layoutData = [];
+            
+            % Round positions to integers
+            roundedPositions = arrayfun(@(spot) round(spot.position), self.Spots, 'UniformOutput', false);
+            
+            % Create layoutData struct
+            layoutData.Spots = struct('id', {self.Spots.id}, ...
+                                      'position', roundedPositions);
+            layoutData.spot_size = self.spot_size;
+
+            % Save layout to JSON
+            [file, path] = uiputfile('microarray_layout.json', 'Save microarray layout');
+            if ischar(file)
+                jsonStr = jsonencode(layoutData);
+                fid = fopen(fullfile(path, file), 'w');
+                fwrite(fid, jsonStr, 'char');
+                fclose(fid);
+            end
         end
 
     end
