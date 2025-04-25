@@ -93,53 +93,6 @@ classdef microarrayDesigner < matlab.apps.AppBase
             ylabel(ax, 'y, µm');
         end
 
-        function deleteCircle(app, x, y)
-            'Deleting a circle'
-
-            ss = app.sSpotSize.Value;
-            for i = length(app.Spots):-1:1
-                pos = app.Spots(i).position;
-                dist = sqrt((x - pos(1))^2 + (y - pos(2))^2);
-                if dist < ss
-                    % Delete patch and text
-                    delete(app.Spots(i).patch);
-                    delete(app.Spots(i).text);
-    
-                    % Add ID to reusable pool
-                    app.AvailableIDs(end+1) = app.Spots(i).id;
-                    app.AvailableIDs = sort(app.AvailableIDs);
-    
-                    % Remove circle from list
-                    app.Spots(i) = [];
-                    return;
-                end
-            end
-        end
-
-        function dragCircle(app, x, y)
-            'Dragging a circle'
-
-            ss = app.sSpotSize.Value;
-            for i = length(app.Spots):-1:1
-                pos = app.Spots(i).position;
-                dist = sqrt((x - pos(1))^2 + (y - pos(2))^2);
-                if dist < ss
-                    % Update position
-                    app.Spots(i).position = [x, y];
-    
-                    % Update patch coordinates
-                    theta = linspace(0, 2*pi, 100);
-                    xCircle = x + ss * cos(theta);
-                    yCircle = y + ss * sin(theta);
-                    set(app.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
-    
-                    % Update text position
-                    set(app.Spots(i).text, 'Position', [x, y]);
-                    return;
-                end
-            end
-        end
-
     end
     
 
@@ -168,11 +121,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             isCtrl = ismember('control', modifiers);
     
             if isShift
-                app.array_layout.add_spot(app, x, y);
-            elseif isCtrl
-                app.deleteCircle(x, y);
-            else
-                app.dragCircle(x, y);
+                app.array_layout.add_spot(x, y);
             end
         end
 
@@ -492,7 +441,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Register the app with App Designer
             registerApp(app, app.UIFigure);
 
-            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray);
+            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app.sSpotSize.Value);
 
             if nargout == 0
                 clear app
