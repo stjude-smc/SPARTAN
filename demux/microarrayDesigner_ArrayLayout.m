@@ -35,13 +35,11 @@ classdef microarrayDesigner_ArrayLayout < handle
             set(ax, 'Color', 'k'); % Black background color
             self.ax = ax;
 
-
             self.FOVrectHandle = rectangle(self.ax, ...
                 'Position', [0, 0, 250, 250], ...
                 'FaceColor', 'w', 'EdgeColor', 'none', ...
                 'HitTest', 'off');
             axis(self.ax, 'tight');
-
         end
 
         % Draw traces and manage Z-order
@@ -54,7 +52,6 @@ classdef microarrayDesigner_ArrayLayout < handle
             end
 
             hold(ax, 'on'); % Preserve existing objects
-
 
             % Create or update rectangle (background)
             if isempty(self.FOVrectHandle) || ~isvalid(self.FOVrectHandle)
@@ -89,24 +86,25 @@ classdef microarrayDesigner_ArrayLayout < handle
             end
         end
 
-        function add_spot(self, x, y)
+        % Add a new spot (with optional ID)
+        function add_spot(self, x, y, id)
             spotFillColor   = [0.6 0.7 1.0];
             spotEdgeColor   = [0 0 0.8];
             spotAlpha       = 0.4;
 
             % Determine the ID for the new circle
-            if ~isempty(self.AvailableIDs)
-                id = self.AvailableIDs(1); % Reuse the first available ID
-                self.AvailableIDs(1) = []; % Remove it from the pool
-            else
-                id = self.NextID; % Use the next sequential ID
-                self.NextID = self.NextID + 1; % Increment for future use
+            if nargin < 4 || isempty(id) % If no ID is provided
+                if ~isempty(self.AvailableIDs)
+                    id = self.AvailableIDs(1); % Reuse the first available ID
+                    self.AvailableIDs(1) = []; % Remove it from the pool
+                else
+                    id = self.NextID; % Use the next sequential ID
+                    self.NextID = self.NextID + 1; % Increment for future use
+                end
             end
 
             % Create the circle patch
-            theta = linspace(0, 2 * pi, 100);
-            xCircle = x + self.spot_size * cos(theta) / 2;
-            yCircle = y + self.spot_size * sin(theta) / 2;
+            [xCircle, yCircle] = self.compute_circle_coordinates(x, y);
             patchHandle = patch('XData', xCircle, 'YData', yCircle, ...
                                 'FaceColor', spotFillColor, 'EdgeColor', spotEdgeColor, ...
                                 'FaceAlpha', spotAlpha, ...
@@ -128,19 +126,26 @@ classdef microarrayDesigner_ArrayLayout < handle
             self.Spots(end).id = id;
         end
 
+        % Update spot size
         function update_spot_size(self, new_size)
             self.spot_size = new_size;
             for i = 1:length(self.Spots)
                 pt = self.Spots(i).position;
                 x = pt(1);
                 y = pt(2);
-                theta = linspace(0, 2 * pi, 100);
-                xCircle = x + self.spot_size * cos(theta) / 2;
-                yCircle = y + self.spot_size * sin(theta) / 2;
+                [xCircle, yCircle] = self.compute_circle_coordinates(x, y);
                 set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
             end
         end
 
+        % Compute circle coordinates
+        function [xCircle, yCircle] = compute_circle_coordinates(self, x, y)
+            theta = linspace(0, 2 * pi, 100);
+            xCircle = x + self.spot_size * cos(theta) / 2;
+            yCircle = y + self.spot_size * sin(theta) / 2;
+        end
+
+        % Load layout
         function spot_size = load_layout(self)
             spot_size = 'none';
             [file, path] = uigetfile('*.json', 'Load microarray layout');
@@ -150,24 +155,26 @@ classdef microarrayDesigner_ArrayLayout < handle
 
                 spot_size = layoutData.spot_size;
 
-                % delete existing spots
+                % Delete existing spots
                 for i = 1:length(self.Spots)
                     % Delete the patch and its associated data
                     delete(self.Spots(i).patch);
                     delete(self.Spots(i).text);
                 end
 
-                % reconstruct the spots
+                % Reconstruct the spots
                 for i = 1:length(layoutData.Spots)
                     x = layoutData.Spots(i).position(1);
                     y = layoutData.Spots(i).position(2);
-                    add_spot(self, x, y);
+                    id = layoutData.Spots(i).id; % Recover ID
+                    add_spot(self, x, y, id);
                 end
 
                 self.update_spot_size(layoutData.spot_size);
             end
         end
 
+        % Save layout
         function save_layout(self)
             layoutData = [];
             
@@ -188,7 +195,6 @@ classdef microarrayDesigner_ArrayLayout < handle
                 fclose(fid);
             end
         end
-
     end
 
     methods (Access = private)
@@ -223,9 +229,7 @@ classdef microarrayDesigner_ArrayLayout < handle
                 for i = length(self.Spots):-1:1
                     if self.Spots(i).patch == src || self.Spots(i).text == src
                         % Update the patch's position
-                        theta = linspace(0, 2 * pi, 100);
-                        xCircle = x + self.spot_size * cos(theta) / 2;
-                        yCircle = y + self.spot_size * sin(theta) / 2;
+                        [xCircle, yCircle] = self.compute_circle_coordinates(x, y);
                         set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
 
                         % Update the stored position
