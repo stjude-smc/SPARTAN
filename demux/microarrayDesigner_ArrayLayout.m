@@ -16,11 +16,13 @@ classdef microarrayDesigner_ArrayLayout < handle
 
         FOVrectHandle;
         scatterHandle;
+        app             microarrayDesigner;
     end
 
     methods (Access = public)
         % Constructor
-        function self = microarrayDesigner_ArrayLayout(ax, spot_size, px_size)
+        function self = microarrayDesigner_ArrayLayout(ax, app, spot_size, px_size)
+            self.app = app;
             self.px_size = px_size;
             self.spot_size = self.validate_spot_size(spot_size);
             self.ax = ax;
@@ -61,6 +63,8 @@ classdef microarrayDesigner_ArrayLayout < handle
 
             % Store circle data
             self.store_spot_data(patchHandle, textHandle, [x, y], id);
+
+            self.app.spots_changed();
         end
 
         % Update spot size
@@ -73,6 +77,8 @@ classdef microarrayDesigner_ArrayLayout < handle
                 [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2));
                 set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
             end
+
+            self.app.spots_changed();
         end
 
         % Load layout
@@ -275,6 +281,7 @@ classdef microarrayDesigner_ArrayLayout < handle
             else
                 self.move_spot(src);
             end
+            self.app.spots_changed();
         end
 
         % Delete spot

@@ -86,6 +86,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.traces_files = getFiles(filter);
             app.traces_xy = loadTracesXY(app.traces_files)
             app.array_layout.draw_traces(app.traces_xy);
+
+            app.edge_detect.set_traces(app.traces_xy, app.traces_files);
         end
 
         function load_layout_pushed(app)
@@ -243,18 +245,12 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Create axCannyIn
             app.axCannyIn = uiaxes(app.GridLayout5);
             title(app.axCannyIn, 'Canny edges input')
-            xlabel(app.axCannyIn, 'X')
-            ylabel(app.axCannyIn, 'Y')
-            zlabel(app.axCannyIn, 'Z')
             app.axCannyIn.Layout.Row = 1;
             app.axCannyIn.Layout.Column = 1;
 
             % Create axCannyOut
             app.axCannyOut = uiaxes(app.GridLayout5);
             title(app.axCannyOut, 'Canny edges output')
-            xlabel(app.axCannyOut, 'X')
-            ylabel(app.axCannyOut, 'Y')
-            zlabel(app.axCannyOut, 'Z')
             app.axCannyOut.Layout.Row = 2;
             app.axCannyOut.Layout.Column = 1;
 
@@ -429,6 +425,11 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
     % App creation and deletion
     methods (Access = public)
+        % Called when microarray layout has been changed, can trigger additional functions
+        function spots_changed(app)
+            app.edge_detect.set_spots(app.array_layout.Spots);
+            app.edge_detect.compute_edges();
+        end
 
         % Construct app
         function app = microarrayDesigner()
@@ -440,8 +441,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Register the app with App Designer
             registerApp(app, app.UIFigure);
 
-            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app.sSpotSize.Value, app.px_size);
-            app.edge_detect = microarray_EdgeDetectionHandler();
+            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
+            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut);
 
             if nargout == 0
                 clear app
