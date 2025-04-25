@@ -2,6 +2,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
+        % GUI layout elements (public)
         axCannyIn                    matlab.ui.control.UIAxes
         axCannyOut                   matlab.ui.control.UIAxes
         axMicroarray                 matlab.ui.control.UIAxes
@@ -19,12 +20,22 @@ classdef microarrayDesigner < matlab.apps.AppBase
         sLowThreshold                matlab.ui.control.Spinner
         sSigma                       matlab.ui.control.Spinner
         sSpotSize                    matlab.ui.control.Spinner
-        UIFigure                     matlab.ui.Figure
+
+        % Public data
+        px_size;
+        SpotSize = 50; % Size of the circles
+
+        % Coordinates of loaded traces
+        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
+        traces_files = [];  % Open traces files
     end
 
-    % Properties that correspond to apps with auto-reflow
     properties (Access = private)
+        % Auto-reflow width
         onePanelWidth = 700;
+
+        % GUI layout elements
+        UIFigure                     matlab.ui.Figure
         EdgedetectionPanel           matlab.ui.container.Panel
         GridLayout                   matlab.ui.container.GridLayout
         GridLayout2                  matlab.ui.container.GridLayout
@@ -46,17 +57,17 @@ classdef microarrayDesigner < matlab.apps.AppBase
         LeftPanel                    matlab.ui.container.Panel
         OutputPanel                  matlab.ui.container.Panel
         RightPanel                   matlab.ui.container.Panel
-    end
 
-    
-    properties (Access = private)
-        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);      % Coordinates of loaded traces
-        px_size = 6.5*2/60; % Pixel size in µm
-        traces_files = [];  % Open traces files
-        Circles = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}); % Circle data
+        % Internal data
+        % Camera pixel size
+        cam_px_size   = 6.5; % µm
+        magnification = 60;
+        cam_binning   = 2;
+        
+
+        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}); % Circle data
         AvailableIDs = []; % Pool of reusable IDs
         NextID = 1; % ID for the next circle
-        SpotSize = 50; % Size of the circles
     end
     
     methods (Access = private)
@@ -116,30 +127,30 @@ classdef microarrayDesigner < matlab.apps.AppBase
                               'FontWeight', 'bold');
     
             % Store circle data
-            app.Circles(end+1).patch = patchHandle;
-            app.Circles(end).position = [x, y];
-            app.Circles(end).text = textHandle;
-            app.Circles(end).id = id;
+            app.Spots(end+1).patch = patchHandle;
+            app.Spots(end).position = [x, y];
+            app.Spots(end).text = textHandle;
+            app.Spots(end).id = id;
         end
 
         function deleteCircle(app, x, y)
             'Deleting a circle'
 
             ss = app.sSpotSize.Value;
-            for i = length(app.Circles):-1:1
-                pos = app.Circles(i).position;
+            for i = length(app.Spots):-1:1
+                pos = app.Spots(i).position;
                 dist = sqrt((x - pos(1))^2 + (y - pos(2))^2);
                 if dist < ss
                     % Delete patch and text
-                    delete(app.Circles(i).patch);
-                    delete(app.Circles(i).text);
+                    delete(app.Spots(i).patch);
+                    delete(app.Spots(i).text);
     
                     % Add ID to reusable pool
-                    app.AvailableIDs(end+1) = app.Circles(i).id;
+                    app.AvailableIDs(end+1) = app.Spots(i).id;
                     app.AvailableIDs = sort(app.AvailableIDs);
     
                     % Remove circle from list
-                    app.Circles(i) = [];
+                    app.Spots(i) = [];
                     return;
                 end
             end
@@ -149,21 +160,21 @@ classdef microarrayDesigner < matlab.apps.AppBase
             'Dragging a circle'
 
             ss = app.sSpotSize.Value;
-            for i = length(app.Circles):-1:1
-                pos = app.Circles(i).position;
+            for i = length(app.Spots):-1:1
+                pos = app.Spots(i).position;
                 dist = sqrt((x - pos(1))^2 + (y - pos(2))^2);
                 if dist < ss
                     % Update position
-                    app.Circles(i).position = [x, y];
+                    app.Spots(i).position = [x, y];
     
                     % Update patch coordinates
                     theta = linspace(0, 2*pi, 100);
                     xCircle = x + ss * cos(theta);
                     yCircle = y + ss * sin(theta);
-                    set(app.Circles(i).patch, 'XData', xCircle, 'YData', yCircle);
+                    set(app.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
     
                     % Update text position
-                    set(app.Circles(i).text, 'Position', [x, y]);
+                    set(app.Spots(i).text, 'Position', [x, y]);
                     return;
                 end
             end
@@ -512,6 +523,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
         % Construct app
         function app = microarrayDesigner
+
+            app.px_size = app.cam_px_size*app.cam_binning/app.magnification;
 
             % Create UIFigure and components
             createComponents(app)
