@@ -67,11 +67,6 @@ classdef microarrayDesigner < matlab.apps.AppBase
         cam_px_size   = 6.5; % µm
         magnification = 60;
         cam_binning   = 2;
-        
-
-        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}); % Circle data
-        AvailableIDs = []; % Pool of reusable IDs
-        NextID = 1; % ID for the next circle
     end
     
     methods (Access = private)
@@ -96,45 +91,6 @@ classdef microarrayDesigner < matlab.apps.AppBase
             box(ax, 'on');
             xlabel(ax, 'x, µm');
             ylabel(ax, 'y, µm');
-        end
-        
-        function addCircle(app, x, y)
-            'Adding a circle '
-            spotFillColor   = [0.6 0.7 1.0];
-            spotEdgeColor   = [0 0 0.8];
-            spotAlpha       = 0.4;
-
-            ss = app.sSpotSize.Value;
-            % Determine the ID for the new circle
-            if ~isempty(app.AvailableIDs)
-                id = app.AvailableIDs(1); % Reuse the first available ID
-                app.AvailableIDs(1) = []; % Remove it from the pool
-            else
-                id = app.NextID; % Use the next sequential ID
-                app.NextID = app.NextID + 1; % Increment for future use
-            end
-    
-            % Create the circle patch
-            theta = linspace(0, 2*pi, 100);
-            xCircle = x + ss * cos(theta);
-            yCircle = y + ss * sin(theta);
-            patchHandle = patch('XData', xCircle, 'YData', yCircle, ...
-                                'FaceColor', spotFillColor, 'EdgeColor', spotEdgeColor, ...
-                                'FaceAlpha', spotAlpha, ...
-                                'Parent', app.axMicroarray);
-    
-            % Add text label for the circle
-            textHandle = text(app.axMicroarray, x, y, num2str(id), ...
-                              'HorizontalAlignment', 'center', ...
-                              'VerticalAlignment', 'middle', ...
-                              'Color', 'k', 'FontSize', 25, ...
-                              'FontWeight', 'bold');
-    
-            % Store circle data
-            app.Spots(end+1).patch = patchHandle;
-            app.Spots(end).position = [x, y];
-            app.Spots(end).text = textHandle;
-            app.Spots(end).id = id;
         end
 
         function deleteCircle(app, x, y)
@@ -212,7 +168,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             isCtrl = ismember('control', modifiers);
     
             if isShift
-                app.addCircle(x, y);
+                app.array_layout.add_spot(app, x, y);
             elseif isCtrl
                 app.deleteCircle(x, y);
             else
@@ -275,7 +231,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.axMicroarray = uiaxes(app.GridLayout2);
             xlabel(app.axMicroarray, 'X')
             ylabel(app.axMicroarray, 'Y')
-            zlabel(app.axMicroarray, 'Z')
+            axis(app.axMicroarray, 'equal');
             app.axMicroarray.Layout.Row = 2;
             app.axMicroarray.Layout.Column = 1;
             app.axMicroarray.ButtonDownFcn = createCallbackFcn(app, @axMicroarrayButtonDown, true);
