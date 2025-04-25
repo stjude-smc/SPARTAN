@@ -414,8 +414,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
         % Construct app
         function app = microarrayDesigner()
-
-            app.px_size = app.cam_px_size*app.cam_binning/app.magnification;
+            app.px_size = compute_pixel_size(6.5, 60, 2);
 
             % Create UIFigure and components
             createComponents(app);
@@ -423,7 +422,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Register the app with App Designer
             registerApp(app, app.UIFigure);
 
-            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app.sSpotSize.Value);
+            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app.sSpotSize.Value, app.px_size);
 
             if nargout == 0
                 clear app
@@ -437,4 +436,10 @@ classdef microarrayDesigner < matlab.apps.AppBase
             delete(app.UIFigure)
         end
     end
+end
+
+
+% Compute pixel size
+function px_size = compute_pixel_size(cam_px_size, magnification, cam_binning)
+    px_size = cam_px_size * cam_binning / magnification;
 end

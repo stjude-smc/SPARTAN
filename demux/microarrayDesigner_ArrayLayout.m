@@ -20,8 +20,8 @@ classdef microarrayDesigner_ArrayLayout < handle
 
     methods (Access = public)
         % Constructor
-        function self = microarrayDesigner_ArrayLayout(ax, spot_size)
-            self.px_size = self.compute_pixel_size();
+        function self = microarrayDesigner_ArrayLayout(ax, spot_size, px_size)
+            self.px_size = px_size;
             self.spot_size = self.validate_spot_size(spot_size);
             self.ax = ax;
 
@@ -165,13 +165,7 @@ classdef microarrayDesigner_ArrayLayout < handle
             end
         end
 
-        % Compute pixel size
-        function px_size = compute_pixel_size(self)
-            cam_px_size   = 6.5; % µm
-            magnification = 60;
-            cam_binning   = 2;
-            px_size = cam_px_size * cam_binning / magnification;
-        end
+
 
         % Validate spot size
         function spot_size = validate_spot_size(self, spot_size)
