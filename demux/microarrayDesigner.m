@@ -31,7 +31,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
 
         % Microarray layout manager - consolidates microarray-related methods
-        array_layout                microarrayDesigner_ArrayLayout
+        array_layout                 microarrayDesigner_ArrayLayout
+        edge_detect                  microarray_EdgeDetectionHandler
     end
 
     properties (Access = private)
@@ -423,6 +424,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             registerApp(app, app.UIFigure);
 
             app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app.sSpotSize.Value, app.px_size);
+            app.edge_detect = microarray_EdgeDetectionHandler();
 
             if nargout == 0
                 clear app
