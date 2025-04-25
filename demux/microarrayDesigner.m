@@ -81,8 +81,12 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             if numel(app.traces_xy.X) > 0
                 set(ax, 'Color', 'k');
-                rectangle(ax, 'Position', [0, 0, tXY.nX*px, tXY.nY*px], 'FaceColor', 'w', 'EdgeColor', 'none');
-                scatter(ax, tXY.X*px, tXY.Y*px, 3, 'k', 'filled');
+                rectangle(ax, 'Position', [0, 0, tXY.nX*px, tXY.nY*px], ...
+                    'FaceColor', 'w', 'EdgeColor', 'none', ...
+                    'ButtonDownFcn', @(src, event) app.axMicroarrayButtonDown(src, event));
+                scatter(ax, tXY.X*px, tXY.Y*px, 3, 'k', ...
+                    'filled', ...
+                    'HitTest', 'off');  % ignore mouse clicks
             else
                 set(ax, 'Color', 'w');
             end
@@ -109,7 +113,9 @@ classdef microarrayDesigner < matlab.apps.AppBase
         end
 
         % Button down function: axMicroarray
-        function axMicroarrayButtonDown(app, event)
+        function axMicroarrayButtonDown(app, src, event)
+            'axMicroarrayButtonDown'
+            src
             % Get current point
             pt = get(app.axMicroarray, 'CurrentPoint');
             x = pt(1, 1);
