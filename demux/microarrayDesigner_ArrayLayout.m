@@ -140,6 +140,15 @@ classdef microarrayDesigner_ArrayLayout < handle
                 set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
             end
         end
+
+        function load_layout(self)
+            'load layout pushed'
+        end
+
+        function save_layout(self)
+'save layout pushed'
+        end
+
     end
 
     methods (Access = private)

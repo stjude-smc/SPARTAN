@@ -78,7 +78,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
     %
 
         % Button pushed function: btnLoadTraces
-        function btnLoadTracesButtonPushed(app, event)
+        function btnLoadTracesButtonPushed(app)
             filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.traces','Binary Traces Files (*.traces)';};
             app.traces_files = getFiles(filter);
@@ -87,7 +87,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
         end
 
         % Button down function: axMicroarray
-        function axMicroarrayButtonDown(app, src, event)
+        function axMicroarrayButtonDown(app)
             % Get current point
             pt = get(app.axMicroarray, 'CurrentPoint');
             x = pt(1, 1);
@@ -100,12 +100,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
             end
         end
 
-        function sSpotSizeChanged(app)
-            app.array_layout.update_spot_size(app.sSpotSize.Value);
-        end
-
         % Changes arrangement of the app based on UIFigure width
-        function updateAppLayout(app, event)
+        function updateAppLayout(app)
             currentFigureWidth = app.UIFigure.Position(3);
             if(currentFigureWidth <= app.onePanelWidth)
                 % Change to a 2x1 grid
@@ -134,7 +130,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.UIFigure.AutoResizeChildren = 'off';
             app.UIFigure.Position = [100 100 909 515];
             app.UIFigure.Name = 'Microarray Designer';
-            app.UIFigure.SizeChangedFcn = createCallbackFcn(app, @updateAppLayout, true);
+            app.UIFigure.SizeChangedFcn = @(src, event) app.updateAppLayout();
 
             % Create GridLayout
             app.GridLayout = uigridlayout(app.UIFigure);
@@ -159,7 +155,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.axMicroarray = uiaxes(app.GridLayout2);
             app.axMicroarray.Layout.Row = 2;
             app.axMicroarray.Layout.Column = 1;
-            app.axMicroarray.ButtonDownFcn = createCallbackFcn(app, @axMicroarrayButtonDown, true);
+            app.axMicroarray.ButtonDownFcn = @(src, event) app.axMicroarrayButtonDown();
 
             % Create GridLayout3
             app.GridLayout3 = uigridlayout(app.GridLayout2);
@@ -169,7 +165,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create btnLoadTraces
             app.btnLoadTraces = uibutton(app.GridLayout3, 'push');
-            app.btnLoadTraces.ButtonPushedFcn = createCallbackFcn(app, @btnLoadTracesButtonPushed, true);
+            app.btnLoadTraces.ButtonPushedFcn = @(src, event) app.btnLoadTracesButtonPushed();
             app.btnLoadTraces.Layout.Row = 1;
             app.btnLoadTraces.Layout.Column = 1;
             app.btnLoadTraces.Text = 'Load traces';
@@ -190,19 +186,21 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSpotSize.Layout.Row = 1;
             app.sSpotSize.Layout.Column = 3;
             app.sSpotSize.Value = 100;
-            app.sSpotSize.ValueChangedFcn = createCallbackFcn(app, @sSpotSizeChanged, false);
+            app.sSpotSize.ValueChangedFcn = @(src, event) app.array_layout.update_spot_size(src.Value);
 
             % Create bLoadLayout
             app.btnLoadLayout = uibutton(app.GridLayout3, 'push');
             app.btnLoadLayout.Layout.Row = 2;
             app.btnLoadLayout.Layout.Column = 2;
             app.btnLoadLayout.Text = 'Load layout';
+            app.btnLoadLayout.ButtonPushedFcn = @(src, event) app.array_layout.load_layout()
 
             % Create btnSaveLayout
             app.btnSaveLayout = uibutton(app.GridLayout3, 'push');
             app.btnSaveLayout.Layout.Row = 2;
             app.btnSaveLayout.Layout.Column = 3;
             app.btnSaveLayout.Text = 'Save layout';
+            app.btnSaveLayout.ButtonPushedFcn = @(src, event) app.array_layout.save_layout()
 
             % Create lblAxMicroarrayLayout
             app.lblAxMicroarrayLayout = uilabel(app.GridLayout2);
