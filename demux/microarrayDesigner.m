@@ -28,6 +28,10 @@ classdef microarrayDesigner < matlab.apps.AppBase
         % Coordinates of loaded traces
         traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
         traces_files = [];  % Open traces files
+
+
+        % Microarray layout manager - consolidates microarray-related methods
+        array_layout                microarrayDesigner_ArrayLayout
     end
 
     properties (Access = private)
@@ -527,10 +531,12 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.px_size = app.cam_px_size*app.cam_binning/app.magnification;
 
             % Create UIFigure and components
-            createComponents(app)
+            createComponents(app);
 
             % Register the app with App Designer
-            registerApp(app, app.UIFigure)
+            registerApp(app, app.UIFigure);
+
+            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray);
 
             if nargout == 0
                 clear app
