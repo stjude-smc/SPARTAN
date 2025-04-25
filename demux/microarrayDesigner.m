@@ -12,6 +12,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
         btnLoadTraces                matlab.ui.control.Button
         btnSaveLayout                matlab.ui.control.Button
         btnSaveSettings              matlab.ui.control.Button
+        chkAutoUpdate                matlab.ui.control.CheckBox
         chkCreateSubdir              matlab.ui.control.CheckBox
         ddDownscale1                 matlab.ui.control.DropDown
         ddDownscale2                 matlab.ui.control.DropDown
@@ -87,7 +88,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.array_layout.draw_traces(app.traces_xy);
         end
 
-        function  load_layout_pushed(app)
+        function load_layout_pushed(app)
             ss = app.array_layout.load_layout();
             if isnumeric(ss)
                 app.sSpotSize.Value = ss;
@@ -367,6 +368,13 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSigma.Layout.Column = 2;
             app.sSigma.Value = 5;
             app.sSigma.ValueChangedFcn = @(src, event) app.edge_detect.set('Sigma', event.Value);
+
+            % Create GridLayout7
+            app.chkAutoUpdate = uicheckbox(app.GridLayout5);
+            app.chkAutoUpdate.Text = 'Auto update edges';
+            app.chkAutoUpdate.Value = false;
+            app.chkAutoUpdate.Layout.Row = 3;
+            app.chkAutoUpdate.Layout.Column = 1;
 
             % Create GridLayout7
             app.GridLayout7 = uigridlayout(app.GridLayout5);
