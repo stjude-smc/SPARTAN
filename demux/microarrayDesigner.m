@@ -375,6 +375,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.chkAutoUpdate.Value = false;
             app.chkAutoUpdate.Layout.Row = 3;
             app.chkAutoUpdate.Layout.Column = 1;
+            app.chkAutoUpdate.ValueChangedFcn = @(src, event) app.edge_detect.enable_auto_update(event.Value);
 
             % Create GridLayout7
             app.GridLayout7 = uigridlayout(app.GridLayout5);

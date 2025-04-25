@@ -4,6 +4,7 @@ classdef microarray_EdgeDetectionHandler < handle
         thumbnail;      % Downscaled and processed thumbnail
         edges;          % Canny edge detection result
         pixel_coords;   % Detected edge coordinates
+        auto_update = false;
     end
 
     properties (Dependent)
@@ -28,48 +29,54 @@ classdef microarray_EdgeDetectionHandler < handle
 
     methods
         % Constructor
-        function self = EdgeDetectionHandler(traces)
-            if nargin > 0
-                self.traces = traces;
-            end
+        function self = EdgeDetectionHandler()
+        end
+
+        % Enable/disable automatic update
+        function enable_auto_update(self, active)
+            self.auto_update = active;
+            self.compute_edges();
         end
 
         % Compute edges
         function compute_edges(self)
-            % Validate input traces
-            if ~isfield(self.traces, 'traceMetadata') || ~isfield(self.traces, 'fileMetadata')
-                error('Invalid input: `traces` must contain `traceMetadata` and `fileMetadata` fields.');
+            if self.auto_update
+                'Calling `compute_edges()`'
+                % Validate input traces
+                if ~isfield(self.traces, 'traceMetadata') || ~isfield(self.traces, 'fileMetadata')
+                    error('Invalid input: `traces` must contain `traceMetadata` and `fileMetadata` fields.');
+                end
+
+                % Extract metadata
+                x = [self.traces.traceMetadata.donor_x];
+                y = [self.traces.traceMetadata.donor_y];
+                nX = self.traces.fileMetadata.nX;
+                nY = self.traces.fileMetadata.nY;
+
+                % Initialize binary image
+                location_img = zeros(nY, nX);
+                for i = 1:length(x)
+                    location_img(y(i), x(i)) = 1;
+                end
+
+                % Mask and resize
+                msk = make_spot_mask(location_img, 160, 150); % Placeholder for mask generation
+                self.thumbnail = imresize(location_img .* msk, 1 / self.downscale_step1, 'bilinear');
+
+                % Dilation
+                self.thumbnail = imdilate(self.thumbnail, strel('disk', round(self.dilation_radius / self.downscale_step1)));
+
+                % Downscale again
+                self.thumbnail = imresize(self.thumbnail, 1 / self.downscale_step2, 'bilinear');
+                self.thumbnail = self.thumbnail ./ max(self.thumbnail(:));
+
+                % Canny edge detection
+                self.edges = edge(self.thumbnail, 'Canny', [self.low_threshold, self.high_threshold], self.sigma);
+
+                % Extract edge coordinates
+                [row_coords, col_coords] = find(self.edges);
+                self.pixel_coords = [row_coords, col_coords] * self.downscale_step1 * self.downscale_step2;
             end
-
-            % Extract metadata
-            x = [self.traces.traceMetadata.donor_x];
-            y = [self.traces.traceMetadata.donor_y];
-            nX = self.traces.fileMetadata.nX;
-            nY = self.traces.fileMetadata.nY;
-
-            % Initialize binary image
-            location_img = zeros(nY, nX);
-            for i = 1:length(x)
-                location_img(y(i), x(i)) = 1;
-            end
-
-            % Mask and resize
-            msk = make_spot_mask(location_img, 160, 150); % Placeholder for mask generation
-            self.thumbnail = imresize(location_img .* msk, 1 / self.downscale_step1, 'bilinear');
-
-            % Dilation
-            self.thumbnail = imdilate(self.thumbnail, strel('disk', round(self.dilation_radius / self.downscale_step1)));
-
-            % Downscale again
-            self.thumbnail = imresize(self.thumbnail, 1 / self.downscale_step2, 'bilinear');
-            self.thumbnail = self.thumbnail ./ max(self.thumbnail(:));
-
-            % Canny edge detection
-            self.edges = edge(self.thumbnail, 'Canny', [self.low_threshold, self.high_threshold], self.sigma);
-
-            % Extract edge coordinates
-            [row_coords, col_coords] = find(self.edges);
-            self.pixel_coords = [row_coords, col_coords] * self.downscale_step1 * self.downscale_step2;
         end
 
         % Generic getter
@@ -81,8 +88,7 @@ classdef microarray_EdgeDetectionHandler < handle
         function set(self, propName, value)
             disp("Setter called")
             self.params.(propName) = value;
-            'Calling `compute_edges()`'
-            % FIXME self.compute_edges(); % Recompute edges whenever a parameter changes
+            self.compute_edges(); % Recompute edges whenever a parameter changes
         end
 
         % Save settings
