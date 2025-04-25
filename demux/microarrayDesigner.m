@@ -69,36 +69,6 @@ classdef microarrayDesigner < matlab.apps.AppBase
         cam_binning   = 2;
     end
     
-    methods (Access = private)
-        
-        function updateAxMicroarray(app)
-            tXY = app.traces_xy;
-            px = app.px_size;
-            ax = app.axMicroarray;
-
-            cla(ax);
-            hold(ax, 'on');
-
-            if numel(app.traces_xy.X) > 0
-                set(ax, 'Color', 'k');
-                rectangle(ax, 'Position', [0, 0, tXY.nX*px, tXY.nY*px], ...
-                    'FaceColor', 'w', 'EdgeColor', 'none', ...
-                    'ButtonDownFcn', @(src, event) app.axMicroarrayButtonDown(src, event));
-                scatter(ax, tXY.X*px, tXY.Y*px, 3, 'k', ...
-                    'filled', ...
-                    'HitTest', 'off');  % ignore mouse clicks
-            else
-                set(ax, 'Color', 'w');
-            end
-
-            axis(ax, 'equal');
-            box(ax, 'on');
-            xlabel(ax, 'x, µm');
-            ylabel(ax, 'y, µm');
-        end
-
-    end
-    
 
     % Callbacks that handle component events
     methods (Access = private)
@@ -108,14 +78,11 @@ classdef microarrayDesigner < matlab.apps.AppBase
             filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.traces','Binary Traces Files (*.traces)';};
             app.traces_files = getFiles(filter);
-            app.traces_xy = loadTracesXY(app.traces_files);
-            app.updateAxMicroarray();
+            app.array_layout.draw_traces(loadTracesXY(app.traces_files));
         end
 
         % Button down function: axMicroarray
         function axMicroarrayButtonDown(app, src, event)
-            'axMicroarrayButtonDown'
-            src
             % Get current point
             pt = get(app.axMicroarray, 'CurrentPoint');
             x = pt(1, 1);
@@ -184,9 +151,11 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create axMicroarray
             app.axMicroarray = uiaxes(app.GridLayout2);
-            xlabel(app.axMicroarray, 'X')
-            ylabel(app.axMicroarray, 'Y')
+            box(app.axMicroarray, 'on');
+            xlabel(app.axMicroarray, 'x, µm');
+            ylabel(app.axMicroarray, 'y, µm');
             axis(app.axMicroarray, 'equal');
+            hold(ax, 'on');
             app.axMicroarray.Layout.Row = 2;
             app.axMicroarray.Layout.Column = 1;
             app.axMicroarray.ButtonDownFcn = createCallbackFcn(app, @axMicroarrayButtonDown, true);

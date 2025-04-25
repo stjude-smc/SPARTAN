@@ -16,6 +16,8 @@ function tracesXY = loadTracesXY(traces_files)
     Y = [];
     nX = [];
     nY = [];
+    tracesXY = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
+
     for i = 1:numel(traces_files)
         data = loadTraces(traces_files{i});
 
