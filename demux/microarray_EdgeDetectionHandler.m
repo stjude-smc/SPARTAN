@@ -8,6 +8,8 @@ classdef microarray_EdgeDetectionHandler < handle
         auto_update = false;
         ax_in;
         ax_out;
+        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
+        mask;
     end
 
     properties (Dependent)
@@ -49,7 +51,38 @@ classdef microarray_EdgeDetectionHandler < handle
             self.compute_edges();
         end
 
-        function set_spots(self, spots)
+        function set_spots(self, spots, px_size)
+            self.Spots = spots;
+            for i=1:length(spots)
+                self.Spots(i).position(1) = self.Spots(i).position(1) / px_size
+                self.Spots(i).position(2) = self.Spots(i).position(2) / px_size
+            end
+        end
+
+        function labeledImage = createLabeledImage(self)
+            Spots = self.Spots;
+            nX = self.traces_xy.nX;
+            nY = self.traces_xy.nY;
+            spotSize = 100 / .2;
+
+            % Initialize the labeled image
+            labeledImage = zeros(nY, nX);
+
+            % Create a circular mask for each spot
+            [X, Y] = meshgrid(1:nX, 1:nY); % Generate grid for image coordinates
+
+            for i = 1:length(Spots)
+                % Get spot center and ID
+                xCenter = Spots(i).position(1);
+                yCenter = Spots(i).position(2);
+                spotID = Spots(i).id;
+
+                % Create a circular mask for the current spot
+                mask = (X - xCenter).^2 + (Y - yCenter).^2 <= (spotSize / 2)^2;
+
+                % Fill the labeled image with the spot ID
+                labeledImage(mask) = spotID;
+            end
 
         end
 
@@ -92,7 +125,14 @@ classdef microarray_EdgeDetectionHandler < handle
                 % Canny edge detection
                 self.edges = edge(self.thumbnail, 'Canny', [self.params.LowThreshold, self.params.HighThreshold], self.params.Sigma);
 
-                self.display_edges(self.ax_out);
+                % Scale up
+                self.edges = imresize(self.edges, self.params.Downscale1*self.params.Downscale2, 'nearest');
+
+                labeledImage = self.createLabeledImage();
+                imagesc(self.edges.*labeledImage, 'Parent', self.ax_out);
+                axis(self.ax_out, 'off'); % Turn off axes ticks and labels
+                set(self.ax_out, 'YDir', 'normal');
+%                self.display_edges(self.ax_out);
 
                 % Extract edge coordinates
                 [row_coords, col_coords] = find(self.edges);

@@ -244,13 +244,17 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create axCannyIn
             app.axCannyIn = uiaxes(app.GridLayout5);
-            title(app.axCannyIn, 'Canny edges input')
+            title(app.axCannyIn, 'Canny edges input');
+            axis(app.axCannyIn, 'equal');
+            axis(app.axCannyIn, 'off');
             app.axCannyIn.Layout.Row = 1;
             app.axCannyIn.Layout.Column = 1;
 
             % Create axCannyOut
             app.axCannyOut = uiaxes(app.GridLayout5);
-            title(app.axCannyOut, 'Canny edges output')
+            title(app.axCannyOut, 'Canny edges output');
+            axis(app.axCannyOut, 'equal');
+            axis(app.axCannyOut, 'off');
             app.axCannyOut.Layout.Row = 2;
             app.axCannyOut.Layout.Column = 1;
 
@@ -427,7 +431,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
     methods (Access = public)
         % Called when microarray layout has been changed, can trigger additional functions
         function spots_changed(app)
-            app.edge_detect.set_spots(app.array_layout.Spots);
+            app.edge_detect.set_spots(app.array_layout.Spots, app.px_size);
             app.edge_detect.compute_edges();
         end
 
