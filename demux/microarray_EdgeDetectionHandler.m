@@ -92,6 +92,8 @@ classdef microarray_EdgeDetectionHandler < handle
                 % Canny edge detection
                 self.edges = edge(self.thumbnail, 'Canny', [self.params.LowThreshold, self.params.HighThreshold], self.params.Sigma);
 
+                self.display_edges(self.ax_out);
+
                 % Extract edge coordinates
                 [row_coords, col_coords] = find(self.edges);
                 self.pixel_coords = [row_coords, col_coords] * self.params.Downscale1 * self.params.Downscale2;
