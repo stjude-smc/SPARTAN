@@ -7,7 +7,7 @@ classdef microarrayDesigner_ArrayLayout < handle
         px_size;
         ax              matlab.ui.control.UIAxes;
         spot_size = 0;
-        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
+        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}, 'size', {}); % Include 'size' for each spot
     end
 
     properties (Access = private)
@@ -46,14 +46,17 @@ classdef microarrayDesigner_ArrayLayout < handle
             self.adjust_z_order();
         end
 
-        % Add a new spot (with optional ID)
-        function add_spot(self, x, y, id)
+        % Add a new spot (with optional ID and size)
+        function add_spot(self, x, y, id, size)
             if nargin < 4  % If id is not provided
                 id = [];  % Default to an empty value
             end
+            if nargin < 5  % If size is not provided
+                size = self.spot_size;  % Use the default spot size
+            end
 
             id = self.determine_spot_id(id);  % Determine the ID based on availability
-            [xCircle, yCircle] = self.compute_circle_coordinates(x, y);
+            [xCircle, yCircle] = self.compute_circle_coordinates(x, y, size);
 
             % Create the circle patch
             patchHandle = self.create_patch(xCircle, yCircle, id);
@@ -62,20 +65,33 @@ classdef microarrayDesigner_ArrayLayout < handle
             textHandle = self.create_text(x, y, id);
 
             % Store circle data
-            self.store_spot_data(patchHandle, textHandle, [x, y], id);
+            self.store_spot_data(patchHandle, textHandle, [x, y], id, size);
 
             self.app.spots_changed();
         end
 
-        % Update spot size
-        function update_spot_size(self, new_size)
+        % Update spot size (all spots or specific spot by ID)
+        function update_spot_size(self, new_size, spot_id)
             new_size = self.validate_spot_size(new_size);
-            self.spot_size = new_size;
 
-            for i = 1:length(self.Spots)
-                pt = self.Spots(i).position;
-                [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2));
-                set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
+            if nargin < 3  % Update all spots if spot_id is not provided
+                self.spot_size = new_size;
+                for i = 1:length(self.Spots)
+                    self.Spots(i).size = new_size; % Update size property
+                    pt = self.Spots(i).position;
+                    [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2), new_size);
+                    set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
+                end
+            else  % Update a specific spot by ID
+                for i = 1:length(self.Spots)
+                    if self.Spots(i).id == spot_id
+                        self.Spots(i).size = new_size; % Update size property
+                        pt = self.Spots(i).position;
+                        [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2), new_size);
+                        set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
+                        break;
+                    end
+                end
             end
 
             self.app.spots_changed();
@@ -89,10 +105,11 @@ classdef microarrayDesigner_ArrayLayout < handle
             if ischar(file)
                 try
                     layoutData = self.read_layout_file(fullfile(path, file));
-                    spot_size = self.process_loaded_layout(layoutData);
+                
                 catch ME
                     disp(['Error loading layout: ', ME.message]);
                 end
+                    self.process_loaded_layout(layoutData);
             end
         end
 
@@ -171,8 +188,6 @@ classdef microarrayDesigner_ArrayLayout < handle
             end
         end
 
-
-
         % Validate spot size
         function spot_size = validate_spot_size(self, spot_size)
             if spot_size <= 0
@@ -181,10 +196,10 @@ classdef microarrayDesigner_ArrayLayout < handle
         end
 
         % Compute circle coordinates
-        function [xCircle, yCircle] = compute_circle_coordinates(self, x, y)
+        function [xCircle, yCircle] = compute_circle_coordinates(self, x, y, size)
             theta = linspace(0, 2 * pi, 100);
-            xCircle = x + self.spot_size * cos(theta) / 2;
-            yCircle = y + self.spot_size * sin(theta) / 2;
+            xCircle = x + size * cos(theta) / 2;
+            yCircle = y + size * sin(theta) / 2;
         end
 
         % Determine spot ID
@@ -220,50 +235,47 @@ classdef microarrayDesigner_ArrayLayout < handle
         end
 
         % Store spot data
-        function store_spot_data(self, patchHandle, textHandle, position, id)
+        function store_spot_data(self, patchHandle, textHandle, position, id, size)
             self.Spots(end+1).patch = patchHandle;
             self.Spots(end).position = position;
             self.Spots(end).text = textHandle;
             self.Spots(end).id = id;
+            self.Spots(end).size = size; % Store size
         end
 
         % Read layout file
-        function layoutData = read_layout_file(self, filepath)
+        function layoutData = read_layout_file(~, filepath)
             jsonStr = fileread(filepath);
             layoutData = jsondecode(jsonStr);
         end
 
         % Process loaded layout
-        function spot_size = process_loaded_layout(self, layoutData)
-            spot_size = layoutData.spot_size;
-
+        function process_loaded_layout(self, layoutData)
             % Delete existing spots
             for i = 1:length(self.Spots)
                 delete(self.Spots(i).patch);
                 delete(self.Spots(i).text);
             end
-            self.Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}); % Circle data
+            self.Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}, 'size', {}); % Reset data
 
             % Reconstruct the spots
             for i = 1:length(layoutData.Spots)
                 x = layoutData.Spots(i).position(1);
                 y = layoutData.Spots(i).position(2);
                 id = layoutData.Spots(i).id;
-                self.add_spot(x, y, id);
+                size = layoutData.Spots(i).size; % Load size
+                self.add_spot(x, y, id, size);
             end
-
-            self.update_spot_size(spot_size);
         end
 
         % Prepare layout data for saving
         function layoutData = prepare_layout_data(self)
             roundedPositions = arrayfun(@(spot) round(spot.position), self.Spots, 'UniformOutput', false);
-            layoutData.Spots = struct('id', {self.Spots.id}, 'position', roundedPositions);
-            layoutData.spot_size = self.spot_size;
+            layoutData.Spots = struct('id', {self.Spots.id}, 'position', roundedPositions, 'size', {self.Spots.size});
         end
 
         % Write layout file
-        function write_layout_file(self, filepath, layoutData)
+        function write_layout_file(~, filepath, layoutData)
             jsonStr = jsonencode(layoutData);
             fid = fopen(filepath, 'w');
             fwrite(fid, jsonStr, 'char');
@@ -308,7 +320,8 @@ classdef microarrayDesigner_ArrayLayout < handle
 
             for i = length(self.Spots):-1:1
                 if self.Spots(i).patch == src || self.Spots(i).text == src
-                    [xCircle, yCircle] = self.compute_circle_coordinates(x, y);
+                    size = self.Spots(i).size; % Use the stored size
+                    [xCircle, yCircle] = self.compute_circle_coordinates(x, y, size);
                     set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
 
                     self.Spots(i).position = [x, y];

@@ -431,7 +431,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
     methods (Access = public)
         % Called when microarray layout has been changed, can trigger additional functions
         function spots_changed(app)
-            app.edge_detect.set_spots(app.array_layout.Spots, app.px_size);
+            app.edge_detect.set_spots(app.array_layout.Spots);
             app.edge_detect.compute_edges();
         end
 
@@ -446,7 +446,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             registerApp(app, app.UIFigure);
 
             app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
-            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut);
+            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size);
 
             if nargout == 0
                 clear app

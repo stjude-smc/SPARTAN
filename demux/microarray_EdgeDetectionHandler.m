@@ -8,6 +8,7 @@ classdef microarray_EdgeDetectionHandler < handle
         auto_update = false;
         ax_in;
         ax_out;
+        px_size;
         Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
         mask;
     end
@@ -34,9 +35,10 @@ classdef microarray_EdgeDetectionHandler < handle
 
     methods
         % Constructor
-        function self = microarray_EdgeDetectionHandler(ax_in, ax_out)
+        function self = microarray_EdgeDetectionHandler(ax_in, ax_out, px_size)
             self.ax_in = ax_in;
             self.ax_out = ax_out;
+            self.px_size = px_size;
         end
 
         % Enable/disable automatic update
@@ -51,19 +53,14 @@ classdef microarray_EdgeDetectionHandler < handle
             self.compute_edges();
         end
 
-        function set_spots(self, spots, px_size)
-            self.Spots = spots;
-            for i=1:length(spots)
-                self.Spots(i).position(1) = self.Spots(i).position(1) / px_size
-                self.Spots(i).position(2) = self.Spots(i).position(2) / px_size
-            end
+        function set_spots(self, Spots)
+            self.Spots = struct('id', {Spots.id}, 'position', {Spots.position}, 'size', {Spots.size});
         end
 
         function labeledImage = createLabeledImage(self)
             Spots = self.Spots;
             nX = self.traces_xy.nX;
             nY = self.traces_xy.nY;
-            spotSize = 100 / .2;
 
             % Initialize the labeled image
             labeledImage = zeros(nY, nX);
@@ -73,9 +70,10 @@ classdef microarray_EdgeDetectionHandler < handle
 
             for i = 1:length(Spots)
                 % Get spot center and ID
-                xCenter = Spots(i).position(1);
-                yCenter = Spots(i).position(2);
+                xCenter = Spots(i).position(1) / self.px_size;
+                yCenter = Spots(i).position(2) / self.px_size;
                 spotID = Spots(i).id;
+                spotSize = Spots(i).size / self.px_size;
 
                 % Create a circular mask for the current spot
                 mask = (X - xCenter).^2 + (Y - yCenter).^2 <= (spotSize / 2)^2;
