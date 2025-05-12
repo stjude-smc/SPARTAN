@@ -84,10 +84,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
             filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.traces','Binary Traces Files (*.traces)';};
             app.traces_files = getFiles(filter);
-            app.traces_xy = loadTracesXY(app.traces_files)
-            app.array_layout.draw_traces(app.traces_xy);
-
-            app.edge_detect.set_traces(app.traces_xy, app.traces_files);
+            app.edge_detect.load_traces_XY(app.traces_files);
+            app.array_layout.draw_traces(app.edge_detect.traces_xy);
         end
 
         function load_layout_pushed(app)
