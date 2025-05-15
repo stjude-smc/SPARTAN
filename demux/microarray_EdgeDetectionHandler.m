@@ -338,7 +338,6 @@ classdef microarray_EdgeDetectionHandler < handle
                 ax = gca();
                 axis(ax, 'equal');
                 hold(ax, 'on');
-                title(fn)
 
                 data = loadTraces(fn);
 
@@ -351,6 +350,20 @@ classdef microarray_EdgeDetectionHandler < handle
 
 
                 scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
+
+
+                % Create output folder
+                [dir_path, name, extension] = fileparts(fn);  % Extract file name without extension
+
+                title(ax, name, 'Interpreter', 'none');
+
+                % Create the folder in the same directory as the original file
+                folder_name = fullfile(dir_path, name);
+
+                % Create the folder if it doesn't exist
+                if ~exist(folder_name, 'dir')
+                    mkdir(folder_name);
+                end
 
                 for j = 1:size(circles, 1)
                     % Extract circle parameters
@@ -379,14 +392,15 @@ classdef microarray_EdgeDetectionHandler < handle
                         5, cmap(j, :), 'filled');
                         
                     % Save the subset to the corresponding output file
-    %                saveTraces(output{j}, subset);
+                    out_fn = fullfile(folder_name, sprintf('%s_%d%s', name, j, extension));
+                    saveTraces(out_fn, subset);
 
                 end
+                self.fit_circles(ax, 1);  % displays the circles
+                legend(ax, 'off');
+                hold(ax, 'off');
             end
 
-            self.fit_circles(ax, 1);  % displays the circles
-            legend(ax, 'off');
-            hold(ax, 'off');
 
         end
 
