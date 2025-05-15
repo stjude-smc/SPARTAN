@@ -4,7 +4,7 @@ classdef microarray_EdgeDetectionHandler < handle
         traces_files = [];  % Open traces files
         thumbnail;      % Downscaled and processed thumbnail
         edges;          % Canny edge detection result
-        pixel_coords;   % Detected edge coordinates
+        edge_coordinates;   % Detected edge coordinates
         auto_update = false;
         ax_in;
         ax_out;
@@ -113,6 +113,9 @@ classdef microarray_EdgeDetectionHandler < handle
                 labeledImage(mask) = spotID;
             end
 
+            % Downscale the labeled image to match the thumbnail and detected edges
+            labeledImage = imresize(labeledImage, 1/(self.params.Downscale1*self.params.Downscale2), 'nearest')
+
         end
 
         % Compute edges
@@ -136,14 +139,11 @@ classdef microarray_EdgeDetectionHandler < handle
                 end
 
                 % Mask and resize
-                %msk = make_spot_mask(location_img, 160, 150); % Placeholder for mask generation
-                %self.thumbnail = imresize(location_img .* msk, 1 / self.Downscale1, 'bilinear');
                 self.thumbnail = imresize(location_img, 1 / self.params.Downscale1, 'bilinear');
 
 
                 % Dilation
                 self.thumbnail = imdilate(self.thumbnail, strel('disk', round(self.params.Dilation / self.params.Downscale1)));
-
 
                 % Downscale again
                 self.thumbnail = imresize(self.thumbnail, 1 / self.params.Downscale2, 'bilinear');
@@ -154,18 +154,18 @@ classdef microarray_EdgeDetectionHandler < handle
                 % Canny edge detection
                 self.edges = edge(self.thumbnail, 'Canny', [self.params.LowThreshold, self.params.HighThreshold], self.params.Sigma);
 
-                % Scale up
-                self.edges = imresize(self.edges, self.params.Downscale1*self.params.Downscale2, 'nearest');
-
-                labeledImage = self.createLabeledImage();
-                imagesc(self.edges.*labeledImage, 'Parent', self.ax_out);
-                axis(self.ax_out, 'off'); % Turn off axes ticks and labels
-                set(self.ax_out, 'YDir', 'normal');
-%                self.display_edges(self.ax_out);
+                % Labeled image acts as a mask. Everything outside circles
+                % is set to 0, edges within circle get a circle number assigned
+                labeled_edges = self.edges .* self.createLabeledImage();
 
                 % Extract edge coordinates
-                [row_coords, col_coords] = find(self.edges);
-                self.pixel_coords = [row_coords, col_coords] * self.params.Downscale1 * self.params.Downscale2;
+                self.edge_coordinates = extract_edge_coordinates(labeled_edges);
+
+                % Rescale edge coordinates back into original image size
+                scale_factor = self.params.Downscale1 * self.params.Downscale2 * self.px_size;
+                self.edge_coordinates = cellfun(@(coords) coords * scale_factor, self.edge_coordinates, 'UniformOutput', false);
+
+                show_edge_coordinates(self.edge_coordinates, self.ax_out);
             end
         end
 
@@ -236,5 +236,77 @@ classdef microarray_EdgeDetectionHandler < handle
                 imshow(self.edges, 'Parent', ax);
             end
         end
+
+        % Run demultiplexing
+        function demux(self)
+            % TODO
+            edge_coords = find_spot_edges(data, ax);
+            circles = fit_circles(data, edge_coords, ax);
+        end
+
+        function fit_circles(self, data, edge_coords)
+        end
+    end
+end
+
+
+
+% Helper functions
+
+function edge_coordinates = extract_edge_coordinates(labeled_edges)
+    % Find unique object IDs
+    object_ids = unique(labeled_edges);
+    object_ids(object_ids == 0) = [];  % Remove background (ID = 0)
+    
+    % Initialize a cell array to hold coordinates for each object ID
+    edge_coordinates = cell(numel(object_ids), 1);
+    
+    % Loop through each object ID
+    for i = 1:numel(object_ids)
+        object_id = object_ids(i);
+        
+        % Find coordinates of pixels belonging to the current object ID
+        [Y, X] = find(labeled_edges == object_id);
+
+        % Combine X and Y coordinates into a 2D array
+        edge_coordinates{i} = [X, Y];  % Columns: [X, Y]
+    end
+end
+
+function show_edge_coordinates(edge_coordinates, ax)
+    if nargin < 2
+        figure();
+        ax = gca();
+    end
+
+    % Check if the axes object is valid
+    if isempty(ax) || ~isgraphics(ax, 'axes')
+        error('Invalid axes object provided.');
+    end
+    
+    % Generate a colormap for different object IDs
+    num_objects = numel(edge_coordinates);
+    cmap = lines(num_objects);  % Use the 'lines' colormap for distinct colors
+    
+    % Clear the axes before plotting
+    cla(ax);
+    hold(ax, 'on');  % Enable holding for multiple scatter plots
+    
+    % Loop through each object and plot its coordinates
+    for object_id = 1:num_objects
+        coordinates = edge_coordinates{object_id};  % Get coordinates for current object
+        
+        % Scatter plot for the current object's edge coordinates
+        scatter(ax, coordinates(:, 1), coordinates(:, 2), 3, cmap(object_id, :), 'filled');
+    end
+    
+    % Add labels and title
+    xlabel(ax, 'x / µm');
+    ylabel(ax, 'y / µm');
+    title(ax, 'Detected edges');
+    legend(ax, 'off');
+    
+    hold(ax, 'off');  % Release hold
+end
     end
 end

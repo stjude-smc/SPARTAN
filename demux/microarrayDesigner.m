@@ -252,7 +252,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.axCannyOut = uiaxes(app.GridLayout5);
             title(app.axCannyOut, 'Canny edges output');
             axis(app.axCannyOut, 'equal');
-            axis(app.axCannyOut, 'off');
+            %axis(app.axCannyOut, 'off');
             app.axCannyOut.Layout.Row = 2;
             app.axCannyOut.Layout.Column = 1;
 
@@ -419,6 +419,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.btnDemuxTraces.Layout.Row = 1;
             app.btnDemuxTraces.Layout.Column = 2;
             app.btnDemuxTraces.Text = 'Demux traces';
+            app.btnDemuxTraces.ButtonPushedFcn = @(src, event) app.edge_detect.demux();
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
