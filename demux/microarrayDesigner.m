@@ -137,13 +137,13 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Create UIFigure and hide until all components are created
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'off';
-            app.UIFigure.Position = [100 100 909 515];
+            app.UIFigure.Position = [100 100 1000 600];
             app.UIFigure.Name = 'Microarray Designer';
             app.UIFigure.SizeChangedFcn = @(src, event) app.updateAppLayout();
 
             % Create GridLayout
             app.GridLayout = uigridlayout(app.UIFigure);
-            app.GridLayout.ColumnWidth = {422, '1x'};
+            app.GridLayout.ColumnWidth = {400, '1x'};
             app.GridLayout.RowHeight = {'1x'};
             app.GridLayout.ColumnSpacing = 0;
             app.GridLayout.RowSpacing = 0;
@@ -226,7 +226,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Create GridLayout4
             app.GridLayout4 = uigridlayout(app.RightPanel);
             app.GridLayout4.ColumnWidth = {'1x'};
-            app.GridLayout4.RowHeight = {'6x', '1x'};
+            app.GridLayout4.RowHeight = {'8x', '1x'};
 
             % Create EdgedetectionPanel
             app.EdgedetectionPanel = uipanel(app.GridLayout4);
@@ -237,8 +237,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create GridLayout5
             app.GridLayout5 = uigridlayout(app.EdgedetectionPanel);
-            app.GridLayout5.ColumnWidth = {'2x', '3x'};
-            app.GridLayout5.RowHeight = {'7x', '7x', '2x'};
+            app.GridLayout5.ColumnWidth = {'1x', '1x'};
+            app.GridLayout5.RowHeight = {'9x', '9x', '2x'};
 
             % Create axCannyIn
             app.axCannyIn = uiaxes(app.GridLayout5);
