@@ -114,7 +114,7 @@ classdef microarray_EdgeDetectionHandler < handle
             end
 
             % Downscale the labeled image to match the thumbnail and detected edges
-            labeledImage = imresize(labeledImage, 1/(self.params.Downscale1*self.params.Downscale2), 'nearest')
+            labeledImage = imresize(labeledImage, 1/(self.params.Downscale1*self.params.Downscale2), 'nearest');
 
         end
 
@@ -165,9 +165,8 @@ classdef microarray_EdgeDetectionHandler < handle
                 scale_factor = self.params.Downscale1 * self.params.Downscale2 * self.px_size;
                 self.edge_coordinates = cellfun(@(coords) coords * scale_factor, self.edge_coordinates, 'UniformOutput', false);
 
-                show_edge_coordinates(self.edge_coordinates, self.ax_out);
+                self.display_edges(self.edge_coordinates, self.ax_out);
 
-                %figure();
                 fit_circles(self.edge_coordinates, self.ax_out);
             end
         end
@@ -228,16 +227,51 @@ classdef microarray_EdgeDetectionHandler < handle
 
         % Display thumbnail in axes
         function display_thumbnail(self, ax)
+            if nargin < 2
+                figure();
+                ax = gca();
+            end
+
             if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
                 imshow(self.thumbnail, 'Parent', ax);
             end
         end
 
         % Display edges in axes
-        function display_edges(self, ax)
-            if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
-                imshow(self.edges, 'Parent', ax);
+        function display_edges(self, edge_coordinates, ax)
+            if nargin < 3
+                figure();
+                ax = gca();
             end
+
+            % Check if the axes object is valid
+            if isempty(ax) || ~isgraphics(ax, 'axes')
+                error('Invalid axes object provided.');
+            end
+            
+            % Generate a colormap for different object IDs
+            num_objects = numel(edge_coordinates);
+            cmap = lines(num_objects);  % Use the 'lines' colormap for distinct colors
+            
+            % Clear the axes before plotting
+            cla(ax);
+            hold(ax, 'on');  % Enable holding for multiple scatter plots
+            
+            % Loop through each object and plot its coordinates
+            for object_id = 1:num_objects
+                coordinates = edge_coordinates{object_id};  % Get coordinates for current object
+                
+                % Scatter plot for the current object's edge coordinates
+                scatter(ax, coordinates(:, 1), coordinates(:, 2), 3, cmap(object_id, :), 'filled');
+            end
+            
+            % Add labels and title
+            xlabel(ax, 'x / µm');
+            ylabel(ax, 'y / µm');
+            title(ax, 'Detected edges');
+            legend(ax, 'off');
+            
+            hold(ax, 'off');  % Release hold
         end
 
         % Run demultiplexing
@@ -274,41 +308,7 @@ function edge_coordinates = extract_edge_coordinates(labeled_edges)
     end
 end
 
-function show_edge_coordinates(edge_coordinates, ax)
-    if nargin < 2
-        figure();
-        ax = gca();
-    end
 
-    % Check if the axes object is valid
-    if isempty(ax) || ~isgraphics(ax, 'axes')
-        error('Invalid axes object provided.');
-    end
-    
-    % Generate a colormap for different object IDs
-    num_objects = numel(edge_coordinates);
-    cmap = lines(num_objects);  % Use the 'lines' colormap for distinct colors
-    
-    % Clear the axes before plotting
-    cla(ax);
-    hold(ax, 'on');  % Enable holding for multiple scatter plots
-    
-    % Loop through each object and plot its coordinates
-    for object_id = 1:num_objects
-        coordinates = edge_coordinates{object_id};  % Get coordinates for current object
-        
-        % Scatter plot for the current object's edge coordinates
-        scatter(ax, coordinates(:, 1), coordinates(:, 2), 3, cmap(object_id, :), 'filled');
-    end
-    
-    % Add labels and title
-    xlabel(ax, 'x / µm');
-    ylabel(ax, 'y / µm');
-    title(ax, 'Detected edges');
-    legend(ax, 'off');
-    
-    hold(ax, 'off');  % Release hold
-end
 
 
 function circles = fit_circles(edge_coords, ax)
