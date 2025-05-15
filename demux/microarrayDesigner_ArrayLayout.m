@@ -98,13 +98,16 @@ classdef microarrayDesigner_ArrayLayout < handle
         end
 
         % Load layout
-        function spot_size = load_layout(self)
-            spot_size = 'none';
-            [file, path] = uigetfile('*.json', 'Load microarray layout');
+        function spot_size = load_layout(self, filename)
+            if nargin < 1
+                [file, path] = uigetfile('*.json', 'Load microarray layout');
+                filename = fullfile(path, file);
+            end
 
-            if ischar(file)
+            spot_size = 'none';
+            if ischar(filename)
                 try
-                    layoutData = self.read_layout_file(fullfile(path, file));
+                    layoutData = self.read_layout_file(filename);
                 
                 catch ME
                     disp(['Error loading layout: ', ME.message]);
