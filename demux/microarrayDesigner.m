@@ -446,6 +446,17 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
             app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size);
 
+            % STARTUP HACK
+                app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
+                app.edge_detect.load_traces_XY(app.traces_files);
+                app.array_layout.draw_traces(app.edge_detect.traces_xy);
+
+                app.array_layout.load_layout('C:/Users/rkiselev/Desktop/microarray_layout.json')
+
+                app.chkAutoUpdate.Value = true;
+                app.edge_detect.enable_auto_update(true)
+            % END STARTUP HACK
+
             if nargout == 0
                 clear app
             end
