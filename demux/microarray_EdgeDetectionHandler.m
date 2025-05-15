@@ -166,6 +166,9 @@ classdef microarray_EdgeDetectionHandler < handle
                 self.edge_coordinates = cellfun(@(coords) coords * scale_factor, self.edge_coordinates, 'UniformOutput', false);
 
                 show_edge_coordinates(self.edge_coordinates, self.ax_out);
+
+                %figure();
+                fit_circles(self.edge_coordinates, self.ax_out);
             end
         end
 
@@ -244,8 +247,6 @@ classdef microarray_EdgeDetectionHandler < handle
             circles = fit_circles(data, edge_coords, ax);
         end
 
-        function fit_circles(self, data, edge_coords)
-        end
     end
 end
 
@@ -308,5 +309,166 @@ function show_edge_coordinates(edge_coordinates, ax)
     
     hold(ax, 'off');  % Release hold
 end
+
+
+function circles = fit_circles(edge_coords, ax)
+    % Fit circles to edges of arbitrary objects using RANSAC and optionally plot them.
+    % Input:
+    %   traces       - Struct containing image metadata (e.g., dimensions)
+    %   edge_coords  - Cell array where each cell is Nx2 array of edge pixel coordinates
+    %   ax           - Optional axes object for plotting
+    % Output:
+    %   circles      - Mx3 array of [cx, cy, r] for the M circles (one for each object)
+
+    if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
+        hold(ax, 'on');
+        axis(ax, 'equal');
     end
+
+    % Initialize the output array
+    num_objects = numel(edge_coords); % Number of objects
+    circles = zeros(num_objects, 3); % To store [cx, cy, r] for each circle
+
+    % Loop through each object
+    for obj_id = 1:num_objects
+        % Extract edge coordinates for the current object
+        edges = edge_coords{obj_id};
+
+        % Check if edges are empty
+        if isempty(edges)
+            % Return a zero-sized circle
+            circles(obj_id, :) = [0, 0, 0];
+            continue;
+        end
+
+        % Fit the circle using the RANSAC algorithm
+        [cx, cy, r] = fit_circle(edges);
+        circles(obj_id, :) = [cx, cy, r];
+
+        % Optional plotting if ax is provided
+        if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
+            % Plot the circular patch
+            rectangle(ax, 'Position', [cx - r, cy - r, 2*r, 2*r], ...
+                      'Curvature', [1, 1], 'EdgeColor', 'r', 'LineWidth', 0.5);
+
+            % Plot the center
+            plot(ax, cx, cy, 'g+', 'MarkerSize', 10, 'LineWidth', 2, ...
+                 'DisplayName', ['Object ', num2str(obj_id)]);
+        end
+    end
+
+    % Add legend if plotting
+    if nargin > 2 && ~isempty(ax) && isgraphics(ax, 'axes')
+        legend(ax, 'show');
+        hold(ax, 'off');
+    end
+end
+
+
+
+function [cx, cy, r] = fit_circle(edges)
+% Fit a circle to a set of edge points using RANSAC for robustness.
+% Input:
+%   edges - Nx2 array of edge coordinates [x, y]
+% Output:
+%   [cx, cy, r] - Fitted circle parameters (center and radius)
+
+    % Restrictions on circle radius %FIXME
+    min_r = 20;  % µm
+    max_r = 120; % µm
+
+    % Parameters for RANSAC
+    max_iterations = 1000; % Maximum number of RANSAC iterations
+    inlier_threshold = 4;  % Distance threshold to count a point as an inlier (in µm)
+    min_inliers = 10;      % Minimum number of inliers for a valid model
+
+    % Initialize best circle parameters and inlier count
+    best_cx = 0;
+    best_cy = 0;
+    best_r = 0;
+    max_inliers = 0;
+
+    % Extract x and y coordinates
+    x = edges(:, 1);
+    y = edges(:, 2);
+
+    % Set the random number generarator seed for reproducibility
+    rng(7845);
+
+    % RANSAC loop
+    for i = 1:max_iterations
+        % Randomly select 3 points (minimum required to define a circle)
+        idx = randperm(size(edges, 1), 3);
+        pts = edges(idx, :);
+
+        % Fit a circle to the 3 points
+        [cx_tmp, cy_tmp, r_tmp] = circle_from_three_points(pts);
+
+        % Skip if the radius is invalid
+        if isnan(r_tmp) || r_tmp <= 0
+            continue;
+        end
+
+        % Compute distances of all points to the fitted circle
+        distances = abs(sqrt((x - cx_tmp).^2 + (y - cy_tmp).^2) - r_tmp);
+
+        % Count inliers within the threshold
+        inliers = distances <= inlier_threshold;
+        num_inliers = sum(inliers);
+
+        % Update the best circle if the current one has more inliers...
+        if num_inliers > max_inliers && num_inliers >= min_inliers
+            % ... and has radius within the reasonable range
+            if min_r < r_tmp && r_tmp < max_r
+                best_cx = cx_tmp;
+                best_cy = cy_tmp;
+                best_r = r_tmp;
+                max_inliers = num_inliers;
+            end
+        end
+    end
+
+    % Check if a valid circle was found
+    if max_inliers >= min_inliers
+        cx = best_cx;
+        cy = best_cy;
+        r = best_r;
+    else
+        % Return default values if no valid circle was found
+        fprintf('Warning: RANSAC failed to find a valid circle.\n');
+        cx = 0;
+        cy = 0;
+        r = 0;
+    end
+end
+
+function [cx, cy, r] = circle_from_three_points(pts)
+% Compute the circle passing through three points
+% Input:
+%   pts - 3x2 array of [x, y] coordinates
+% Output:
+%   [cx, cy, r] - Circle center and radius
+
+    % Extract points
+    x1 = pts(1, 1); y1 = pts(1, 2);
+    x2 = pts(2, 1); y2 = pts(2, 2);
+    x3 = pts(3, 1); y3 = pts(3, 2);
+
+    % Compute the perpendicular bisectors of (x1, y1)-(x2, y2) and (x2, y2)-(x3, y3)
+    A = [x2 - x1, y2 - y1; x3 - x2, y3 - y2];
+    b = 0.5 * [(x2^2 - x1^2 + y2^2 - y1^2); (x3^2 - x2^2 + y3^2 - y2^2)];
+
+    % Solve for the circle center
+    if abs(det(A)) < 1e-10 % Check for degeneracy
+        cx = NaN; cy = NaN; r = NaN;
+        return;
+    end
+    center = A \ b;
+
+    % Extract center coordinates
+    cx = center(1);
+    cy = center(2);
+
+    % Compute the radius
+    r = sqrt((x1 - cx)^2 + (y1 - cy)^2);
 end
