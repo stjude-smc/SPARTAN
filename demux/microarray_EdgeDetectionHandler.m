@@ -11,6 +11,7 @@ classdef microarray_EdgeDetectionHandler < handle
         px_size;
         Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
         mask;
+        circles;
     end
 
     properties (Dependent)
@@ -48,7 +49,7 @@ classdef microarray_EdgeDetectionHandler < handle
                 traces_files = {traces_files};
             end
 
-            self.traces_files = traces_files;
+            self.traces_files = convert_to_char_cell(traces_files);
             
             % loadTraces from each file
             X = [];
@@ -75,13 +76,13 @@ classdef microarray_EdgeDetectionHandler < handle
                                   'nX', max(nX), 'nY', max(nY));
             end
 
-            self.compute_edges();
+            self.compute_edges(self.traces_xy);
         end
 
         % Enable/disable automatic update
         function enable_auto_update(self, active)
             self.auto_update = active;
-            self.compute_edges();
+            self.compute_edges(self.traces_xy);
         end
 
         function set_spots(self, Spots)
@@ -119,18 +120,18 @@ classdef microarray_EdgeDetectionHandler < handle
         end
 
         % Compute edges
-        function compute_edges(self)
+        function compute_edges(self, traces_xy)
             if self.auto_update
                 % Validate input traces
-                if isempty(self.traces_xy.X)
+                if isempty(traces_xy.X)
                     error('Invalid input: `traces` is empty');
                 end
 
                 % Extract metadata
-                x = self.traces_xy.X;
-                y = self.traces_xy.Y;
-                nX = self.traces_xy.nX;
-                nY = self.traces_xy.nY;
+                x = traces_xy.X;
+                y = traces_xy.Y;
+                nX = traces_xy.nX;
+                nY = traces_xy.nY;
 
                 % Initialize binary image
                 location_img = zeros(nY, nX);
@@ -158,16 +159,16 @@ classdef microarray_EdgeDetectionHandler < handle
                 % is set to 0, edges within circle get a circle number assigned
                 labeled_edges = self.edges .* self.createLabeledImage();
 
-                % Extract edge coordinates
+                % Extract edge coordinates and save as cell array (one element per spot)
                 self.edge_coordinates = extract_edge_coordinates(labeled_edges);
 
                 % Rescale edge coordinates back into original image size
-                scale_factor = self.params.Downscale1 * self.params.Downscale2 * self.px_size;
+                scale_factor = self.params.Downscale1 * self.params.Downscale2;
                 self.edge_coordinates = cellfun(@(coords) coords * scale_factor, self.edge_coordinates, 'UniformOutput', false);
 
                 self.display_edges(self.edge_coordinates, self.ax_out);
 
-                fit_circles(self.edge_coordinates, self.ax_out);
+                self.circles = self.fit_circles(self.ax_out);
             end
         end
 
@@ -179,7 +180,7 @@ classdef microarray_EdgeDetectionHandler < handle
         % Generic setter
         function set(self, propName, value)
             self.params.(propName) = value;
-            self.compute_edges(); % Recompute edges whenever a parameter changes
+            self.compute_edges(self.traces_xy); % Recompute edges whenever a parameter changes
         end
 
         % Save settings
@@ -217,7 +218,7 @@ classdef microarray_EdgeDetectionHandler < handle
                     app.sHighThreshold.Value = self.params.HighThreshold;
                     app.sSigma.Value = self.params.Sigma;
 
-                    self.compute_edges();
+                    self.compute_edges(self.traces_xy);
 
                 catch ME
                     disp(['Error loading edge detection settings: ', ME.message]);
@@ -262,7 +263,7 @@ classdef microarray_EdgeDetectionHandler < handle
                 coordinates = edge_coordinates{object_id};  % Get coordinates for current object
                 
                 % Scatter plot for the current object's edge coordinates
-                scatter(ax, coordinates(:, 1), coordinates(:, 2), 3, cmap(object_id, :), 'filled');
+                scatter(ax, coordinates(:, 1)*self.px_size, coordinates(:, 2)*self.px_size, 3, cmap(object_id, :), 'filled');
             end
             
             % Add labels and title
@@ -274,11 +275,119 @@ classdef microarray_EdgeDetectionHandler < handle
             hold(ax, 'off');  % Release hold
         end
 
+        function circles = fit_circles(self, ax, px_size)
+            % Fit circles to edges of spots using RANSAC and optionally plot them.
+            % Output:
+            %   circles      - Mx3 array of [cx, cy, r] for the M circles (one for each object)
+
+            if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
+                hold(ax, 'on');
+                axis(ax, 'equal');
+            end
+
+            if nargin < 3  % px_size not provided
+                px_size = self.px_size;
+            end
+
+            % Initialize the output array
+            num_objects = numel(self.edge_coordinates); % Number of objects
+            circles = zeros(num_objects, 3); % To store [cx, cy, r] for each circle
+
+            % Loop through each object
+            for obj_id = 1:num_objects
+                % Extract edge coordinates for the current object
+                edges = self.edge_coordinates{obj_id};
+
+                % Check if edges are empty
+                if isempty(edges)
+                    % Return a zero-sized circle
+                    circles(obj_id, :) = [0, 0, 0];
+                    continue;
+                end
+
+                % Fit the circle using the RANSAC algorithm
+                [cx, cy, r] = fit_circle(edges, self.params.Downscale1*self.params.Downscale2 / 2);
+                circles(obj_id, :) = [cx, cy, r];
+
+                % Optional plotting if ax is provided
+                if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
+                    % Convert coordinates to µm
+                    cx = cx * px_size;
+                    cy = cy * px_size;
+                    r = r * px_size;
+
+                    % Plot the circular patch
+                    rectangle(ax, 'Position', [cx - r, cy - r, 2*r, 2*r], ...
+                              'Curvature', [1, 1], 'EdgeColor', 'r', 'LineWidth', 0.5);
+
+                    % Plot the center
+                    plot(ax, cx, cy, 'g+', 'MarkerSize', 10, 'LineWidth', 2, ...
+                         'DisplayName', ['Object ', num2str(obj_id)]);
+                end
+            end
+        end
+
         % Run demultiplexing
         function demux(self)
-            % TODO
-            edge_coords = find_spot_edges(data, ax);
-            circles = fit_circles(data, edge_coords, ax);
+
+            for i = 1:numel(self.traces_files)
+
+                fn = self.traces_files{i};
+
+                figure();
+                ax = gca();
+                axis(ax, 'equal');
+                hold(ax, 'on');
+                title(fn)
+
+                data = loadTraces(fn);
+
+                x = [data.traceMetadata.donor_x];
+                y = [data.traceMetadata.donor_y];
+                traces_xy = struct('X', x, 'Y', y, 'nX', data.fileMetadata.nX, 'nY', data.fileMetadata.nY);
+
+                self.compute_edges(traces_xy);
+                circles = self.fit_circles(ax, 1);  % displays the circles
+
+
+                scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
+
+                for j = 1:size(circles, 1)
+                    % Extract circle parameters
+                    cx = circles(j, 1);
+                    cy = circles(j, 2);
+                    r =  circles(j, 3) + 5;  % add little margin
+                
+                    % Compute distances from all points to the circle center
+                    distances = sqrt((x - cx).^2 + (y - cy).^2);
+                
+                    % Create a boolean mask for points within the circle
+                    in_circle = distances <= r;
+                
+                    % Extract the subset of traces for this circle
+                    subset = data.getSubset(in_circle);
+                
+                    % Skip saving if the subset is empty
+                    if r == 0
+                        fprintf('Warning: no spot detected in quadrant %s of %s\n', suffix{j}, [f e]);
+                        continue;
+                    end
+
+                    cmap = lines(size(circles, 1));
+                    scatter(ax, [subset.traceMetadata.donor_x], ...
+                        [subset.traceMetadata.donor_y], ...
+                        5, cmap(j, :), 'filled');
+                        
+                    % Save the subset to the corresponding output file
+    %                saveTraces(output{j}, subset);
+
+                end
+            end
+
+            self.fit_circles(ax, 1);  % displays the circles
+            legend(ax, 'off');
+            hold(ax, 'off');
+
         end
 
     end
@@ -311,62 +420,7 @@ end
 
 
 
-function circles = fit_circles(edge_coords, ax)
-    % Fit circles to edges of arbitrary objects using RANSAC and optionally plot them.
-    % Input:
-    %   traces       - Struct containing image metadata (e.g., dimensions)
-    %   edge_coords  - Cell array where each cell is Nx2 array of edge pixel coordinates
-    %   ax           - Optional axes object for plotting
-    % Output:
-    %   circles      - Mx3 array of [cx, cy, r] for the M circles (one for each object)
-
-    if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
-        hold(ax, 'on');
-        axis(ax, 'equal');
-    end
-
-    % Initialize the output array
-    num_objects = numel(edge_coords); % Number of objects
-    circles = zeros(num_objects, 3); % To store [cx, cy, r] for each circle
-
-    % Loop through each object
-    for obj_id = 1:num_objects
-        % Extract edge coordinates for the current object
-        edges = edge_coords{obj_id};
-
-        % Check if edges are empty
-        if isempty(edges)
-            % Return a zero-sized circle
-            circles(obj_id, :) = [0, 0, 0];
-            continue;
-        end
-
-        % Fit the circle using the RANSAC algorithm
-        [cx, cy, r] = fit_circle(edges);
-        circles(obj_id, :) = [cx, cy, r];
-
-        % Optional plotting if ax is provided
-        if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
-            % Plot the circular patch
-            rectangle(ax, 'Position', [cx - r, cy - r, 2*r, 2*r], ...
-                      'Curvature', [1, 1], 'EdgeColor', 'r', 'LineWidth', 0.5);
-
-            % Plot the center
-            plot(ax, cx, cy, 'g+', 'MarkerSize', 10, 'LineWidth', 2, ...
-                 'DisplayName', ['Object ', num2str(obj_id)]);
-        end
-    end
-
-    % Add legend if plotting
-    if nargin > 2 && ~isempty(ax) && isgraphics(ax, 'axes')
-        legend(ax, 'show');
-        hold(ax, 'off');
-    end
-end
-
-
-
-function [cx, cy, r] = fit_circle(edges)
+function [cx, cy, r] = fit_circle(edges, margin)
 % Fit a circle to a set of edge points using RANSAC for robustness.
 % Input:
 %   edges - Nx2 array of edge coordinates [x, y]
@@ -374,8 +428,8 @@ function [cx, cy, r] = fit_circle(edges)
 %   [cx, cy, r] - Fitted circle parameters (center and radius)
 
     % Restrictions on circle radius %FIXME
-    min_r = 20;  % µm
-    max_r = 120; % µm
+    min_r = 90;  % ~20 µm
+    max_r = 550; % ~120 µm
 
     % Parameters for RANSAC
     max_iterations = 1000; % Maximum number of RANSAC iterations
@@ -432,7 +486,7 @@ function [cx, cy, r] = fit_circle(edges)
     if max_inliers >= min_inliers
         cx = best_cx;
         cy = best_cy;
-        r = best_r;
+        r = best_r + margin;
     else
         % Return default values if no valid circle was found
         fprintf('Warning: RANSAC failed to find a valid circle.\n');
@@ -471,4 +525,16 @@ function [cx, cy, r] = circle_from_three_points(pts)
 
     % Compute the radius
     r = sqrt((x1 - cx)^2 + (y1 - cy)^2);
+end
+
+
+
+function char_cell = convert_to_char_cell(input)
+    if ischar(input) || isstring(input)
+        char_cell = cellstr(input); % Convert string or char to cell array of char vectors
+    elseif iscell(input)
+        char_cell = cellfun(@char, input, 'UniformOutput', false); % Convert each string in cell to char vector
+    else
+        error('Input must be a string, char, or cell array of strings.');
+    end
 end
