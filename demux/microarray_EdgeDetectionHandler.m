@@ -121,6 +121,10 @@ classdef microarray_EdgeDetectionHandler < handle
 
         % Compute edges
         function compute_edges(self, traces_xy)
+            if nargin < 2
+                traces_xy = self.traces_xy;
+            end
+
             if self.auto_update
                 % Validate input traces
                 if isempty(traces_xy.X)

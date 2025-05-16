@@ -99,7 +99,7 @@ classdef microarrayDesigner_ArrayLayout < handle
 
         % Load layout
         function spot_size = load_layout(self, filename)
-            if nargin < 1
+            if nargin < 2
                 [file, path] = uigetfile('*.json', 'Load microarray layout');
                 filename = fullfile(path, file);
             end
