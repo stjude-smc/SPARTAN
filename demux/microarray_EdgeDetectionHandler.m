@@ -49,7 +49,7 @@ classdef microarray_EdgeDetectionHandler < handle
 
             % Configure axes
             self.configure_axes();
-            self.create_FOV_rectangle();
+            self.create_FOV_rectangle(self.ax_out);
         end
 
         % loading trace XY coordinates
@@ -266,8 +266,7 @@ classdef microarray_EdgeDetectionHandler < handle
 
             cla(ax);
             self.configure_axes();
-            self.create_FOV_rectangle();
-            self.update_FOV_rectangle();
+            self.create_FOV_rectangle(self.ax_out);
             
             % Generate a colormap for different object IDs
             num_objects = numel(edge_coordinates);
@@ -431,7 +430,7 @@ classdef microarray_EdgeDetectionHandler < handle
 
     methods (Access = private)
         % Configure axes
-        function configure_axes(self)
+        function configure_axes(self, ax)
             box(self.ax_out, 'on');
             xlabel(self.ax_out, 'x, µm');
             ylabel(self.ax_out, 'y, µm');
@@ -440,26 +439,21 @@ classdef microarray_EdgeDetectionHandler < handle
         end
 
         % Create Field of View (FOV) rectangle
-        function create_FOV_rectangle(self)
-            self.FOVrectHandle = rectangle(self.ax_out, ...
-                'Position', [0, 0, 250, 250], ...
+        function create_FOV_rectangle(self, ax)
+            px = self.px_size;
+            if isempty(self.traces_xy.X)
+                nX = 250;
+                nY = 250;
+            else
+                nX = self.traces_xy.nX * px;
+                nY = self.traces_xy.nY * px;
+            end
+
+            rectangle(ax, ...
+                'Position', [0, 0, nX, nY], ...
                 'FaceColor', 'w', 'EdgeColor', 'none', ...
                 'HitTest', 'off');
             axis(self.ax_out, 'tight');
-        end
-
-        % Update FOV rectangle
-        function update_FOV_rectangle(self)
-            px = self.px_size;
-            traces_xy = self.traces_xy;
-
-            if isempty(self.FOVrectHandle) || ~isvalid(self.FOVrectHandle)
-                self.FOVrectHandle = rectangle(self.ax_out, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px], ...
-                                               'FaceColor', 'w', 'EdgeColor', 'none', ...
-                                               'HitTest', 'off');
-            else
-                set(self.FOVrectHandle, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px]);
-            end
         end
     end
 end
