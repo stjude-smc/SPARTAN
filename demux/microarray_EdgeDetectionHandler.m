@@ -243,7 +243,7 @@ classdef microarray_EdgeDetectionHandler < handle
             end
 
             if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
-                imshow(self.thumbnail, 'Parent', ax);
+                imshow(self.thumbnail, 'Parent', ax, 'YData', [size(self.thumbnail, 1) 1]);
             end
         end
 
