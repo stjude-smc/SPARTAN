@@ -22,7 +22,7 @@ function varargout = fieldArrangementDialog(varargin)
 
 % Edit the above text to modify the response to help fieldArrangementDialog
 
-% Last Modified by GUIDE v2.5 05-May-2022 17:43:43
+% Last Modified by GUIDE v2.5 16-May-2025 14:51:15
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -49,9 +49,10 @@ function fieldArrangementDialog_OpeningFcn(hObject, ~, handles, varargin)
 % 
 
 % Process input arguments
-narginchk(5,5);
+narginchk(6,6);
 geo = varargin{1};  %field arrangement matrix with indexes into validFields below
 validFields = varargin{2};  %all allowed channel names
+interleave = varargin{3};
 
 % Set default command line output
 handles.output = [];
@@ -72,6 +73,7 @@ handles.hAll = [handles.cboField11 handles.cboField12 handles.cboField21 handles
                 handles.cboField31 handles.cboField41];
 set( handles.hAll, 'String',[{''} validFields] );
 set( handles.hAll, 'Visible','off', 'Value',1 );
+set( handles.chkInterleaved, 'Value',interleave, 'Visible',onoff(size(geo,3)>1) );
 
 % Set field name dropdowns: channels are saved as concatinated frames
 if size(geo,3)>1
@@ -142,11 +144,13 @@ if get(handles.cboFieldOrganization,'Value')>=5
 end
 varargout{1} = geo;
 
-sel = get( handles.hAll, 'Value' );
-sel = [sel{:}];
-sel = sel(sel>1);
-validNames = get(handles.cboField11,'String');
-varargout{2} = validNames( sort(sel) );  %automatically in wavelength order.
+%sel = get( handles.hAll, 'Value' );
+%sel = [sel{:}];
+%sel = sel(sel>1);
+%validNames = get(handles.cboField11,'String');
+%varargout{2} = validNames( sort(sel) );  %automatically in wavelength order.
+
+varargout{2} = get(handles.chkInterleaved,'Value');
 
 % [varargout{1:nargout}] = handles.output{1:nargout};
 delete(handles.figure1);
@@ -192,6 +196,7 @@ function cboFieldOrganization_Callback(hObject, ~, handles) %#ok<*DEFNU>
 sel = get(hObject,'Value');
 set( handles.hAll, 'Visible','off', 'Value',1 );
 set( handles.toShow{sel}, 'Visible','on' );
+set( handles.chkInterleaved, 'Visible',onoff(sel>3) );
 
 %end function cboFieldOrganization_Callback
 
@@ -218,3 +223,6 @@ switch get(hObject,'CurrentKey')
     case 'return'
         btnOk_Callback(hObject,[],handles);
 end
+
+
+
