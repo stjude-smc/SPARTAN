@@ -48,7 +48,7 @@ classdef microarray_EdgeDetectionHandler < handle
             self.px_size = px_size;
 
             % Configure axes
-            self.configure_axes();
+            self.configure_axes(self.ax_out);
             self.create_FOV_rectangle(self.ax_out);
         end
 
@@ -265,7 +265,7 @@ classdef microarray_EdgeDetectionHandler < handle
             end
 
             cla(ax);
-            self.configure_axes();
+            self.configure_axes(self.ax_out);
             self.create_FOV_rectangle(self.ax_out);
             
             % Generate a colormap for different object IDs
@@ -349,7 +349,8 @@ classdef microarray_EdgeDetectionHandler < handle
 
                 figure();
                 ax = gca();
-                axis(ax, 'equal');
+
+                self.configure_axes(ax);
                 hold(ax, 'on');
 
                 data = loadTraces(fn);
@@ -360,6 +361,8 @@ classdef microarray_EdgeDetectionHandler < handle
 
                 self.compute_edges(traces_xy);
                 circles = self.fit_circles(ax, 1);  % displays the circles
+
+                self.create_FOV_rectangle(ax, 1);
 
 
                 scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
@@ -431,16 +434,19 @@ classdef microarray_EdgeDetectionHandler < handle
     methods (Access = private)
         % Configure axes
         function configure_axes(self, ax)
-            box(self.ax_out, 'on');
-            xlabel(self.ax_out, 'x, µm');
-            ylabel(self.ax_out, 'y, µm');
-            axis(self.ax_out, 'equal');
-            set(self.ax_out, 'Color', 'k'); % Black background color
+            box(ax, 'on');
+            xlabel(ax, 'x, µm');
+            ylabel(ax, 'y, µm');
+            axis(ax, 'equal');
+            set(ax, 'Color', 'k'); % Black background color
         end
 
         % Create Field of View (FOV) rectangle
-        function create_FOV_rectangle(self, ax)
-            px = self.px_size;
+        function create_FOV_rectangle(self, ax, px)
+            if nargin < 3
+                px = self.px_size;
+            end
+
             if isempty(self.traces_xy.X)
                 nX = 250;
                 nY = 250;
