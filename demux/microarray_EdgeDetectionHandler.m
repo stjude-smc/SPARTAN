@@ -315,7 +315,9 @@ classdef microarray_EdgeDetectionHandler < handle
                 end
 
                 % Fit the circle using the RANSAC algorithm
-                [cx, cy, r] = fit_circle(edges, self.params.Downscale1*self.params.Downscale2 / 2);
+                expected_r = 0.5 * self.Spots(obj_id).size / self.px_size;
+
+                [cx, cy, r] = fit_circle(edges, self.params.Downscale1*self.params.Downscale2 / 2, expected_r);
                 circles(obj_id, :) = [cx, cy, r];
 
                 % Optional plotting if ax is provided
@@ -443,16 +445,16 @@ end
 
 
 
-function [cx, cy, r] = fit_circle(edges, margin)
+function [cx, cy, r] = fit_circle(edges, margin, expected_r)
 % Fit a circle to a set of edge points using RANSAC for robustness.
 % Input:
 %   edges - Nx2 array of edge coordinates [x, y]
 % Output:
 %   [cx, cy, r] - Fitted circle parameters (center and radius)
 
-    % Restrictions on circle radius %FIXME
-    min_r = 90;  % ~20 µm
-    max_r = 550; % ~120 µm
+    % Restrictions on circle radius
+    min_r = 0.75*expected_r;
+    max_r = 1.25*expected_r;
 
     % Parameters for RANSAC
     max_iterations = 1000; % Maximum number of RANSAC iterations
