@@ -68,12 +68,16 @@ methods
         try
             obj.timeAxis = [];
             [ijExposure,ijText] = parseIJ(info);
+            mmExposure = parseMM(info);
 
             if isfield( info,'ExposureTime' )
                 % EXIF tag 33434, used by FlashGordon
                 ms = info(1).ExposureTime*1000;
                 obj.timeAxis = (0:obj.nFrames-1)*ms;
 
+            elseif(mmExposure ~= 0)
+                obj.timeAxis = mmExposure*(0:obj.nFrames-1);
+            
             elseif ijExposure ~=0
                 % ImageJ-specific metadata encoded in private tag 50839.
                 obj.timeAxis = ijExposure*(0:obj.nFrames-1);
@@ -195,6 +199,28 @@ catch
 end
 
 end %function parseIJ
+
+
+
+function [exposure_ms,metadata] = parseMM(info)
+% Parses TIFF tag 51123 used exclusively for MicroManager TIFF data.
+
+exposure_ms = 0;
+metadata = '';
+
+try
+    id = find( [info(1).UnknownTags.ID] == 51123, 1);
+
+    if ~isempty(id)
+        metadata = jsondecode( info(1).UnknownTags(id).Value );
+        if isfield(metadata,'Exposure_ms')
+            exposure_ms = metadata.Exposure_ms;
+        end
+    end
+catch
+end
+
+end
 
 
 
