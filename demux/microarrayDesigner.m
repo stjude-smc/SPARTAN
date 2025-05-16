@@ -14,6 +14,8 @@ classdef microarrayDesigner < matlab.apps.AppBase
         btnSaveSettings              matlab.ui.control.Button
         chkAutoUpdate                matlab.ui.control.CheckBox
         chkCreateSubdir              matlab.ui.control.CheckBox
+        chkPlotResult                matlab.ui.control.CheckBox
+        chkSavePlot                  matlab.ui.control.CheckBox
         ddDownscale1                 matlab.ui.control.DropDown
         ddDownscale2                 matlab.ui.control.DropDown
         sDilation                    matlab.ui.control.Spinner
@@ -386,21 +388,37 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create GridLayout8
             app.GridLayout8 = uigridlayout(app.OutputPanel);
-            app.GridLayout8.ColumnWidth = {'2x', '1x'};
+            app.GridLayout8.ColumnWidth = {'1x', '1x', '1x', '1x'};
             app.GridLayout8.RowHeight = {'1x'};
 
             % Create chkCreateSubdir
             app.chkCreateSubdir = uicheckbox(app.GridLayout8);
-            app.chkCreateSubdir.Text = 'Create a subdirectory';
+            app.chkCreateSubdir.Text = 'Create subdirectory';
             app.chkCreateSubdir.Layout.Row = 1;
             app.chkCreateSubdir.Layout.Column = 1;
             app.chkCreateSubdir.Value = true;
             app.chkCreateSubdir.ValueChangedFcn = @(src, event) app.edge_detect.set('CreateSubdir', event.Value);
 
+            % Create chkPlotResult
+            app.chkPlotResult = uicheckbox(app.GridLayout8);
+            app.chkPlotResult.Text = 'Plot result';
+            app.chkPlotResult.Layout.Row = 1;
+            app.chkPlotResult.Layout.Column = 2;
+            app.chkPlotResult.Value = true;
+            app.chkPlotResult.ValueChangedFcn = @(src, event) app.edge_detect.set('PlotResult', event.Value);
+
+            % Create chkSavePlot
+            app.chkSavePlot = uicheckbox(app.GridLayout8);
+            app.chkSavePlot.Text = 'Save plot';
+            app.chkSavePlot.Layout.Row = 1;
+            app.chkSavePlot.Layout.Column = 3;
+            app.chkSavePlot.Value = true;
+            app.chkSavePlot.ValueChangedFcn = @(src, event) app.edge_detect.set('SavePlot', event.Value);
+
             % Create btnDemuxTraces
             app.btnDemuxTraces = uibutton(app.GridLayout8, 'push');
             app.btnDemuxTraces.Layout.Row = 1;
-            app.btnDemuxTraces.Layout.Column = 2;
+            app.btnDemuxTraces.Layout.Column = 4;
             app.btnDemuxTraces.Text = 'Demux traces';
             app.btnDemuxTraces.ButtonPushedFcn = @(src, event) app.edge_detect.demux();
 
