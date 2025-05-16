@@ -200,7 +200,7 @@ methods
         
         % Verify field arrangement make sense with channels struct.
         szCh = size(this.fieldArrangement);
-        if numel(szCh)>2 && szCh(1:2)>1
+        if numel(szCh)>2 && all(szCh(1:2)>1)
             error('Channels may be tiled in space or as concatinated frames, but not both.');
         end
         assert( all(ismember(this.fieldArrangement(:),0:this.nChannels)), 'Invalid fieldArrangement' );
