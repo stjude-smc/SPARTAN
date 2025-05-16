@@ -311,17 +311,18 @@ classdef microarray_EdgeDetectionHandler < handle
                 % Extract edge coordinates for the current object
                 edges = self.edge_coordinates{obj_id};
 
-                % Check if edges are empty
-                if isempty(edges)
-                    % Return a zero-sized circle
-                    circles(obj_id, :) = [0, 0, 0];
-                    continue;
+                % Default values for center and radius
+                margin = self.params.Downscale1*self.params.Downscale2 / 2;
+                cx = self.Spots(obj_id).position(1) / self.px_size;
+                cy = self.Spots(obj_id).position(2) / self.px_size;
+                r = 0.5 * self.Spots(obj_id).size / self.px_size;
+
+                % Refine center and radius if have enough data points
+                if size(edges, 1) >= 10
+                    % Fit the circle using the RANSAC algorithm
+                    [cx, cy, r] = fit_circle(edges, margin, cx, cy, r);
                 end
 
-                % Fit the circle using the RANSAC algorithm
-                expected_r = 0.5 * self.Spots(obj_id).size / self.px_size;
-
-                [cx, cy, r] = fit_circle(edges, self.params.Downscale1*self.params.Downscale2 / 2, expected_r);
                 circles(obj_id, :) = [cx, cy, r];
 
                 % Optional plotting if ax is provided
@@ -343,130 +344,124 @@ classdef microarray_EdgeDetectionHandler < handle
         end
 
         % Run demultiplexing
-function demux(self)
+        function demux(self)
 
-    for i = 1:numel(self.traces_files)
+            for i = 1:numel(self.traces_files)
 
-        fn = self.traces_files{i};
+                fn = self.traces_files{i};
 
-        % Extract file parts
-        [parent_path, name, extension] = fileparts(fn);  % Extract file name without extension
+                % Extract file parts
+                [parent_path, name, extension] = fileparts(fn);  % Extract file name without extension
 
-        % Initialize figure
-        if self.get('PlotResult') || self.get('SavePlot')
-            fig = figure();  % Create figure
-            ax = gca();      % Get current axes
-            self.configure_axes(ax);  % Configure axes
-            hold(ax, 'on');
-        else
-            ax = [];  % No figure or axes needed
-        end
-
-        % Load traces file
-        data = loadTraces(fn);
-
-        % Extract coordinates
-        x = [data.traceMetadata.donor_x];
-        y = [data.traceMetadata.donor_y];
-        traces_xy = struct('X', x, 'Y', y, 'nX', data.fileMetadata.nX, 'nY', data.fileMetadata.nY);
-
-        % Add FOV rectangle
-        if ~isempty(ax)
-            self.create_FOV_rectangle(ax, 1);
-        end
-
-        % Compute edges and fit circles
-        self.compute_edges(traces_xy);
-        circles = self.fit_circles(ax, 1);  % Displays the circles if `ax` is provided
-
-        % Scatter plot for all points
-        if ~isempty(ax)
-            scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
-        end
-
-        % Set title
-        if ~isempty(ax)
-            title(ax, name, 'Interpreter', 'none');
-        end
-
-        % Process circles
-        for j = 1:size(circles, 1)
-            % Extract circle parameters
-            cx = circles(j, 1);
-            cy = circles(j, 2);
-            r = circles(j, 3) + 5;  % Add little margin
-
-            % Compute distances from all points to the circle center
-            distances = sqrt((x - cx).^2 + (y - cy).^2);
-
-            % Create a boolean mask for points within the circle
-            in_circle = distances <= r;
-
-            % Extract the subset of traces for this circle
-            subset = data.getSubset(in_circle);
-
-            % Skip saving if the subset is empty
-            if r == 0
-                fprintf('Warning: no spot detected in quadrant %d of %s\n', j, fn);
-                continue;
-            end
-
-            % Scatter plot for points in the circle
-            if ~isempty(ax)
-                cmap = lines(size(circles, 1));
-                scatter(ax, [subset.traceMetadata.donor_x], ...
-                        [subset.traceMetadata.donor_y], ...
-                        5, cmap(j, :), 'filled');
-            end
-
-            % Save the subset to the corresponding output file
-            if self.get('CreateSubdir')
-                % Create the folder in the same directory as the original file
-                subdir_name = fullfile(parent_path, name);
-
-                % Create the folder if it doesn't exist
-                if ~exist(subdir_name, 'dir')
-                    mkdir(subdir_name);
+                % Initialize figure
+                if self.get('PlotResult') || self.get('SavePlot')
+                    fig = figure();  % Create figure
+                    ax = gca();      % Get current axes
+                    self.configure_axes(ax);  % Configure axes
+                    hold(ax, 'on');
+                else
+                    ax = [];  % No figure or axes needed
                 end
 
-                % Save traces file
-                out_fn = fullfile(subdir_name, sprintf('%s_%02d%s', name, j, extension));
-            else
-                % Save traces file directly in the parent directory
-                out_fn = fullfile(parent_path, sprintf('%s_%02d%s', name, j, extension));
+                % Load traces file
+                data = loadTraces(fn);
+
+                % Extract coordinates
+                x = [data.traceMetadata.donor_x];
+                y = [data.traceMetadata.donor_y];
+                traces_xy = struct('X', x, 'Y', y, 'nX', data.fileMetadata.nX, 'nY', data.fileMetadata.nY);
+
+                % Add FOV rectangle
+                if ~isempty(ax)
+                    self.create_FOV_rectangle(ax, 1);
+                end
+
+                % Compute edges and fit circles
+                self.compute_edges(traces_xy);
+                circles = self.fit_circles(ax, 1);  % Displays the circles if `ax` is provided
+
+                % Scatter plot for all points
+                if ~isempty(ax)
+                    scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
+                end
+
+                % Set title
+                if ~isempty(ax)
+                    title(ax, name, 'Interpreter', 'none');
+                end
+
+                % Process circles
+                for j = 1:size(circles, 1)
+                    % Extract circle parameters
+                    cx = circles(j, 1);
+                    cy = circles(j, 2);
+                    r = circles(j, 3) + 5;  % Add little margin
+
+                    % Compute distances from all points to the circle center
+                    distances = sqrt((x - cx).^2 + (y - cy).^2);
+
+                    % Create a boolean mask for points within the circle
+                    in_circle = distances <= r;
+
+                    % Extract the subset of traces for this circle
+                    subset = data.getSubset(in_circle);
+
+                    % Scatter plot for points in the circle
+                    if ~isempty(ax)
+                        cmap = lines(size(circles, 1));
+                        scatter(ax, [subset.traceMetadata.donor_x], ...
+                                [subset.traceMetadata.donor_y], ...
+                                5, cmap(j, :), 'filled');
+                    end
+
+                    % Save the subset to the corresponding output file
+                    if self.get('CreateSubdir')
+                        % Create the folder in the same directory as the original file
+                        subdir_name = fullfile(parent_path, name);
+
+                        % Create the folder if it doesn't exist
+                        if ~exist(subdir_name, 'dir')
+                            mkdir(subdir_name);
+                        end
+
+                        % Save traces file
+                        out_fn = fullfile(subdir_name, sprintf('%s_%02d%s', name, j, extension));
+                    else
+                        % Save traces file directly in the parent directory
+                        out_fn = fullfile(parent_path, sprintf('%s_%02d%s', name, j, extension));
+                    end
+
+                    disp(strcat("Saving ", out_fn));
+                    saveTraces(out_fn, subset);
+                end
+
+                % Save and/or display the plot
+                if self.get('SavePlot')
+                    if self.get('CreateSubdir')
+                        % Save plot in the subdirectory as 'demux.png'
+                        plot_fn = fullfile(subdir_name, 'demux.png');
+                    else
+                        % Save plot in the parent directory, changing extension to PNG
+                        plot_fn = fullfile(parent_path, [name, '.png']);
+                    end
+
+                    % Save the figure
+                    saveas(fig, plot_fn);
+                    disp(strcat("Plot saved as: ", plot_fn));
+
+                    % Close the figure if `PlotResult` is false
+                    if ~self.get('PlotResult')
+                        close(fig);
+                    end
+                end
+
+                % Close the figure if `PlotResult` is false and `SavePlot` is false
+                if self.get('PlotResult')
+                    legend(ax, 'off');
+                    hold(ax, 'off');
+                end
             end
-
-            disp(strcat("Saving ", out_fn));
-            saveTraces(out_fn, subset);
         end
-
-        % Save and/or display the plot
-        if self.get('SavePlot')
-            if self.get('CreateSubdir')
-                % Save plot in the subdirectory as 'demux.png'
-                plot_fn = fullfile(subdir_name, 'demux.png');
-            else
-                % Save plot in the parent directory, changing extension to PNG
-                plot_fn = fullfile(parent_path, [name, '.png']);
-            end
-
-            % Save the figure
-            saveas(fig, plot_fn);
-            disp(strcat("Plot saved as: ", plot_fn));
-
-            % Close the figure if `PlotResult` is false
-            if ~self.get('PlotResult')
-                close(fig);
-            end
-        end
-
-        % Close the figure if `PlotResult` is false and `SavePlot` is false
-        if self.get('PlotResult')
-            legend(ax, 'off');
-            hold(ax, 'off');
-        end
-    end
-end
 
     end
 
@@ -530,16 +525,17 @@ end
 
 
 
-function [cx, cy, r] = fit_circle(edges, margin, expected_r)
+function [cx, cy, r] = fit_circle(edges, margin, cx0, cy0, r0)
 % Fit a circle to a set of edge points using RANSAC for robustness.
 % Input:
 %   edges - Nx2 array of edge coordinates [x, y]
+%   cx0, cy0, r0 - starting values for center and radius, in px
 % Output:
 %   [cx, cy, r] - Fitted circle parameters (center and radius)
 
     % Restrictions on circle radius
-    min_r = 0.75*expected_r;
-    max_r = 1.25*expected_r;
+    min_r = 0.75*r0;
+    max_r = 1.25*r0;
 
     % Parameters for RANSAC
     max_iterations = 1000; % Maximum number of RANSAC iterations
@@ -592,17 +588,21 @@ function [cx, cy, r] = fit_circle(edges, margin, expected_r)
         end
     end
 
+
+    % Check how far away the new circle moved
+    circle_shift = sqrt((cx0 - best_cx).^2 + (cy0 - best_cy).^2);
+
     % Check if a valid circle was found
-    if max_inliers >= min_inliers
+    if max_inliers >= min_inliers && circle_shift < 0.8*r0
         cx = best_cx;
         cy = best_cy;
         r = best_r + margin;
     else
         % Return default values if no valid circle was found
         fprintf('Warning: RANSAC failed to find a valid circle.\n');
-        cx = 0;
-        cy = 0;
-        r = 0;
+        cx = cx0;
+        cy = cy0;
+        r = r0;
     end
 end
 
