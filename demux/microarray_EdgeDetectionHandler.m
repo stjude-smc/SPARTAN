@@ -11,7 +11,6 @@ classdef microarray_EdgeDetectionHandler < handle
         px_size;
         Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
         mask;
-        circles;
     end
 
     properties (Dependent)
@@ -180,11 +179,16 @@ classdef microarray_EdgeDetectionHandler < handle
 
                 % Rescale edge coordinates back into original image size
                 scale_factor = self.params.Downscale1 * self.params.Downscale2;
-                self.edge_coordinates = cellfun(@(coords) coords * scale_factor, self.edge_coordinates, 'UniformOutput', false);
+
+                keys = self.edge_coordinates.keys();
+                for i = 1:numel(keys)
+                    key = keys{i};
+                    self.edge_coordinates(key) = self.edge_coordinates(key) * scale_factor;
+                end
 
                 self.display_edges(self.edge_coordinates, self.ax_out);
 
-                self.circles = self.fit_circles(self.ax_out);
+                self.fit_circles(self.ax_out);
             end
         end
 
@@ -269,29 +273,33 @@ classdef microarray_EdgeDetectionHandler < handle
             cla(ax);
             self.configure_axes(self.ax_out);
             self.create_FOV_rectangle(self.ax_out);
-            
-            % Generate a colormap for different object IDs
-            num_objects = numel(edge_coordinates);
-            cmap = lines(num_objects);  % Use the 'lines' colormap for distinct colors
-            
-            hold(ax, 'on');  % Enable holding for multiple scatter plots
-            
-            % Loop through each object and plot its coordinates
-            for object_id = 1:num_objects
-                coordinates = edge_coordinates{object_id};  % Get coordinates for current object
-                
-                % Scatter plot for the current object's edge coordinates
-                scatter(ax, coordinates(:, 1)*self.px_size, coordinates(:, 2)*self.px_size, 3, cmap(object_id, :), 'filled');
-            end
-            
-            hold(ax, 'off');  % Release hold
 
+            % Generate a colormap for different object IDs
+            keys = edge_coordinates.keys();  % Get all keys
+            num_objects = numel(keys);
+            cmap = lines(num_objects);       % Use the 'lines' colormap for distinct colors
+
+            hold(ax, 'on');  % Enable holding for multiple scatter plots
+
+            % Loop through each object and plot its coordinates
+            for i = 1:num_objects
+                object_id = keys{i};                       % Get current object ID
+                coordinates = edge_coordinates(object_id); % Get coordinates for current object
+
+                % Scatter plot for the current object's edge coordinates
+                scatter(ax, coordinates(:, 1) * self.px_size, ...
+                        coordinates(:, 2) * self.px_size, ...
+                        3, cmap(i, :), 'filled');
+            end
+
+            hold(ax, 'off');  % Release hold
         end
+
 
         function circles = fit_circles(self, ax, px_size)
             % Fit circles to edges of spots using RANSAC and optionally plot them.
             % Output:
-            %   circles      - Mx3 array of [cx, cy, r] for the M circles (one for each object)
+            %   circles - Dictionary with keys as object IDs and values as [cx, cy, r]
 
             if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
                 hold(ax, 'on');
@@ -302,17 +310,19 @@ classdef microarray_EdgeDetectionHandler < handle
                 px_size = self.px_size;
             end
 
-            % Initialize the output array
-            num_objects = numel(self.edge_coordinates); % Number of objects
-            circles = zeros(num_objects, 3); % To store [cx, cy, r] for each circle
+            % Initialize the output dictionary
+            keys = self.edge_coordinates.keys();  % Get all keys
+            num_objects = numel(keys);
+            circles = containers.Map('KeyType', 'int32', 'ValueType', 'any');
 
             % Loop through each object
-            for obj_id = 1:num_objects
+            for i = 1:num_objects
                 % Extract edge coordinates for the current object
-                edges = self.edge_coordinates{obj_id};
+                obj_id = keys{i};
+                edges = self.edge_coordinates(obj_id);
 
                 % Default values for center and radius
-                margin = self.params.Downscale1*self.params.Downscale2 / 2;
+                margin = self.params.Downscale1 * self.params.Downscale2 / 2;
                 cx = self.Spots(obj_id).position(1) / self.px_size;
                 cy = self.Spots(obj_id).position(2) / self.px_size;
                 r = 0.5 * self.Spots(obj_id).size / self.px_size;
@@ -323,21 +333,22 @@ classdef microarray_EdgeDetectionHandler < handle
                     [cx, cy, r] = fit_circle(edges, margin, cx, cy, r);
                 end
 
-                circles(obj_id, :) = [cx, cy, r];
+                % Store the circle in the dictionary
+                circles(obj_id) = [cx, cy, r];
 
                 % Optional plotting if ax is provided
                 if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
                     % Convert coordinates to µm
-                    cx = cx * px_size;
-                    cy = cy * px_size;
-                    r = r * px_size;
+                    cx_plot = cx * px_size;
+                    cy_plot = cy * px_size;
+                    r_plot = r * px_size;
 
                     % Plot the circular patch
-                    rectangle(ax, 'Position', [cx - r, cy - r, 2*r, 2*r], ...
+                    rectangle(ax, 'Position', [cx_plot - r_plot, cy_plot - r_plot, 2*r_plot, 2*r_plot], ...
                               'Curvature', [1, 1], 'EdgeColor', 'r', 'LineWidth', 0.5);
 
                     % Plot the center
-                    plot(ax, cx, cy, 'g+', 'MarkerSize', 10, 'LineWidth', 2, ...
+                    plot(ax, cx_plot, cy_plot, 'g+', 'MarkerSize', 10, 'LineWidth', 2, ...
                          'DisplayName', ['Object ', num2str(obj_id)]);
                 end
             end
@@ -378,7 +389,7 @@ classdef microarray_EdgeDetectionHandler < handle
 
                 % Compute edges and fit circles
                 self.compute_edges(traces_xy);
-                circles = self.fit_circles(ax, 1);  % Displays the circles if `ax` is provided
+                circles = self.fit_circles(ax, 1);
 
                 % Scatter plot for all points
                 if ~isempty(ax)
@@ -390,12 +401,16 @@ classdef microarray_EdgeDetectionHandler < handle
                     title(ax, name, 'Interpreter', 'none');
                 end
 
-                % Process circles
-                for j = 1:size(circles, 1)
-                    % Extract circle parameters
-                    cx = circles(j, 1);
-                    cy = circles(j, 2);
-                    r = circles(j, 3) + 5;  % Add little margin
+                % Process circles (now using dictionary keys)
+                keys = circles.keys();  % Get all object IDs
+                cmap = lines(numel(keys));  % Generate colormap
+
+                for j = 1:numel(keys)
+                    obj_id = keys{j};              % Current object ID
+                    circle = circles(obj_id);      % [cx, cy, r] for the current circle
+                    cx = circle(1);
+                    cy = circle(2);
+                    r = circle(3) + 5;  % Add little margin
 
                     % Compute distances from all points to the circle center
                     distances = sqrt((x - cx).^2 + (y - cy).^2);
@@ -408,7 +423,6 @@ classdef microarray_EdgeDetectionHandler < handle
 
                     % Scatter plot for points in the circle
                     if ~isempty(ax)
-                        cmap = lines(size(circles, 1));
                         scatter(ax, [subset.traceMetadata.donor_x], ...
                                 [subset.traceMetadata.donor_y], ...
                                 5, cmap(j, :), 'filled');
@@ -425,10 +439,10 @@ classdef microarray_EdgeDetectionHandler < handle
                         end
 
                         % Save traces file
-                        out_fn = fullfile(subdir_name, sprintf('%s_%02d%s', name, j, extension));
+                        out_fn = fullfile(subdir_name, sprintf('%s_%02d%s', name, obj_id, extension));
                     else
                         % Save traces file directly in the parent directory
-                        out_fn = fullfile(parent_path, sprintf('%s_%02d%s', name, j, extension));
+                        out_fn = fullfile(parent_path, sprintf('%s_%02d%s', name, obj_id, extension));
                     end
 
                     disp(strcat("Saving ", out_fn));
@@ -507,8 +521,8 @@ function edge_coordinates = extract_edge_coordinates(labeled_edges)
     object_ids = unique(labeled_edges);
     object_ids(object_ids == 0) = [];  % Remove background (ID = 0)
     
-    % Initialize a cell array to hold coordinates for each object ID
-    edge_coordinates = cell(numel(object_ids), 1);
+    % Initialize a dictionary to hold coordinates for each object ID
+    edge_coordinates = containers.Map('KeyType', 'int32', 'ValueType', 'any');
     
     % Loop through each object ID
     for i = 1:numel(object_ids)
@@ -517,8 +531,8 @@ function edge_coordinates = extract_edge_coordinates(labeled_edges)
         % Find coordinates of pixels belonging to the current object ID
         [Y, X] = find(labeled_edges == object_id);
 
-        % Combine X and Y coordinates into a 2D array
-        edge_coordinates{i} = [X, Y];  % Columns: [X, Y]
+        % Combine X and Y coordinates into a 2D array and store in the dictionary
+        edge_coordinates(object_id) = [X, Y];  % Columns: [X, Y]
     end
 end
 
