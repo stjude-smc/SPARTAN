@@ -15,12 +15,15 @@ classdef microarray_EdgeDetectionHandler < handle
     end
 
     properties (Dependent)
+        % Edge detection settings
         Downscale1;     % Downscale step 1
         Dilation;       % Dilation radius
         Downscale2;     % Downscale step 2
         LowThreshold;   % Lower threshold for Canny
         HighThreshold;  % Higher threshold for Canny
         Sigma;          % Sigma for Canny
+        % Output settings
+        CreateSubdir;   % Whether a new directory should be created for every input file
     end
 
     properties (Access = private)
@@ -31,7 +34,8 @@ classdef microarray_EdgeDetectionHandler < handle
             'Downscale2', 2, ...
             'LowThreshold', 0.05, ...
             'HighThreshold', 0.6, ...
-            'Sigma', 7 ...
+            'Sigma', 7, ...
+            'CreateSubdir', true ...
         );
     end
 
@@ -41,10 +45,6 @@ classdef microarray_EdgeDetectionHandler < handle
             self.ax_in = ax_in;
             self.ax_out = ax_out;
             self.px_size = px_size;
-
-            if nargin > 3
-                self.params = edge_detect_params;
-            end
         end
 
         % loading trace XY coordinates

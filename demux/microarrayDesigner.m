@@ -395,6 +395,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.chkCreateSubdir.Layout.Row = 1;
             app.chkCreateSubdir.Layout.Column = 1;
             app.chkCreateSubdir.Value = true;
+            app.chkCreateSubdir.ValueChangedFcn = @(src, event) app.edge_detect.set('CreateSubdir', event.Value);
 
             % Create btnDemuxTraces
             app.btnDemuxTraces = uibutton(app.GridLayout8, 'push');
@@ -426,17 +427,20 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Register the app with App Designer
             registerApp(app, app.UIFigure);
 
+            % Create microarrya layout handler
             app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
 
-            edge_detect_params = struct( ...
-            'Downscale1', str2double(app.ddDownscale1.Value(1)), ...
-            'Dilation', app.sDilation.Value, ...
-            'Downscale2', str2double(app.ddDownscale2.Value(1)), ...
-            'LowThreshold', app.sLowThreshold.Value, ...
-            'HighThreshold', app.sHighThreshold.Value, ...
-            'Sigma', app.sSigma.Value ...
-        );
-            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size, edge_detect_params);
+            % Create edge detection handler and propagate settings from GUI
+            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size);
+            
+            app.edge_detect.set('Downscale1', str2double(app.ddDownscale1.Value(1)));
+            app.edge_detect.set('Dilation', app.sDilation.Value);
+            app.edge_detect.set('Downscale2', str2double(app.ddDownscale2.Value(1)));
+            app.edge_detect.set('LowThreshold', app.sLowThreshold.Value);
+            app.edge_detect.set('HighThreshold', app.sHighThreshold.Value);
+            app.edge_detect.set('Sigma', app.sSigma.Value);
+            app.edge_detect.set('CreateSubdir', app.chkCreateSubdir.Value);
+
 
             % STARTUP HACK
                 app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
