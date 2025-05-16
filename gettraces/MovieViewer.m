@@ -136,7 +136,7 @@ methods
         geo = this.chExtractor.fieldArrangement;
         if isempty(geo) || size(geo,3)>1
             % If channels have no spatial coding, use Quad-View convention
-            this.ax = this.ax( [2 3; 1 4] );
+            %this.ax = this.ax( [2 3; 1 4] );   %PROBLEM
             if nCh==3
                 if this.chExtractor.channels(1).wavelength>500
                     this.ax(1) = [];
