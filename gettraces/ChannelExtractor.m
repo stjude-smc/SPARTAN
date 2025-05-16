@@ -75,7 +75,7 @@ properties (SetAccess=public, GetAccess=public)
     skipFrames = 0;   %number of frames to ignore at the beginning.
     %cropX;   %remove left and right pixels so image is cropX cols wide.
     %cropY;   %remove top and bottom pixels so image is cropX rows tall.
-    %interleaved;  %if true, channels are interleaved over frames.
+    interleaved = true;  %channels are interleaved (true) or concatinated (false)
 end
 
 % These are calculated from the input parameters
@@ -176,7 +176,7 @@ methods
         assert( all(idx>=1 & idx<=this.nFrames & idx==floor(idx)), 'Invalid index' );
 
         % Parse image data into channels
-        output = splitFrame( this.movie, this.fieldArrangement, idx );
+        output = splitFrame( this.movie, this.fieldArrangement, this.interleaved, idx );
         
     end %function readFrames    
     
