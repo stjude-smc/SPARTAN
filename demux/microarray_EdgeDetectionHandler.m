@@ -37,14 +37,19 @@ classdef microarray_EdgeDetectionHandler < handle
             'Sigma', 7, ...
             'CreateSubdir', true ...
         );
+        FOVrectHandle;
     end
 
-    methods
+    methods (Access = public)
         % Constructor
         function self = microarray_EdgeDetectionHandler(ax_in, ax_out, px_size, edge_detect_params)
             self.ax_in = ax_in;
             self.ax_out = ax_out;
             self.px_size = px_size;
+
+            % Configure axes
+            self.configure_axes();
+            self.create_FOV_rectangle();
         end
 
         % loading trace XY coordinates
@@ -258,13 +263,16 @@ classdef microarray_EdgeDetectionHandler < handle
             if isempty(ax) || ~isgraphics(ax, 'axes')
                 error('Invalid axes object provided.');
             end
+
+            cla(ax);
+            self.configure_axes();
+            self.create_FOV_rectangle();
+            self.update_FOV_rectangle();
             
             % Generate a colormap for different object IDs
             num_objects = numel(edge_coordinates);
             cmap = lines(num_objects);  % Use the 'lines' colormap for distinct colors
             
-            % Clear the axes before plotting
-            cla(ax);
             hold(ax, 'on');  % Enable holding for multiple scatter plots
             
             % Loop through each object and plot its coordinates
@@ -275,13 +283,8 @@ classdef microarray_EdgeDetectionHandler < handle
                 scatter(ax, coordinates(:, 1)*self.px_size, coordinates(:, 2)*self.px_size, 3, cmap(object_id, :), 'filled');
             end
             
-            % Add labels and title
-            xlabel(ax, 'x / µm');
-            ylabel(ax, 'y / µm');
-            title(ax, 'Detected edges');
-            legend(ax, 'off');
-            
             hold(ax, 'off');  % Release hold
+
         end
 
         function circles = fit_circles(self, ax, px_size)
@@ -363,18 +366,10 @@ classdef microarray_EdgeDetectionHandler < handle
                 scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
 
 
-                % Create output folder
-                [dir_path, name, extension] = fileparts(fn);  % Extract file name without extension
+                % Create output folder if necessary
+                [parent_path, name, extension] = fileparts(fn);  % Extract file name without extension
 
                 title(ax, name, 'Interpreter', 'none');
-
-                % Create the folder in the same directory as the original file
-                folder_name = fullfile(dir_path, name);
-
-                % Create the folder if it doesn't exist
-                if ~exist(folder_name, 'dir')
-                    mkdir(folder_name);
-                end
 
                 for j = 1:size(circles, 1)
                     % Extract circle parameters
@@ -403,7 +398,24 @@ classdef microarray_EdgeDetectionHandler < handle
                         5, cmap(j, :), 'filled');
                         
                     % Save the subset to the corresponding output file
-                    out_fn = fullfile(folder_name, sprintf('%s_%d%s', name, j, extension));
+                    if self.get('CreateSubdir')
+                        % Create the folder in the same directory as the original file
+                        subdir_name = fullfile(parent_path, name);
+
+                        % Create the folder if it doesn't exist
+                        if ~exist(subdir_name, 'dir')
+                            mkdir(subdir_name);
+                        end
+                        
+                        % TODO - which one do we want?
+                        % <name>/<name>_0i.rawtraces
+                        % <name>/0i.rawtraces
+                        out_fn = fullfile(subdir_name, sprintf('%s_%02d%s', name, j, extension));
+                        out_fn = fullfile(subdir_name, sprintf('%02d%s', j, extension));
+                    else
+                        out_fn = fullfile(parent_path, sprintf('%s_%02d%s', name, j, extension));
+                    end
+                    disp(strcat( "Saving ", out_fn));
                     saveTraces(out_fn, subset);
 
                 end
@@ -415,6 +427,40 @@ classdef microarray_EdgeDetectionHandler < handle
 
         end
 
+    end
+
+    methods (Access = private)
+        % Configure axes
+        function configure_axes(self)
+            box(self.ax_out, 'on');
+            xlabel(self.ax_out, 'x, µm');
+            ylabel(self.ax_out, 'y, µm');
+            axis(self.ax_out, 'equal');
+            set(self.ax_out, 'Color', 'k'); % Black background color
+        end
+
+        % Create Field of View (FOV) rectangle
+        function create_FOV_rectangle(self)
+            self.FOVrectHandle = rectangle(self.ax_out, ...
+                'Position', [0, 0, 250, 250], ...
+                'FaceColor', 'w', 'EdgeColor', 'none', ...
+                'HitTest', 'off');
+            axis(self.ax_out, 'tight');
+        end
+
+        % Update FOV rectangle
+        function update_FOV_rectangle(self)
+            px = self.px_size;
+            traces_xy = self.traces_xy;
+
+            if isempty(self.FOVrectHandle) || ~isvalid(self.FOVrectHandle)
+                self.FOVrectHandle = rectangle(self.ax_out, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px], ...
+                                               'FaceColor', 'w', 'EdgeColor', 'none', ...
+                                               'HitTest', 'off');
+            else
+                set(self.FOVrectHandle, 'Position', [0, 0, traces_xy.nX * px, traces_xy.nY * px]);
+            end
+        end
     end
 end
 

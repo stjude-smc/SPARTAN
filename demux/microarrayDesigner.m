@@ -447,7 +447,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
                 app.edge_detect.load_traces_XY(app.traces_files);
                 app.array_layout.draw_traces(app.edge_detect.traces_xy);
 
-                app.array_layout.load_layout('C:/Users/rkiselev/Desktop/microarray_layout.json')
+                app.array_layout.load_layout('C:/Users/rkiselev/Desktop/3x3 microarray_layout.json')
 
                 app.chkAutoUpdate.Value = true;
                 app.edge_detect.enable_auto_update(true)
