@@ -273,7 +273,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sDilation.HorizontalAlignment = 'left';
             app.sDilation.Layout.Row = 2;
             app.sDilation.Layout.Column = 2;
-            app.sDilation.Value = 2;
+            app.sDilation.Value = 6;
             app.sDilation.ValueChangedFcn = @(src, event) app.edge_detect.set('Dilation', event.Value);
 
             % Create lblDownscalestep2DropDown
@@ -288,7 +288,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.ddDownscale2.Items = {'1x', '2x', '4x', '8x'};
             app.ddDownscale2.Layout.Row = 3;
             app.ddDownscale2.Layout.Column = 2;
-            app.ddDownscale2.Value = '4x';
+            app.ddDownscale2.Value = '2x';
             app.ddDownscale2.ValueChangedFcn = @(src, event) app.edge_detect.set('Downscale2', str2double(event.Value(1)));
 
             % Create GridLayout6_2
@@ -329,7 +329,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sHighThreshold.HorizontalAlignment = 'left';
             app.sHighThreshold.Layout.Row = 2;
             app.sHighThreshold.Layout.Column = 2;
-            app.sHighThreshold.Value = 0.3;
+            app.sHighThreshold.Value = 0.6;
             app.sHighThreshold.ValueChangedFcn = @(src, event) app.edge_detect.set('HighThreshold', event.Value);
 
             % Create lblSigmaSpinner
@@ -346,7 +346,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSigma.HorizontalAlignment = 'left';
             app.sSigma.Layout.Row = 3;
             app.sSigma.Layout.Column = 2;
-            app.sSigma.Value = 5;
+            app.sSigma.Value = 7;
             app.sSigma.ValueChangedFcn = @(src, event) app.edge_detect.set('Sigma', event.Value);
 
             % Create GridLayout7
@@ -427,7 +427,16 @@ classdef microarrayDesigner < matlab.apps.AppBase
             registerApp(app, app.UIFigure);
 
             app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
-            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size);
+
+            edge_detect_params = struct( ...
+            'Downscale1', str2double(app.ddDownscale1.Value(1)), ...
+            'Dilation', app.sDilation.Value, ...
+            'Downscale2', str2double(app.ddDownscale2.Value(1)), ...
+            'LowThreshold', app.sLowThreshold.Value, ...
+            'HighThreshold', app.sHighThreshold.Value, ...
+            'Sigma', app.sSigma.Value ...
+        );
+            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size, edge_detect_params);
 
             % STARTUP HACK
                 app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
