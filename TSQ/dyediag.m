@@ -129,7 +129,6 @@ colnames = {'Intensity (photons)','SNR_{sig}', 'Time ON (s)', 'Time OFF (s)', ..
              
 names = cell( nFiles,1 );  %plain-text name of each file
 ax = zeros(2,6);  %subplot axes
-photonsOverTime = zeros(0,nFiles);
 
 max_t = 0;
 max_snr = 0;
@@ -352,10 +351,8 @@ for i=1:nFiles,
     
 
     % Create photon emission rate plot
-    photonsOverTime(:,i) = mean( data.total.*(idl==onState), 1 );
-    
     ax(1,6) = subplot(2,6,6, 'Parent',hfig);
-    plot(ax(1,6), dwellaxis(1:end-1), photonsOverTime(:,i));
+    plot(ax(1,6), dwellaxis(1:end-1), mean( data.total.*(idl==onState), 1 ));
     hold( ax(1,6), 'all' );
     ylabel('Photon Yield');
 
