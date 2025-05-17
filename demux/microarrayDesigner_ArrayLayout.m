@@ -97,36 +97,28 @@ classdef microarrayDesigner_ArrayLayout < handle
             self.app.spots_changed();
         end
 
-        % Load layout
         function spot_size = load_layout(self, filename)
             if nargin < 2
                 [file, path] = uigetfile('*.json', 'Load microarray layout');
+                if isequal(file, 0) || isequal(path, 0)  % Check if the user canceled
+                    disp('File selection canceled.');
+                    spot_size = 'none';
+                    return;
+                end
                 filename = fullfile(path, file);
             end
 
             spot_size = 'none';
-            if ischar(filename)
+            if ischar(filename) && ~isempty(filename) && filename ~= "\"  % Ensure filename is valid
                 try
                     layoutData = self.read_layout_file(filename);
-                
                 catch ME
                     disp(['Error loading layout: ', ME.message]);
+                    return;
                 end
-                    self.process_loaded_layout(layoutData);
-            end
-        end
-
-        % Save layout
-        function save_layout(self)
-            try
-                layoutData = self.prepare_layout_data();
-                [file, path] = uiputfile('microarray_layout.json', 'Save microarray layout');
-
-                if ischar(file)
-                    self.write_layout_file(fullfile(path, file), layoutData);
-                end
-            catch ME
-                disp(['Error saving layout: ', ME.message]);
+                self.process_loaded_layout(layoutData);
+            else
+                disp('Invalid filename provided.');
             end
         end
     end
