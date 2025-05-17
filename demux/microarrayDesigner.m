@@ -401,7 +401,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create chkPlotResult
             app.chkPlotResult = uicheckbox(app.GridLayout8);
-            app.chkPlotResult.Text = 'Plot result';
+            app.chkPlotResult.Text = 'Show plots';
             app.chkPlotResult.Layout.Row = 1;
             app.chkPlotResult.Layout.Column = 2;
             app.chkPlotResult.Value = true;
@@ -409,7 +409,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
 
             % Create chkSavePlot
             app.chkSavePlot = uicheckbox(app.GridLayout8);
-            app.chkSavePlot.Text = 'Save plot';
+            app.chkSavePlot.Text = 'Save plots';
             app.chkSavePlot.Layout.Row = 1;
             app.chkSavePlot.Layout.Column = 3;
             app.chkSavePlot.Value = true;
