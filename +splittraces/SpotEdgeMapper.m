@@ -1,4 +1,4 @@
-classdef microarray_EdgeDetectionHandler < handle
+classdef SpotEdgeMapper < handle
     properties
         traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
         traces_files = [];  % Open traces files
@@ -43,7 +43,7 @@ classdef microarray_EdgeDetectionHandler < handle
 
     methods (Access = public)
         % Constructor
-        function self = microarray_EdgeDetectionHandler(ax_in, ax_out, px_size, edge_detect_params)
+        function self = SpotEdgeMapper(ax_in, ax_out, px_size, edge_detect_params)
             self.ax_in = ax_in;
             self.ax_out = ax_out;
             self.px_size = px_size;
@@ -355,7 +355,7 @@ classdef microarray_EdgeDetectionHandler < handle
         end
 
         % Run demultiplexing
-        function demux(self)
+        function split_traces(self)
 
             for i = 1:numel(self.traces_files)
 
@@ -452,8 +452,8 @@ classdef microarray_EdgeDetectionHandler < handle
                 % Save and/or display the plot
                 if self.get('SavePlot')
                     if self.get('CreateSubdir')
-                        % Save plot in the subdirectory as 'demux.png'
-                        plot_fn = fullfile(subdir_name, 'demux.png');
+                        % Save plot in the subdirectory as 'split_traces.png'
+                        plot_fn = fullfile(subdir_name, 'split_traces.png');
                     else
                         % Save plot in the parent directory, changing extension to PNG
                         plot_fn = fullfile(parent_path, [name, '.png']);

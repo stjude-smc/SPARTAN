@@ -1,4 +1,4 @@
-classdef microarrayDesigner_ArrayLayout < handle
+classdef SpotLayout < handle
     properties (Access = public)
         traces_X = [];
         traces_Y = [];
@@ -16,12 +16,12 @@ classdef microarrayDesigner_ArrayLayout < handle
 
         FOVrectHandle;
         scatterHandle;
-        app             microarrayDesigner;
+        app;
     end
 
     methods (Access = public)
         % Constructor
-        function self = microarrayDesigner_ArrayLayout(ax, app, spot_size, px_size)
+        function self = SpotLayout(ax, app, spot_size, px_size)
             self.app = app;
             self.px_size = px_size;
             self.spot_size = self.validate_spot_size(spot_size);

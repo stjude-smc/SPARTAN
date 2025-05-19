@@ -1,4 +1,4 @@
-classdef microarrayDesigner < matlab.apps.AppBase
+classdef SplitTracesGUI < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
@@ -31,14 +31,13 @@ classdef microarrayDesigner < matlab.apps.AppBase
         % Coordinates of loaded traces
         traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
         traces_files = [];  % Open traces files
-
-
-        % Microarray layout manager - consolidates microarray-related methods
-        array_layout                 microarrayDesigner_ArrayLayout
-        edge_detect                  microarray_EdgeDetectionHandler
     end
 
     properties (Access = private)
+        % Helper classes
+        spot_layout splittraces.SpotLayout;
+        edge_mapper splittraces.SpotEdgeMapper;
+
         % Auto-reflow width
         onePanelWidth = 700;
 
@@ -86,12 +85,12 @@ classdef microarrayDesigner < matlab.apps.AppBase
             filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.traces','Binary Traces Files (*.traces)';};
             app.traces_files = getFiles(filter);
-            app.edge_detect.load_traces_XY(app.traces_files);
-            app.array_layout.draw_traces(app.edge_detect.traces_xy);
+            app.edge_mapper.load_traces_XY(app.traces_files);
+            app.spot_layout.draw_traces(app.edge_mapper.traces_xy);
         end
 
         function load_layout_pushed(app)
-            ss = app.array_layout.load_layout();
+            ss = app.spot_layout.load_layout();
             if isnumeric(ss)
                 app.sSpotSize.Value = ss;
             end
@@ -107,7 +106,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             % Check for modifier keys
             modifiers = get(app.UIFigure, 'CurrentModifier');    
             if ismember('shift', modifiers)
-                app.array_layout.add_spot(x, y);
+                app.spot_layout.add_spot(x, y);
             end
         end
 
@@ -123,7 +122,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.AutoResizeChildren = 'on';
             app.UIFigure.Position = [100 100 1000 600];
-            app.UIFigure.Name = 'Microarray Designer';
+            app.UIFigure.Name = 'Split Microarray Traces';
 
             % Create GridLayout
             app.GridLayout = uigridlayout(app.UIFigure);
@@ -179,7 +178,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSpotSize.Layout.Row = 1;
             app.sSpotSize.Layout.Column = 3;
             app.sSpotSize.Value = 100;
-            app.sSpotSize.ValueChangedFcn = @(src, event) app.array_layout.update_spot_size(src.Value);
+            app.sSpotSize.ValueChangedFcn = @(src, event) app.spot_layout.update_spot_size(src.Value);
 
             % Create bLoadLayout
             app.btnLoadLayout = uibutton(app.GridLayout3, 'push');
@@ -193,7 +192,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.btnSaveLayout.Layout.Row = 2;
             app.btnSaveLayout.Layout.Column = 3;
             app.btnSaveLayout.Text = 'Save layout';
-            app.btnSaveLayout.ButtonPushedFcn = @(src, event) app.array_layout.save_layout()
+            app.btnSaveLayout.ButtonPushedFcn = @(src, event) app.spot_layout.save_layout()
 
             % Create lblAxMicroarrayLayout
             app.lblAxMicroarrayLayout = uilabel(app.GridLayout2);
@@ -260,7 +259,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.ddDownscale1.Layout.Row = 1;
             app.ddDownscale1.Layout.Column = 2;
             app.ddDownscale1.Value = '4x';
-            app.ddDownscale1.ValueChangedFcn = @(src, event) app.edge_detect.set('Downscale1', str2double(event.Value(1)));
+            app.ddDownscale1.ValueChangedFcn = @(src, event) app.edge_mapper.set('Downscale1', str2double(event.Value(1)));
 
             % Create lblDilationpxSpinner
             app.lblDilationpxSpinner = uilabel(app.GridLayout6);
@@ -276,7 +275,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sDilation.Layout.Row = 2;
             app.sDilation.Layout.Column = 2;
             app.sDilation.Value = 6;
-            app.sDilation.ValueChangedFcn = @(src, event) app.edge_detect.set('Dilation', event.Value);
+            app.sDilation.ValueChangedFcn = @(src, event) app.edge_mapper.set('Dilation', event.Value);
 
             % Create lblDownscalestep2DropDown
             app.lblDownscalestep2DropDown = uilabel(app.GridLayout6);
@@ -291,7 +290,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.ddDownscale2.Layout.Row = 3;
             app.ddDownscale2.Layout.Column = 2;
             app.ddDownscale2.Value = '2x';
-            app.ddDownscale2.ValueChangedFcn = @(src, event) app.edge_detect.set('Downscale2', str2double(event.Value(1)));
+            app.ddDownscale2.ValueChangedFcn = @(src, event) app.edge_mapper.set('Downscale2', str2double(event.Value(1)));
 
             % Create GridLayout6_2
             app.GridLayout6_2 = uigridlayout(app.GridLayout5);
@@ -315,7 +314,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sLowThreshold.Layout.Row = 1;
             app.sLowThreshold.Layout.Column = 2;
             app.sLowThreshold.Value = 0.05;
-            app.sLowThreshold.ValueChangedFcn = @(src, event) app.edge_detect.set('LowThreshold', event.Value);
+            app.sLowThreshold.ValueChangedFcn = @(src, event) app.edge_mapper.set('LowThreshold', event.Value);
 
             % Create lblHighthreshold
             app.lblHighthreshold = uilabel(app.GridLayout6_2);
@@ -332,7 +331,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sHighThreshold.Layout.Row = 2;
             app.sHighThreshold.Layout.Column = 2;
             app.sHighThreshold.Value = 0.6;
-            app.sHighThreshold.ValueChangedFcn = @(src, event) app.edge_detect.set('HighThreshold', event.Value);
+            app.sHighThreshold.ValueChangedFcn = @(src, event) app.edge_mapper.set('HighThreshold', event.Value);
 
             % Create lblSigmaSpinner
             app.lblSigmaSpinner = uilabel(app.GridLayout6_2);
@@ -349,7 +348,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.sSigma.Layout.Row = 3;
             app.sSigma.Layout.Column = 2;
             app.sSigma.Value = 7;
-            app.sSigma.ValueChangedFcn = @(src, event) app.edge_detect.set('Sigma', event.Value);
+            app.sSigma.ValueChangedFcn = @(src, event) app.edge_mapper.set('Sigma', event.Value);
 
             % Create GridLayout7
             app.chkAutoUpdate = uicheckbox(app.GridLayout5);
@@ -357,7 +356,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.chkAutoUpdate.Value = false;
             app.chkAutoUpdate.Layout.Row = 3;
             app.chkAutoUpdate.Layout.Column = 1;
-            app.chkAutoUpdate.ValueChangedFcn = @(src, event) app.edge_detect.enable_auto_update(event.Value);
+            app.chkAutoUpdate.ValueChangedFcn = @(src, event) app.edge_mapper.enable_auto_update(event.Value);
 
             % Create GridLayout7
             app.GridLayout7 = uigridlayout(app.GridLayout5);
@@ -370,14 +369,14 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.btnSaveSettings.Layout.Row = 1;
             app.btnSaveSettings.Layout.Column = 1;
             app.btnSaveSettings.Text = 'Save settings';
-            app.btnSaveSettings.ButtonPushedFcn = @(src, event) app.edge_detect.save_settings();
+            app.btnSaveSettings.ButtonPushedFcn = @(src, event) app.edge_mapper.save_settings();
 
             % Create btnLoadSettings
             app.btnLoadSettings = uibutton(app.GridLayout7, 'push');
             app.btnLoadSettings.Layout.Row = 1;
             app.btnLoadSettings.Layout.Column = 2;
             app.btnLoadSettings.Text = 'Load settings';
-            app.btnLoadSettings.ButtonPushedFcn = @(src, event) app.edge_detect.load_settings(app);
+            app.btnLoadSettings.ButtonPushedFcn = @(src, event) app.edge_mapper.load_settings(app);
 
             % Create OutputPanel
             app.OutputPanel = uipanel(app.GridLayout4);
@@ -397,7 +396,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.chkCreateSubdir.Layout.Row = 1;
             app.chkCreateSubdir.Layout.Column = 1;
             app.chkCreateSubdir.Value = true;
-            app.chkCreateSubdir.ValueChangedFcn = @(src, event) app.edge_detect.set('CreateSubdir', event.Value);
+            app.chkCreateSubdir.ValueChangedFcn = @(src, event) app.edge_mapper.set('CreateSubdir', event.Value);
 
             % Create chkPlotResult
             app.chkPlotResult = uicheckbox(app.GridLayout8);
@@ -405,7 +404,7 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.chkPlotResult.Layout.Row = 1;
             app.chkPlotResult.Layout.Column = 2;
             app.chkPlotResult.Value = true;
-            app.chkPlotResult.ValueChangedFcn = @(src, event) app.edge_detect.set('PlotResult', event.Value);
+            app.chkPlotResult.ValueChangedFcn = @(src, event) app.edge_mapper.set('PlotResult', event.Value);
 
             % Create chkSavePlot
             app.chkSavePlot = uicheckbox(app.GridLayout8);
@@ -413,14 +412,14 @@ classdef microarrayDesigner < matlab.apps.AppBase
             app.chkSavePlot.Layout.Row = 1;
             app.chkSavePlot.Layout.Column = 3;
             app.chkSavePlot.Value = true;
-            app.chkSavePlot.ValueChangedFcn = @(src, event) app.edge_detect.set('SavePlot', event.Value);
+            app.chkSavePlot.ValueChangedFcn = @(src, event) app.edge_mapper.set('SavePlot', event.Value);
 
             % Create btnDemuxTraces
             app.btnDemuxTraces = uibutton(app.GridLayout8, 'push');
             app.btnDemuxTraces.Layout.Row = 1;
             app.btnDemuxTraces.Layout.Column = 4;
-            app.btnDemuxTraces.Text = 'Demux traces';
-            app.btnDemuxTraces.ButtonPushedFcn = @(src, event) app.edge_detect.demux();
+            app.btnDemuxTraces.Text = 'Split traces';
+            app.btnDemuxTraces.ButtonPushedFcn = @(src, event) app.edge_mapper.split_traces();
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
@@ -431,12 +430,12 @@ classdef microarrayDesigner < matlab.apps.AppBase
     methods (Access = public)
         % Called when microarray layout has been changed, can trigger additional functions
         function spots_changed(app)
-            app.edge_detect.set_spots(app.array_layout.Spots);
-            app.edge_detect.compute_edges();
+            app.edge_mapper.set_spots(app.spot_layout.Spots);
+            app.edge_mapper.compute_edges();
         end
 
         % Construct app
-        function app = microarrayDesigner()
+        function app = SplitTracesGUI()
             app.px_size = compute_pixel_size(6.5, 60, 2);
 
             % Create UIFigure and components
@@ -446,29 +445,29 @@ classdef microarrayDesigner < matlab.apps.AppBase
             registerApp(app, app.UIFigure);
 
             % Create microarrya layout handler
-            app.array_layout = microarrayDesigner_ArrayLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
+            app.spot_layout = splittraces.SpotLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
 
             % Create edge detection handler and propagate settings from GUI
-            app.edge_detect = microarray_EdgeDetectionHandler(app.axCannyIn, app.axCannyOut, app.px_size);
+            app.edge_mapper = splittraces.SpotEdgeMapper(app.axCannyIn, app.axCannyOut, app.px_size);
             
-            app.edge_detect.set('Downscale1', str2double(app.ddDownscale1.Value(1)));
-            app.edge_detect.set('Dilation', app.sDilation.Value);
-            app.edge_detect.set('Downscale2', str2double(app.ddDownscale2.Value(1)));
-            app.edge_detect.set('LowThreshold', app.sLowThreshold.Value);
-            app.edge_detect.set('HighThreshold', app.sHighThreshold.Value);
-            app.edge_detect.set('Sigma', app.sSigma.Value);
-            app.edge_detect.set('CreateSubdir', app.chkCreateSubdir.Value);
+            app.edge_mapper.set('Downscale1', str2double(app.ddDownscale1.Value(1)));
+            app.edge_mapper.set('Dilation', app.sDilation.Value);
+            app.edge_mapper.set('Downscale2', str2double(app.ddDownscale2.Value(1)));
+            app.edge_mapper.set('LowThreshold', app.sLowThreshold.Value);
+            app.edge_mapper.set('HighThreshold', app.sHighThreshold.Value);
+            app.edge_mapper.set('Sigma', app.sSigma.Value);
+            app.edge_mapper.set('CreateSubdir', app.chkCreateSubdir.Value);
 
 
             % % STARTUP HACK
             %     app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
-            %     app.edge_detect.load_traces_XY(app.traces_files);
-            %     app.array_layout.draw_traces(app.edge_detect.traces_xy);
+            %     app.edge_mapper.load_traces_XY(app.traces_files);
+            %     app.spot_layout.draw_traces(app.edge_mapper.traces_xy);
 
-            %     app.array_layout.load_layout('C:/Users/rkiselev/Desktop/3x3 microarray_layout.json')
+            %     app.spot_layout.load_layout('C:/Users/rkiselev/Desktop/3x3 microarray_layout.json')
 
             %     app.chkAutoUpdate.Value = true;
-            %     app.edge_detect.enable_auto_update(true)
+            %     app.edge_mapper.enable_auto_update(true)
             % % END STARTUP HACK
 
             if nargout == 0
