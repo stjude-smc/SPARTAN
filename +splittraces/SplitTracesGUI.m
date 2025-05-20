@@ -430,7 +430,6 @@ classdef SplitTracesGUI < matlab.apps.AppBase
     methods (Access = public)
         % Called when microarray layout has been changed, can trigger additional functions
         function spots_changed(app)
-            app.edge_mapper.set_spots(app.spot_layout.Spots);
             app.edge_mapper.compute_edges();
         end
 
@@ -448,7 +447,7 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             app.spot_layout = splittraces.SpotLayout(app.axMicroarray, app, app.sSpotSize.Value, app.px_size);
 
             % Create edge detection handler and propagate settings from GUI
-            app.edge_mapper = splittraces.SpotEdgeMapper(app.axCannyIn, app.axCannyOut, app.px_size);
+            app.edge_mapper = splittraces.SpotEdgeMapper(app.axCannyIn, app.axCannyOut, app.px_size, app.spot_layout);
             
             app.edge_mapper.set('Downscale1', str2double(app.ddDownscale1.Value(1)));
             app.edge_mapper.set('Dilation', app.sDilation.Value);
@@ -460,11 +459,11 @@ classdef SplitTracesGUI < matlab.apps.AppBase
 
 
             % % STARTUP HACK
-            %     app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
-            %     app.edge_mapper.load_traces_XY(app.traces_files);
-            %     app.spot_layout.draw_traces(app.edge_mapper.traces_xy);
+                 app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
+                 app.edge_mapper.load_traces_XY(app.traces_files);
+                 app.spot_layout.draw_traces(app.edge_mapper.traces_xy);
 
-            %     app.spot_layout.load_layout('C:/Users/rkiselev/Desktop/3x3 microarray_layout.json')
+                 app.spot_layout.load_layout('C:/Users/rkiselev/Desktop/3x3 microarray_layout.json');
 
             %     app.chkAutoUpdate.Value = true;
             %     app.edge_mapper.enable_auto_update(true)

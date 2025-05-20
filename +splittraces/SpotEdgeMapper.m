@@ -9,7 +9,6 @@ classdef SpotEdgeMapper < handle
         ax_in;
         ax_out;
         px_size;
-        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {});
         mask;
     end
 
@@ -39,14 +38,16 @@ classdef SpotEdgeMapper < handle
             'SavePlot', true ...
         );
         FOVrectHandle;
+        spot_layout;
     end
 
     methods (Access = public)
         % Constructor
-        function self = SpotEdgeMapper(ax_in, ax_out, px_size, edge_detect_params)
+        function self = SpotEdgeMapper(ax_in, ax_out, px_size, spot_layout)
             self.ax_in = ax_in;
             self.ax_out = ax_out;
             self.px_size = px_size;
+            self.spot_layout = spot_layout;
 
             % Configure axes
             self.configure_axes(self.ax_out);
@@ -96,12 +97,8 @@ classdef SpotEdgeMapper < handle
             self.compute_edges(self.traces_xy);
         end
 
-        function set_spots(self, Spots)
-            self.Spots = struct('id', {Spots.id}, 'position', {Spots.position}, 'size', {Spots.size});
-        end
-
         function labeledImage = createLabeledImage(self)
-            Spots = self.Spots;
+            Spots = self.spot_layout.Spots;
             nX = self.traces_xy.nX;
             nY = self.traces_xy.nY;
 
@@ -111,12 +108,13 @@ classdef SpotEdgeMapper < handle
             % Create a circular mask for each spot
             [X, Y] = meshgrid(1:nX, 1:nY); % Generate grid for image coordinates
 
-            for i = 1:length(Spots)
-                % Get spot center and ID
-                xCenter = Spots(i).position(1) / self.px_size;
-                yCenter = Spots(i).position(2) / self.px_size;
-                spotID = Spots(i).id;
-                spotSize = Spots(i).size / self.px_size;
+            ids = Spots.keys;
+            for k = 1:numel(ids)
+                spot = Spots(ids{k});
+                xCenter = spot.position(1) / self.px_size;
+                yCenter = spot.position(2) / self.px_size;
+                spotID = spot.id;
+                spotSize = spot.size / self.px_size;
 
                 % Create a circular mask for the current spot
                 mask = (X - xCenter).^2 + (Y - yCenter).^2 <= (spotSize / 2)^2;
@@ -311,6 +309,7 @@ classdef SpotEdgeMapper < handle
             circles = containers.Map('KeyType', 'int32', 'ValueType', 'any');
 
             % Loop through each object
+            Spots = self.spot_layout.Spots;
             for i = 1:num_objects
                 % Extract edge coordinates for the current object
                 obj_id = keys{i};
@@ -318,9 +317,9 @@ classdef SpotEdgeMapper < handle
 
                 % Default values for center and radius
                 margin = self.params.Downscale1 * self.params.Downscale2 / 2;
-                cx = self.Spots(obj_id).position(1) / self.px_size;
-                cy = self.Spots(obj_id).position(2) / self.px_size;
-                r = 0.5 * self.Spots(obj_id).size / self.px_size;
+                cx = Spots(obj_id).position(1) / self.px_size;
+                cy = Spots(obj_id).position(2) / self.px_size;
+                r = 0.5 * Spots(obj_id).size / self.px_size;
 
                 % Refine center and radius if have enough data points
                 if size(edges, 1) >= 10

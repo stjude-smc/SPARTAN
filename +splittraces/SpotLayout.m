@@ -7,7 +7,7 @@ classdef SpotLayout < handle
         px_size;
         ax              matlab.ui.control.UIAxes;
         spot_size = 0;
-        Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}, 'size', {}); % Include 'size' for each spot
+        Spots = containers.Map('KeyType','int32','ValueType','any');
     end
 
     properties (Access = private)
@@ -76,21 +76,23 @@ classdef SpotLayout < handle
 
             if nargin < 3  % Update all spots if spot_id is not provided
                 self.spot_size = new_size;
-                for i = 1:length(self.Spots)
-                    self.Spots(i).size = new_size; % Update size property
-                    pt = self.Spots(i).position;
+                ids = self.Spots.keys;
+                for i = 1:numel(ids)
+                    spot = self.Spots(ids{i});
+                    spot.size = new_size; % Update size property
+                    pt = spot.position;
                     [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2), new_size);
-                    set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
+                    set(spot.patch, 'XData', xCircle, 'YData', yCircle);
+                    self.Spots(spot.id) = spot; % Re-insert to update
                 end
             else  % Update a specific spot by ID
-                for i = 1:length(self.Spots)
-                    if self.Spots(i).id == spot_id
-                        self.Spots(i).size = new_size; % Update size property
-                        pt = self.Spots(i).position;
-                        [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2), new_size);
-                        set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
-                        break;
-                    end
+                if isKey(self.Spots, spot_id)
+                    spot = self.Spots(spot_id);
+                    spot.size = new_size; % Update size property
+                    pt = spot.position;
+                    [xCircle, yCircle] = self.compute_circle_coordinates(pt(1), pt(2), new_size);
+                    set(spot.patch, 'XData', xCircle, 'YData', yCircle);
+                    self.Spots(spot.id) = spot; % Re-insert to update
                 end
             end
 
@@ -185,13 +187,14 @@ classdef SpotLayout < handle
         function adjust_z_order(self)
             uistack(self.scatterHandle, 'bottom');
             uistack(self.FOVrectHandle, 'bottom');
-
-            for i = 1:length(self.Spots)
-                if isvalid(self.Spots(i).patch)
-                    uistack(self.Spots(i).patch, 'top');
+            ids = self.Spots.keys;
+            for i = 1:numel(ids)
+                spot = self.Spots(ids{i});
+                if isvalid(spot.patch)
+                    uistack(spot.patch, 'top');
                 end
-                if isvalid(self.Spots(i).text)
-                    uistack(self.Spots(i).text, 'top');
+                if isvalid(spot.text)
+                    uistack(spot.text, 'top');
                 end
             end
         end
@@ -244,11 +247,13 @@ classdef SpotLayout < handle
 
         % Store spot data
         function store_spot_data(self, patchHandle, textHandle, position, id, size)
-            self.Spots(end+1).patch = patchHandle;
-            self.Spots(end).position = position;
-            self.Spots(end).text = textHandle;
-            self.Spots(end).id = id;
-            self.Spots(end).size = size; % Store size
+            self.Spots(id) = struct( ...
+                'patch', patchHandle, ...
+                'position', position, ...
+                'text', textHandle, ...
+                'id', id, ...
+                'size', size ...
+            );
         end
 
         % Read layout file
@@ -260,26 +265,38 @@ classdef SpotLayout < handle
         % Process loaded layout
         function process_loaded_layout(self, layoutData)
             % Delete existing spots
-            for i = 1:length(self.Spots)
-                delete(self.Spots(i).patch);
-                delete(self.Spots(i).text);
+            ids = self.Spots.keys;
+            for i = 1:numel(ids)
+                spot = self.Spots(ids{i});
+                delete(spot.patch);
+                delete(spot.text);
             end
-            self.Spots = struct('patch', {}, 'position', {}, 'text', {}, 'id', {}, 'size', {}); % Reset data
+            self.Spots = containers.Map('KeyType','int32','ValueType','any'); % Reset as empty map
 
             % Reconstruct the spots
             for i = 1:length(layoutData.Spots)
-                x = layoutData.Spots(i).position(1);
-                y = layoutData.Spots(i).position(2);
-                id = layoutData.Spots(i).id;
-                size = layoutData.Spots(i).size; % Load size
+                spot = layoutData.Spots(i);
+                x = spot.position(1);
+                y = spot.position(2);
+                id = spot.id;
+                size = spot.size; % Load size
                 self.add_spot(x, y, id, size);
             end
         end
 
         % Prepare layout data for saving
         function layoutData = prepare_layout_data(self)
-            roundedPositions = arrayfun(@(spot) round(spot.position), self.Spots, 'UniformOutput', false);
-            layoutData.Spots = struct('id', {self.Spots.id}, 'position', roundedPositions, 'size', {self.Spots.size});
+            ids = self.Spots.keys;
+            spots_cell = cell(1, numel(ids));
+            for i = 1:numel(ids)
+                spot = self.Spots(ids{i});
+                spots_cell{i} = struct( ...
+                    'id', spot.id, ...
+                    'position', round(spot.position), ...
+                    'size', spot.size ...
+                );
+            end
+            layoutData.Spots = [spots_cell{:}];
         end
 
         % Write layout file
@@ -304,36 +321,40 @@ classdef SpotLayout < handle
             self.app.spots_changed();
         end
 
-        % Delete spot
         function delete_spot(self, src)
-            for i = length(self.Spots):-1:1
-                if self.Spots(i).patch == src || self.Spots(i).text == src
-                    delete(self.Spots(i).patch);
-                    delete(self.Spots(i).text);
-
-                    self.AvailableIDs(end+1) = self.Spots(i).id;
+            % Find the spot id
+            ids = self.Spots.keys;
+            for i = 1:numel(ids)
+                spot = self.Spots(ids{i});
+                if spot.patch == src || spot.text == src
+                    delete(spot.patch);
+                    delete(spot.text);
+                    self.AvailableIDs(end+1) = spot.id;
                     self.AvailableIDs = sort(self.AvailableIDs);
-
-                    self.Spots(i) = [];
+                    remove(self.Spots, spot.id);
                     break;
                 end
             end
         end
 
-        % Move spot
         function move_spot(self, src)
             pt = get(self.ax, 'CurrentPoint');
             x = pt(1, 1);
             y = pt(1, 2);
 
-            for i = length(self.Spots):-1:1
-                if self.Spots(i).patch == src || self.Spots(i).text == src
-                    size = self.Spots(i).size; % Use the stored size
-                    [xCircle, yCircle] = self.compute_circle_coordinates(x, y, size);
-                    set(self.Spots(i).patch, 'XData', xCircle, 'YData', yCircle);
+            ids = self.Spots.keys;
+            for i = 1:numel(ids)
+                spot = self.Spots(ids{i});
+                if spot.patch == src || spot.text == src
+                    % Update the patch and text
+                    [xCircle, yCircle] = self.compute_circle_coordinates(x, y, spot.size);
+                    set(spot.patch, 'XData', xCircle, 'YData', yCircle);
 
-                    self.Spots(i).position = [x, y];
-                    set(self.Spots(i).text, 'Position', [x, y]);
+                    spot.position = [x, y];
+                    set(spot.text, 'Position', [x, y]);
+
+                    % Update the map with the modified spot
+                    self.Spots(spot.id) = spot;
                     break;
                 end
             end
