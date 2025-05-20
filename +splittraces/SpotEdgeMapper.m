@@ -136,12 +136,7 @@ classdef SpotEdgeMapper < handle
                 traces_xy = self.traces_xy;
             end
 
-            if self.auto_update
-                % Validate input traces
-                if isempty(traces_xy.X)
-                    error('Invalid input: `traces` is empty');
-                end
-
+            if self.auto_update & ~isempty(traces_xy.X)
                 % Extract metadata
                 x = traces_xy.X;
                 y = traces_xy.Y;
