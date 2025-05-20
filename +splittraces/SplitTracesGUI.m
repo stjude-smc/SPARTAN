@@ -458,17 +458,6 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             app.edge_mapper.set('CreateSubdir', app.chkCreateSubdir.Value);
 
 
-            % % STARTUP HACK
-                 app.traces_files = 'Z:/ResearchHome/Groups/blancgrp/home/common/Ryan/2025_03_24_NanoPlotterPrintedPlates/2_X3P13C3_3x3Strep50pcGly1pcTrehalose/6_14ntDNA_FRET_250mW_100ms000.rawtraces';
-                 app.edge_mapper.load_traces_XY(app.traces_files);
-                 app.spot_layout.draw_traces(app.edge_mapper.traces_xy);
-
-                 app.spot_layout.load_layout('C:/Users/rkiselev/Desktop/3x3 microarray_layout.json');
-
-            %     app.chkAutoUpdate.Value = true;
-            %     app.edge_mapper.enable_auto_update(true)
-            % % END STARTUP HACK
-
             if nargout == 0
                 clear app
             end
