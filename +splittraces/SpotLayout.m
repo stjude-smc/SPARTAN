@@ -121,6 +121,19 @@ classdef SpotLayout < handle
                 disp('Invalid filename provided.');
             end
         end
+
+        function save_layout(self)
+            try
+                layoutData = self.prepare_layout_data();
+                [file, path] = uiputfile('microarray_layout.json', 'Save microarray layout');
+
+                if ischar(file)
+                    self.write_layout_file(fullfile(path, file), layoutData);
+                end
+            catch ME
+                disp(['Error saving layout: ', ME.message]);
+            end
+        end
     end
 
     methods (Access = private)
