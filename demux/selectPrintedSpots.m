@@ -10,8 +10,8 @@ function selectPrintedSpots( files )
 %  - C (bottom left)
 %  - D (bottom right)
 
-fprintf('\nWARNING: use `demux_spots` to extract traces from microarray spots.\n')
-fprintf('    `demux_spots` does edge detection and yields better results.\n')
+fprintf('\nWARNING: use `splittraces` to extract traces from microarray spots.\n')
+fprintf('    `splittraces` has GUI, does edge detection, and supports arbitrary microarray configuration.\n')
 fprintf('    `selectPrintedSpots` is provided for compatibility only and will be removed in the future.\n')
 
 % Parameters
