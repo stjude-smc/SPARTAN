@@ -16,6 +16,7 @@ classdef SplitTracesGUI < matlab.apps.AppBase
         chkCreateSubdir              matlab.ui.control.CheckBox
         chkPlotResult                matlab.ui.control.CheckBox
         chkSavePlot                  matlab.ui.control.CheckBox
+        chkCombineTraces             matlab.ui.control.CheckBox
         ddDownscale1                 matlab.ui.control.DropDown
         ddDownscale2                 matlab.ui.control.DropDown
         sDilation                    matlab.ui.control.Spinner
@@ -387,7 +388,7 @@ classdef SplitTracesGUI < matlab.apps.AppBase
 
             % Create GridLayout8
             app.GridLayout8 = uigridlayout(app.OutputPanel);
-            app.GridLayout8.ColumnWidth = {'1x', '1x', '1x', '1x'};
+            app.GridLayout8.ColumnWidth = {'13x', '8x', '8x', '11x', '8x'};
             app.GridLayout8.RowHeight = {'1x'};
 
             % Create chkCreateSubdir
@@ -414,10 +415,18 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             app.chkSavePlot.Value = true;
             app.chkSavePlot.ValueChangedFcn = @(src, event) app.edge_mapper.set('SavePlot', event.Value);
 
+            % Create chkCombineTraces
+            app.chkCombineTraces = uicheckbox(app.GridLayout8);
+            app.chkCombineTraces.Text = 'Combine datasets';
+            app.chkCombineTraces.Layout.Row = 1;
+            app.chkCombineTraces.Layout.Column = 4;
+            app.chkCombineTraces.Value = true;
+            app.chkCombineTraces.ValueChangedFcn = @(src, event) app.edge_mapper.set('CombineDatasets', event.Value);
+
             % Create btnDemuxTraces
             app.btnDemuxTraces = uibutton(app.GridLayout8, 'push');
             app.btnDemuxTraces.Layout.Row = 1;
-            app.btnDemuxTraces.Layout.Column = 4;
+            app.btnDemuxTraces.Layout.Column = 5;
             app.btnDemuxTraces.Text = 'Split traces';
             app.btnDemuxTraces.ButtonPushedFcn = @(src, event) app.edge_mapper.split_traces();
 
@@ -476,4 +485,20 @@ end
 % Compute pixel size
 function px_size = compute_pixel_size(cam_px_size, magnification, cam_binning)
     px_size = cam_px_size * cam_binning / magnification;
+end
+
+
+function dirName = commonDir(files)
+    nFiles = numel(files);
+    for i=1:nFiles
+        files{i} = fileparts(files{i});
+    end
+    files = char(files);
+    diffs = zeros(1,size(files,2));
+    for i=1:nFiles
+        diffs = diffs | files(i,:)~=files(1,:);
+    end
+    lastDiff = find(diffs);
+    if isempty(lastDiff), lastDiff = size(files,2); end
+    dirName = fileparts( files(1,1:lastDiff) );
 end

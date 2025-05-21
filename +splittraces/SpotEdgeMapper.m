@@ -22,6 +22,7 @@ classdef SpotEdgeMapper < handle
         Sigma;          % Sigma for Canny
         % Output settings
         CreateSubdir;   % Whether a new directory should be created for every input file
+        CombineDatasets;  % Whether output traces should be combined into a single file
     end
 
     properties (Access = private)
@@ -35,7 +36,8 @@ classdef SpotEdgeMapper < handle
             'Sigma', 7, ...
             'CreateSubdir', true, ...
             'PlotResult', true, ...
-            'SavePlot', true ...
+            'SavePlot', true, ...
+            'CombineDatasets', true ...
         );
         FOVrectHandle;
         spot_layout;
@@ -348,30 +350,53 @@ classdef SpotEdgeMapper < handle
             end
         end
 
-        % Run demultiplexing
         function split_traces(self)
+            [split_files, spot_id_list] = self.split_dataset_traces();
 
-            for i = 1:numel(self.traces_files)
+            % If combine checkbox is checked, combine datasets per each spot
+            if self.params.CombineDatasets
+                self.combine_datasets(split_files, spot_id_list);
+            end
+        end
 
+        function [split_files, spot_id_list] = split_dataset_traces(self)
+            % Get all spot IDs from the layout (order preserved)
+            spot_id_list = cell2mat(self.spot_layout.Spots.keys); % e.g., [2 4 5 9 ...]
+            n_input = numel(self.traces_files);
+            n_spots = numel(spot_id_list);
+
+            % Preallocate output cell array: rows=input files, cols=spot IDs
+            split_files = cell(n_input, n_spots);
+
+            for i = 1:n_input
                 fn = self.traces_files{i};
+                [parent_path, name, extension] = fileparts(fn);
 
-                % Extract file parts
-                [parent_path, name, extension] = fileparts(fn);  % Extract file name without extension
+                % Optionally create subdirectory for this input file
+                if self.get('CreateSubdir')
+                    out_dir = fullfile(parent_path, name);
+                    if ~exist(out_dir, 'dir')
+                        mkdir(out_dir);
+                    end
+                else
+                    out_dir = parent_path;
+                end
 
-                % Initialize figure
-                if self.get('PlotResult') || self.get('SavePlot')
-                    fig = figure();  % Create figure
-                    ax = gca();      % Get current axes
-                    self.configure_axes(ax);  % Configure axes
+                % Plotting setup
+                doPlot = self.get('PlotResult') || self.get('SavePlot');
+                if doPlot
+                    fig = figure();
+                    ax = gca();
+                    self.configure_axes(ax);
                     hold(ax, 'on');
                 else
-                    ax = [];  % No figure or axes needed
+                    ax = [];
                 end
 
                 % Load traces file
                 data = loadTraces(fn);
 
-                % Extract coordinates
+                % Extract coordinates for all points
                 x = [data.traceMetadata.donor_x];
                 y = [data.traceMetadata.donor_y];
                 traces_xy = struct('X', x, 'Y', y, 'nX', data.fileMetadata.nX, 'nY', data.fileMetadata.nY);
@@ -381,96 +406,135 @@ classdef SpotEdgeMapper < handle
                     self.create_FOV_rectangle(ax, 1);
                 end
 
-                % Compute edges and fit circles
+                % Compute edges and fit circles for this file
                 self.compute_edges(traces_xy);
                 circles = self.fit_circles(ax, 1);
 
-                % Scatter plot for all points
-                if ~isempty(ax)
+                if doPlot
                     scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
                 end
 
-                % Set title
-                if ~isempty(ax)
-                    title(ax, name, 'Interpreter', 'none');
-                end
+                % For each spot in the layout, try to split and save
+                cmap = lines(n_spots);
+                for j = 1:n_spots
+                    spot_id = spot_id_list(j);
+                    if ~isKey(self.spot_layout.Spots, spot_id)
+                        split_files{i, j} = '';
+                        continue;
+                    end
 
-                % Process circles (now using dictionary keys)
-                keys = circles.keys();  % Get all object IDs
-                cmap = lines(numel(keys));  % Generate colormap
+                    % Only process if a circle was fitted for this spot in this file
+                    if ~isKey(circles, spot_id)
+                        split_files{i, j} = '';
+                        continue;
+                    end
 
-                for j = 1:numel(keys)
-                    obj_id = keys{j};              % Current object ID
-                    circle = circles(obj_id);      % [cx, cy, r] for the current circle
+                    circle = circles(spot_id);
                     cx = circle(1);
                     cy = circle(2);
-                    r = circle(3) + 5;  % Add little margin
+                    r = circle(3) + 5; % Add margin
 
-                    % Compute distances from all points to the circle center
                     distances = sqrt((x - cx).^2 + (y - cy).^2);
+                    in_spot = distances <= r;
 
-                    % Create a boolean mask for points within the circle
-                    in_circle = distances <= r;
-
-                    % Extract the subset of traces for this circle
-                    subset = data.getSubset(in_circle);
-
-                    % Scatter plot for points in the circle
-                    if ~isempty(ax)
-                        scatter(ax, [subset.traceMetadata.donor_x], ...
-                                [subset.traceMetadata.donor_y], ...
-                                5, cmap(j, :), 'filled');
+                    if ~any(in_spot)
+                        split_files{i, j} = '';
+                        continue;
                     end
 
-                    % Save the subset to the corresponding output file
+                    subset = data.getSubset(in_spot);
+
                     if self.get('CreateSubdir')
-                        % Create the folder in the same directory as the original file
-                        subdir_name = fullfile(parent_path, name);
-
-                        % Create the folder if it doesn't exist
-                        if ~exist(subdir_name, 'dir')
-                            mkdir(subdir_name);
-                        end
-
-                        % Save traces file
-                        out_fn = fullfile(subdir_name, sprintf('%s_%02d%s', name, obj_id, extension));
+                        out_fn = fullfile(out_dir, sprintf('spot_%02d%s', spot_id, extension));
                     else
-                        % Save traces file directly in the parent directory
-                        out_fn = fullfile(parent_path, sprintf('%s_%02d%s', name, obj_id, extension));
+                        out_fn = fullfile(out_dir, sprintf('%s_%02d%s', name, spot_id, extension));
                     end
 
-                    disp(strcat("Saving ", out_fn));
                     saveTraces(out_fn, subset);
-                end
 
-                % Save and/or display the plot
-                if self.get('SavePlot')
-                    if self.get('CreateSubdir')
-                        % Save plot in the subdirectory as 'split_traces.png'
-                        plot_fn = fullfile(subdir_name, 'split_traces.png');
-                    else
-                        % Save plot in the parent directory, changing extension to PNG
-                        plot_fn = fullfile(parent_path, [name, '.png']);
-                    end
+                    split_files{i, j} = out_fn;
 
-                    % Save the figure
-                    saveas(fig, plot_fn);
-                    disp(strcat("Plot saved as: ", plot_fn));
-
-                    % Close the figure if `PlotResult` is false
-                    if ~self.get('PlotResult')
-                        close(fig);
+                    if doPlot
+                        scatter(ax, [subset.traceMetadata.donor_x], [subset.traceMetadata.donor_y], 5, cmap(j,:), 'filled');
                     end
                 end
 
-                % Close the figure if `PlotResult` is false and `SavePlot` is false
-                if self.get('PlotResult')
+                if doPlot
+                    title(ax, name, 'Interpreter', 'none');
                     legend(ax, 'off');
                     hold(ax, 'off');
+
+                    if self.get('SavePlot')
+                        if self.get('CreateSubdir')
+                            plot_fn = fullfile(out_dir, 'split_traces.png');
+                        else
+                            plot_fn = fullfile(parent_path, [name, '.png']);
+                        end
+                        saveas(fig, plot_fn);
+                        disp(['Plot saved as: ', plot_fn]);
+                        if ~self.get('PlotResult')
+                            close(fig);
+                        end
+                    else
+                        if ~self.get('PlotResult')
+                            close(fig);
+                        end
+                    end
                 end
             end
         end
 
+        function combine_datasets(self, split_files, spot_id_list)
+            % Prompt user for combined output prefix
+            defaultPrefix = 'combined';
+            % Flatten, remove empties, and find common directory
+            all_files = split_files(:);
+            all_files = all_files(~cellfun(@isempty, all_files));
+            if isempty(all_files)
+                disp('No files to combine.');
+                return;
+            end
+            p = commonDir(all_files);
+
+            fileFilter = {
+                '*.rawtraces', 'Raw Traces files (*.rawtraces)';
+                '*.traces',    'Traces files (*.traces)';
+                '*.*',         'All Files (*.*)'
+            };
+
+            [filename, pathname] = uiputfile(fileFilter, ...
+                'Select prefix to save combined traces', ...
+                fullfile(p, defaultPrefix));
+            if isequal(filename,0) || isequal(pathname,0)
+                disp('User canceled file selection.');
+                return;
+            end
+            prefix_fullpath = fullfile(pathname, filename);
+
+            n_spots = numel(spot_id_list);
+            n_input = size(split_files, 1);
+
+            % Use the extension of the first non-empty file for each spot
+            for j = 1:n_spots
+                spot_id = spot_id_list(j);
+                files_to_combine = split_files(:, j);
+                files_to_combine = files_to_combine(~cellfun(@isempty, files_to_combine));
+                if isempty(files_to_combine)
+                    fprintf('No traces to combine for spot %d\n', spot_id);
+                    continue;
+                end
+
+                % Determine extension to use
+                [~, ~, ext] = fileparts(files_to_combine{1});
+                [folder, base, ~] = fileparts(prefix_fullpath);
+                outputPath = fullfile(folder, sprintf('%s_%02d%s', base, spot_id, ext));
+
+                % Combine the files
+                combineDatasets(files_to_combine, outputPath);
+
+                disp(['Combined spot ' num2str(spot_id) ' -> ' outputPath]);
+            end
+        end
     end
 
     methods (Access = private)
@@ -655,4 +719,37 @@ function char_cell = convert_to_char_cell(input)
     else
         error('Input must be a string, char, or cell array of strings.');
     end
+end
+
+function dirName = commonDir( files )
+    % Find the common directory containing all give FILES.
+
+    % Take out only path names from files
+    nFiles = numel(files);
+    for i=1:nFiles,
+        files{i} = fileparts(files{i});
+    end
+
+    % Concatinate all pathnames into a single string matrix.
+    files = char(files);
+
+    % Find any differences
+    diffs = zeros(1,size(files,2));
+
+    for i=1:nFiles
+        diffs = diffs | files(i,:)~=files(1,:);
+    end
+
+    % No differences - we got the folder!
+    if ~any(diffs)
+        dirName = files(1, :);
+        return;
+    end
+
+    lastDiff = find(diffs);
+    if isempty(lastDiff), lastDiff = size(files,2); end
+
+    % Find directory name by going back to the last path seperating character.
+    dirName = fileparts( files(1,1:lastDiff) );
+
 end
