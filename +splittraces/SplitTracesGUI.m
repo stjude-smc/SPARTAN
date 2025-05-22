@@ -487,18 +487,3 @@ function px_size = compute_pixel_size(cam_px_size, magnification, cam_binning)
     px_size = cam_px_size * cam_binning / magnification;
 end
 
-
-function dirName = commonDir(files)
-    nFiles = numel(files);
-    for i=1:nFiles
-        files{i} = fileparts(files{i});
-    end
-    files = char(files);
-    diffs = zeros(1,size(files,2));
-    for i=1:nFiles
-        diffs = diffs | files(i,:)~=files(1,:);
-    end
-    lastDiff = find(diffs);
-    if isempty(lastDiff), lastDiff = size(files,2); end
-    dirName = fileparts( files(1,1:lastDiff) );
-end
