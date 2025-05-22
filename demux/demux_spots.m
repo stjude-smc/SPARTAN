@@ -11,6 +11,10 @@ function demux_spots(files, PLT)
 %       - string: Save plot to the specified file name
 %       - cell array: Save plots to corresponding file names for each input file.
 
+fprintf('\nWARNING: use `splittraces` to extract traces from microarray spots.\n')
+fprintf('    `splittraces` has GUI and supports arbitrary microarray configuration.\n')
+fprintf('    `demux_spots` is provided for compatibility only and will be removed in the future.\n')
+
 % Parameters
 suffix = {'A', 'B', 'C', 'D'}; % Add to split file names
 

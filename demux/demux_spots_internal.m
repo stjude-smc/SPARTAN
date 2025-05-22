@@ -40,25 +40,39 @@ function demux_spots_internal(input, output, PLT, keep_plot)
         figure;
         ax = gca(); % Create a figure and get the axes
         plt_name = PLT; % Use the specified file name
+    elseif iscell(PLT)
+        figure;
+        ax = gca(); % Create a figure and get the axes
+        plt_name = PLT; % Use the specified file names
     else
         error('Invalid value for PLT');
     end
-
+    
     % Perform edge detection and circle fitting
     edge_coords = find_spot_edges(data, ax);
     circles = fit_circles(data, edge_coords, ax);
-
+    
     % Save the plot if axes were created
     if ~isempty(ax)
         margin = 80;
         xlim([1 - margin, nY + margin]); % Horizontal limits
         ylim([1 - margin, nX + margin]); % Vertical limits
         title([f e], 'Interpreter', 'none');
-        saveas(gcf(), plt_name); % Save the plot as an image
+        
+        % Handle single file or multiple files
+        if ischar(plt_name)
+            saveas(gcf(), plt_name); % Save the plot as an image
+        elseif iscell(plt_name)
+            for i = 1:length(plt_name)
+                saveas(gcf(), plt_name{i}); % Save the plot in each specified format
+            end
+        end
+    
         if ~keep_plot
             close(gcf());
         end
     end
+
 
     % Process each circle
     for j = 1:size(circles, 1)
