@@ -7,7 +7,7 @@ classdef SpotLayout < handle
         px_size;
         ax              matlab.ui.control.UIAxes;
         spot_size = 0;
-        Spots = containers.Map('KeyType','int32','ValueType','any');
+        Spots;
     end
 
     properties (Access = private)
@@ -22,6 +22,7 @@ classdef SpotLayout < handle
     methods (Access = public)
         % Constructor
         function self = SpotLayout(ax, app, spot_size, px_size)
+            self.Spots = containers.Map('KeyType','int32','ValueType','any');
             self.app = app;
             self.px_size = px_size;
             self.spot_size = self.validate_spot_size(spot_size);

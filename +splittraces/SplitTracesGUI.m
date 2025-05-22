@@ -6,7 +6,7 @@ classdef SplitTracesGUI < matlab.apps.AppBase
         axCannyIn                    matlab.ui.control.UIAxes
         axCannyOut                   matlab.ui.control.UIAxes
         axMicroarray                 matlab.ui.control.UIAxes
-        btnDemuxTraces               matlab.ui.control.Button
+        btnSplitTraces               matlab.ui.control.Button
         btnLoadLayout                matlab.ui.control.Button
         btnLoadSettings              matlab.ui.control.Button
         btnLoadTraces                matlab.ui.control.Button
@@ -106,6 +106,11 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             end
         end
 
+        function autoUpdateChanged(app, value)
+            app.btnSplitTraces.Enable = matlab.lang.OnOffSwitchState(value);
+            app.edge_mapper.enable_auto_update(value);
+        end
+
 
     %%
     % Component initialization
@@ -195,7 +200,7 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             app.lblAxMicroarrayLayout.HorizontalAlignment = 'center';
             app.lblAxMicroarrayLayout.Layout.Row = 1;
             app.lblAxMicroarrayLayout.Layout.Column = 1;
-            app.lblAxMicroarrayLayout.Text = {'Microarray layout'; 'Add spots with Shift+click, remove with Ctrl+click'};
+            app.lblAxMicroarrayLayout.Text = {'Microarray layout'; 'Add spots with Shift+click, click to move, delete with Ctrl+click'};
 
             % Create RightPanel
             app.RightPanel = uipanel(app.GridLayout);
@@ -349,10 +354,10 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             % Create GridLayout7
             app.chkAutoUpdate = uicheckbox(app.GridLayout5);
             app.chkAutoUpdate.Text = 'Auto update edges';
-            app.chkAutoUpdate.Value = false;
+            app.chkAutoUpdate.Value = true;
             app.chkAutoUpdate.Layout.Row = 3;
             app.chkAutoUpdate.Layout.Column = 1;
-            app.chkAutoUpdate.ValueChangedFcn = @(src, event) app.edge_mapper.enable_auto_update(event.Value);
+            app.chkAutoUpdate.ValueChangedFcn = @(src, event) app.autoUpdateChanged(event.Value)
 
             % Create GridLayout7
             app.GridLayout7 = uigridlayout(app.GridLayout5);
@@ -418,12 +423,12 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             app.chkCombineTraces.Value = true;
             app.chkCombineTraces.ValueChangedFcn = @(src, event) app.edge_mapper.set('CombineDatasets', event.Value);
 
-            % Create btnDemuxTraces
-            app.btnDemuxTraces = uibutton(app.GridLayout8, 'push');
-            app.btnDemuxTraces.Layout.Row = 1;
-            app.btnDemuxTraces.Layout.Column = 5;
-            app.btnDemuxTraces.Text = 'Split traces';
-            app.btnDemuxTraces.ButtonPushedFcn = @(src, event) app.edge_mapper.split_traces();
+            % Create btnSplitTraces
+            app.btnSplitTraces = uibutton(app.GridLayout8, 'push');
+            app.btnSplitTraces.Layout.Row = 1;
+            app.btnSplitTraces.Layout.Column = 5;
+            app.btnSplitTraces.Text = 'Split traces';
+            app.btnSplitTraces.ButtonPushedFcn = @(src, event) app.edge_mapper.split_traces();
 
             % Show the figure after all components are created
             app.UIFigure.Visible = 'on';
@@ -453,6 +458,8 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             % Create edge detection handler and propagate settings from GUI
             app.edge_mapper = splittraces.SpotEdgeMapper(app.axCannyIn, app.axCannyOut, app.px_size, app.spot_layout);
             
+            % Propagate values in GUI to the backend
+            app.autoUpdateChanged(app.chkAutoUpdate.Value);  % "Auto update" checkbox
             app.edge_mapper.set('Downscale1', str2double(app.ddDownscale1.Value(1)));
             app.edge_mapper.set('Dilation', app.sDilation.Value);
             app.edge_mapper.set('Downscale2', str2double(app.ddDownscale2.Value(1)));
@@ -460,7 +467,9 @@ classdef SplitTracesGUI < matlab.apps.AppBase
             app.edge_mapper.set('HighThreshold', app.sHighThreshold.Value);
             app.edge_mapper.set('Sigma', app.sSigma.Value);
             app.edge_mapper.set('CreateSubdir', app.chkCreateSubdir.Value);
-
+            app.edge_mapper.set('PlotResult', app.chkPlotResult.Value);
+            app.edge_mapper.set('SavePlot', app.chkSavePlot.Value);
+            app.edge_mapper.set('CombineDatasets', app.chkCombineTraces.Value);
 
             if nargout == 0
                 clear app

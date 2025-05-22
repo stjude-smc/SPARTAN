@@ -351,15 +351,15 @@ classdef SpotEdgeMapper < handle
         end
 
         function split_traces(self)
-            [split_files, spot_id_list] = self.split_dataset_traces();
+            [split_files, spot_id_list, created_dirs] = self.split_dataset_traces();
 
             % If combine checkbox is checked, combine datasets per each spot
             if self.params.CombineDatasets
-                self.combine_datasets(split_files, spot_id_list);
+                self.combine_datasets(split_files, spot_id_list, created_dirs);
             end
         end
 
-        function [split_files, spot_id_list] = split_dataset_traces(self)
+        function [split_files, spot_id_list, created_dirs] = split_dataset_traces(self)
             % Get all spot IDs from the layout (order preserved)
             spot_id_list = cell2mat(self.spot_layout.Spots.keys); % e.g., [2 4 5 9 ...]
             n_input = numel(self.traces_files);
@@ -367,6 +367,7 @@ classdef SpotEdgeMapper < handle
 
             % Preallocate output cell array: rows=input files, cols=spot IDs
             split_files = cell(n_input, n_spots);
+            created_dirs = {};
 
             for i = 1:n_input
                 fn = self.traces_files{i};
@@ -378,6 +379,7 @@ classdef SpotEdgeMapper < handle
                     if ~exist(out_dir, 'dir')
                         mkdir(out_dir);
                     end
+                    created_dirs{end+1} = out_dir;
                 else
                     out_dir = parent_path;
                 end
@@ -486,7 +488,7 @@ classdef SpotEdgeMapper < handle
             end
         end
 
-        function combine_datasets(self, split_files, spot_id_list)
+        function combine_datasets(self, split_files, spot_id_list, created_dirs)
             % Prompt user for combined output prefix
             defaultPrefix = 'combined';
             % Flatten, remove empties, and find common directory
@@ -497,6 +499,12 @@ classdef SpotEdgeMapper < handle
                 return;
             end
             p = commonDir(all_files);
+
+            % there is just one input file
+            if (numel(self.traces_files) == 1 && numel(created_dirs) > 0)
+                p = fileparts(p); % move one step up
+            end
+
 
             fileFilter = {
                 '*.rawtraces', 'Raw Traces files (*.rawtraces)';
@@ -543,12 +551,28 @@ classdef SpotEdgeMapper < handle
             end
 
             if strcmp(keep_files, 'Delete')
-                % Flatten cell array and remove empties
+                % Flatten the cell array and remove empties
                 files_to_delete = split_files(:);
                 files_to_delete = files_to_delete(~cellfun(@isempty, files_to_delete));
+
+                % Delete intermediate files
                 for k = 1:numel(files_to_delete)
                     if exist(files_to_delete{k}, 'file')
                         delete(files_to_delete{k});
+                    end
+                end
+
+                % Delete empty folders that contained intermediate files
+                unique_dirs = unique(created_dirs); % Remove duplicates
+                for i = 1:numel(unique_dirs)
+                    d = unique_dirs{i};
+                    if isfolder(d)
+                        files = dir(d);
+                        files = files(~ismember({files.name},{'.','..'}));
+                        if isempty(files)
+                            rmdir(d);
+                            fprintf('Deleted empty folder: %s\n', d);
+                        end
                     end
                 end
             end
