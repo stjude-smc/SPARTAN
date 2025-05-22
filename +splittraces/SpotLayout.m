@@ -146,6 +146,7 @@ classdef SpotLayout < handle
             ylabel(self.ax, 'y, µm');
             axis(self.ax, 'equal');
             set(self.ax, 'Color', 'k'); % Black background color
+            set(self.ax, 'YDir', 'reverse');
         end
 
         % Create Field of View (FOV) rectangle

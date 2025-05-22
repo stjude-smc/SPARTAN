@@ -249,7 +249,7 @@ classdef SpotEdgeMapper < handle
             end
 
             if nargin > 1 && ~isempty(ax) && isgraphics(ax, 'axes')
-                imshow(self.thumbnail, 'Parent', ax, 'YData', [size(self.thumbnail, 1) 1]);
+                imshow(self.thumbnail, 'Parent', ax);
             end
         end
 
@@ -412,6 +412,8 @@ classdef SpotEdgeMapper < handle
 
                 if doPlot
                     scatter(ax, x, y, 5, [0.4, 0.4, 0.4], 'filled');
+                    xlabel(ax, 'x, px');
+                    ylabel(ax, 'y, px');
                 end
 
                 % For each spot in the layout, try to split and save
@@ -545,6 +547,7 @@ classdef SpotEdgeMapper < handle
             ylabel(ax, 'y, µm');
             axis(ax, 'equal');
             set(ax, 'Color', 'k'); % Black background color
+            set(ax, 'YDir', 'reverse');
         end
 
         % Create Field of View (FOV) rectangle
