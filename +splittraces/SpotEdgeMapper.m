@@ -513,6 +513,11 @@ classdef SpotEdgeMapper < handle
             end
             prefix_fullpath = fullfile(pathname, filename);
 
+
+            keep_files = questdlg('Do you want to keep intermediate files?', ...
+                'Save intermediates?', ...
+                'Keep', 'Delete', 'Keep');
+
             n_spots = numel(spot_id_list);
             n_input = size(split_files, 1);
 
@@ -536,6 +541,18 @@ classdef SpotEdgeMapper < handle
 
                 disp(['Combined spot ' num2str(spot_id) ' -> ' outputPath]);
             end
+
+            if strcmp(keep_files, 'Delete')
+                % Flatten cell array and remove empties
+                files_to_delete = split_files(:);
+                files_to_delete = files_to_delete(~cellfun(@isempty, files_to_delete));
+                for k = 1:numel(files_to_delete)
+                    if exist(files_to_delete{k}, 'file')
+                        delete(files_to_delete{k});
+                    end
+                end
+            end
+
         end
     end
 
