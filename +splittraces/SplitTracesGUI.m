@@ -28,10 +28,6 @@ classdef SplitTracesGUI < matlab.apps.AppBase
         % Public data
         px_size;
         SpotSize = 50; % Size of the circles
-
-        % Coordinates of loaded traces
-        traces_xy = struct('X', [], 'Y', [], 'nX', [], 'nY', []);
-        traces_files = [];  % Open traces files
     end
 
     properties (Access = private)
@@ -85,8 +81,7 @@ classdef SplitTracesGUI < matlab.apps.AppBase
         function btnLoadTracesButtonPushed(app)
             filter = {'*.rawtraces','Raw Traces Files (*.rawtraces)'; ...
               '*.traces','Binary Traces Files (*.traces)';};
-            app.traces_files = getFiles(filter);
-            app.edge_mapper.load_traces_XY(app.traces_files);
+            app.edge_mapper.load_traces_XY(getFiles(filter));
             app.spot_layout.draw_traces(app.edge_mapper.traces_xy);
         end
 
