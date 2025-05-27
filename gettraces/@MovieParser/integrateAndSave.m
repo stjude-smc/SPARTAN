@@ -241,9 +241,10 @@ for i=1:this.chExtractor.nChannels
     [data.traceMetadata.([ch '_y'])] = y{:};
 end
 
-% Create unique identifiers to track origin of each trace ('movie.tif#123')
+% Create unique identifiers to track origin of each trace ('E:\movie.tif#123')
+movieFile = this.chExtractor.movie.filename;
 for i=1:nTraces
-    data.traceMetadata(i).ids = sprintf( '%s#%d', outname, i );
+    data.traceMetadata(i).ids = sprintf( '%s#%d', movieFile, i );
 end
 
 % Save data to file.
