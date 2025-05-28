@@ -220,7 +220,7 @@ methods
         end
         
         % Prompt user for field geometry and channel names.
-        geo = fieldArrangementDialog( geo, {this.params.channels.name} );
+        [geo,interleaved] = fieldArrangementDialog( geo, {this.params.channels.name}, this.chExtractor.interleaved );
         success = ~isempty(geo);
         if ~success, return; end
         
@@ -236,6 +236,7 @@ methods
             geo(i) = find( geo(i)==geoUsed );
         end
         this.chExtractor.fieldArrangement = geo;
+        this.chExtractor.interleaved = interleaved;
         
         % Make a guess as to the new roles
         nCh = numel( this.idxActiveChannels );

@@ -1,21 +1,25 @@
-function output = splitFrame(input, geo, frameIdx)
+function output = splitFrame(input, geo, interleaved, frameIdx)
 %splitFrame   Split image data into uniform-size subfields
 %
-%   OUT = splitFrame(MOVIE,GEO,FRAMES) loads the frame numbers specified in
-%   FRAMES and divides these images into equal-sized subregions where the 
-%   shape of the array GEO identifies along which dimensions to divide the
-%   images. The binary values in GEO define which subregions to return in
-%   the cell array OUT.
+%   OUT = splitFrame(MOVIE,GEO,INTERLEAVED,FRAMES)
+%   loads the frame numbers specified in the vector FRAMES and divides
+%   these images into equal-sized subregions where the shape of the array
+%   GEO identifies along which dimensions to divide the images.
+%   The integer values in GEO correspond to the order of the channels in
+%   the output. If INTERLEAVED is true, frames are interleaved (BGR,BGR,..)
+%   and if false concatinated (BBB..,GGG..,RRR..).
 %   
 %   GEO examples:
 %     [1 0; 0 2] split image 2x2 and select upper-left and lower-right.
 %     cat(3,1,2) images stacked sequentially (2 channels).
+%
+% See also: ChannelExtractor.
 
-%   Copyright 2016-2022 All Rights Reserved.
+%   Copyright 2016-2025 All Rights Reserved.
 
 
 % Process input arguments
-narginchk(3,3);
+narginchk(4,4);
 assert( isa(input,'Movie'), 'Invalid input' );
 assert( numel(size(geo))<=3, 'Invalid dimensions of subfield indexing matrix' );
 
@@ -27,12 +31,19 @@ if size(geo,3)>1
     
     nFrames = input.nFrames/size(geo,3);  %number of actual time units in movie
     assert( nFrames==floor(nFrames), 'Unexpected number of frames for chosen stacked geometry' )
+    nFramesPerCycle = numel(geo);
     
     output = cell( sum(geo>0), 1 );
     
-    for i=1:size(geo,3)
-        if geo(i)==0, continue; end
-        output{ geo(i) } = input.readFrames( frameIdx + (i-1)*nFrames );
+    for i=1:nFramesPerCycle
+        channelID = geo(i);
+        if channelID==0, continue; end
+        
+        if interleaved
+            output{ channelID } = input.readFrames( (frameIdx-1)*nFramesPerCycle + i );
+        else
+            output{ channelID } = input.readFrames( frameIdx + (i-1)*nFrames );
+        end
     end
     
 % Fluorescence channels are stiched side-by-side within each frame
