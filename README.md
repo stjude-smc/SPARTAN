@@ -4,7 +4,7 @@ Advanced sCMOS camera technology has recently enabled dramatic increases in the 
 
 ## Links
 - <a href="http://dx.doi.org/10.1038/nmeth.3769">Nature Methods publication</a>
-- <a href="https://github.com/stjude-smc/SPARTAN/blob/testing/SPARTAN%20Documentation.pdf">Documentation</a>
+- <a href="https://github.com/stjude-smc/SPARTAN/blob/master/SPARTAN%20Documentation.pdf">Documentation</a>
 - <a href="https://www.dropbox.com/sh/xodp57ul10178wv/AADj_9zRkDEWdb43IZeNBkQNa?dl=0">Example data</a>
 
 ## Citation

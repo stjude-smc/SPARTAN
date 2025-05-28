@@ -1,3 +1,20 @@
+SPARTAN Version 3.11.0
+======================================================================
+
+NEW FEATURES:
+* splittraces: a new tool for segregating traces from microarray movies.
+* adecorrect: can be called with only the correction factor or no parameters.
+* gettraces: support for multi-channel movies from MicroManager encoded as interleaved frames (#14).
+
+BUG FIXES and OTHER CHANGES:
+* Added GitHub and documentation PDF links to Help menus of most UIs.
+* trace IDs in .traces files use movie name instead of '.rawtraces'.
+* Updated 'spartan' command window, such as adding adecorrect and splittraces.
+* Improve cross-platform UI consistency of font sizes and control layout (#15)
+* Update new version download link to GitHub.
+* Various other bugfixes.
+
+
 SPARTAN Version 3.10.1
 ======================================================================
 
@@ -16,7 +33,7 @@ SPARTAN Version 3.10.0
 GETTRACES:
 * Remove support for MetaMorph .stk files due to licensing concerns with tiffread.m.
 * Add "subtract baseline trace" option to suppress "flagging" effect with very high FRET traces.
-* Sample 10% of pixels for baseline trace due reduce computational demand.
+* Sample 10% of pixels for baseline trace to reduce computational demand.
 * Apply ROI selection only after detecting overlapping molecules.
 
 AUTOTRACE:
