@@ -55,6 +55,7 @@ batchKinetics; simulate; lifetime_exp; percentTime;
 crosstalkcorrect; gammacorrect; scaleacceptor; haranfilter;
 forQuB; fluorToFret; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
 combineDatasets; resizeTraces;
+calculateR0; adecorrect; dyediag; splittraces;
 
 
 

@@ -35,7 +35,7 @@ verstr = cascadeConstants('version');
 %% Check online for the latest version.
 fprintf('Checking for updates to SPARTAN... ');
 try
-    latestVerString = strtrim( urlread('https://www.dropbox.com/s/bculsb8z6j130kg/SPARTAN_version.txt?dl=1','Timeout',10) );
+    latestVerString = strtrim( urlread('https://raw.githubusercontent.com/stjude-smc/SPARTAN/refs/heads/master/VERSION.txt','Timeout',10) );
     latest = versionEncode(latestVerString);
 catch
     fprintf('Failed. Check the address below instead:\n');
