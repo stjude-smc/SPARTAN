@@ -67,7 +67,7 @@ methods
         % Determine actual measurement time axis:
         try
             obj.timeAxis = [];
-            [ijExposure,ijText] = parseIJ(info);
+            [ijExposure,ijText] = parseIJ(info(1));
             mmExposure = parseMM(info);
 
             if isfield( info,'ExposureTime' )
