@@ -49,7 +49,7 @@ end
 % close the existing viewer; user will have to open the new one.
 % FIXME: would be nice if the transition were seamless, but this is easier.
 if ~isempty(viewer) && isvalid(viewer)
-    [~,fold] = fileparts2(viewer.chExtractor.movie.filename{1});
+    [~,fold] = fileparts2(viewer.chExtractor.movie.filename);
     if ~strcmp(f, fold)
         delete(viewer);
         return;
@@ -103,6 +103,8 @@ function [p,f,e] = fileparts2(fname)
 % Extract path, file name, and extension of a file.
 % The built-in fileparts only separates paths using the current system's
 % filesep, which may be different from the one used when the file was saved.
+
+if iscell(fname), fname=fname{1}; end
 
 pidx = find( fname=='\'|fname=='/', 1, 'last' );
 eidx = find( fname=='.', 1, 'last' );
