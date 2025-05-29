@@ -170,6 +170,10 @@ if numel(sel)>numel(unique(sel))
     errordlg('The same field cannot be selected more than once!');
     return;
 end
+if numel(sel)==0
+    errordlg('At least one channel must be selected!');
+    return;
+end
 
 % Otherwise, return to user.
 handles.output = get(hObject,'String');
