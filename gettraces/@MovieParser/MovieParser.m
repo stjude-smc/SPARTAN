@@ -255,7 +255,13 @@ methods
 
     function updateAlex(this)
     % Open dialog to alter illumination metadata (for ALEX experiments)
-        a = inputdlg('Enter wavelength series in one cycle:','gettraces');
+        if numel(this.chExtractor.lasers)>0
+            default = strjoin(string([this.chExtractor.lasers.wavelength]), ',');
+        else
+            default = {''};
+        end
+
+        a = inputdlg('Enter wavelength series in one cycle:','gettraces',1,default);
         if ~isempty(a)
             a = cellfun( @str2double, strsplit(a{1},{',',' '}) );
             if any(isnan(a)) && numel(a)==numel(unique(a))
