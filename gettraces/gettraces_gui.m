@@ -823,7 +823,6 @@ function cboAlignMethod_Callback(hObject, ~, handles)  %#ok<DEFNU>
 % Change software alignment mode and re-pick molecules.
 % 1=off, 2=load from file, 3=Auto (ICP), 4=memorize (keep using).
 
-assert( handles.stkData.nChannels>1 );
 sel = get(hObject,'Position');  %position within the menu, 1=top.
 
 % Load alignment from file, if requested.
