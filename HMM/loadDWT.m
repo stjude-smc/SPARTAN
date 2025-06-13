@@ -25,7 +25,7 @@ function [dwells,sampling,offsets,model] = loadDWT(dwtfname)
 
 
 % Prompt the user for the input file if none given.
-if nargin<1 || isempty(dwtfname),
+if nargin<1 || isempty(dwtfname)
     [f,p] = uigetfile( {'*.dwt','Dwell-Time Files (*.dwt)'; ...
                         '*.*','All Files (*.*)'}, 'Load a dwell-time file');
     if isequal(f,0), return; end  %user hit cancel
@@ -53,12 +53,12 @@ offsets = offsets'/sampling;
 
 % Parse model parameters in header lines (mean FRET and noise stdev).
 nModels = numel(unique(modelText));
-if nModels==1,
+if nModels==1
     % If all are the same, return just one. Many functions assume this.
     model = parseModel(modelText{1});
 else
     model = cell(nTraces,1);
-    for s=1:nModels,
+    for s=1:nTraces
         model{segid(s)} = parseModel(modelText{s});
     end
 end
@@ -67,7 +67,7 @@ end
 % Parse dwell-times, using 1-based class numbering and frames for time.
 dwells = cell(1,nTraces);
 
-for s=1:nTraces,
+for s=1:nTraces
     block = text(last(s)+1:first(s+1)-1);
     data = sscanf( block, '%f' );
     dwells{segid(s)} = [data(1:2:end)+1 data(2:2:end)/sampling];
