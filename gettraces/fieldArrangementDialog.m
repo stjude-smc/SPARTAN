@@ -200,7 +200,7 @@ function cboFieldOrganization_Callback(hObject, ~, handles) %#ok<*DEFNU>
 sel = get(hObject,'Value');
 set( handles.hAll, 'Visible','off', 'Value',1 );
 set( handles.toShow{sel}, 'Visible','on' );
-set( handles.chkInterleaved, 'Visible',onoff(sel>3) );
+set( handles.chkInterleaved, 'Visible',onoff(sel>4) );
 
 %end function cboFieldOrganization_Callback
 
