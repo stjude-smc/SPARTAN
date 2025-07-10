@@ -14,8 +14,8 @@ assert( isnumeric(idl), 'Second argument must be idealization matrix' );
 
 % Parameters
 % FIXME: these should not be hard-coded
-skipFrames = 0;     %number of frames in the beginning to ignore
-useFrames  = 1000;  %number of frames to use when making histograms
+% skipFrames = 0;     %number of frames in the beginning to ignore
+% useFrames  = 1000;  %number of frames to use when making histograms
 
 keep = true( data.nTraces, 1 );
 
@@ -37,14 +37,14 @@ nStates = max(idl(:));
 trace_means = nan(data.nTraces, nStates);
 
 % Truncate data to select region without bleaching to avoid bias
-fret = data.fret( :, skipFrames+(1:useFrames) );
-idl  = idl( :, skipFrames+(1:useFrames) );
+% fret = data.fret( :, skipFrames+(1:useFrames) );
+% idl  = idl( :, skipFrames+(1:useFrames) );
 
 % Get state mean FRET values for every trace, ignoring zero state.
 for s=1:nStates
     for i=1:data.nTraces
-        segment = fret(i, idl(i,:)==s );
-        if ~isempty(segment)
+        segment = data.fret(i, idl(i,:)==s );
+        if ~isempty(segment) && numel(segment)>=5
             trace_means(i,s) = mean( segment );
         end
     end
@@ -53,13 +53,13 @@ end
 % Keep traces in which mean FRET value of a state is within distance
 % parameter from mean FRET value of lower state.
 % If state is not occupied, it is ignored.
-deviations = abs( trace_means-nanmedian(trace_means) );  %deviation from ensemble average
+deviations = abs( trace_means-median(trace_means,'omitnan') );  %deviation from ensemble average
 % deviations = abs( trace_means - to_col(model.mu) );  %deviation from model
 keep = all( deviations<=minSep|isnan(deviations), 2 );
 
 fprintf('Selected %d of %d traces (%.0f%%) \nState mean FRET:', ...
         sum(keep), numel(keep), 100*sum(keep)/numel(keep) );
-disp( nanmedian(trace_means) )
+disp( median(trace_means,'omitnan') );
 
 % TESTING
 % figure;
