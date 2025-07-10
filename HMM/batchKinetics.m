@@ -241,6 +241,8 @@ btnLoadModel_Callback( hObject, [], guidata(hObject), get(hObject,'UserData') );
 
 function addRecent(hMenu, filename)
 % Add a newly loaded/saved model file to the "Recent" menu list.
+if isempty(filename), return; end
+
 recent = get( findobj('Parent',hMenu), 'UserData' );
 if ~iscell(recent), recent={recent}; end
 

@@ -390,8 +390,7 @@ methods
 
     function save_callback(this,varargin)
     % Save the current model to file, forcing new .model format.
-        [~,~,e] = fileparts(this.model.filename);
-        if isempty(this.model.filename) || strcmpi(e,'.qmf')
+        if isempty(this.model.filename) || endsWith(this.model.filename,'.qmf')
             saveAs_callback(this);
         else
             this.model.save(this.model.filename);
