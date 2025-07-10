@@ -1,7 +1,7 @@
 function [idl,model,LL] = skm( data, sampling, initialModel, params )
 % SKM  Crude model re-estimation using iterative idealization
 % 
-%   [DWT,NEW_MODEL,LL,OFFSETS] = SKM( DATA, SAMPLING, MODEL, params )
+%   [IDL,NEW_MODEL,LL,OFFSETS] = SKM( DATA, SAMPLING, MODEL, params )
 %   Idealizes the FRET traces in the NxM matrix DATA, assigns the state of the
 %   system at each point in time. The fitting process optimizes the initial
 %   QubModel object MODEL as a starting point,  it using the segmental K-means
@@ -12,7 +12,7 @@ function [idl,model,LL] = skm( data, sampling, initialModel, params )
 %   N FRET traces of M datapoints in length each. MODEL is a typical
 %   model specification, as defined in createModel.m.  SKM
 %   returns the optimal model (NEW_MODEL) and the idealization
-%   with maximum likelihood (DWT). SAMPLING is in ms.
+%   with maximum likelihood (IDL). SAMPLING is in ms.
 %
 %   The following model parameters will affect the fitting procedure:
 %    - fixMu:     Cx1 logical vector; fix class model mean FRET value.
@@ -38,6 +38,7 @@ function [idl,model,LL] = skm( data, sampling, initialModel, params )
 narginchk(3,4);
 nargoutchk(0,4);
 
+if nargin<4, params=struct(); end
 params = mergestruct( hmmopt(mfilename), params );
 
 

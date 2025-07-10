@@ -47,6 +47,7 @@ if isempty(allopt)
     allopt.mil.convGrad    = 1e-5;
     allopt.mil.verbose     = true;
     allopt.mil.UseParallel = cascadeConstants('enable_parfor');
+    allopt.mil.updateModel = false;
     
     % MIL (Separately)
     allopt.mil_sep = allopt.mil;
