@@ -255,6 +255,8 @@ for i=1:numel(trace_files)
     end
 end
 
+set( handles.editFilename, 'String','Batch processing complete.' );
+
 % END FUNCTION btnGo_Callback
 
 
