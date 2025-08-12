@@ -230,8 +230,8 @@ function metadata = parseFGImageDescription(input)
 
     metadata = [];
     output = [];
-    validFields = {'FlashGordon','hardware','binning','exposureTime','frameTime','StageX','StageY','fieldArrangement','power_mW'};
-    fieldFormat = {'%s','%s','%s','%f','%f','%f','%f',[],'%f'};
+    validFields = {'FlashGordon','hardware','binning','exposureTime','frameTime','StageX','StageY','StageZ','fieldArrangement','power_mW'};
+    fieldFormat = {'%s','%s','%s','%f','%f','%f','%f','%f',[],'%f'};
     
     validChFields = {'name','wavelength','photonsPerCount'};
     chFieldFormat = {'%s','%d','%f'};
