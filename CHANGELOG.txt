@@ -1,3 +1,23 @@
+SPARTAN Version 3.11.1
+======================================================================
+
+BUG FIXES:
+* autotrace: display finished message instead of "loading files" when batch processing is complete.
+* batchKinetics: improve fret model filter by requiring >=5 frames for determining trace mean fret and operate over the entire trace, not just the beginning.
+* batchKinetics: fixed error that prevented saving a newly created model.
+* gettraces: show current laser illumination wavelength list as default value in "Change illumination metadata" context menu dialog.
+* gettraces: recognize StageZ tiff metadata field and suppress warning.
+* gettraces: require at least one channel to be selected in fieldArrangementDialog to avoid obscure error.
+* gettraces: remove assertion to prevent loading an alignment with single color (which is ignored anyway).
+* gettraces: fixed error parsing MicroManager .tif movies with one full IFD per frame.
+* gettraces: only show "interleaved frames?" checkbox in field arrangement dialog when concatenated frames is selected.
+* sorttraces: fixed advancing through traces does not automatically update molecule highlighted by movie viewer window.
+* Enable skm and mil to be run in scripts without providing a parameter list.
+* Correctly load .dwt file with unique emission models for each trace, produced by HMJP, ebFRET, etc. #27
+* Check GitHub repo for latest version instead of Dropbox. #24
+
+
+
 SPARTAN Version 3.11.0
 ======================================================================
 
@@ -13,6 +33,7 @@ BUG FIXES and OTHER CHANGES:
 * Improve cross-platform UI consistency of font sizes and control layout (#15)
 * Update new version download link to GitHub.
 * Various other bugfixes.
+
 
 
 SPARTAN Version 3.10.1

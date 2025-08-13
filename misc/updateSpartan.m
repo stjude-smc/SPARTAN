@@ -11,8 +11,8 @@ function output = updateSpartan()
 DELAY_SHORT = 1;  %days between normal checks
 DELAY_LONG  = 7;  %days before reminding about known updates
 
-COMPILED_ADDR = 'https://github.com/stjude-smc/SPARTAN';
-SOURCE_ADDR   = 'https://github.com/stjude-smc/SPARTAN';
+COMPILED_ADDR = 'https://github.com/stjude-smc/SPARTAN/releases';
+SOURCE_ADDR   = 'https://github.com/stjude-smc/SPARTAN/tree/master';
 
 
 % Check the website at most once a day. Otherwise, just return the current
