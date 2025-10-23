@@ -29,7 +29,7 @@ assert( isa(input,'Movie'), 'input must be Movie object or path to movie file' )
 
 % Look for a pattern left by the Hamamatsu hard disk recorder left at
 % the left (center row) of every image. If these images are tiled by the
-% acquisition software (as it is in FlashGordon), we can infer the number
+% acquisition software (as it is in FLASH), we can infer the number
 % and positions of the original frames from this pattern.
 % The center row will start with: 0 65535 0 65535.
 frame = input.readFrames(1);

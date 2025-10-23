@@ -71,7 +71,7 @@ methods
             mmExposure = parseMM(info);
 
             if isfield( info,'ExposureTime' )
-                % EXIF tag 33434, used by FlashGordon
+                % EXIF tag 33434, used by FLASH
                 ms = info(1).ExposureTime*1000;
                 obj.timeAxis = (0:obj.nFrames-1)*ms;
 
@@ -121,11 +121,11 @@ methods
             obj.header.MM = parseMetamorphInfo( info.ImageDescription, 1);
         end
         
-        % Extract metadata from FlashGordon that specifies how to
+        % Extract metadata from FLASH that specifies how to
         % subdivide image data into spectral channels.
         % OME-TIFF data will also be in this tag.
-        if isfield(info,'ImageDescription') && startsWith(info(1).ImageDescription,'FlashGordon=')
-            obj.metadata = parseFGImageDescription(info(1).ImageDescription);
+        if isfield(info,'ImageDescription') && startsWith(info(1).ImageDescription,'Flash','IgnoreCase',true)
+            obj.metadata = parseFlashImageDescription(info(1).ImageDescription);
         end
         
     end %constructor
@@ -224,13 +224,13 @@ end
 
 
 
-function metadata = parseFGImageDescription(input)
-% Image Description (tag 270) text is saved by Flash Gordon to assist in
+function metadata = parseFlashImageDescription(input)
+% Image Description (tag 270) text is saved by FLASH to assist in
 % identifying spectral channels that are tiled together in each image.
 
     metadata = [];
     output = [];
-    validFields = {'FlashGordon','hardware','binning','exposureTime','frameTime','StageX','StageY','StageZ','fieldArrangement','power_mW'};
+    validFields = {'FLASH','FlashGordon','hardware','binning','exposureTime','frameTime','StageX','StageY','StageZ','fieldArrangement','power_mW'};
     fieldFormat = {'%s','%s','%s','%f','%f','%f','%f','%f',[],'%f'};
     
     validChFields = {'name','wavelength','photonsPerCount'};
@@ -278,7 +278,7 @@ function metadata = parseFGImageDescription(input)
                 output.(fieldName) = sscanf( val, fieldFormat{formatID} );
             end
         catch
-            disp(['Ignoring invalid FlashGordon ImageDescription line: ' input{i}]);
+            disp(['Ignoring invalid FLASH ImageDescription line: ' input{i}]);
         end
     end
     
@@ -296,7 +296,7 @@ function metadata = parseFGImageDescription(input)
            error('Invalid channel metadata');
         end
     catch
-        warning('FlashGordon metadata not valid; ignoring');
+        warning('FLASH metadata not valid; ignoring');
         return;
     end
     
