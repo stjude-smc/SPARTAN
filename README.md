@@ -26,3 +26,23 @@ SPARTAN also contains code from third-party projects (listed in alphabetical ord
 - Tim Holy: https://www.mathworks.com/matlabcentral/fileexchange/29702-generate-maximally-perceptually-distinct-colors
 - Igore Kaufman: http://www.mathworks.com/matlabcentral/fileexchange/34054-merge-structures/
 
+
+## Telemetry and Privacy
+
+This software collects optional telemetry that is used for aggregate usage
+statistics to help us maintain funding and support. Any information
+collected is used solely for research and software-improvement purposes.
+It will not be sold or disclosed to third parties.
+
+When telemetry is enabled, the following anonymous data are collected:
+- Basic usage events like software start.
+- Application version
+- Operating system and platform
+- Approximate geographic region (derived from IP address)
+
+Telemetry data are sent to PostHog, a hosted analytics service, and are
+retained for a period of one year. You can disable telemetry at any time
+by executing the following command on the MATLAB console:
+`setpref('SPARTAN', 'out_out', false);`
+
+

@@ -6,7 +6,10 @@ function output = updateSpartan()
 %   STATUS is true if an update is available and false otherwise.
 %   Checks are made at most once per day.
 
-%   Copyright 2007-2017 Cornell University All Rights Reserved. 
+%   Copyright 2007-2025 All Rights Reserved. 
+
+spartanTelemetry();
+
 
 DELAY_SHORT = 1;  %days between normal checks
 DELAY_LONG  = 7;  %days before reminding about known updates
