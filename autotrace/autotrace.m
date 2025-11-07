@@ -808,9 +808,10 @@ assert( numel(fields)<=handles.nCriteriaBoxes, 'Too many criteria' );
 shortNames = fieldnames(handles.statLongNames);
 equalityText = {'min','max','eq'};
 
-for i=1:numel(fields),
-    temp = strsplit(fields{i},'_');
-    [equality,name] = temp{:};
+for i=1:numel(fields)
+    idx = strfind(fields{i},'_');
+    equality = fields{i}(1:idx(1)-1);
+    name = fields{i}(idx(1)+1:end);
     
     set( handles.(['cboCriteria' num2str(i)]), 'Value',  find(strcmp(name,shortNames))+1       );
     set( handles.(['cboEquality' num2str(i)]), 'Value',  find(strcmp(equality,equalityText))+1 );
