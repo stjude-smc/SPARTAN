@@ -59,7 +59,7 @@ if isempty(params)
 
     % Filtering parameters
     params.centerQuad = true;   %remove traces near the edges of the FOV
-    params.removeHighBg = true;  %remove traces with baseline fluctuations
+    params.removeHighBg = false;  %remove traces with baseline fluctuations
     params.min_snr = 10;         %minimum SNR_bg
     params.errorbars = true;     %show standard deviation error bars
     params.showRepeats = false;  %display a circle for value of each repeat
