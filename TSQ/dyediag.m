@@ -222,7 +222,7 @@ for i=1:nFiles,
     % 3) Calculate signal statistics
     
     % Total intensity distributions
-    t = sort( [stats.t] );
+    t = [stats.t];
     [output.intensity(i), errors.intensity(i), values(i).intensity] = stdbyfile(t,condition_idx,@median);
     
     [histdata,bins] = hist( t, 40 );
@@ -235,7 +235,6 @@ for i=1:nFiles,
     % Signal-to-noise over signal distributions
     snr = [stats.snr_s];
     [output.SNRs(i), errors.SNRs(i), values(i).SNRs] = stdbyfile(snr,condition_idx,@median);
-    
     
     [histdata,bins] = hist( snr, 35 );
     histdata = 100*histdata/sum(histdata);  %normalize
