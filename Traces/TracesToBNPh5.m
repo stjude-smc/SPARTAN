@@ -3,7 +3,8 @@ function data = TracesToBNPh5( filename, varargin )
 % converts them to hdf5 file.
 % For the attributes, I used the attribute type from BNP-FRET BINNED
 % This file makes .traces compatible with BNP-FRET-Binned
-
+% https://github.com/GonzalezBiophysicsLab/tmaven
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Get input filenames from user if not given.
@@ -57,10 +58,6 @@ variance_acceptor = var_acceptor; % dataset9
 variance_donor = var_donor; % dataset10
     
 % Create file
-if exist(outname, 'file')
-    delete(outname);
-end
-
 fid = H5F.create(outname, 'H5F_ACC_TRUNC', 'H5P_DEFAULT', 'H5P_DEFAULT');
 
 % Acceptor channel (array)

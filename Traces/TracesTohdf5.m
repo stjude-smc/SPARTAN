@@ -4,7 +4,7 @@ function data = TracesTohdf5( filename, varargin )
 % For the attributes, I used the attribute type from tmaven
 % This file makes .traces compatible with tmaven
 % https://github.com/GonzalezBiophysicsLab/tmaven
-
+%   Copyright 2007-2015 Cornell University All Rights Reserved.
 
 
 % Get input filenames from user if not given.
