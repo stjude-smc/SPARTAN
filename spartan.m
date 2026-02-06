@@ -22,7 +22,7 @@ function varargout = spartan(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 14-Aug-2015 16:35:04
+% Last Modified by GUIDE v2.5 06-Feb-2026 11:11:14
 
 
 % Begin initialization code - DO NOT EDIT
@@ -55,7 +55,7 @@ batchKinetics; simulate; lifetime_exp; percentTime;
 crosstalkcorrect; gammacorrect; scaleacceptor; haranfilter;
 forQuB; fluorToFret; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
 combineDatasets; resizeTraces;
-calculateR0; adecorrect; dyediag; splittraces;
+calculateR0; adecorrect; dyediag; splittraces;converttraces;
 
 
 
@@ -129,3 +129,10 @@ cd(d);
 set(handles.txtCWD, 'String',pwd);
 
 guidata(hObject, handles);
+
+
+% --- Executes on button press in pushbutton47.
+function pushbutton47_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton47 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
