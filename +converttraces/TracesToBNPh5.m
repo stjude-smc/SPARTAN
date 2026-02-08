@@ -23,7 +23,16 @@ for i=1:numel(filename),
     
     % Create output filename automatically
     [p,f] = fileparts( filename{i} );
-    outname = fullfile( p, [f '.h5'] );
+
+    % Remove the empty spaces int eh file name 
+% Original file name 
+oldName = f;
+
+% Remove all spaces from the file name
+newName = strrep(oldName, ' ', ''); 
+
+    %
+    outname = fullfile( p, [newName 'BNP.h5'] );
 
     % Save channel data to matlab
     data.time = dataIn.time;
