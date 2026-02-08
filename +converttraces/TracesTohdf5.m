@@ -24,7 +24,19 @@ for i=1:numel(filename),
     
     % Create output filename automatically
     [p,f] = fileparts( filename{i} );
-    outname = fullfile( p, [f '.h5'] );
+    outname = fullfile( p, [f 'tmaven.h5'] );
+
+if exist(outname, 'file') == 2
+    try
+        delete(outname); % Delete the file
+        fprintf('File "%s" deleted successfully.\n', outname);
+    catch ME
+        % Handle any deletion errors
+        fprintf('Error deleting file "%s": %s\n', outname, ME.message);
+    end
+else
+    fprintf('File "%s" does not exist. No action taken.\n', outname);
+end
 
     % Save channel data to matlab
     data.time = dataIn.time;

@@ -68,7 +68,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
         %----------------------------------------------------------
         function log(app, logArea, msg)
             % Log message to specified text area
-            timestamp = datetime(now, 'HH:MM:SS');
+            timestamp = datestr(now, 'HH:MM:SS');
             logArea.Value{end+1} = sprintf('[%s] %s', timestamp, msg);
             drawnow;
         end
@@ -237,7 +237,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
             try
                 for i = 1:numel(app.BNPFiles)
                     app.log(app.BNPLogArea, sprintf('Processing file %d of %d: %s', i, numel(app.BNPFiles), app.BNPFiles{i}));
-                    TracesToBNPh5(app.BNPFiles{i});
+                    converttraces.TracesToBNPh5(app.BNPFiles{i});
                 end
                 
                 app.log(app.BNPLogArea, sprintf('Successfully converted %d file(s) to BNP hdf5 format.', numel(app.BNPFiles)));
@@ -261,7 +261,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
             try
                 for i = 1:numel(app.TmavenFiles)
                     app.log(app.TmavenLogArea, sprintf('Processing file %d of %d: %s', i, numel(app.TmavenFiles), app.TmavenFiles{i}));
-                    TracesTohdf5(app.TmavenFiles{i});
+                    converttraces.TracesTohdf5(app.TmavenFiles{i});
                 end
                 
                 app.log(app.TmavenLogArea, sprintf('Successfully converted %d file(s) to tmaven hdf5 format.', numel(app.TmavenFiles)));
