@@ -153,6 +153,12 @@ classdef TraceConverterApp < matlab.apps.AppBase
                     
                     % Check if input is on network drive (Z: or other network paths)
                     % Save to local directory first, then copy back to Z drive
+                    % in linux machine unless you paste the networked
+                    % copied to desktop, you cannot upload it to the
+                    % website,
+                    % you can upload the Z dirve file form windows though.
+                    % To make sure all is well, I just have two ways of
+                    % saving the files.
                     if startsWith(inputPath, 'Z:') || startsWith(inputPath, '\\') || ...
                        (isunix && ~startsWith(inputPath, '/home') && ~startsWith(inputPath, '/tmp'))
                         % Use temp directory for local save
@@ -166,7 +172,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
                         % Create local copy of input file
                         localInputFile = fullfile(localDir, [inputName, '.traces']);
                         app.log(app.OpenFRETLogArea, sprintf('Step 1: Copying input to local: %s', localInputFile));
-                        copyfile(inputFile, localInputFile);
+                        copyfile(inputFile, localInputFile,'f');
                         
                         % Convert using local file (output will be saved in local directory)
                         app.log(app.OpenFRETLogArea, sprintf('Step 2: Converting in local directory...'));
@@ -184,12 +190,26 @@ classdef TraceConverterApp < matlab.apps.AppBase
                             'options', options);
                         
                         % Output files are saved in local directory - leave them there
-                        localOutputFile = fullfile(localDir, [inputName, '.json']);
                         localZipFile = fullfile(localDir, [inputName, '.json.zip']);
+
+                        % Here I copy them back to the original location. I found out that whne I create the files in the network drive, then they dont become compatible with the server
+                        % Original input directory (this is teh file submitted location, not the local temp)
                         
-                        if exist(localOutputFile, 'file')
-                            app.log(app.OpenFRETLogArea, sprintf('Output saved to local directory: %s', localOutputFile));
+                        inputOpenFRETDir = fullfile(inputPath, 'OpenFRET_conversions');
+                        if ~exist(inputOpenFRETDir, 'dir')
+                            mkdir(inputOpenFRETDir);
                         end
+                            
+                        inputDir = inputOpenFRETDir; % Save in OpenFRET_conversions subfolder on network drive
+                        % Destination paths
+                        destZipFile  = fullfile(inputDir, [inputName, '.json.zip']);
+
+
+                        if isfile(localZipFile)
+                            copyfile(localZipFile, destZipFile, 'f');
+                        end
+                        
+
                         if exist(localZipFile, 'file')
                             app.log(app.OpenFRETLogArea, sprintf('Zip file saved to local directory: %s', localZipFile));
                         end
@@ -198,6 +218,8 @@ classdef TraceConverterApp < matlab.apps.AppBase
                         
                         % Clean up only the input file copy, keep output files
                         if exist(localInputFile, 'file'), delete(localInputFile); end
+                        % Now I can get rid of the local copy of that file
+                        delete(localZipFile)
                         
                     else
                         % File is already on local drive, convert directly
