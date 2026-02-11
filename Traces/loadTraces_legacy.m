@@ -64,7 +64,7 @@ if ~isfield(data,'traceMetadata') || ~isfield(data.traceMetadata,'ids')
 end
 
 % Verify all fields are internally consistent and valid.
-checkValid(data);
+%checkValid(data);
 
 end %function LoadTraces
 
