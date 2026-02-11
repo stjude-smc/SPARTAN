@@ -47,13 +47,16 @@ end
     end
     
 
-    dataset = nan(length(dataIn.idxFluor),dataIn.nFrames,dataIn.nTraces);
-    dataset(dataIn.idxFluor(1),:,:) = dataIn.donor';
-    dataset(dataIn.idxFluor(2),:,:) = dataIn.acceptor';
+    % Optimize array construction
+    nFluor = length(dataIn.idxFluor);
+    dataset = zeros(nFluor, dataIn.nFrames, dataIn.nTraces);
+    % need [nFluor x nFrames x nTraces], so permute to [nFrames x nTraces] then assign
+    dataset(dataIn.idxFluor(1),:,:) = permute(dataIn.donor, [2 1]);
+    dataset(dataIn.idxFluor(2),:,:) = permute(dataIn.acceptor, [2 1]);
     
     exposure_frames = dataIn.sampling; % in ms
     
-    % Create file 
+    % Create file strucutre and groups
     fid = H5F.create(outname, 'H5F_ACC_TRUNC', 'H5P_DEFAULT', 'H5P_DEFAULT');
     % H5F_ACC_TRUNC (Flag): Used in H5Fcreate to truncate (overwrite) a file if it already exists, or create it if it does not
     % H5P_DEFAULT (first, file creation): to indicate that the library should use default values for property lists (e.g., file creation or file access property lists
@@ -65,42 +68,47 @@ end
     gid_sources = H5G.create(fid, '/dataset/sources', 'H5P_DEFAULT', 'H5P_DEFAULT', 'H5P_DEFAULT');
     gid_src0    = H5G.create(fid, '/dataset/sources/0', 'H5P_DEFAULT', 'H5P_DEFAULT', 'H5P_DEFAULT');
     
-    % Close groups
+    % Close groups and file (high-level functions will reopen as needed)
     H5G.close(gid_src0);
     H5G.close(gid_sources);
     H5G.close(gid_data);
     H5G.close(gid_dataset);
     H5F.close(fid);
     
+    % Batch attribute writes: all attributes written together
     % Attributes: /dataset
+    todayStr = string(datetime("today"));
     h5writeatt(outname, '/dataset', 'format', 'SPARTAN');
-    h5writeatt(outname, '/dataset', 'date_created', ...
-         string(datetime("today")));
-    h5writeatt(outname, '/dataset', 'date_modified', ...
-         string(datetime("today")));
-    
+    h5writeatt(outname, '/dataset', 'date_created', todayStr);
+    h5writeatt(outname, '/dataset', 'date_modified', todayStr);
     h5writeatt(outname, '/dataset/data', 'description', '');
     
     % Dataset: raw
-    
-    chunkSize = [1 1 1];
+    % Chunk size is improtant for efficient writes
+    % Typical good chunk sizes: 100-1000 elements per dimension
+    nFluor = size(dataset, 1);
+    nFrames = size(dataset, 2);
+    nTraces = size(dataset, 3);
+    chunkSize = [min(100, nFluor), min(1000, nFrames), min(1000, nTraces)];
     
     h5create(outname, '/dataset/data/raw', size(dataset), ...
         'Datatype', 'double', ...
         'ChunkSize', chunkSize, ...
-        'Deflate', 4, ...
+        'Deflate', 2, ...  % compression level 
         'FillValue', 0);
     
-    % Deflate compression level
-    % chunksize: non-zero
+    % Deflate: compression level
+    % chunksize: non-zero values for saving data in chunks
 
     h5write(outname, '/dataset/data/raw', dataset);
     
     % Dataset: source_index
+    % Optimized: use reasonable chunk size (entire array if small, otherwise cap it)
+    sourceIndexChunkSize = min(10000, max(100, dataIn.nTraces));
     h5create(outname, '/dataset/data/source_index', dataIn.nTraces, ...
         'Datatype', 'int64', ...
-        'ChunkSize', dataIn.nTraces, ...
-        'Deflate', 4, ...
+        'ChunkSize', sourceIndexChunkSize, ...
+        'Deflate', 2, ...  % compression level 
         'FillValue', int64(0));
     
     % Attributes: /dataset/sources
@@ -113,7 +121,6 @@ end
     display(outname)
 
  end
- % Create output filename automatically
 
 
 end %function LoadTracesBinary
