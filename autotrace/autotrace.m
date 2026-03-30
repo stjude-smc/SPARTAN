@@ -16,7 +16,7 @@ function varargout = autotrace(varargin)
 %   Copyright 2007-2016 Cornell University All Rights Reserved.
 
 
-% Last Modified by GUIDE v2.5 08-Sep-2022 21:12:29
+% Last Modified by GUIDE v2.5 30-Mar-2026 16:20:29
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 0;
@@ -277,6 +277,7 @@ end
 % Determine default filename to use when saving.
 [p,f] = fileparts( handles.inputfiles{1} );
 handles.outfile = fullfile(p, [f '_auto.traces']);
+handles.outfileExcluded = fullfile(p, [f '_auto_Excluded.traces']);
 
 % Calculate trace stats
 try
@@ -392,8 +393,90 @@ drawnow;
 
 % END FUNCTION SaveTraces_Callback
 
+% --------------- SAVE EXCLUDED TRACES TO FILE --------------------%
+function mnuFileSaveExcluded_Callback(hObject, eventdata, handles)
+% Save the currently excluded traces for the current selection to a new _auto_Excluded.traces file.
+
+% Create a name for the output file
+[f,p] = uiputfile('.traces','Save excluded traces as:', handles.outfileExcluded);
+if f==0,
+    outfile = [];
+    return;
+else
+    % Save picked traces to a new _auto.txt file.
+    outfileExcluded = fullfile(p,f);
+    SaveExcludedTraces( outfileExcluded, handles );
+end
+
+% Disabling the button as a means of confirming operation success.
+handles.outfileExcluded = outfileExcluded;
+guidata(hObject,handles);
+
+function SaveExcludedTraces( filename, handles )
+% Save selected traces to disk with a log file.
 
 
+% Save selected traces to disk
+data = handles.traceList.data.getSubset( handles.traceList.exclude );
+data.save(filename);
+
+[p,f] = fileparts(filename);
+if isempty(p), p=pwd; end
+logFilename = fullfile(p, [f '.log']);
+fid = fopen(logFilename,'wt');
+
+% Save header, with filenames and the number of traces picked.
+fprintf(fid,'%s\n\n%s\n',date,'FILES');
+
+for i=1:numel(handles.inputfiles)
+    fprintf(fid,' %s\n',handles.inputfiles{i});
+end
+
+stats = getappdata(handles.figure1,'infoStruct');
+nPicked = data.nTraces;
+fprintf(fid,'\nMolecules Picked:\t%d of %d (%.1f%%)\n\n\n', ...
+            nPicked, numel(stats), 100*nPicked/numel(stats) );
+
+% Descriptive statistics about dataset.
+isMolecule      = sum( [stats.snr]>0 );
+singleMolecule  = sum( [stats.snr]>0 & [stats.overlap]==0 );
+hasFRET         = sum( [stats.snr]>0 & [stats.overlap]==0 & [stats.acclife]>=5 );
+
+fprintf(fid,'PICKING RESULTS\n');
+fprintf(fid, '  %22s:  %-5d (%.1f%% of total)\n', 'Donor photobleaches', isMolecule,     100*isMolecule/numel(stats));
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Single donor',        singleMolecule, 100*singleMolecule/isMolecule);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Have FRET',           hasFRET,        100*hasFRET/singleMolecule);
+fprintf(fid, '  %22s:  %-5d (%.1f%% of above)\n', 'Pass all criteria',   nPicked,        100*nPicked/hasFRET);
+fprintf(fid, '\n\n');
+
+% Save picking criteria used
+fprintf(fid,'PICKING CRITERIA\n');
+names = fieldnames(  handles.criteria );
+vals  = struct2cell( handles.criteria );
+
+for i=1:numel(names),
+    if isempty( vals{i} ), continue; end  %skip unchecked criteria
+    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
+end
+
+% Save values of all other constants used
+fprintf(fid, '\n\nCONSTANTS\n');
+constants = cascadeConstants;
+names = fieldnames(  constants );
+vals  = struct2cell( constants );
+
+for i=1:numel(names),
+    if isstruct( vals{i} ) || numel( vals{i} )>1, continue; end
+    fprintf(fid, '  %22s:  %.2f\n', names{i}, vals{i});
+end
+
+fprintf(fid,'\n\n');
+fclose(fid);
+
+set([handles.mnuFileSaveExcluded handles.tbFileSave],'Enable','off');
+drawnow;
+
+% END FUNCTION SaveExcludedTraces_Callback
 
 %----------------  SAVE MOLECULE PROPERTIES TO FILE ----------------%
 
@@ -508,7 +591,7 @@ set(handles.MoleculesPicked,'String', ...
             sprintf('%d of %d',[numel(inds_picked),handles.traceList.data.nTraces]));
 
 % If at least one trace is picked, turn some buttons on.
-set( [handles.mnuFileSave handles.tbFileSave handles.mnuViewPlots ...
+set( [handles.mnuFileSave handles.mnuFileSaveExcluded  handles.tbFileSave handles.mnuViewPlots ...
       handles.tbViewPlots handles.mnuViewTraces handles.tbViewTraces ...
       handles.mnuFileSaveProp handles.tbBatchKinetics handles.tbFrethist ...
       handles.mnuFrethist handles.mnuBatchKinetics], ...
@@ -896,3 +979,6 @@ if ~isempty(outfile)
 end
 
 % END FUNCTION
+
+
+
