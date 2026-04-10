@@ -145,8 +145,8 @@ elseif numel(lasers)==2 && lasers(1).framesActive(1)~=lasers(2).framesActive(1)
     
     % Update list of channel names for 2-color ALEX.
     nFrames = numel(idx);
-    dataNames = [dataNames 'acceptorDirect' 'stoichiometry'];
-    chNames   = [chNames   'acceptorDirect'];
+    dataNames = [dataNames 'acceptorDirect' 'acceptorDirect2' 'stoichiometry']; % Added new channel names
+    chNames   = [chNames   'acceptorDirect' 'acceptorDirect2'];
 end
 
 
