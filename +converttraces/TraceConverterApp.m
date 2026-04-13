@@ -5,7 +5,8 @@ classdef TraceConverterApp < matlab.apps.AppBase
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     properties (Access = public)
         UIFigure matlab.ui.Figure
-        
+        DeepLassiWarningShown logical = false;
+
         % Tab Group
         TabGroup matlab.ui.container.TabGroup
         
@@ -63,6 +64,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
         DLassiLogArea matlab.ui.control.TextArea
         DLassiPathLogArea matlab.ui.control.TextArea
         PyEnvPathLogArea matlab.ui.control.TextArea
+
     end
 
     properties (Access = private)
@@ -81,6 +83,16 @@ classdef TraceConverterApp < matlab.apps.AppBase
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     methods (Access = private)
 
+        function onTabChanged(app, ~, event)
+            if event.NewValue == app.DLassiTab && ~app.DeepLassiWarningShown
+                uialert(app.UIFigure, ...
+                    ['DeepLASI conversion requires DeepLASI already installed.' newline ...
+                    'Please select a valid DeepLASI data/output folder and Python executable.'], ...
+                    'DeepLASI Prerequisite', ...
+                    'Icon', 'warning');
+                app.DeepLassiWarningShown = true;
+            end
+        end
         %----------------------------------------------------------
         function log(app, logArea, msg)
             % Log message to specified text area
@@ -127,6 +139,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
                     app.MatFileList.Items = files;
                     app.log(app.MatLogArea, sprintf('Selected %d file(s)', numel(files)));
                 case 'DLassi'
+ 
                     app.DLassiFiles = files;
                     app.DLassiFileList.Items = files;
                     app.log(app.DLassiLogArea, sprintf('Selected %d file(s)', numel(files)));                    
@@ -160,6 +173,8 @@ classdef TraceConverterApp < matlab.apps.AppBase
         %----------------------------------------------------------
 
         function SelectDLassiFilePath(app, tabName)
+
+
             % Generic file selection for all tabs
             [p] = uigetdir('Select Deep Lassi data path');
 
@@ -391,6 +406,8 @@ classdef TraceConverterApp < matlab.apps.AppBase
         end
         %----------------------------------------------------------
         function ConvertToDLassiAlex3Color(app, ~)
+
+
             if isempty(app.DLassiFiles)
                 uialert(app.UIFigure, 'Please select at least one .traces file first.', 'No Files Selected');
                 return;
@@ -694,6 +711,10 @@ classdef TraceConverterApp < matlab.apps.AppBase
 
 
         function createNpzTab(app)
+
+        % after creating TabGroup
+        app.TabGroup.SelectionChangedFcn = @(src,event) app.onTabChanged(src,event);
+
             % Tab 2: Deep LAssi Npz Tab - Single column layout
             app.DLassiTab = uitab(app.TabGroup, 'Title', '.traces to DeepLassiNpz');
             
@@ -706,6 +727,8 @@ classdef TraceConverterApp < matlab.apps.AppBase
 
 
             % File selection button
+
+
             app.DLassiSelectButton = uibutton(app.DLassiTab, ...
                 'Text', 'Select .traces/.rawtraces Files', ...
                 'Position', [165 420+shifty 250 20], ...
