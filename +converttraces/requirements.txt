@@ -7,4 +7,4 @@ pip install mlxtend==0.20.0
 pip install pomegranate==0.14.8
 pip install pomegranate==0.14.6 --only-binary :all
 
-#pyenv('Version','/mnt/groups5/blancgrp/home/zkilic/SpartanFlash/methods/venv/bin/python');
+#pyenv('Version','/xxx/venv/bin/python');

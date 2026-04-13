@@ -76,9 +76,9 @@ for i=1:numel(filenames),
 path1 = pwd;
 
 script = fullfile(path1, 'run_python.sh');
-pythonExe = pythonExepath; %'/mnt/groups5/blancgrp/home/zkilic/SpartanFlash/methods/venv/bin/python';  % user or GUI
-matPath = outname ; %'/mnt/groups5/blancgrp/home/zkilic/SpartanFlash/methods/deeplasi-main/functions/deeplearning/data/aarondata.mat';
-npzPath = outname1;%'/mnt/groups5/blancgrp/home/zkilic/SpartanFlash/methods/deeplasi-main/functions/deeplearning/data/aarondata_npz.npz';
+pythonExe = pythonExepath; %'/xxx/venv/bin/python';  % user or GUI
+matPath = outname ; %'/xxx/deeplasi-main/functions/deeplearning/data/aarondata.mat';
+npzPath = outname1;%'/xxx/deeplasi-main/functions/deeplearning/data/aarondata_npz.npz';
 
 cmd = sprintf('bash "%s" "%s" "%s" "%s"', script, pythonExe,matPath,npzPath);
 % Optional fourth argument to Python (after npz): --var NAME
