@@ -1,0 +1,24 @@
+cycler==0.12.1
+fonttools==4.60.2
+joblib==1.5.3
+kiwisolver==1.4.7
+matplotlib==3.5.2
+mlxtend==0.20.0
+networkx==3.2.1
+numpy==1.23.1
+packaging==26.0
+pandas==2.3.3
+pillow==11.3.0
+pomegranate==0.14.6 --only-binary=:all
+pyparsing==3.3.2
+python-dateutil==2.9.0.post0
+pytz==2026.1.post1
+PyYAML==6.0.3
+scikit-learn==1.1.1
+scipy==1.13.1
+six==1.17.0
+threadpoolctl==3.6.0
+tqdm==4.64.0
+tzdata==2026.1
+
+

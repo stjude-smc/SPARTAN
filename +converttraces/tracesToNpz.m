@@ -74,17 +74,23 @@ for i=1:numel(filenames),
     
 
 thisDir = fileparts(mfilename('fullpath'));   % .../SPARTAN/+converttraces
-script  = fullfile(thisDir, 'run_python.sh');
-if exist(script, 'file') ~= 2
-    error('run_python.sh not found at: %s', script);
-end
 pythonExe = pythonExepath; %'/xxx/venv/bin/python';  % user or GUI
 matPath = outname ; %'/xxx/deeplasi-main/functions/deeplearning/data/aarondata.mat';
 npzPath = outname1;%'/xxx/deeplasi-main/functions/deeplearning/data/aarondata_npz.npz';
 
-cmd = sprintf('bash "%s" "%s" "%s" "%s"', script, pythonExe,matPath,npzPath);
-% Optional fourth argument to Python (after npz): --var NAME
-% cmd = sprintf('bash "%s" "%s" "%s" "%s" --var arr_0', script, pythonExe, matPath, npzPath);
+if ispc
+    script    =  fullfile(thisDir, 'tracesMat2Npz.py');
+    cmd = sprintf('"%s" "%s" "%s" "%s"', ...
+                pythonExe, ...
+                script, ...
+                matPath, ...
+                npzPath);
+elseif isunix 
+    script    =  fullfile(thisDir, 'run_python.sh');
+    cmd = sprintf('bash "%s" "%s" "%s" "%s"',script, pythonExe,matPath,npzPath);
+end
+
+
 
 [status, out] = system(cmd);
 disp(out);
@@ -97,4 +103,9 @@ end
 end
 
 
+end
+
+function p = toUnixPath(p)
+    p = strrep(p, '\', '/');
+    p = regexprep(p, '^Z:', '/mnt/z');
 end

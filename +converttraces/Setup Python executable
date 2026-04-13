@@ -1,7 +1,8 @@
 # 🚀 Deep Lassi realted file conversion requires a python enviroenemtn – Quick Setup Guide
 
 ## 🧠 Requirements
-- Python 3.9 or higher (3.10+ recommended)
+- Python 3.9 
+https://archive.org/download/python-3.9.13
 - pip (comes with Python)
 - Internet connection
 
@@ -11,8 +12,12 @@
 
 ### Windows
 ```bash
-python -m venv venv
-venv\Scripts\activate
+
+ py -3.9 -m venv venv39
+ .\venv39\Scripts\Activate.ps1
+ ls
+ python --version
+ pip install -r requirements1.txt
 
 ### Linux
 python3 -m venv venv
