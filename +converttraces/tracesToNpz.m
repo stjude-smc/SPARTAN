@@ -73,9 +73,11 @@ for i=1:numel(filenames),
     save(outname,'arr_0');
     
 
-path1 = pwd;
-
-script = fullfile(path1, '+converttraces/run_python.sh');
+thisDir = fileparts(mfilename('fullpath'));   % .../SPARTAN/+converttraces
+script  = fullfile(thisDir, 'run_python.sh');
+if exist(script, 'file') ~= 2
+    error('run_python.sh not found at: %s', script);
+end
 pythonExe = pythonExepath; %'/xxx/venv/bin/python';  % user or GUI
 matPath = outname ; %'/xxx/deeplasi-main/functions/deeplearning/data/aarondata.mat';
 npzPath = outname1;%'/xxx/deeplasi-main/functions/deeplearning/data/aarondata_npz.npz';
