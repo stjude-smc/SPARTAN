@@ -105,7 +105,3 @@ end
 
 end
 
-function p = toUnixPath(p)
-    p = strrep(p, '\', '/');
-    p = regexprep(p, '^Z:', '/mnt/z');
-end
