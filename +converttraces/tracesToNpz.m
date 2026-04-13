@@ -75,7 +75,7 @@ for i=1:numel(filenames),
 
 path1 = pwd;
 
-script = fullfile(path1, 'run_python.sh');
+script = fullfile(path1, '+converttraces/run_python.sh');
 pythonExe = pythonExepath; %'/xxx/venv/bin/python';  % user or GUI
 matPath = outname ; %'/xxx/deeplasi-main/functions/deeplearning/data/aarondata.mat';
 npzPath = outname1;%'/xxx/deeplasi-main/functions/deeplearning/data/aarondata_npz.npz';
