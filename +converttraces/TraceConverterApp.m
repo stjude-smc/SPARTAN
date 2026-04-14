@@ -176,7 +176,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
 
 
             % Generic file selection for all tabs
-            [p] = uigetdir('Select Deep Lassi data path');
+            [p] = uigetdir('Select Deep Lasi data path');
 
             if iscell(p)
                 files = cellfun(@(x) x, p, 'UniformOutput', false);
@@ -412,7 +412,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
                 uialert(app.UIFigure, 'Please select at least one .traces file first.', 'No Files Selected');
                 return;
             end
-            app.log(app.DLassiLogArea, 'Starting Deep Lassi npz,mat conversion...');
+            app.log(app.DLassiLogArea, 'Starting Deep Lasi npz,mat conversion...');
 
             if isempty(app.PyEnvPath)
                 uialert(app.UIFigure, 'Please select the Python eneviroment file first.', 'No Python Path Selected');
@@ -420,7 +420,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
             end
 
             if isempty(app.DLassiFilePath)
-                uialert(app.UIFigure, 'Please select the Deep Lassi data path first.', 'No Deep LAssi /data Path Selected');
+                uialert(app.UIFigure, 'Please select the Deep Lasi data path first.', 'No Deep LAsi /data Path Selected');
                 return;
             end
                         
@@ -430,7 +430,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
                     converttraces.tracesToNpz(app.DLassiFiles{i},app.DLassiPathFiles{1},app.PyEnvPathFiles{1});
                 end
                 
-                app.log(app.DLassiLogArea, sprintf('Successfully converted %d file(s) to Deep Lassi .npz,.mat format.', numel(app.DLassiFiles)));
+                app.log(app.DLassiLogArea, sprintf('Successfully converted %d file(s) to Deep Lasi .npz,.mat format.', numel(app.DLassiFiles)));
                 uialert(app.UIFigure, 'Conversion completed successfully!', 'Success', 'Icon', 'success');
                 
             catch ME
@@ -716,7 +716,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
         app.TabGroup.SelectionChangedFcn = @(src,event) app.onTabChanged(src,event);
 
             % Tab 2: Deep LAssi Npz Tab - Single column layout
-            app.DLassiTab = uitab(app.TabGroup, 'Title', '.traces to DeepLassiNpz');
+            app.DLassiTab = uitab(app.TabGroup, 'Title', '.traces to DeepLasiNpz');
             
             tabWidth = 530;
             convertButtonWidth = 150;
@@ -735,7 +735,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
                 'ButtonPushedFcn', @(~,~) app.SelectFiles('DLassi'));
 
             app.DLassiFilePath = uibutton(app.DLassiTab, ...
-                'Text', 'Select DeepLASSI Simulation Data Path ', ...
+                'Text', 'Select DeepLASI Simulation Data Path ', ...
                 'Position', [165 450+shifty 250 20], ...
                 'ButtonPushedFcn', @(~,~) app.SelectDLassiFilePath('DLassi')); 
 
@@ -755,7 +755,7 @@ classdef TraceConverterApp < matlab.apps.AppBase
 
             % Convert button (centered)
             app.DLassiConvertButton = uibutton(app.DLassiTab, ...
-                'Text', 'Convert to Deep Lassi npz', ...
+                'Text', 'Convert to Deep Lasi npz', ...
                 'Position', [convertButtonX 180 convertButtonWidth buttonHeight], ...
                 'ButtonPushedFcn', @(~,~) app.ConvertToDLassiAlex3Color,'BackgroundColor',[209 25 71]/255);
             
