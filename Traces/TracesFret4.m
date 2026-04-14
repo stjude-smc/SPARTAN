@@ -32,6 +32,7 @@ properties (Access=public)
     % which of these fields are not empty.
     donor2    = [];
     acceptor2 = [];
+    acceptorDirect2 = [];
     fret2     = [];
     factor    = [];
     factor2   = [];

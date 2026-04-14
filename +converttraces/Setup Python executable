@@ -1,0 +1,39 @@
+# 🚀 Deep Lassi realted file conversion requires a python enviroenemtn – Quick Setup Guide
+
+## 🧠 Requirements
+- Python 3.9 
+https://archive.org/download/python-3.9.13
+- pip (comes with Python)
+- Internet connection
+
+---
+
+## 🐍 1. Create a virtual environment
+
+### Windows
+```bash
+
+ py -3.9 -m venv venv39
+ .\venv39\Scripts\Activate.ps1
+ ls
+ python --version
+ pip install -r requirements1.txt
+
+### Linux
+python3 -m venv venv
+source venv/bin/activate
+
+### Use requirements file
+pip install --upgrade pip
+pip install -r requirements.txt
+
+### Extracting location for the python Executable
+
+Python executable location: "/xxxx/SpartanFlash/methods/venv/bin/python"
+
+
+
+
+
+
+
