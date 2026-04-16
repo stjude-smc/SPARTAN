@@ -347,9 +347,11 @@ for i=1:Ntraces
     if lt>1
         if isAlex
             stoichiometry = data.stoichiometry(i,1:lt);
-            fretRange = stoichiometry > 0.1 & stoichiometry < 0.9;
+            % Sheng > fretRange = stoichiometry > 0.1 & stoichiometry < 0.9;
+            fretRange = stoichiometry > 0 & stoichiometry < 1.0;
         else
             fretRange = fret >= constants.min_fret;
+            retval(i).stoiDA = -1; % Sheng
         end
         % Filter the regions so that they must consist of more than 5
         % consecutive points above the threshold
@@ -360,6 +362,7 @@ for i=1:Ntraces
         if nFret>1,
             retval(i).avgFret = sum(fret(fretRange))/nFret;
             retval(i).snrs_fret = retval(i).t ./ std1(data.donor(i,fretRange)+data.acceptor(i,fretRange));
+            if isAlex retval(i).stoiDA = sum(stoichiometry(fretRange))/nFret; end % Sheng
         end
         
         % Similar calculations when there is a second acceptor (3/4-color).
