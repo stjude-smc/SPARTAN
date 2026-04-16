@@ -62,6 +62,14 @@ if nargin<1,
     ln.overlap  = 'Multi-step photobleaching';
     ln.safeRegion = 'Single-molecule start';
     ln.avgFret  = 'Average FRET value';
+
+    % These parameters are specific to ALEX
+
+    ln.stoiDA = "Stoichiometry";  % Sheng > stoi = T/(T+A), T=D+F, see TraceFret line 260
+    ln.overlap_acc = "Multi-step acceptor";
+    ln.int_accdir = "Max direct acc int.";
+    ln.meanint_accdir = "Mean direct acc int.";
+    ln.snr_s_accdir = "SNR acc dir.";
     
     % These parameters are specific to 3/4-color FRET with a second acceptor.
     % Ideally these should only appear for 3/4-color.
@@ -152,6 +160,9 @@ retval = struct( ...
     'lifetime',   z, 'acclife',  z, ...
     'donorlife',  z, 'overlap',  z, ...
     'safeRegion', z, 'avgFret',  z, ...
+    'stoiDA', z , 'overlap_acc', z, ...
+    'int_accdir', z, 'meanint_accdir', z, ...
+    'snr_s_accdir', z, ...
     'fretEvents', z, 'firstFret', z, ...
     'fret2Lifetime', z, 'maxFret2', z, ...
     'avgFret2', z );
@@ -229,8 +240,37 @@ for i=1:Ntraces
 
     retval(i).overlap = lastPB~=0;
     retval(i).safeRegion = max(1,lastPB+2);
-
     
+    % Detection of multiple acceptors, as calculated for donor above
+
+    if isAlex
+
+        filt_acc = movmedian(data.acceptorDirect(i,:),constants.TAU);
+        dfilt_acc = gradient1(filt_acc);
+        mean_dfilt_acc = sum(dfilt_acc) / len;
+        std_dfilt_acc = std1(dfilt_acc);
+        %     thresh_acc = mean_dfilt_acc-constants.overlap_nstd*std_dfilt_acc;
+        thresh_acc = mean_dfilt_acc-2*std_dfilt_acc;
+        events_acc = find( diff(dfilt_acc<=thresh_acc)==1 )+1;
+        lt_acc = find( dfilt_acc<=thresh_acc, 1,'last' );
+        % Remove events right at the beginning that could be spurious.
+        events_acc = events_acc(events_acc>5 & events_acc<=lt_acc);
+
+        lastPB_acc = 0;
+        for j=1:length(events_acc)-1,
+            point_acc = events_acc(j);
+
+            minb = min( filt_acc(2:point_acc-1 ) );
+            maxa = max( filt_acc(point_acc+1:lt_acc) );
+
+            if maxa < minb,
+                lastPB_acc = point_acc;
+            end
+        end
+
+        retval(i).overlap_acc = lastPB_acc~=0;
+    end
+
     %---- Ignore regions where Cy3 is blinking
     s = lt+5;
     bg_range = s:min(s+constants.NBK,len);
@@ -292,6 +332,13 @@ for i=1:Ntraces
         retval(i).nnr = total_noise ./ stdbg;
     end
     
+    if isAlex
+        retval(i).int_accdir = max(data.acceptorDirect(i,:));
+        retval(i).meanint_accdir = mean(data.acceptorDirect(i,1:min(nDonor,10)));
+
+        noise_accdir = std1( data.acceptorDirect(i,1:min(nDonor,10)) );
+        retval(i).snr_s_accdir = retval(i).meanint_accdir ./ noise_accdir;
+    end
     
     % Find regions (before Cy3 photobleach) where FRET is above a threshold.
     % Properties will be calculated only on these areas.
@@ -300,9 +347,11 @@ for i=1:Ntraces
     if lt>1
         if isAlex
             stoichiometry = data.stoichiometry(i,1:lt);
-            fretRange = stoichiometry > 0.1 & stoichiometry < 0.9;
+            % Sheng > fretRange = stoichiometry > 0.1 & stoichiometry < 0.9;
+            fretRange = stoichiometry > 0 & stoichiometry < 1.0;
         else
             fretRange = fret >= constants.min_fret;
+            retval(i).stoiDA = -1; % Sheng
         end
         % Filter the regions so that they must consist of more than 5
         % consecutive points above the threshold
@@ -313,6 +362,7 @@ for i=1:Ntraces
         if nFret>1,
             retval(i).avgFret = sum(fret(fretRange))/nFret;
             retval(i).snrs_fret = retval(i).t ./ std1(data.donor(i,fretRange)+data.acceptor(i,fretRange));
+            if isAlex retval(i).stoiDA = sum(stoichiometry(fretRange))/nFret; end % Sheng
         end
         
         % Similar calculations when there is a second acceptor (3/4-color).
