@@ -34,7 +34,7 @@ skmParams.convLL = 0.01;
 skmParams.zeroEnd = 1;
 skmParams.seperately = 1;
 skmParams.quiet = 1;
-skmParams.fixKinetics = 1;  %invalid. fixme
+% skmParams.fixKinetics = 1;  %invalid. fixme
 
 %two-state model for skm
 % modelFile = fullfile(constants.modelLocation,'tRNA Selection','090520_FretHist_2State_model.qmf');
@@ -74,53 +74,81 @@ for i = 1:numel(fileList)
         offsets, model, currentTraces.sampling);
       
     % initialize Traces object for selected dwells
-    syncTraces = TracesFret(0,totalFrames);
+
+    
+    c= 0;
+    for tracenum = 1:currentTraces.nTraces
+        %%
+        if numel(dwellTimes{tracenum}(:,1)) > 1
+            state2LongDwells = find(dwellTimes{tracenum}(2:end,1) == 2 & (dwellTimes{tracenum}(2:end,2) >= minFrames)) + 1;
+            %         state2LongDwells = find(dwellTimes{j}(state2Dwells,2) >= minFrames);
+        else
+            continue
+        end
+
+        for eventnum = 1:numel(state2LongDwells)
+
+            startFrame = sum(dwellTimes{tracenum}(1:state2LongDwells(eventnum)-1,2)) - preFrames;
+
+            if startFrame < 1
+                %             continue
+                startFrame = 1;
+            end
+            c = c+1;
+        end
+
+    end
+
+    % Pre-allocate for speed
+
+    syncTraces = TracesFret(c,totalFrames);
     syncTraces.time = currentTraces.sampling * syncTraces.time;
     syncTraces.fileMetadata = currentTraces.fileMetadata;
-    
+    syncTraces.fret = zeros(c,totalFrames);
+    syncTraces.donor = zeros(c,totalFrames);
+    syncTraces.acceptor = zeros(c,totalFrames);
+
+
+
+    c = 1;
     for j = 1:currentTraces.nTraces
         currentDwells = dwellTimes{j};
-        
+
         dwellOffset = 1;
         for k = 2:size(currentDwells,1)
             dwellState = currentDwells(k,1);
             dwellLength = currentDwells(k,2);
             previousLength = currentDwells(k-1,2);
             dwellOffset = dwellOffset + previousLength;
-            
+
             % select "on" dwells with specified minimum length
             if (dwellState==2) && (dwellLength >= minFrames)
                 newFret = zeros(1,totalFrames);
                 newDonor = zeros(1,totalFrames);
                 newAcceptor = zeros(1,totalFrames);
-                
+
                 preLength = min(previousLength,preFrames);
                 dwellLength = min(dwellLength,(totalFrames-preFrames));
-                
+
                 newFret((preFrames+1-preLength):(preFrames+dwellLength)) ...
                     = currentTraces.fret(j,(dwellOffset-preLength):(dwellOffset+dwellLength-1));
-                
+
                 newDonor((preFrames+1-preLength):(preFrames+dwellLength)) ...
                     = currentTraces.donor(j,(dwellOffset-preLength):(dwellOffset+dwellLength-1));
-                
+
                 newAcceptor((preFrames+1-preLength):(preFrames+dwellLength)) ...
                     = currentTraces.acceptor(j,(dwellOffset-preLength):(dwellOffset+dwellLength-1));
-                
+
                 % add dwell to Traces object
-                syncTraces.fret = vertcat(syncTraces.fret,newFret);
-                syncTraces.donor = vertcat(syncTraces.donor,newDonor);
-                syncTraces.acceptor = vertcat(syncTraces.acceptor,newAcceptor);
+                syncTraces.fret(c,:) = newFret;
+                syncTraces.donor(c,:) = newDonor;
+                syncTraces.acceptor(c,:) = newAcceptor;
+                c = c+1;
             end
         end
     end
-    temp = TracesFret( size(syncTraces.fret,1), size(syncTraces.fret,2) );
-    temp.fret = syncTraces.fret;
-    temp.donor = syncTraces.donor;
-    temp.acceptor = syncTraces.acceptor;
-    temp.fileMetadata = syncTraces.fileMetadata;
-    temp.time = syncTraces.time;
-    
-    saveTraces([filePath filesep fileName '_postSync.traces'],temp);
+
+    saveTraces([filePath filesep fileName '_postSync.traces'],syncTraces);
     %outFileList{i} = [filePath filesep fileName '_postSync.traces'];
     %plotTitleList{i} = fileName;
 end
