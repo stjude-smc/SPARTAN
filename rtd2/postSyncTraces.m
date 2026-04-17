@@ -34,24 +34,6 @@ skmParams.convLL = 0.01;
 skmParams.zeroEnd = 1;
 skmParams.seperately = 1;
 skmParams.quiet = 1;
-% skmParams.fixKinetics = 1;  %invalid. fixme
-
-%two-state model for skm
-% modelFile = fullfile(constants.modelLocation,'tRNA Selection','090520_FretHist_2State_model.qmf');
-% 
-% % Verify the model file exists. Ask the user if not.
-% if ~exist(modelFile,'file'),
-%     % Try the current directory first.
-%     [~,f,e] = fileparts(modelFile);
-%     modelFile = [f e];
-%     
-%     % If not in the current directory, ask the user to find it.
-%     if ~exist(modelFile,'file'),
-%         [f,p] = uigetfile( modelFile, 'Load tRNA binding model' );
-%         if f==0, return; end  %user hit cancel
-%         modelFile = fullfile(p,f);
-%     end
-% end
 
 model = QubModel(2);
 model.mu    = [0 0.3];
@@ -73,30 +55,17 @@ for i = 1:numel(fileList)
     saveDWT([filePath filesep fileName '_2state.qub.dwt'],dwellTimes, ...
         offsets, model, currentTraces.sampling);
       
-    % initialize Traces object for selected dwells
-
-    
+    % Finding number of events which satisfy criteria
     c= 0;
     for tracenum = 1:currentTraces.nTraces
         %%
         if numel(dwellTimes{tracenum}(:,1)) > 1
             state2LongDwells = find(dwellTimes{tracenum}(2:end,1) == 2 & (dwellTimes{tracenum}(2:end,2) >= minFrames)) + 1;
-            %         state2LongDwells = find(dwellTimes{j}(state2Dwells,2) >= minFrames);
         else
             continue
         end
 
-        for eventnum = 1:numel(state2LongDwells)
-
-            startFrame = sum(dwellTimes{tracenum}(1:state2LongDwells(eventnum)-1,2)) - preFrames;
-
-            if startFrame < 1
-                %             continue
-                startFrame = 1;
-            end
-            c = c+1;
-        end
-
+        c = c+numel(state2LongDwells);
     end
 
     % Pre-allocate for speed
@@ -107,8 +76,6 @@ for i = 1:numel(fileList)
     syncTraces.fret = zeros(c,totalFrames);
     syncTraces.donor = zeros(c,totalFrames);
     syncTraces.acceptor = zeros(c,totalFrames);
-
-
 
     c = 1;
     for j = 1:currentTraces.nTraces
@@ -149,12 +116,7 @@ for i = 1:numel(fileList)
     end
 
     saveTraces([filePath filesep fileName '_postSync.traces'],syncTraces);
-    %outFileList{i} = [filePath filesep fileName '_postSync.traces'];
-    %plotTitleList{i} = fileName;
 end
-
-%plotOptions.contour_length = preFrames + minFrames;
-%makeplots(outFileList,plotTitleList,plotOptions);
 
 end
 
