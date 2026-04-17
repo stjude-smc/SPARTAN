@@ -48,7 +48,6 @@ plotWindow = 0;
 
 fprintf('rdTool started.\n\n');
 % Initialize timer;
-tic;
 
 % Get default settings.
 opt = defaultOptions();
@@ -92,7 +91,7 @@ if isempty(opt.fileList)
     fprintf('No trace file selected. Exiting.\n\n');
     return;
 end
-
+tic;
 % Run plot routine if plot-only mode is active, then exit.
 if opt.plotOnly
     fprintf('Plot-only mode.\n');
