@@ -46,7 +46,14 @@ function [plotWindow] = rtdTool(varargin)
 
 plotWindow = 0;
 
-fprintf('rdTool started.\n\n');
+% fprintf('rdTool started.\n\n');
+
+lognow = string(datetime());
+fileID = fopen('rtdlog.txt', 'wt');
+fprintf(fileID, 'RTDGUI started on: %s\n', lognow);
+fclose(fileID);
+
+
 % Initialize timer;
 
 % Get default settings.
@@ -132,11 +139,28 @@ if opt.scaleAcc
     end
 end
 
+% Logging
+optCritical = struct;
+optCritical.minFrames = opt.minFrames;
+optCritical.preFrames = opt.preFrames;
+optCritical.totalFrames = opt.totalFrames;
+optCritical.kinModel = opt.kinModel;
+optCritical.prodState = opt.prodState;
+optCritical.prodDwell = opt.prodDwell;
+
+optOut = evalc('disp(optCritical)'); 
+fileID = fopen('rtdlog.txt', 'a');
+fprintf(fileID, '\n---RTDGUI OPTIONS---\n\n%s-------------------\n', optOut);
+fprintf(fileID, '\n---FILES ANALYSED---\n');
+fprintf(fileID, '%s\n', opt.fileList{:});
+fprintf(fileID, '-------------------\n');
+fclose(fileID);
+
 % Select and save traces.
 if ~opt.skipCriteria
     for i=1:length(opt.fileList)
-        fprintf('%s',['Filtering traces: ' opt.fileList{i}]);
-        fprintf('\n\n');
+%         fprintf('%s',['Filtering traces: ' opt.fileList{i}]);
+%         fprintf('\n\n');
         
         [path,name,~] = fileparts(opt.fileList{i});
         filterOpt.outFilename = fullfile(path, [name opt.autoPostfix '.traces']);
@@ -150,7 +174,7 @@ end
 
 % Post-synchronize traces.
 if ~opt.simplePostSync % Iterative post-synchronization with 2-state model.
-    fprintf('Post-synchronizing traces using iterative 2-state idealization method.\n');
+%     fprintf('Post-synchronizing traces using iterative 2-state idealization method.\n');
     postSyncTraces(opt.minFrames, opt.preFrames, opt.totalFrames, opt.fileList);
     
     % Assemble new file list for further processing.
@@ -159,7 +183,7 @@ if ~opt.simplePostSync % Iterative post-synchronization with 2-state model.
         opt.fileList{i} = fullfile(path, [name '_postSync.traces']);
     end
 else % Simple threshold-based post-synchronization.
-    fprintf('Post-synchronizing traces using non-iterative thresholding method.\n');
+%     fprintf('Post-synchronizing traces using non-iterative thresholding method.\n');
     simplePostSync(opt.preFrames, opt.totalFrames, opt.simpleThresh, opt.fileList)
     
     % Assemble new file list for further processing.
@@ -179,9 +203,9 @@ if opt.idlTraces
     
     for i=1:length(opt.fileList)
         % Idealize traces using SKM.
-        fprintf('\n');
-        fprintf('%s',['Idealizing traces: ' opt.fileList{i}]);
-        fprintf('\n');
+%         fprintf('\n');
+%         fprintf('%s',['Idealizing traces: ' opt.fileList{i}]);
+%         fprintf('\n');
         
         currentTraces = loadTraces(opt.fileList{i});
         idl = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
@@ -194,7 +218,7 @@ if opt.idlTraces
         
         % Separate traces into "successful" and "unsuccessful" events.
         if ~opt.skipStateFilter
-            fprintf('\nDividing traces into productive and non-productive events.\n');
+%             fprintf('\nDividing traces into productive and non-productive events.\n');
             
             prodFrames = opt.prodDwell/currentTraces.sampling;
             selFile = fullfile(path, [name opt.selectPostfix '.traces']);
@@ -205,8 +229,8 @@ if opt.idlTraces
             
             if opt.reidlTraces
                 % Re-idealize selected traces using SKM.
-                fprintf('\n');
-                disp(['Re-idealizing traces: ' selFile]);
+%                 fprintf('\n');
+%                 disp(['Re-idealizing traces: ' selFile]);
                 
                 currentTraces = loadTraces(selFile);
                 idl = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
@@ -217,8 +241,8 @@ if opt.idlTraces
                 saveDWT(dwtFile, dwt, offsets, fretModel, currentTraces.sampling);
 
                 % Re-idealize rejected traces using SKM.
-                fprintf('\n');
-                disp(['Re-idealizing traces: ' rejFile]);
+%                 fprintf('\n');
+%                 disp(['Re-idealizing traces: ' rejFile]);
                 
                 currentTraces = loadTraces(rejFile);
                 idl = skm(currentTraces.fret, currentTraces.sampling, kinModel, opt.skmOpt);
@@ -245,24 +269,31 @@ end
 
 % Generate state occupancy plots.
 if opt.stateOcc
-    fprintf('\nGenerating state occupancy plots.\n');
+%     fprintf('\nGenerating state occupancy plots.\n');
     for i=1:length(opt.allFiles)
         [path,name,~] = fileparts(opt.allFiles{i});
         dwtFile = fullfile(path, [name '.qub.dwt']);
         stateOccupancy(dwtFile,opt.totalFrames);
         opt.stateOccFiles{i} = fullfile(path, [name '.qub_stateOcc.txt']);
-        fprintf('%s',['Saving to ' opt.stateOccFiles{i}]);
-        fprintf('\n');
+%         fprintf('%s',['Saving to ' opt.stateOccFiles{i}]);
+%         fprintf('\n');
     end
-    fprintf('\n');
+%     fprintf('\n');
 end
 
 % Display plots.
 plotWindow = displayPlots(opt);
 
 % Display completion time.
-fprintf('%s',['rtdTool completed in ' num2str(toc) ' seconds.']);
-fprintf('\n');
+% fprintf('%s',['rtdTool completed in ' num2str(toc) ' seconds.']);
+% fprintf('\n');
+
+
+lognow = string(datetime());
+fileID = fopen('rtdlog.txt', 'a');
+fprintf(fileID, '\nRTDGUI complete on: %s\n', lognow);
+fprintf(fileID, '\nRTDGUI complete in %.2f seconds', toc);
+fclose(fileID);
 
 end % function rtdTool()
 
@@ -341,12 +372,12 @@ for i=1:nRow
 end
 
 % Display plot legend (mapped by number).
-fprintf('\nPlot legend:\n');
-for i=1:length(opt.allFiles)
-    fprintf('%s',[plotTitles{i} ' - ' opt.allFiles{i}]);
-    fprintf('\n');
-end
-fprintf('\n');
+% fprintf('\nPlot legend:\n');
+% for i=1:length(opt.allFiles)
+%     fprintf('%s',[plotTitles{i} ' - ' opt.allFiles{i}]);
+%     fprintf('\n');
+% end
+% fprintf('\n');
 
 end % function displayPlots()
 
