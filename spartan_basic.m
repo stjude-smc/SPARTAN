@@ -54,6 +54,7 @@ sorttraces; makeplots; frethistComparison;
 batchKinetics; dwellhist; percentTime; transitionsPerSecond; occtime;
 crosstalkcorrect; gammacorrect; scaleacceptor;
 forQuB; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
+gettraces_fromTwoStacks;
 
 
 

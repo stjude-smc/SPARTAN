@@ -134,6 +134,22 @@ p.name        = 'TIRF 1 (Flash v2 cameras)';
 profiles(end+1) = p;
 
 
+% Two separate TIFF stacks merged side-by-side (gettraces_fromTwoStacks).
+% Left tile = channel 1, right tile = channel 2. Wavelengths in ascending order.
+p = cmosCommon;
+p.name         = 'Dual TIFF merge (L-R, 2-color)';
+p.geometry     = [1 2];
+p.crosstalk    = zeros(2);
+p.crosstalk(1,2) = 0.075;   % ch1 -> ch2 (e.g. Cy3 -> Cy5); measure or copy from TIRF 2-3
+p.scaleFluor   = [1 1];
+p.channels = struct( ...
+    'name',          {'Cy3', 'Cy5'}, ...
+    'description',   {'', ''}, ...
+    'wavelength',    {532, 640}, ...
+    'photonsPerCount', {0.49, 0.49} );   % use 0.22 if Fusion camera like TIRF 2-3
+profiles(end+1) = p;
+
+
 % Set the default settings profile.
 constants.gettraces_profiles = profiles;
 constants.gettraces_defaultProfile = 1;
