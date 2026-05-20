@@ -51,11 +51,14 @@ else
 end
 
 % Verify input is simple 2-channel FRET
+expectedChannels = {'donor','acceptor','fret'};  
 if isa(data,'TracesFret4')
     warning('Multi-color data is not supported');
-elseif ~all( strcmpi(data.channelNames,{'donor','acceptor','fret'}) )
+% elseif ~all( strcmpi(data.channelNames,{'donor','acceptor','fret'}) )
+elseif ~all(ismember(expectedChannels, data.channelNames)) 
     error('Single-channel data is not supported');
 end
+
 
 
 %% Calculate crosstalk values
