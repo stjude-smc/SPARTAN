@@ -1,0 +1,262 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Appendix A. Full list of MATLAB functions &mdash; SPARTAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Appendix B. File formats" href="appendix_file_formats.html" />
+    <link rel="prev" title="Customization" href="customization.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SPARTAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spartan_workflow.html">Main menu and core analysis workflow (spartan)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettraces.html">Extracting fluorescence traces from movies (gettraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="autotrace.html">Select traces according to defined criteria (autotrace)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Appendix A. Full list of MATLAB functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#gettraces">Gettraces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#autotrace">Autotrace</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#trace-corrections">Trace corrections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#visualization">Visualization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hidden-markov-modeling">Hidden Markov modeling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#third-party-interchange">Third-party interchange</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#utilities">Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#classes">Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pre-steady-state-rtd">Pre-steady-state / RTD</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_file_formats.html">Appendix B. File formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SPARTAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Appendix A. Full list of MATLAB functions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/appendix_functions.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="appendix-a-full-list-of-matlab-functions">
+<span id="appendix-functions"></span><h1>Appendix A. Full list of MATLAB functions<a class="headerlink" href="#appendix-a-full-list-of-matlab-functions" title="Link to this heading"></a></h1>
+<p>Use <code class="docutils literal notranslate"><span class="pre">doc</span> <span class="pre">functionName</span></code> in MATLAB for full help. Entries below summarize roles;
+gray-listed internals are omitted here—prefer the in-app documentation for rare
+hooks.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Figure 11.</strong> Schematic overview of key functions — add <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">figure::</span></code> when
+available.</p>
+</div>
+<section id="gettraces">
+<h2>Gettraces<a class="headerlink" href="#gettraces" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">gettraces_gui</span></code> — GUI for movies → traces.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gettraces</span></code> — shortcut to <code class="docutils literal notranslate"><span class="pre">gettraces_gui</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pickPeaks</span></code> — locate PSF maxima.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">icpalign</span></code> — iterative closest-point alignment.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">getCentroids</span></code> — fast PSF centroids.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">subfield</span></code> — extract named subfields (e.g. quadrants).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">translatePeaks</span></code> — map donor peaks to expected acceptor positions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weberQuality</span></code> — alignment contrast score.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Wavelength_to_RGB</span></code> — pseudo-color by wavelength.</p></li>
+</ul>
+</section>
+<section id="autotrace">
+<h2>Autotrace<a class="headerlink" href="#autotrace" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">autotrace</span></code> — histogram GUI + selection export.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">traceStat</span></code> — per-trace statistics.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">calcLifetime</span></code> — donor bleach detection (used by <code class="docutils literal notranslate"><span class="pre">traceStat</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">medianfilter</span></code> — median smoothing for bleaching features.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rleFilter</span></code> — zero short runs in binary masks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RLEncode</span></code> — run-length encoding helper.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pickTraces</span></code> — apply selection rules.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">loadPickSaveTraces</span></code> — batch load/pick/save.</p></li>
+</ul>
+</section>
+<section id="trace-corrections">
+<h2>Trace corrections<a class="headerlink" href="#trace-corrections" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">bgsub</span></code> — zero post-bleach baseline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">crosstalkcorrect</span></code> — donor→acceptor bleed-through.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gammacorrect</span></code> — brightness / detection imbalance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scaleacceptor</span></code> — manual acceptor scaling.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">correctTraces</span></code> — ordered correction pipeline (internal).</p></li>
+</ul>
+</section>
+<section id="visualization">
+<h2>Visualization<a class="headerlink" href="#visualization" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sorttraces</span></code> — inspect / correct / bin traces.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">forOrigin</span></code> — text export for Origin.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">makeplots</span></code> — contour, occupancy, TDP overview.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">makecplot</span></code>, <code class="docutils literal notranslate"><span class="pre">cplot</span></code> — FRET–time contours.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">statehist</span></code> — per-state histograms (<code class="docutils literal notranslate"><span class="pre">makeplots</span></code> middle row).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tdplot</span></code>, <code class="docutils literal notranslate"><span class="pre">tplot</span></code> — transition density plots.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frethistComparison</span></code> — overlay FRET histograms across files.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">avgFretTime</span></code> — mean <span class="math notranslate nohighlight">\(E(t)\)</span> trends.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">occtime</span></code> — state occupancy vs. time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">percentTime</span></code> — fractional dwell from <code class="docutils literal notranslate"><span class="pre">.dwt</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dwellhist</span></code> — lifetime / Siegworth plots.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">lifetime_exp</span></code> — exponential fits to <code class="docutils literal notranslate"><span class="pre">dwellhist</span></code> data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">transitionsPerSecond</span></code> — global transition rate metric.</p></li>
+</ul>
+</section>
+<section id="hidden-markov-modeling">
+<h2>Hidden Markov modeling<a class="headerlink" href="#hidden-markov-modeling" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">batchKinetics</span></code> — HMM GUI (fit, idealize, simulate).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">skm</span></code>, <code class="docutils literal notranslate"><span class="pre">idealize</span></code>, <code class="docutils literal notranslate"><span class="pre">forward_viterbi</span></code> — SKM / Viterbi idealization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">forwardBackward</span></code> — forward–backward probabilities.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">milOptimize</span></code> — maximum interval likelihood.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mplOptimize</span></code> — maximum point likelihood.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BWoptimize</span></code> — Baum–Welch EM.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">runEbFRET</span></code> — external ebFRET driver.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">simulate</span></code> — synthetic traces.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">simulateMovie</span></code> — synthetic wide-field movies.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">loadDWT</span></code>, <code class="docutils literal notranslate"><span class="pre">saveDWT</span></code> — dwell-time I/O.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dwtToIdl</span></code>, <code class="docutils literal notranslate"><span class="pre">idlToDwt</span></code> — dwell list ↔ idealization.</p></li>
+</ul>
+</section>
+<section id="third-party-interchange">
+<h2>Third-party interchange<a class="headerlink" href="#third-party-interchange" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">forHammy</span></code> / <code class="docutils literal notranslate"><span class="pre">hammyToDWT</span></code> — HaMMy formats.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">forvbFRET</span></code> / <code class="docutils literal notranslate"><span class="pre">vbFRET_dwt</span></code> — vbFRET formats.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">forQuB</span></code> — QuB text import.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tracesToTxt</span></code>, <code class="docutils literal notranslate"><span class="pre">tracesToMat</span></code> — generic exports.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cy5ForQuB</span></code> — Cy5 channel helper for QuB.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">qub_loadTree</span></code>, <code class="docutils literal notranslate"><span class="pre">qub_saveTree</span></code> — QuB tree binaries.</p></li>
+</ul>
+</section>
+<section id="utilities">
+<h2>Utilities<a class="headerlink" href="#utilities" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">getFile</span></code>, <code class="docutils literal notranslate"><span class="pre">getFiles</span></code>, <code class="docutils literal notranslate"><span class="pre">getFileGroups</span></code> — UI file pickers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">haranfilter</span></code> — anti-correlation-preserving smoother.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">combineDatasets</span></code> — merge trace files.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">loadTraces</span></code>, <code class="docutils literal notranslate"><span class="pre">saveTraces</span></code> — binary trace I/O.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sizeTraces</span></code> — probe trace counts/lengths quickly.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resizeTraces</span></code> — truncate to common length.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rebintraces</span></code> — downsample traces (legacy helper).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">avgfret</span></code> — file-wide average FRET.</p></li>
+</ul>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Movie</span></code>, <code class="docutils literal notranslate"><span class="pre">Movie_STK</span></code>, <code class="docutils literal notranslate"><span class="pre">Movie_TIFF</span></code> — movie readers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MovieParser</span></code> — detection + trace export pipeline.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Traces</span></code>, <code class="docutils literal notranslate"><span class="pre">TracesFret</span></code>, <code class="docutils literal notranslate"><span class="pre">TracesFret4</span></code> — trace containers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">TraceListViewer</span></code> — scrolling trace UI (<code class="docutils literal notranslate"><span class="pre">batchKinetics</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">QubModel</span></code>, <code class="docutils literal notranslate"><span class="pre">QubModelViewer</span></code> — kinetic model object + editor.</p></li>
+</ul>
+</section>
+<section id="pre-steady-state-rtd">
+<h2>Pre-steady-state / RTD<a class="headerlink" href="#pre-steady-state-rtd" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">rtdgui</span></code> — RTD pipeline UI.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rtdPlots</span></code> — replot saved RTD outputs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rtdTool</span></code> — scripted backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">postSyncTraces</span></code> — model-based post-synchronization.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">simplePostSync</span></code> — threshold post-sync.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stateMin</span></code> — productive vs. non-productive classifier.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stateOccupancy</span></code> — state occupancy vs. time.</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="customization.html" class="btn btn-neutral float-left" title="Customization" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="appendix_file_formats.html" class="btn btn-neutral float-right" title="Appendix B. File formats" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright SPARTAN documentation authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

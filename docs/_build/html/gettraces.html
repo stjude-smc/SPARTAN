@@ -1,0 +1,235 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Extracting fluorescence traces from movies (gettraces) &mdash; SPARTAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Select traces according to defined criteria (autotrace)" href="autotrace.html" />
+    <link rel="prev" title="Main menu and core analysis workflow (spartan)" href="spartan_workflow.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SPARTAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spartan_workflow.html">Main menu and core analysis workflow (spartan)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Extracting fluorescence traces from movies (gettraces)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#select-instrument-profile">Select instrument profile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#loading-and-viewing-movies">Loading and viewing movies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#detecting-particles">Detecting particles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#alignment-of-spectral-channels">Alignment of spectral channels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#extract-traces-corrections-and-fret">Extract traces, corrections, and FRET</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#batch-processing">Batch processing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#analysis-settings-settings-customize">Analysis settings (<strong>Settings → Customize</strong>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#field-and-arrangement-dialogs">Field and arrangement dialogs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autotrace.html">Select traces according to defined criteria (autotrace)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_functions.html">Appendix A. Full list of MATLAB functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_file_formats.html">Appendix B. File formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SPARTAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Extracting fluorescence traces from movies (gettraces)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/gettraces.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="extracting-fluorescence-traces-from-movies-gettraces">
+<span id="gettraces"></span><h1>Extracting fluorescence traces from movies (gettraces)<a class="headerlink" href="#extracting-fluorescence-traces-from-movies-gettraces" title="Link to this heading"></a></h1>
+<p>Under TIRF wide-field imaging, movies contain many PSFs, each from a single
+labeled particle. <strong>gettraces</strong> detects peaks, maps channels, sums intensities
+into time traces, and computes corrected <strong>FRET</strong> traces (efficiency
+<span class="math notranslate nohighlight">\(E\)</span>). Open it from <strong>spartan → Extract fluorescence traces from movies</strong>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Figure 2.</strong> Screenshot of <strong>gettraces</strong> — add <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">figure::</span></code> when available.</p>
+</div>
+<section id="select-instrument-profile">
+<h2>Select instrument profile<a class="headerlink" href="#select-instrument-profile" title="Link to this heading"></a></h2>
+<p>Choose an <strong>Imaging Profile</strong> from <strong>Settings</strong> at the top. Profiles encode the
+setup (channels, defaults). As of SPARTAN <strong>3.10</strong>, new profiles are edited in
+<code class="docutils literal notranslate"><span class="pre">cascadeConstants.m</span></code> (see comments there).</p>
+<p>Use <strong>Customize</strong> at the bottom of <strong>Settings</strong>, or the toolbar, for the active
+profile. Right-click a field image for <strong>Change field settings…</strong> or <strong>Change
+field arrangement…</strong>. Crosstalk and scaling: <strong>Settings → Set crosstalk values…</strong>
+and <strong>Settings → Set channel scaling…</strong>.</p>
+<p>Changes apply only to the current window; restarting MATLAB or a new
+<code class="docutils literal notranslate"><span class="pre">gettraces</span></code> session reloads <code class="docutils literal notranslate"><span class="pre">cascadeConstants.m</span></code>.</p>
+</section>
+<section id="loading-and-viewing-movies">
+<h2>Loading and viewing movies<a class="headerlink" href="#loading-and-viewing-movies" title="Link to this heading"></a></h2>
+<p><strong>File → Open</strong> or the toolbar: pick a <code class="docutils literal notranslate"><span class="pre">.tif</span></code> stack. By default, field images
+average the <strong>first 10 frames</strong>; the sum image aids peak finding. Background is
+interpolated and subtracted. Use the <strong>left slider</strong> for display scaling; use
+the <strong>slider + Play</strong> under fields to scroll frames.</p>
+</section>
+<section id="detecting-particles">
+<h2>Detecting particles<a class="headerlink" href="#detecting-particles" title="Link to this heading"></a></h2>
+<p><strong>View → Pick Peaks</strong> (or toolbar): local maxima above threshold in the total
+intensity image. Default threshold is a few <strong>σ</strong> above background; override via
+<strong>Settings → Customize</strong>. Circles mark centers; <strong>gray</strong> circles mark pairs
+rejected for being too close (overlap contamination). Tune <strong>minimum separation</strong>
+in <strong>Settings → Customize</strong>. Aim for <strong>~40%</strong> rejected for dense loading. Counts
+show <strong>selected / (all)</strong> molecules.</p>
+</section>
+<section id="alignment-of-spectral-channels">
+<h2>Alignment of spectral channels<a class="headerlink" href="#alignment-of-spectral-channels" title="Link to this heading"></a></h2>
+<p>By default <strong>ICP</strong> maps donor/acceptor PSFs. After convergence, peaks are
+redetected on the <strong>aligned</strong> sum image. Toggle ICP or load a saved alignment
+from <strong>Alignment</strong>.</p>
+<p>ICP needs usable signal on all channels (roughly <span class="math notranslate nohighlight">\(E \in [0.2,0.8]\)</span>). If
+ICP fails, record <strong>bead</strong> movies, pick peaks, then <strong>Alignment → Memorize</strong>.
+The table shows transform parameters: <strong>Deviation</strong> (sub-pixel residual; aim
+<strong>&lt; 0.4</strong> px) and <strong>Contrast</strong> (Weber score; <strong>&gt; 1.4</strong> is strong).</p>
+</section>
+<section id="extract-traces-corrections-and-fret">
+<h2>Extract traces, corrections, and FRET<a class="headerlink" href="#extract-traces-corrections-and-fret" title="Link to this heading"></a></h2>
+<p><strong>File → Save Traces</strong> (or toolbar): sum pixels in a neighborhood per frame;
+sizes are set under <strong>Settings → Customize</strong> (tradeoff signal vs. noise; <strong>~80%</strong>
+of PSF flux is typical—see <strong>% intensity collected</strong>). Post-bleach background is
+subtracted; <strong>crosstalk</strong> and <strong>acceptor scaling</strong> corrections are applied; FRET
+is computed (zero when donor is dark). Donor blinking: threshold or <strong>SKM</strong> in
+<strong>Settings → Customize</strong>. Output: <code class="docutils literal notranslate"><span class="pre">.rawtraces</span></code> beside the movie name.</p>
+</section>
+<section id="batch-processing">
+<h2>Batch processing<a class="headerlink" href="#batch-processing" title="Link to this heading"></a></h2>
+<p><strong>Batch → Select Directory</strong> processes all movies with current settings;
+optional subdirectory search and <strong>skip if</strong> <code class="docutils literal notranslate"><span class="pre">.rawtraces</span></code> exists.
+<strong>Batch → Auto-detect new movies</strong> watches a folder (useful during acquisition).
+Monitor <strong>Deviation</strong>, PSF size, and rejection fraction during automation.</p>
+<section id="analysis-settings-settings-customize">
+<h3>Analysis settings (<strong>Settings → Customize</strong>)<a class="headerlink" href="#analysis-settings-settings-customize" title="Link to this heading"></a></h3>
+<p><strong>Name</strong> — instrument label.</p>
+<p><strong>Picking Threshold Value</strong> — minimum peak intensity.</p>
+<p><strong>Use Automatic Threshold</strong> — default uses <strong>8 σ</strong> of background (adjust via
+<strong>Auto picking sensitivity</strong>).</p>
+<p><strong>Integration window size (px)</strong> — pixels summed per PSF (target <strong>~80%</strong>
+collection).</p>
+<p><strong>Integration neighborhood (px)</strong> — region is <span class="math notranslate nohighlight">\(2n+1\)</span> per side
+(<span class="math notranslate nohighlight">\(n=1\)</span> → <span class="math notranslate nohighlight">\(3\times3\)</span>).</p>
+<p><strong>Minimum separation (px)</strong> — Euclidean cutoff for overlap rejection.</p>
+<p><strong>Frames to average for picking</strong> — default <strong>10</strong>; lower for fast bleaching.</p>
+<p><strong>Background trace field</strong> — saves <code class="docutils literal notranslate"><span class="pre">bgTrace</span></code> in metadata when enabled.</p>
+<p><strong>Subtract background image</strong> — interpolated background map (recommended).</p>
+<p><strong>Subtract baseline trace</strong> — removes frame-wise baseline drift (injections,
+contaminant photobleaching).</p>
+<p>Defaults assume <strong>60×</strong> objective and <strong>13 µm</strong> binned pixels—retune for other
+geometries.</p>
+</section>
+<section id="field-and-arrangement-dialogs">
+<h3>Field and arrangement dialogs<a class="headerlink" href="#field-and-arrangement-dialogs" title="Link to this heading"></a></h3>
+<p><strong>Field settings:</strong> <strong>Role</strong> (donor/acceptor), <strong>Name</strong>, <strong>Wavelength</strong>,
+<strong>photonsPerCount</strong> (vendor ADU→photon).</p>
+<p><strong>Field arrangement:</strong> <strong>rows × columns</strong> split; channel dropdown per tile
+(blank = ignore).</p>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<p>Metrics turn <strong>red</strong> when out of range. Large PSFs often mean focus or dirty
+optics. Edge misses suggest uneven illumination or vignetting. High <strong>Deviation</strong>
+or asymmetric rejections point to alignment or optics. Dim channels (Cy2/Cy7)
+may show low contrast even when alignment is valid. Zoom to verify alignment
+when scores are marginal.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="spartan_workflow.html" class="btn btn-neutral float-left" title="Main menu and core analysis workflow (spartan)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autotrace.html" class="btn btn-neutral float-right" title="Select traces according to defined criteria (autotrace)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright SPARTAN documentation authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
