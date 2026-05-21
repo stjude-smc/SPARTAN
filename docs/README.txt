@@ -132,3 +132,20 @@ Adding a new sidebar entry (a new documentation page)
   Do not edit import_docx.py for hand-written pages; import_docx only overwrites
   the section files it knows about. Keep standalone guides as separate .rst
   files and list them only in index.rst.
+
+
+Publishing on GitHub Pages 
+---------------------------------------
+Live preview (after workflow + Pages are enabled on the branch):
+  https://kiliczeliha.github.io/SPARTAN/
+
+Sources live in this docs/ folder. HTML under docs/_build/ is generated locally
+and in CI; do not commit docs/_build/ (see repo .gitignore).
+
+Updates: push to branch my-feature on your fork; Actions rebuilds the site.
+Manual rebuild: GitHub → Actions → "Deploy Documentation to GitHub Pages" → Run workflow.
+
+Unpublish or freeze:
+  - Take site offline: fork Settings → Pages → Unpublish.
+  - Stop automatic updates: edit .github/workflows/deploy-documentation.yml
+    (e.g. workflow_dispatch only) or disable/delete that workflow.

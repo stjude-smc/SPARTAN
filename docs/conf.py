@@ -31,6 +31,8 @@ html_short_title = 'SPARTAN'
 html_static_path = ['_static']
 
 htmlhelp_basename = 'SPARTANdoc'
+html_baseurl = "https://kiliczeliha.github.io/SPARTAN/"
+
 
 latex_documents = [
     (master_doc, 'SPARTAN.tex', 'SPARTAN Documentation',
