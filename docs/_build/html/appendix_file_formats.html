@@ -1,0 +1,204 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Appendix B. File formats &mdash; SPARTAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Appendix C. Compiled functions (.mex files)" href="appendix_mex.html" />
+    <link rel="prev" title="Appendix A. Full list of MATLAB functions" href="appendix_functions.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SPARTAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spartan_workflow.html">Main menu and core analysis workflow (spartan)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettraces.html">Extracting fluorescence traces from movies (gettraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="autotrace.html">Select traces according to defined criteria (autotrace)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_functions.html">Appendix A. Full list of MATLAB functions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Appendix B. File formats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#image-stacks-movies">Image stacks (movies)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#binary-traces-traces-rawtraces">Binary traces (<code class="docutils literal notranslate"><span class="pre">.traces</span></code> / <code class="docutils literal notranslate"><span class="pre">.rawtraces</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dwell-time-text-dwt">Dwell-time text (<code class="docutils literal notranslate"><span class="pre">.dwt</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#kinetic-models-model">Kinetic models (<code class="docutils literal notranslate"><span class="pre">.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#qub-import-text-qub-txt">QuB import text (<code class="docutils literal notranslate"><span class="pre">.qub.txt</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#qub-tree-qmf">QuB_Tree (<code class="docutils literal notranslate"><span class="pre">.qmf</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SPARTAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Appendix B. File formats</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/appendix_file_formats.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="appendix-b-file-formats">
+<span id="appendix-file-formats"></span><h1>Appendix B. File formats<a class="headerlink" href="#appendix-b-file-formats" title="Link to this heading"></a></h1>
+<section id="image-stacks-movies">
+<h2>Image stacks (movies)<a class="headerlink" href="#image-stacks-movies" title="Link to this heading"></a></h2>
+<p>Save wide-field movies as <strong>TIFF</strong> stacks; for large <strong>sCMOS</strong> datasets prefer
+<a class="reference external" href="https://www.loc.gov/preservation/digital/formats/fdd/fdd000328.shtml">BigTIFF</a>.</p>
+</section>
+<section id="binary-traces-traces-rawtraces">
+<h2>Binary traces (<code class="docutils literal notranslate"><span class="pre">.traces</span></code> / <code class="docutils literal notranslate"><span class="pre">.rawtraces</span></code>)<a class="headerlink" href="#binary-traces-traces-rawtraces" title="Link to this heading"></a></h2>
+<p>Binary layout for fast I/O; load in MATLAB via <code class="docutils literal notranslate"><span class="pre">loadTraces</span></code>. Pseudocode:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>struct TracesFile {
+  uint32 zero = 0
+  char[4] signature = &quot;TRCS&quot;
+  uint16 version = 5
+  uint8 dataType = enum( 9 = single )
+  uint8 nChannels = C
+  uint32 nTraces = N
+  uint32 nFrames = M
+  uint16 chNameLen = ...
+  char[*] chNames = channel names, delimited by char(31)
+  dataType[M] time = acquisition times (ms)
+  dataType[N×M] channel1 = donor
+  dataType[N×M] channel2 = acceptor
+  dataType[N×M] channel3 = FRET
+  MetadataField root = fileMetadata + traceMetadata tree
+}
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">dataType</span></code> encodes MATLAB classes (<code class="docutils literal notranslate"><span class="pre">char</span></code>, integers, <code class="docutils literal notranslate"><span class="pre">single</span></code>, <code class="docutils literal notranslate"><span class="pre">double</span></code>,
+<code class="docutils literal notranslate"><span class="pre">logical</span></code>, <code class="docutils literal notranslate"><span class="pre">cell</span></code>, <code class="docutils literal notranslate"><span class="pre">struct</span></code>, …). Metadata pages follow:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>struct MetadataField {
+  uint8 dataType
+  uint32 fieldSize
+  uint8 nameLen
+  char[*] fieldName
+  uint8 ndim
+  uint32 dataSize[...]
+  dataType[...] contents
+}
+</pre></div>
+</div>
+<p>Packed structs repeat <strong>fieldName / isPacked / MetadataField</strong> children. Char
+arrays concatenate with <code class="docutils literal notranslate"><span class="pre">char(31)</span></code> delimiters. <strong>fileMetadata</strong> holds
+experiment-wide fields (e.g. wavelength list <code class="docutils literal notranslate"><span class="pre">[532</span> <span class="pre">640]</span></code>); <strong>traceMetadata</strong>
+stores per-trace entries (IDs, <code class="docutils literal notranslate"><span class="pre">donor_x</span></code>, <code class="docutils literal notranslate"><span class="pre">donor_y</span></code>, …).</p>
+</section>
+<section id="dwell-time-text-dwt">
+<h2>Dwell-time text (<code class="docutils literal notranslate"><span class="pre">.dwt</span></code>)<a class="headerlink" href="#dwell-time-text-dwt" title="Link to this heading"></a></h2>
+<p>QuB-compatible idealizations. Header example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Segment: 1 Dwells: 5 Sampling(ms): 25 Start(ms): 0 ClassCount: N µ1 σ1 … µN σN
+</pre></div>
+</div>
+<p>Each dwell line: <strong>class index</strong> (file uses <strong>0-based</strong> classes; MATLAB loaders
+may shift by <strong>1</strong>) and <strong>duration (ms)</strong>. Offsets in <strong>Start(ms)</strong> align idealizations
+with FRET arrays. Specification:
+<a class="reference external" href="https://qub.mandelics.com/m/DWT.html">QuB DWT format</a>.</p>
+</section>
+<section id="kinetic-models-model">
+<h2>Kinetic models (<code class="docutils literal notranslate"><span class="pre">.model</span></code>)<a class="headerlink" href="#kinetic-models-model" title="Link to this heading"></a></h2>
+<p>Version ≥3 saves <code class="docutils literal notranslate"><span class="pre">QubModel</span></code> objects as <code class="docutils literal notranslate"><span class="pre">.mat</span></code> files with a <code class="docutils literal notranslate"><span class="pre">.model</span></code>
+extension. Format reference:
+<a class="reference external" href="https://www.mathworks.com/help/pdf_doc/matlab/matfile_format.pdf">MAT-file format (MathWorks)</a>.</p>
+</section>
+<section id="qub-import-text-qub-txt">
+<h2>QuB import text (<code class="docutils literal notranslate"><span class="pre">.qub.txt</span></code>)<a class="headerlink" href="#qub-import-text-qub-txt" title="Link to this heading"></a></h2>
+<p>Concatenated FRET samples for QuB import; segment boundaries are assigned inside
+QuB.</p>
+</section>
+<section id="qub-tree-qmf">
+<h2>QuB_Tree (<code class="docutils literal notranslate"><span class="pre">.qmf</span></code>)<a class="headerlink" href="#qub-tree-qmf" title="Link to this heading"></a></h2>
+<p>Legacy QuB model trees are <strong>deprecated</strong> as of SPARTAN <strong>3.10</strong>. Documentation:
+<a class="reference external" href="https://qub.mandelics.com/m/qubdoc/">QuB manual</a>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="appendix_functions.html" class="btn btn-neutral float-left" title="Appendix A. Full list of MATLAB functions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="appendix_mex.html" class="btn btn-neutral float-right" title="Appendix C. Compiled functions (.mex files)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright SPARTAN documentation authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

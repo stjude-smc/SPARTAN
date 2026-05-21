@@ -1,0 +1,201 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Main menu and core analysis workflow (spartan) &mdash; SPARTAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Extracting fluorescence traces from movies (gettraces)" href="gettraces.html" />
+    <link rel="prev" title="Installation from source code" href="installation_source.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SPARTAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Main menu and core analysis workflow (spartan)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#typical-workflow">Typical workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#acquiring-tirf-smfret-data">Acquiring TIRF smFRET data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#instrumentation-and-formats">Instrumentation and formats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-quality-tips">Data-quality tips</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="gettraces.html">Extracting fluorescence traces from movies (gettraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="autotrace.html">Select traces according to defined criteria (autotrace)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_functions.html">Appendix A. Full list of MATLAB functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_file_formats.html">Appendix B. File formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SPARTAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Main menu and core analysis workflow (spartan)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/spartan_workflow.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="main-menu-and-core-analysis-workflow-spartan">
+<span id="spartan-workflow"></span><h1>Main menu and core analysis workflow (spartan)<a class="headerlink" href="#main-menu-and-core-analysis-workflow-spartan" title="Link to this heading"></a></h1>
+<p>The <strong>spartan</strong> GUI is the main entry point for the suite. For compiled builds it
+opens at launch. The current working directory is shown at the top; change it
+with <strong>Browse…</strong>.</p>
+<section id="typical-workflow">
+<h2>Typical workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p>Acquire wide-field movies as <strong>TIFF</strong> stacks.</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">gettraces</span></code> to extract traces and compute FRET.</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">autotrace</span></code> for statistics and subset selection.</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">makeplots</span></code> for ensemble visualization.</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">sorttraces</span></code> for per-trace review and selection.</p></li>
+<li><p>Run <code class="docutils literal notranslate"><span class="pre">batchKinetics</span></code> for hidden Markov modeling (<strong>HMM</strong>).</p></li>
+<li><p>Use <strong>batchKinetics</strong> simulation to test models against data.</p></li>
+</ol>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Figure 1.</strong> SPARTAN main menu — add <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">figure::</span> <span class="pre">/_static/your_menu.png</span></code> when
+a screenshot is available.</p>
+</div>
+</section>
+<section id="acquiring-tirf-smfret-data">
+<h2>Acquiring TIRF smFRET data<a class="headerlink" href="#acquiring-tirf-smfret-data" title="Link to this heading"></a></h2>
+<p>Acquisition software reads camera frames and saves <strong>TIFF</strong> stacks. Examples:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.micro-manager.org/">µManager</a></p></li>
+<li><p><a class="reference external" href="http://www.moleculardevices.com/systems/metamorph-research-imaging">MetaMorph</a></p></li>
+<li><p><a class="reference external" href="https://cplc.illinois.edu/software/">CPLC software</a></p></li>
+</ul>
+<p>Custom <strong>LabVIEW</strong> or vendor packages are fine if they output compatible stacks.
+Contact the authors if a format is not read correctly.</p>
+<section id="instrumentation-and-formats">
+<h3>Instrumentation and formats<a class="headerlink" href="#instrumentation-and-formats" title="Link to this heading"></a></h3>
+<p><strong>Fluorescence channel layout.</strong> Channels are usually <strong>side-by-side</strong> in each
+frame (e.g. Cy3 left, Cy5 right). <strong>Sequential</strong> stacks (Cy3 frames then Cy5)
+need a new profile in <code class="docutils literal notranslate"><span class="pre">cascadeConstants.m</span></code>.</p>
+<p><strong>Movie format.</strong> Use monochrome <strong>TIFF</strong> stacks. For large sCMOS movies use
+<a class="reference external" href="http://bigtiff.org/">BigTIFF</a>. Suggested filename pattern:
+<code class="docutils literal notranslate"><span class="pre">YYMMDD</span> <span class="pre">sample-name</span> <span class="pre">experimental-condition.tif</span></code>. Prefer <strong>≥ 50</strong> frames,
+often <strong>1,000–3,000</strong>. Store exposure time (seconds) in EXIF tag
+<strong>ExposureTime</strong> (33434); missing tags break batch workflows.</p>
+<p><strong>Immobilization.</strong> SPARTAN targets <strong>surface-tethered</strong> particles; diffusing
+molecules and <strong>drift correction</strong> are not supported.</p>
+<p><strong>Alignment.</strong> Align channels with beads (e.g. TetraSpeck 0.1 µm); minor
+residuals are handled automatically.</p>
+<p><strong>Microscope.</strong> Stable optics, even illumination, minimal drift, and a correctly
+set objective correction collar.</p>
+<p><strong>Multiple cameras.</strong> Match cameras (e.g. sequential serials), calibrate,
+<strong>synchronize</strong> (external trigger), and align axes to limit rolling-shutter
+issues on <strong>sCMOS</strong>.</p>
+</section>
+<section id="data-quality-tips">
+<h3>Data-quality tips<a class="headerlink" href="#data-quality-tips" title="Link to this heading"></a></h3>
+<p><strong>Hardware binning.</strong> Binning reduces size and read noise trade-offs; it lowers
+maximum immobilization density.</p>
+<p><strong>Immobilization density.</strong> Estimate background particles; aim for <strong>≥ 10×</strong>
+signal over background; keep overlap <strong>≤ ~40%</strong>.</p>
+<p><strong>Minimum intensity.</strong> Mean total intensity <strong>≥ ~300</strong> photons (<strong>~20:1</strong>
+<span class="math notranslate nohighlight">\(\mathrm{SNR}_{\mathrm{bg}}\)</span>). Very low <span class="math notranslate nohighlight">\(\mathrm{SNR}_{\mathrm{bg}}\)</span>
+can cause missed picks.</p>
+<p><strong>Fast photobleaching.</strong> <code class="docutils literal notranslate"><span class="pre">gettraces</span></code> sums the first <strong>10</strong> frames by default;
+very fast bleaching biases detection—reduce power, improve dyes/scavenging, or
+lower the summed frame count (e.g. <strong>4</strong>).</p>
+<p><strong>First frame.</strong> Remove artifact-prone first frame(s) in acquisition software.</p>
+<p><strong>Illumination uniformity.</strong> Global thresholding in <code class="docutils literal notranslate"><span class="pre">gettraces</span></code> needs <strong>≤
+~30%</strong> drop from center to edge.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation_source.html" class="btn btn-neutral float-left" title="Installation from source code" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="gettraces.html" class="btn btn-neutral float-right" title="Extracting fluorescence traces from movies (gettraces)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright SPARTAN documentation authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

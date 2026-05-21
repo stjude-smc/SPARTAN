@@ -1,0 +1,252 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Select traces according to defined criteria (autotrace) &mdash; SPARTAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Viewing traces, manual corrections, and trace selection (sorttraces)" href="sorttraces.html" />
+    <link rel="prev" title="Extracting fluorescence traces from movies (gettraces)" href="gettraces.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            SPARTAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spartan_workflow.html">Main menu and core analysis workflow (spartan)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettraces.html">Extracting fluorescence traces from movies (gettraces)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Select traces according to defined criteria (autotrace)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#loading-and-histograms">Loading and histograms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#selection-criteria-summary">Selection criteria (summary)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#applying-and-saving-selections">Applying and saving selections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#batch-mode">Batch mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#artifacts-and-corrections">Artifacts and corrections</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#flagging-fret-histograms">“Flagging” FRET histograms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#spectral-crosstalk-crosstalkcorrect">Spectral crosstalk (<code class="docutils literal notranslate"><span class="pre">crosstalkcorrect</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gamma-correction-gammacorrect">Gamma correction (<code class="docutils literal notranslate"><span class="pre">gammacorrect</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#flat-field-local-gamma-calclocalgamma-applylocalgamma">Flat-field / local gamma (<code class="docutils literal notranslate"><span class="pre">calcLocalGamma</span></code> / <code class="docutils literal notranslate"><span class="pre">applyLocalGamma</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#acceptor-direct-excitation-adecorrect">Acceptor direct excitation (<code class="docutils literal notranslate"><span class="pre">adecorrect</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#other-effects">Other effects</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_functions.html">Appendix A. Full list of MATLAB functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_file_formats.html">Appendix B. File formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SPARTAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Select traces according to defined criteria (autotrace)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/autotrace.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="select-traces-according-to-defined-criteria-autotrace">
+<span id="autotrace"></span><h1>Select traces according to defined criteria (autotrace)<a class="headerlink" href="#select-traces-according-to-defined-criteria-autotrace" title="Link to this heading"></a></h1>
+<p><strong>autotrace</strong> summarizes large smFRET datasets (<span class="math notranslate nohighlight">\(\gtrsim 10^4\)</span> traces per
+movie): signal-to-noise, bleaching, contamination, and other <strong>traceStat</strong>
+metrics. Define thresholds to keep molecules with desired behavior (high SNR,
+long lifetime, few artifacts). This is faster and more reproducible than purely
+manual selection.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Figure 3.</strong> <strong>autotrace</strong> screenshot — add <code class="docutils literal notranslate"><span class="pre">..</span> <span class="pre">figure::</span></code> when available.</p>
+</div>
+<section id="loading-and-histograms">
+<h2>Loading and histograms<a class="headerlink" href="#loading-and-histograms" title="Link to this heading"></a></h2>
+<p><strong>File → Open File</strong> (toolbar) or <strong>File → Open Directory</strong> (all <code class="docutils literal notranslate"><span class="pre">.rawtraces</span></code>
+in a folder). Histograms show each statistic; change the plotted statistic from
+the dropdown. <strong>File → Save Statistics</strong> exports raw numbers. Algorithm details:
+<code class="docutils literal notranslate"><span class="pre">traceStat.m</span></code> (add new statistics there). Visual guide:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Figure 4.</strong> Commonly used selection statistics (donor/acceptor lifetimes,
+MTI/SNR, Pearson <span class="math notranslate nohighlight">\(r\)</span>, bleaching-step detection, pre-steady-state
+criteria). Insert figure from documentation bundle.</p>
+</div>
+</section>
+<section id="selection-criteria-summary">
+<h2>Selection criteria (summary)<a class="headerlink" href="#selection-criteria-summary" title="Link to this heading"></a></h2>
+<p>See <code class="docutils literal notranslate"><span class="pre">autotrace/traceStat.m</span></code> for implementation details.</p>
+<ul class="simple">
+<li><p><strong>Mean total intensity</strong> — average donor+acceptor when donor is on.</p></li>
+<li><p><strong>Highest FRET / FRET at first frame / Average FRET</strong> — efficiency summaries.</p></li>
+<li><p><strong>Number of FRET events / FRET lifetime</strong> — threshold crossings (lifetime uses
+runs of <strong>≥ 5</strong> frames).</p></li>
+<li><p><strong>Donor lifetime / End of trace</strong> — bleaching-related frames.</p></li>
+<li><p><strong>Correlation of Fluor.</strong> — Pearson <span class="math notranslate nohighlight">\(r\)</span> (donor vs acceptor); <strong>Derivative</strong> variant.</p></li>
+<li><p><strong>SNR-bg / SNR-signal / SNR-signal (FRET)</strong> — noise definitions as in GUI.</p></li>
+<li><p><strong>SNR-bg / SNR-signal</strong> — ratio (rarely used).</p></li>
+<li><p><strong>Background noise</strong> — σ after donor bleaching.</p></li>
+<li><p><strong># Cy3 Blinks</strong> — donor dark events excluding final bleach.</p></li>
+<li><p><strong>Multi-step photobleaching</strong> — 0 = single step, 1 = multi-step.</p></li>
+<li><p><strong>Average FRET2 / Fret2 lifetime / Highest Fret2</strong> — second acceptor channel, if present.</p></li>
+</ul>
+</section>
+<section id="applying-and-saving-selections">
+<h2>Applying and saving selections<a class="headerlink" href="#applying-and-saving-selections" title="Link to this heading"></a></h2>
+<p>Use <strong>Standard</strong> and <strong>Specialized</strong> criteria on the right. Each line is
+<em>statistic</em> <strong>operator</strong> <em>value</em> (e.g. donor lifetime <strong>&gt;</strong> 50). Press <strong>Enter</strong>
+to apply. Histograms update for the <strong>selected</strong> subset only.</p>
+<p><strong>File → Save Traces</strong> writes <code class="docutils literal notranslate"><span class="pre">*_auto.traces</span></code> plus a <code class="docutils literal notranslate"><span class="pre">.log</span></code> (criteria,
+counts). <strong>View → Traces</strong> opens <strong>sorttraces</strong>; <strong>View → Contour Plot</strong> shows
+ensemble contours.</p>
+</section>
+<section id="batch-mode">
+<h2>Batch mode<a class="headerlink" href="#batch-mode" title="Link to this heading"></a></h2>
+<p><strong>Batch → Batch Analysis</strong> walks directories/subdirectories. <strong>Batch →
+Auto-detect new files</strong> watches a folder for real-time processing.</p>
+</section>
+<section id="artifacts-and-corrections">
+<h2>Artifacts and corrections<a class="headerlink" href="#artifacts-and-corrections" title="Link to this heading"></a></h2>
+<p>Accurate <span class="math notranslate nohighlight">\(E\)</span> requires standard corrections (see benchmark literature
+<a class="reference external" href="https://doi.org/10.1038/s41592-018-0085-0">DOI:10.1038/s41592-018-0085-0</a>).
+Apply in the order below; changing order can give inconsistent results.</p>
+<section id="flagging-fret-histograms">
+<h3>“Flagging” FRET histograms<a class="headerlink" href="#flagging-fret-histograms" title="Link to this heading"></a></h3>
+<p>Some samples with <span class="math notranslate nohighlight">\(E &gt; 0.8\)</span> show a jump in the first <strong>~10</strong> frames, then a
+slow rise—often from picking defaults and background bleaching. Try increasing
+<strong>Frames to average for picking</strong> (e.g. <strong>50</strong>) and enable <strong>Subtract background
+trace</strong> in <strong>gettraces</strong> when appropriate.</p>
+</section>
+<section id="spectral-crosstalk-crosstalkcorrect">
+<h3>Spectral crosstalk (<code class="docutils literal notranslate"><span class="pre">crosstalkcorrect</span></code>)<a class="headerlink" href="#spectral-crosstalk-crosstalkcorrect" title="Link to this heading"></a></h3>
+<p>Bleed-through elevates apparent acceptor signal (especially <span class="math notranslate nohighlight">\(E &lt; 0.5\)</span>).
+<code class="docutils literal notranslate"><span class="pre">gettraces</span></code> applies the profile value; refine with <code class="docutils literal notranslate"><span class="pre">crosstalkcorrect</span></code>.
+<code class="docutils literal notranslate"><span class="pre">calc_crosstalk</span></code> reports the ensemble-average crosstalk without writing a new
+file.</p>
+</section>
+<section id="gamma-correction-gammacorrect">
+<h3>Gamma correction (<code class="docutils literal notranslate"><span class="pre">gammacorrect</span></code>)<a class="headerlink" href="#gamma-correction-gammacorrect" title="Link to this heading"></a></h3>
+<p>Unequal detection/QY skews brightness vs. <span class="math notranslate nohighlight">\(E\)</span> (e.g. Roy <em>et al.</em>,
+<a class="reference external" href="https://doi.org/10.1038/nmeth.1208">Nat. Methods 2008</a>). <strong>gammacorrect</strong>
+estimates γ from acceptor-photobleaching steps. <strong>Note:</strong> SPARTAN’s γ definition
+is the <strong>inverse</strong> of some papers’ convention.</p>
+</section>
+<section id="flat-field-local-gamma-calclocalgamma-applylocalgamma">
+<h3>Flat-field / local gamma (<code class="docutils literal notranslate"><span class="pre">calcLocalGamma</span></code> / <code class="docutils literal notranslate"><span class="pre">applyLocalGamma</span></code>)<a class="headerlink" href="#flat-field-local-gamma-calclocalgamma-applylocalgamma" title="Link to this heading"></a></h3>
+<p>Field-dependent efficiency broadens histograms (large sensors). Calibrate with
+<strong>~0.5 FRET</strong> samples via <code class="docutils literal notranslate"><span class="pre">calcLocalGamma</span></code>; apply with <code class="docutils literal notranslate"><span class="pre">applyLocalGamma</span></code>
+(produces <code class="docutils literal notranslate"><span class="pre">*_ffcorr.traces</span></code>). If histograms worsen, skip this step.</p>
+</section>
+<section id="acceptor-direct-excitation-adecorrect">
+<h3>Acceptor direct excitation (<code class="docutils literal notranslate"><span class="pre">adecorrect</span></code>)<a class="headerlink" href="#acceptor-direct-excitation-adecorrect" title="Link to this heading"></a></h3>
+<p>Direct acceptor excitation biases low-<span class="math notranslate nohighlight">\(E\)</span> data. Use <code class="docutils literal notranslate"><span class="pre">adecorrect</span></code>; factor
+from extinction ratios at the laser line (e.g. <strong>532 nm</strong>). Writes <code class="docutils literal notranslate"><span class="pre">*_ade.traces</span></code>.</p>
+</section>
+<section id="other-effects">
+<h3>Other effects<a class="headerlink" href="#other-effects" title="Link to this heading"></a></h3>
+<p>Triplet/saturation can bias <span class="math notranslate nohighlight">\(E\)</span> at high power (<cite>Pati *et al.*, 2023</cite>).
+Prefer powers below onset of intensity-dependent <span class="math notranslate nohighlight">\(E\)</span>. <strong>Drift</strong> is not
+corrected in SPARTAN; see imaging literature (e.g. <a class="reference external" href="https://doi.org/10.1186/s13628-014-0015-1">Han *et al.*</a>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Figure</strong> — placeholder for crosstalk / gamma illustration from the Word/PDF
+bundle (<code class="docutils literal notranslate"><span class="pre">FIGURE</span> <span class="pre">HERE</span></code> in source doc).</p>
+</div>
+</section>
+<section id="limitations">
+<h3>Limitations<a class="headerlink" href="#limitations" title="Link to this heading"></a></h3>
+<p>Many steps threshold <span class="math notranslate nohighlight">\(E\)</span> to define acceptor “alive”. Several tools ignore
+ALEX direct-excitation timing and use <span class="math notranslate nohighlight">\(E\)</span> thresholds instead. Prefer
+<strong>either</strong> the batch correction functions <strong>or</strong> per-trace tweaks in
+<strong>sorttraces</strong>, not both.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="gettraces.html" class="btn btn-neutral float-left" title="Extracting fluorescence traces from movies (gettraces)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sorttraces.html" class="btn btn-neutral float-right" title="Viewing traces, manual corrections, and trace selection (sorttraces)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright SPARTAN documentation authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

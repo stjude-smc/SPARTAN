@@ -22,7 +22,7 @@ function varargout = spartan(varargin)
 
 %   Copyright 2007-2015 Cornell University All Rights Reserved.
 
-% Last Modified by GUIDE v2.5 06-Feb-2026 11:11:14
+% Last Modified by GUIDE v2.5 19-May-2026 10:17:34
 
 
 % Begin initialization code - DO NOT EDIT
@@ -45,6 +45,8 @@ end
 % End initialization code - DO NOT EDIT
 
 
+
+
 function listPrograms() %#ok<DEFNU>
 % This function is never called. Its purpose is to list all functions used by
 % the program, which are actually in the callbacks in the .fig file.
@@ -56,7 +58,7 @@ crosstalkcorrect; gammacorrect; scaleacceptor; haranfilter;
 forQuB; fluorToFret; forHammy; forvbFRET; hammyToDWT; vbFRET_dwt; forOrigin;
 combineDatasets; resizeTraces;
 calculateR0; adecorrect; dyediag; splittraces;converttraces;
-
+gettraces_fromTwoStacks;
 
 
 
@@ -115,8 +117,7 @@ else
 end
 
 
-
-% --- Executes on button press in btnBrowse.
+% --- Executes on btnTwoStacks press in btnBrowse.
 function btnBrowse_Callback(hObject, ~, handles) %#ok<DEFNU>
 % hObject    handle to btnBrowse (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -131,7 +132,7 @@ set(handles.txtCWD, 'String',pwd);
 guidata(hObject, handles);
 
 
-% --- Executes on button press in pushbutton47.
+% --- Executes on btnTwoStacks press in pushbutton47.
 function pushbutton47_Callback(hObject, eventdata, handles)
 % hObject    handle to pushbutton47 (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB

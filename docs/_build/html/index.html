@@ -1,0 +1,275 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPARTAN &mdash; SPARTAN documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=f2a433a1"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting Started" href="introduction.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            SPARTAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spartan_workflow.html">Main menu and core analysis workflow (spartan)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettraces.html">Extracting fluorescence traces from movies (gettraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="autotrace.html">Select traces according to defined criteria (autotrace)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_functions.html">Appendix A. Full list of MATLAB functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_file_formats.html">Appendix B. File formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Troubleshooting FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">SPARTAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SPARTAN</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="spartan">
+<span id="index"></span><h1>SPARTAN<a class="headerlink" href="#spartan" title="Link to this heading"></a></h1>
+<figure class="align-default" id="fig-spartan-logo-4">
+<img alt="SPARTAN_logo.PNG" src="_images/SPARTAN_logo.PNG" />
+</figure>
+<p>Software for single-molecule fluorescence and smFRET analysis (MATLAB).</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/stjude-smc/SPARTAN">stjude-smc/SPARTAN on GitHub</a></p></li>
+<li><p><a class="reference internal" href="introduction.html"><span class="doc">Getting Started</span></a> — license, links, and system requirements</p></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">User guide</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#authorship-and-version">Authorship and version</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#license">License</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#project-links-and-contact">Project links and contact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#recommended-system-requirements">Recommended system requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="introduction.html#version-numbering">Version numbering</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">SPARTAN Quick Start Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-1-install-the-program">Step 1 — Install the program</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-2-start-the-program">Step 2 — Start the program</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-3-extract-traces-from-the-example-movie">Step 3 — Extract traces from the example movie</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-4-pre-steady-state-analysis-pipeline">Step 4 — Pre-steady-state analysis pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-5-further-exploration">Step 5 — Further exploration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation_compiled.html">Installation of the compiled version</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation_compiled.html#uninstall-previous-versions">Uninstall previous versions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_compiled.html#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_compiled.html#run-on-linux">Run on Linux</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation_source.html">Installation from source code</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation_source.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_source.html#download-and-path">Download and path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_source.html#optional-parallel-pool">Optional: parallel pool</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_source.html#optional-ebfret">Optional: ebFRET</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_source.html#launch">Launch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation_source.html#known-issues-source">Known issues (source)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="spartan_workflow.html">Main menu and core analysis workflow (spartan)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="spartan_workflow.html#typical-workflow">Typical workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spartan_workflow.html#acquiring-tirf-smfret-data">Acquiring TIRF smFRET data</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="gettraces.html">Extracting fluorescence traces from movies (gettraces)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#select-instrument-profile">Select instrument profile</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#loading-and-viewing-movies">Loading and viewing movies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#detecting-particles">Detecting particles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#alignment-of-spectral-channels">Alignment of spectral channels</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#extract-traces-corrections-and-fret">Extract traces, corrections, and FRET</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#batch-processing">Batch processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettraces.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autotrace.html">Select traces according to defined criteria (autotrace)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autotrace.html#loading-and-histograms">Loading and histograms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autotrace.html#selection-criteria-summary">Selection criteria (summary)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autotrace.html#applying-and-saving-selections">Applying and saving selections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autotrace.html#batch-mode">Batch mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autotrace.html#artifacts-and-corrections">Artifacts and corrections</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sorttraces.html">Viewing traces, manual corrections, and trace selection (sorttraces)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#loading-traces-files">Loading <code class="docutils literal notranslate"><span class="pre">.traces</span></code> files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#info-panel">Info panel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#manual-bins">Manual bins</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#saving">Saving</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#idealization">Idealization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#corrections">Corrections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sorttraces.html#viii-visualizing-trace-ensembles-makeplots">VIII. Visualizing trace ensembles (<strong>makeplots</strong>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="batch_kinetics.html">Hidden Markov modeling (batchKinetics)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="batch_kinetics.html#inputs-traces-and-a-model">Inputs: traces and a model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batch_kinetics.html#analysis-methods">Analysis methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batch_kinetics.html#results-and-plots">Results and plots</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batch_kinetics.html#simulation">Simulation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="simulation_guide.html">SPARTAN Simulation Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#summary">Summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#determine-model-observation-parameters-fret-states">Determine model observation parameters (FRET states)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#determine-model-kinetic-parameters">Determine model kinetic parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#building-a-model-in-spartan">Building a model in SPARTAN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#simulate-smfret-traces">Simulate smFRET traces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#evaluating-simulated-traces">Evaluating simulated traces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#tips-and-caveats-blinking">Tips and caveats (blinking)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="simulation_guide.html#algorithm-description">Algorithm description</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="rtd_pipeline.html">Analysis pipeline for pre-steady-state experiments (rtdgui, rtdTool, and rtdPlots)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="rtd_pipeline.html#running-rtdgui">Running <strong>rtdgui</strong></a></li>
+<li class="toctree-l2"><a class="reference internal" href="rtd_pipeline.html#replotting-saved-results">Replotting saved results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rtd_pipeline.html#advanced-scripting">Advanced / scripting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="customization.html">Customization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="customization.html#central-configuration-cascadeconstants-m">Central configuration: <code class="docutils literal notranslate"><span class="pre">cascadeConstants.m</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="customization.html#extending-autotrace">Extending <strong>autotrace</strong></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_functions.html">Appendix A. Full list of MATLAB functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#gettraces">Gettraces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#autotrace">Autotrace</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#trace-corrections">Trace corrections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#visualization">Visualization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#hidden-markov-modeling">Hidden Markov modeling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#third-party-interchange">Third-party interchange</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#utilities">Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#classes">Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_functions.html#pre-steady-state-rtd">Pre-steady-state / RTD</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_file_formats.html">Appendix B. File formats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="appendix_file_formats.html#image-stacks-movies">Image stacks (movies)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_file_formats.html#binary-traces-traces-rawtraces">Binary traces (<code class="docutils literal notranslate"><span class="pre">.traces</span></code> / <code class="docutils literal notranslate"><span class="pre">.rawtraces</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_file_formats.html#dwell-time-text-dwt">Dwell-time text (<code class="docutils literal notranslate"><span class="pre">.dwt</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_file_formats.html#kinetic-models-model">Kinetic models (<code class="docutils literal notranslate"><span class="pre">.model</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_file_formats.html#qub-import-text-qub-txt">QuB import text (<code class="docutils literal notranslate"><span class="pre">.qub.txt</span></code>)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="appendix_file_formats.html#qub-tree-qmf">QuB_Tree (<code class="docutils literal notranslate"><span class="pre">.qmf</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="appendix_mex.html">Appendix C. Compiled functions (.mex files)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">Troubleshooting FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-can-emccd-data-be-analyzed-in-spartan">How can EMCCD data be analyzed in SPARTAN?</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="references.html#hellenkamp-et-al-2018">1. Hellenkamp <em>et al.</em> (2018)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#roy-hohng-and-ha-2008">2. Roy, Hohng, and Ha (2008)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#pati-et-al-2023">3. Pati <em>et al.</em> (2023)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#han-et-al-2015">4. Han <em>et al.</em> (2015)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#qin-2004">5. Qin (2004)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#rabiner-1989">6. Rabiner (1989)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#qin-auerbach-and-sachs-2000">7. Qin, Auerbach, and Sachs (2000)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#qin-auerbach-and-sachs-1996">8. Qin, Auerbach, and Sachs (1996)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#van-de-meent-et-al-2014">9. van de Meent <em>et al.</em> (2014)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#bronson-et-al-2009">10. Bronson <em>et al.</em> (2009)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#kilic-sgouralis-and-presse-2021">11. Kilic, Sgouralis, and Pressé (2021)</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="introduction.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright SPARTAN documentation authors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
