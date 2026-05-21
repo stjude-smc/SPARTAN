@@ -15,3 +15,6 @@ arxiv/
 
 .mat
 
+docs/_build
+deployments/
+
